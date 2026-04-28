@@ -9,8 +9,8 @@ The target user is a junior developer onboarding to an unfamiliar codebase. The 
 ## Supported V1 User Flow
 
 1. The user asks for help understanding code or project behavior.
-2. The system explains first using grounded project evidence.
-3. The system may ask a reasoning question to check or deepen the user's understanding.
+2. The system explains first using grounded project evidence and ends that response with a knowledge-check question.
+3. The system may continue the reasoning check in the `ask` stage to verify or deepen the user's understanding.
 4. The system may provide a hint only after the explanation/ask path has been followed.
 
 The stage sequence for v1 is:
@@ -19,7 +19,7 @@ The stage sequence for v1 is:
 explain -> ask -> hint
 ```
 
-Direct solution requests are treated as policy violations and redirected within the allowed stage behavior. `redirect` is not a standalone v1 stage.
+Direct solution requests and stage-skipping attempts are treated as policy violations and recovered through `ask`-stage behavior. `redirect` is not a standalone v1 stage.
 
 ## Allowed Source Categories
 
@@ -83,4 +83,3 @@ Default for now: The temporary assumption used by v1.
 ```
 
 Use these comments sparingly. Only add them where implementation would otherwise require guessing.
-
