@@ -18,6 +18,8 @@ class ResponseTemplate(str, Enum):
     REASONING_QUESTION = "reasoning_question"
     #: Bounded hint that comes after explanation and reasoning question stages.
     HINT = "hint"
+    #: Boundary-setting response that ends with a knowledge-check question.
+    BOUNDARY_CHECK_QUESTION = "boundary_check_question"
     #: Boundary-setting response for direct solution requests or other violations.
     VIOLATION_REDIRECT = "violation_redirect"
 
@@ -64,6 +66,14 @@ class ResponseBuilder(Protocol):
 def contract_for_decision(decision: OrchestratorDecision) -> ResponseContract:
     """Derive the response structure that a decision requires."""
 
+    if decision.response_template_id == ResponseTemplate.BOUNDARY_CHECK_QUESTION.value:
+        return ResponseContract(
+            stage=decision.current_stage,
+            template=ResponseTemplate.BOUNDARY_CHECK_QUESTION,
+            required_sections=("boundary", "knowledge_check_question"),
+            must_include_evidence=False,
+        )
+
     if decision.violations and decision.response_template_id == ResponseTemplate.VIOLATION_REDIRECT.value:
         return ResponseContract(
             stage=decision.current_stage,
@@ -75,7 +85,7 @@ def contract_for_decision(decision: OrchestratorDecision) -> ResponseContract:
     template = ResponseTemplate(decision.response_template_id)
     # Required sections are intentionally high-level until real rendering exists.
     sections_by_template = {
-        ResponseTemplate.EXPLANATION: ("summary", "evidence", "reasoning_path"),
+        ResponseTemplate.EXPLANATION: ("summary", "evidence", "reasoning_path", "knowledge_check_question"),
         ResponseTemplate.REASONING_QUESTION: ("question", "why_this_matters"),
         ResponseTemplate.HINT: ("hint", "evidence"),
     }

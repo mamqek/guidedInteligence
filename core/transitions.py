@@ -21,6 +21,8 @@ class StageTransition:
 ALLOWED_STAGE_TRANSITIONS: tuple[tuple[ResponseStage, ResponseStage], ...] = (
     (ResponseStage.EXPLAIN, ResponseStage.ASK),
     (ResponseStage.ASK, ResponseStage.HINT),
+    # Recovery path for direct-solution and stage-skipping violations.
+    (ResponseStage.HINT, ResponseStage.ASK),
 )
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from core.models import ConversationState, OrchestratorDecision, UserIntent
+from core.response_contracts import ResponseTemplate
 from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, is_allowed_source_category
 from core.stages import ResponseStage, next_stage
 from core.transitions import can_transition
@@ -56,16 +57,17 @@ class V1PolicyEngine:
                     message="Direct solution requests must be redirected into scaffolded assistance.",
                 ),
             )
-            return OrchestratorDecision(
-                allowed=False,
-                current_stage=state.current_stage,
-                next_stage=state.current_stage,
+            return self._recovery_decision(
                 intent=intent,
-                retrieval_required=False,
-                allowed_sources=DEFAULT_ALLOWED_SOURCE_CATEGORIES,
-                response_template_id="violation_redirect",
-                reason="Direct solution request detected.",
                 violations=violations,
+                reason="Direct solution request detected; recover through ASK-stage questioning.",
+            )
+
+        if any(violation.violation_type == PolicyViolationType.STAGE_SKIPPING for violation in violations):
+            return self._recovery_decision(
+                intent=intent,
+                violations=violations,
+                reason="Stage skipping detected; recover through ASK-stage questioning.",
             )
 
         # Non-violation path: proceed through explain -> ask -> hint.
@@ -79,6 +81,28 @@ class V1PolicyEngine:
             response_template_id=self._template_for_stage(state.current_stage),
             reason="V1 scaffolded assistance path selected.",
             violations=violations,
+        )
+
+    def _recovery_decision(
+        self,
+        *,
+        intent: UserIntent,
+        violations: tuple[PolicyViolation, ...],
+        reason: str,
+    ) -> OrchestratorDecision:
+        """Route shortcut violations into ASK-stage recovery behavior."""
+
+        return OrchestratorDecision(
+            allowed=False,
+            current_stage=ResponseStage.ASK,
+            next_stage=ResponseStage.HINT,
+            intent=intent,
+            retrieval_required=False,
+            allowed_sources=DEFAULT_ALLOWED_SOURCE_CATEGORIES,
+            response_template_id=ResponseTemplate.BOUNDARY_CHECK_QUESTION.value,
+            reason=reason,
+            violations=violations,
+            metadata={"recovery_target_stage": ResponseStage.ASK.value},
         )
 
     def _classify_intent(self, user_input: str) -> UserIntent:
@@ -129,9 +153,9 @@ class V1PolicyEngine:
         """Map the allowed response stage to the response template ID."""
 
         if stage == ResponseStage.EXPLAIN:
-            return "explanation"
+            return ResponseTemplate.EXPLANATION.value
         if stage == ResponseStage.ASK:
-            return "reasoning_question"
+            return ResponseTemplate.REASONING_QUESTION.value
         if stage == ResponseStage.HINT:
-            return "hint"
+            return ResponseTemplate.HINT.value
         raise ValueError(f"Unsupported response stage: {stage.value}")

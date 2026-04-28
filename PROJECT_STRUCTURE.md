@@ -9,6 +9,9 @@ guidedInteligence/
   AGENTS.md
   PROJECT_STRUCTURE.md
   orchestration_build_plan.md
+  step4_openswe_fit_spike.md
+  step3_harness_scenarios.md
+  step3_harness_scenarios.py
   v1_boundaries.md
 
   core/
@@ -36,6 +39,9 @@ guidedInteligence/
 
 - `orchestration_build_plan.md`: broad implementation roadmap from boundaries through Open SWE validation.
 - `v1_boundaries.md`: frozen v1 behavior, allowed stages, allowed sources, policy violations, logging requirements, and exclusions.
+- `step3_harness_scenarios.md`: scenario and behavior specification for the local framework-free Step 3 harness.
+- `step3_harness_scenarios.py`: executable scenario fixture skeleton for the future local harness.
+- `step4_openswe_fit_spike.md`: theoretical Step 4 mapping of the current orchestration contract into a minimal Open SWE fit-spike graph.
 - `AGENTS.md`: project-local agent memory, including the NotebookLM source to consult when local context is insufficient.
 - `PROJECT_STRUCTURE.md`: central map of the repository structure and ownership boundaries.
 
@@ -59,9 +65,13 @@ The `services/` package defines replaceable service interfaces. Implementations 
 - `services/retrieval/contracts.py`: retrieval planning and evidence retrieval interface.
 - `services/logging/store.py`: append/list interface for audit and replay storage.
 
-## Near-Term Additions
+## Step 3 Harness Artifacts
 
-The next planned step is a local end-to-end harness with no framework dependency. It should create a `ConversationState`, call `V1PolicyEngine`, use stub retrieval evidence, build a response payload, and emit structured log events.
+The Step 3 scenario artifacts are now present at the repository root. They define the local end-to-end harness behavior without adding framework dependencies. The future harness should create a `ConversationState`, call `V1PolicyEngine`, use stub retrieval evidence, build a response payload, and emit structured log events.
+
+The Python scenario skeleton is data-only: it defines expected policy fields, expected log event sequences, and static evidence fixtures. It does not implement real retrieval, real model calls, Open SWE integration, MCP, UI, or automated task completion.
+
+## Near-Term Additions
 
 Later additions should follow the original build plan:
 
