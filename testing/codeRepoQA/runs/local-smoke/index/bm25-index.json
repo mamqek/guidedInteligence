@@ -1,0 +1,101 @@
+{
+  "average_document_length": 17.5,
+  "document_frequency": {
+    "abstract": 2,
+    "base": 1,
+    "checkabstractclassmembers": 1,
+    "checker": 1,
+    "checknewexpression": 1,
+    "class": 2,
+    "construction": 1,
+    "derived1": 1,
+    "from": 1,
+    "function": 2,
+    "getthing": 1,
+    "implement": 1,
+    "modifier": 1,
+    "must": 1,
+    "new": 1,
+    "parse": 1,
+    "parseclassdeclaration": 1,
+    "parser": 1,
+    "reject": 1,
+    "should": 1,
+    "src": 2,
+    "syntax": 1,
+    "ts": 2
+  },
+  "documents": [
+    {
+      "chunk": {
+        "chunk_id": "repo-pre:src/checker.ts:L1-L6",
+        "commit": "smoke123",
+        "line_end": 6,
+        "line_start": 1,
+        "metadata": {
+          "visibility": "visible_initial"
+        },
+        "path": "src/checker.ts",
+        "snapshot": "pre_resolution",
+        "source_category": "source_code",
+        "symbols": [],
+        "text": "\ufefffunction checkNewExpression() {\n  // new Base should reject abstract class construction\n}\nfunction checkAbstractClassMembers() {\n  // Derived1 must implement getThing from abstract Base\n}"
+      },
+      "tokens": [
+        "src",
+        "checker",
+        "ts",
+        "checker",
+        "ts",
+        "function",
+        "checknewexpression",
+        "new",
+        "base",
+        "should",
+        "reject",
+        "abstract",
+        "class",
+        "construction",
+        "function",
+        "checkabstractclassmembers",
+        "derived1",
+        "must",
+        "implement",
+        "getthing",
+        "from",
+        "abstract",
+        "base"
+      ]
+    },
+    {
+      "chunk": {
+        "chunk_id": "repo-pre:src/parser.ts:L1-L3",
+        "commit": "smoke123",
+        "line_end": 3,
+        "line_start": 1,
+        "metadata": {
+          "visibility": "visible_initial"
+        },
+        "path": "src/parser.ts",
+        "snapshot": "pre_resolution",
+        "source_category": "source_code",
+        "symbols": [],
+        "text": "\ufefffunction parseClassDeclaration() {\n  // parse abstract class modifier syntax\n}"
+      },
+      "tokens": [
+        "src",
+        "parser",
+        "ts",
+        "parser",
+        "ts",
+        "function",
+        "parseclassdeclaration",
+        "parse",
+        "abstract",
+        "class",
+        "modifier",
+        "syntax"
+      ]
+    }
+  ]
+}

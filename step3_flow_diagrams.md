@@ -4,7 +4,8 @@
 
 This file maps the v1 scenario flows as diagrams. It reflects the current
 policy direction that an initial explanation should end with a question, and
-that direct-solution or stage-skipping attempts should recover into `ASK`.
+that direct-solution or stage-skipping attempts should hold the active stage and
+return a boundary response with choices.
 
 This is a behavior map, not an implementation file.
 
@@ -44,10 +45,10 @@ EXPLAIN response =
 
 So the first assistant turn already invites the user into the reasoning path.
 
-## Violation Recovery Flow
+## Violation Boundary Flow
 
 Direct-solution requests and stage-skipping attempts should not remain in the
-requested shortcut path. They should route to `ASK`.
+requested shortcut path. They should keep the last valid active stage.
 
 ```text
 user tries shortcut
@@ -59,26 +60,29 @@ policy violation
 negative boundary response
   |
   v
-knowledge-check question
+expected current-stage behavior
   |
   v
-+---------+
-|   ASK   |
-+---------+
+two choices:
+  1. follow the current stage
+  2. return to explanation
+  |
+  v
+active stage unchanged
 ```
 
 Equivalent stage map:
 
 ```text
-EXPLAIN --direct solution request--> ASK
+EXPLAIN --direct solution request--> EXPLAIN
 ASK     --direct solution request--> ASK
-HINT    --direct solution request--> ASK
+HINT    --direct solution request--> HINT
 
-EXPLAIN --skip directly to HINT----> ASK
+EXPLAIN --skip directly to HINT----> EXPLAIN
 ```
 
-The recovery target is `ASK` because the system is checking understanding
-before allowing more help.
+The stage is frozen because the system is enforcing the current scaffold
+instead of silently replacing it with another stage.
 
 ## Scenario 1: Normal Explanation Request
 
@@ -188,11 +192,13 @@ policy detects DIRECT_SOLUTION_REQUEST
   | retrieval: do not run
   | response:
   |   - negative boundary
-  |   - knowledge-check question
+  |   - expected current-stage behavior
+  |   - why the request violates that stage
+  |   - choices: follow current stage or return to explanation
   v
-+---------+
-|   ASK   |
-+---------+
++------------+
+| SAME STAGE |
++------------+
 ```
 
 Expanded view:
@@ -205,16 +211,16 @@ EXPLAIN
 refuse direct solution
   |
   v
-ask verification question
+offer stage choices
   |
   v
-ASK
+EXPLAIN
 ```
 
 Flow target:
 
 ```text
-The user is moved back into the learning path instead of receiving a solution.
+The user stays in the active learning stage instead of receiving a solution.
 ```
 
 ## Scenario 5: Stage-Skipping Attempt
@@ -233,17 +239,19 @@ policy detects STAGE_SKIPPING
      | policy: allowed=False
      | response:
      |   - negative boundary
-     |   - verification question
+     |   - expected current-stage behavior
+     |   - why the shortcut is not allowed
+     |   - choices: follow current stage or return to explanation
      v
 +---------+
-|   ASK   |
+| EXPLAIN |
 +---------+
 ```
 
 Flow target:
 
 ```text
-The skipped reasoning check is restored.
+The last valid stage remains active; hinting is not unlocked.
 ```
 
 ## Scenario 6: Unsupported Source Evidence
@@ -280,7 +288,7 @@ Reason:
 
 ```text
 The problem is evidence validity, not shortcut behavior.
-The system should recover by returning to grounded explanation.
+The system should respond by returning to grounded explanation.
 ```
 
 ## Scenario 7: Evidence Already Present
@@ -375,12 +383,12 @@ policy classifies DIRECT_SOLUTION_REQUEST
               |
               |
 shortcut       |
-recovery       |
+boundary       |
               |
               v
-          +---------+
-          |   ASK   |
-          +---------+
+          +-------------+
+          | SAME STAGE  |
+          +-------------+
 ```
 
 With violation inputs:
@@ -394,18 +402,18 @@ With violation inputs:
                               |      | or skip attempt
                               |      v
                               |   +---------+
-                              |   |   ASK   |
+                              |   | EXPLAIN |
                               |   +---------+
-                              |        |
-                              v        v
-                           +---------+ +--------+
-                           |   ASK   | |  HINT  |
-                           +---------+ +--------+
-                                |          |
-                                v          v
-                           +--------+  +--------+
-                           |  HINT  |  |  HINT  |
-                           +--------+  +--------+
+                              |
+                              v
+                           +---------+
+                           |   ASK   |
+                           +---------+
+                                |
+                                v
+                           +--------+
+                           |  HINT  |
+                           +--------+
 ```
 
 The system moves toward:

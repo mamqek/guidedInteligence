@@ -19,7 +19,7 @@ The stage sequence for v1 is:
 explain -> ask -> hint
 ```
 
-Direct solution requests and stage-skipping attempts are treated as policy violations and recovered through `ask`-stage behavior. `redirect` is not a standalone v1 stage.
+Direct solution requests and stage-skipping attempts are treated as policy violations. The stage does not advance or change on those violations; the system explains the active stage expectation, explains why the request violates it, and offers the user a choice to either follow the current stage or return to explanation. There is no separate shortcut stage in v1.
 
 ## Allowed Source Categories
 

@@ -1,0 +1,58 @@
+{
+  "case_id": "microsoft-TypeScript-6",
+  "connector_refs": [
+    "microsoft/TypeScript#6"
+  ],
+  "conversation_id": "microsoft-TypeScript-6:smoke",
+  "entities": [
+    "abstract",
+    "class",
+    "Base",
+    "Derived1",
+    "Derived2",
+    "getThing",
+    "super",
+    "new",
+    "Also",
+    "Empty",
+    "Error",
+    "Examples",
+    "Explain",
+    "OK",
+    "Suggestion",
+    "Support",
+    "Title",
+    "TypeScript",
+    "an",
+    "and",
+    "be",
+    "cannot",
+    "classes",
+    "code",
+    "concrete",
+    "context",
+    "either",
+    "extends",
+    "foo",
+    "for",
+    "getOtherThing",
+    "hello"
+  ],
+  "metadata": {
+    "decomposition_strategy": "deterministic_v1"
+  },
+  "raw_prompt": "Explain the code context needed for this issue.\n\nTitle: Suggestion: abstract classes\n\nSupport an `abstract` keyword for classes and their methods\n\nExamples:\n\n``` TypeScript\nabstract class Base {\n    abstract getThing(): string;\n    getOtherThing() { return 'hello'; }\n}\nvar x = new Base(); // Error, 'Base' is abstract\n\n// Error, must either be 'abstract' or implement concrete 'getThing'\nclass Derived1 extends Base { }\n\nclass Derived2 extends Base {\n    getThing() { return 'hello'; }\n    foo() { super.getThing(); } // Error: cannot invoke abstract members through 'super'\n}\nvar x = new Derived2(); // OK\nvar y: Base = new Derived2(); // Also OK\ny.getThing(); // OK\ny.getOtherThing(); // OK\n\nabstract class Empty { } // OK\n```\n",
+  "source_hints": [
+    "issue_tracker",
+    "source_code"
+  ],
+  "subqueries": [
+    "abstract class modifier parser syntax",
+    "abstract class declaration method class representation",
+    "new constructor instantiate abstract class Base",
+    "extends Derived implements abstract method getThing",
+    "diagnostic error conformance test abstract class"
+  ],
+  "task_type": "explanation",
+  "temporal_scope": "pre_resolution"
+}

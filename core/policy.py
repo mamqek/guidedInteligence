@@ -1,37 +1,14 @@
 from __future__ import annotations
 
-from typing import Protocol
-
-from core.models import ConversationState, OrchestratorDecision, UserIntent
-from core.response_contracts import ResponseTemplate
-from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, is_allowed_source_category
+from core.models import ConversationState, PolicyResult, ResponseMode, UserIntent
+from core.source_policy import DEFAULT_SOURCE_POLICY, SourcePolicy, is_allowed_source_category
 from core.stages import ResponseStage, next_stage
 from core.transitions import can_transition
 from core.violations import PolicyViolation, PolicyViolationType
 
+class PolicyStage:
+    """Deterministic v1 policy stage."""
 
-class PolicyEngine(Protocol):
-    """Main control surface for orchestration decisions.
-
-    Runtime shells, harnesses, and future adapters should call this interface
-    instead of embedding stage or source rules directly.
-    """
-
-    def decide(self, state: ConversationState) -> OrchestratorDecision:
-        """Return the policy decision for the current conversation state."""
-
-        ...
-
-
-class V1PolicyEngine:
-    """Small deterministic v1 policy engine for the frozen contract.
-
-    This implementation is deliberately simple: it validates the explicit v1
-    boundaries before real retrieval, model classification, or Open SWE are
-    introduced.
-    """
-
-    # Temporary keyword heuristic for the direct-solution violation path.
     _DIRECT_SOLUTION_MARKERS = (
         "give me the answer",
         "just solve",
@@ -41,9 +18,10 @@ class V1PolicyEngine:
         "complete the task",
     )
 
-    def decide(self, state: ConversationState) -> OrchestratorDecision:
-        """Choose the next response contract and policy status for a state."""
+    def __init__(self, source_policy: SourcePolicy = DEFAULT_SOURCE_POLICY) -> None:
+        self.source_policy = source_policy
 
+    def decide(self, state: ConversationState) -> PolicyResult:
         intent = state.intent
         if intent == UserIntent.UNKNOWN:
             intent = self._classify_intent(state.user_input)
@@ -54,60 +32,69 @@ class V1PolicyEngine:
             violations = violations + (
                 PolicyViolation(
                     violation_type=PolicyViolationType.DIRECT_SOLUTION_REQUEST,
-                    message="Direct solution requests must be redirected into scaffolded assistance.",
+                    message="Direct solution requests violate the currently active scaffolded stage.",
                 ),
             )
-            return self._recovery_decision(
+            return self._boundary_result(
+                active_stage=self._active_stage_for_violation(state, violations),
                 intent=intent,
                 violations=violations,
-                reason="Direct solution request detected; recover through ASK-stage questioning.",
+                reason="Direct solution request detected; keep the current stage and offer stage choices.",
             )
 
         if any(violation.violation_type == PolicyViolationType.STAGE_SKIPPING for violation in violations):
-            return self._recovery_decision(
+            return self._boundary_result(
+                active_stage=self._active_stage_for_violation(state, violations),
                 intent=intent,
                 violations=violations,
-                reason="Stage skipping detected; recover through ASK-stage questioning.",
+                reason="Stage skipping detected; keep the last valid stage and offer stage choices.",
             )
 
-        # Non-violation path: proceed through explain -> ask -> hint.
-        return OrchestratorDecision(
+        return PolicyResult(
             allowed=len(violations) == 0,
-            current_stage=state.current_stage,
+            active_stage=state.current_stage,
             next_stage=next_stage(state.current_stage),
             intent=intent,
             retrieval_required=len(state.evidence) == 0,
-            allowed_sources=DEFAULT_ALLOWED_SOURCE_CATEGORIES,
-            response_template_id=self._template_for_stage(state.current_stage),
+            allowed_sources=self.source_policy.allowed_categories,
+            response_mode=self._mode_for_stage(state.current_stage),
             reason="V1 scaffolded assistance path selected.",
+            source_policy_name=self.source_policy.policy_name,
             violations=violations,
         )
 
-    def _recovery_decision(
+    def _boundary_result(
         self,
         *,
+        active_stage: ResponseStage,
         intent: UserIntent,
         violations: tuple[PolicyViolation, ...],
         reason: str,
-    ) -> OrchestratorDecision:
-        """Route shortcut violations into ASK-stage recovery behavior."""
-
-        return OrchestratorDecision(
+    ) -> PolicyResult:
+        return PolicyResult(
             allowed=False,
-            current_stage=ResponseStage.ASK,
-            next_stage=ResponseStage.HINT,
+            active_stage=active_stage,
+            next_stage=active_stage,
             intent=intent,
             retrieval_required=False,
-            allowed_sources=DEFAULT_ALLOWED_SOURCE_CATEGORIES,
-            response_template_id=ResponseTemplate.BOUNDARY_CHECK_QUESTION.value,
+            allowed_sources=self.source_policy.allowed_categories,
+            response_mode=ResponseMode.BOUNDARY,
             reason=reason,
+            source_policy_name=self.source_policy.policy_name,
             violations=violations,
-            metadata={"recovery_target_stage": ResponseStage.ASK.value},
+            boundary_choices=("follow_current_stage", "return_to_explanation"),
         )
 
-    def _classify_intent(self, user_input: str) -> UserIntent:
-        """Classify intent with a small deterministic heuristic for v1."""
+    def _active_stage_for_violation(
+        self,
+        state: ConversationState,
+        violations: tuple[PolicyViolation, ...],
+    ) -> ResponseStage:
+        if any(violation.violation_type == PolicyViolationType.STAGE_SKIPPING for violation in violations):
+            return state.stage_history[-1]
+        return state.current_stage
 
+    def _classify_intent(self, user_input: str) -> UserIntent:
         normalized_input = user_input.lower()
         if any(marker in normalized_input for marker in self._DIRECT_SOLUTION_MARKERS):
             return UserIntent.DIRECT_SOLUTION_REQUEST
@@ -116,8 +103,6 @@ class V1PolicyEngine:
         return UserIntent.UNDERSTAND_CODE
 
     def _collect_state_violations(self, state: ConversationState) -> tuple[PolicyViolation, ...]:
-        """Find policy violations that are visible from current state alone."""
-
         violations: list[PolicyViolation] = []
 
         if state.stage_history:
@@ -135,7 +120,7 @@ class V1PolicyEngine:
                 )
 
         for evidence_item in state.evidence:
-            if not is_allowed_source_category(evidence_item.source_category):
+            if not is_allowed_source_category(evidence_item.source_category, self.source_policy):
                 violations.append(
                     PolicyViolation(
                         violation_type=PolicyViolationType.UNSUPPORTED_SOURCE_USAGE,
@@ -149,13 +134,11 @@ class V1PolicyEngine:
 
         return tuple(violations)
 
-    def _template_for_stage(self, stage: ResponseStage) -> str:
-        """Map the allowed response stage to the response template ID."""
-
+    def _mode_for_stage(self, stage: ResponseStage) -> ResponseMode:
         if stage == ResponseStage.EXPLAIN:
-            return ResponseTemplate.EXPLANATION.value
+            return ResponseMode.EXPLANATION
         if stage == ResponseStage.ASK:
-            return ResponseTemplate.REASONING_QUESTION.value
+            return ResponseMode.REASONING_QUESTION
         if stage == ResponseStage.HINT:
-            return ResponseTemplate.HINT.value
+            return ResponseMode.HINT
         raise ValueError(f"Unsupported response stage: {stage.value}")

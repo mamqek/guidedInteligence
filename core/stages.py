@@ -18,7 +18,7 @@ class ResponseStage(str, Enum):
     HINT = "hint"
 
 
-# Canonical v1 stage order. There is no standalone redirect stage in v1.
+# Canonical v1 stage order. There is no standalone shortcut stage in v1.
 V1_STAGE_SEQUENCE: tuple[ResponseStage, ...] = (
     ResponseStage.EXPLAIN,
     ResponseStage.ASK,

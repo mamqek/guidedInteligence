@@ -25,8 +25,8 @@ is useful feedback before framework integration begins.
 Step 1 is represented by `v1_boundaries.md`:
 
 - The supported v1 flow is `explain -> ask -> hint`.
-- Direct solution requests and stage-skipping attempts are violations and now
-  recover through `ask`-stage questioning.
+- Direct solution requests and stage-skipping attempts are violations that keep
+  the active stage unchanged and return a boundary response with choices.
 - Valid grounding sources are source code, documentation, issue trackers, and
   pull requests.
 - Required audit data includes stage decisions, retrieval/source plans,
@@ -185,11 +185,11 @@ Expected decision:
 | Field | Expected value |
 | --- | --- |
 | `allowed` | `False` |
-| `current_stage` | `ASK` |
-| `next_stage` | `HINT` |
+| `current_stage` | `EXPLAIN` |
+| `next_stage` | `EXPLAIN` |
 | `intent` | `DIRECT_SOLUTION_REQUEST` |
 | `retrieval_required` | `False` |
-| `response_template_id` | `boundary_check_question` |
+| `response_template_id` | `stage_boundary_choice` |
 | `allowed_sources` | `DEFAULT_ALLOWED_SOURCE_CATEGORIES` |
 | `violations` | `DIRECT_SOLUTION_REQUEST` |
 
@@ -202,26 +202,26 @@ Expected logs:
 
 Response nuance:
 
-- The deterministic response should set a boundary and end with a
-  knowledge-check question.
+- The deterministic response should set a boundary, state the expected current
+  stage behavior, explain the violation, and offer the two allowed choices.
 - No retrieval should run for this path.
-- The recovery response uses `ASK`-stage questioning so the next normal turn
-  can continue toward `HINT`.
+- The stage should not advance until the user either follows the current stage
+  or explicitly chooses to return to explanation.
 
 ### 5. Stage Skipping Attempt
 
 State attempts to jump from `explain` directly to `hint`.
 
-Expected decision with the updated recovery policy:
+Expected decision with the strict stage policy:
 
 | Field | Expected value |
 | --- | --- |
 | `allowed` | `False` |
-| `current_stage` | `ASK` |
-| `next_stage` | `HINT` |
+| `current_stage` | `EXPLAIN` |
+| `next_stage` | `EXPLAIN` |
 | `intent` | `UNDERSTAND_CODE` unless classified otherwise |
 | `retrieval_required` | `False` |
-| `response_template_id` | `boundary_check_question` |
+| `response_template_id` | `stage_boundary_choice` |
 | `allowed_sources` | `DEFAULT_ALLOWED_SOURCE_CATEGORIES` |
 | `violations` | `STAGE_SKIPPING` |
 
@@ -234,8 +234,9 @@ Expected logs:
 
 Response nuance:
 
-- The recovery response should refuse the shortcut and ask a verification
-  question before allowing hint-stage help.
+- The boundary response should refuse the shortcut, restate that `EXPLAIN` is
+  still the active stage, explain why hinting would skip the required path, and
+  offer the two allowed choices.
 - No retrieval should run for this path.
 
 ### 6. Unsupported Source Evidence
@@ -345,8 +346,8 @@ template, stage, evidence refs, and violations must match the policy decision.
 
 ## Nuances To Preserve
 
-- `redirect` is not a v1 stage. Shortcut recovery is represented by the
-  `boundary_check_question` template.
+- There is no separate shortcut stage. Shortcut violations are represented by the
+  `stage_boundary_choice` template and do not advance the stage.
 - `HINT` is terminal for v1 and advances to itself.
 - `EXPLAIN` responses now end with a knowledge-check question while still
   advancing the conversation into `ASK`.

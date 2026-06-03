@@ -1,3 +1,3 @@
-from services.logging.store import LoggingStore
+from services.logging.store import JsonlLogger
 
-__all__ = ["LoggingStore"]
+__all__ = ["JsonlLogger"]

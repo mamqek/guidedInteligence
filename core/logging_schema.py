@@ -3,18 +3,22 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Mapping, Protocol
+from typing import Any, Mapping
 
 
 class LogEventType(str, Enum):
     """Minimum structured events needed for v1 auditability and replay."""
 
+    #: Orchestration run has started.
+    RUN_STARTED = "run_started"
     #: Policy selected or rejected a response stage.
     STAGE_DECISION = "stage_decision"
     #: Retrieval decided which source categories to consult and in what order.
     RETRIEVAL_PLAN = "retrieval_plan"
     #: Retrieval or context building selected concrete evidence items.
     EVIDENCE_SELECTED = "evidence_selected"
+    #: Control layer produced a structured response plan.
+    RESPONSE_PLAN = "response_plan"
     #: Model or response builder input payload was created.
     PROMPT_PAYLOAD = "prompt_payload"
     #: Final structured response payload was produced.
@@ -23,6 +27,8 @@ class LogEventType(str, Enum):
     MODEL_SETTINGS = "model_settings"
     #: Policy violation was detected and handled.
     POLICY_VIOLATION = "policy_violation"
+    #: Orchestration run has completed.
+    RUN_COMPLETED = "run_completed"
 
 
 @dataclass(frozen=True)
@@ -47,12 +53,3 @@ class LogEvent:
             "payload": dict(self.payload),
             "created_at": self.created_at.isoformat(),
         }
-
-
-class LoggingSink(Protocol):
-    """Minimal write-only logging interface for services that emit events."""
-
-    def record(self, event: LogEvent) -> None:
-        """Persist or forward one structured log event."""
-
-        ...

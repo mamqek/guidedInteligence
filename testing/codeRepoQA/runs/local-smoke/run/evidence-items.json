@@ -1,0 +1,60 @@
+[
+  {
+    "metadata": {
+      "case_id": "microsoft-TypeScript-6",
+      "commit": "smoke123",
+      "coverage_area": "initial_issue_context",
+      "evidence_strength": "strong",
+      "retrieval_reason": "Allowed initial issue title and body.",
+      "snapshot": "pre_resolution",
+      "source_policy": "coderepoqa_explain_initial",
+      "visibility": "visible_initial"
+    },
+    "rank": 1,
+    "snippet": "Suggestion: abstract classes\n\nSupport an `abstract` keyword for classes and their methods\n\nExamples:\n\n``` TypeScript\nabstract class Base {\n    abstract getThing(): string;\n    getOtherThing() { return 'hello'; }\n}\nvar x = new Base(); // Error, 'Base' is abstract\n\n// Error, must either be 'abstract' or implement concrete 'getThing'\nclass Derived1 extends Base { }\n\nclass Derived2 extends Base {\n    getThing() { return 'hello'; }\n    foo() { super.getThing(); } // Error: cannot invoke abstract members through 'super'\n}\nvar x = new Derived2(); // OK\nvar y: Base = new Derived2(); // Also OK\ny.getThing(); // OK\ny.getOtherThing(); // OK\n\nabstract class Empty { } // OK\n```\n",
+    "source_category": "issue_tracker",
+    "source_id": "microsoft-TypeScript-6:issue-initial"
+  },
+  {
+    "metadata": {
+      "base_bm25_score": "3.140844",
+      "case_id": "",
+      "commit": "smoke123",
+      "coverage_area": "parser_modifier_handling",
+      "evidence_strength": "strong",
+      "line_range": "L1-L3",
+      "matched_terms": "abstract,class,modifier,parser,syntax",
+      "path": "src/parser.ts",
+      "retrieval_path": "bm25",
+      "retrieval_reason": "BM25 candidate matched issue-derived query terms.",
+      "snapshot": "pre_resolution",
+      "source_policy": "coderepoqa_explain_initial",
+      "visibility": "visible_initial"
+    },
+    "rank": 2,
+    "snippet": "\ufefffunction parseClassDeclaration() {\n  // parse abstract class modifier syntax\n}",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/parser.ts:L1-L3"
+  },
+  {
+    "metadata": {
+      "base_bm25_score": "0.396293",
+      "case_id": "",
+      "commit": "smoke123",
+      "coverage_area": "parser_modifier_handling",
+      "evidence_strength": "strong",
+      "line_range": "L1-L6",
+      "matched_terms": "abstract,class",
+      "path": "src/checker.ts",
+      "retrieval_path": "bm25",
+      "retrieval_reason": "BM25 candidate matched issue-derived query terms.",
+      "snapshot": "pre_resolution",
+      "source_policy": "coderepoqa_explain_initial",
+      "visibility": "visible_initial"
+    },
+    "rank": 3,
+    "snippet": "\ufefffunction checkNewExpression() {\n  // new Base should reject abstract class construction\n}\nfunction checkAbstractClassMembers() {\n  // Derived1 must implement getThing from abstract Base\n}",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/checker.ts:L1-L6"
+  }
+]
