@@ -2,19 +2,25 @@
 
 ## Purpose
 
-This document maps the current v1 orchestration flow into a theoretical
-Open SWE runtime graph before any real runtime integration begins.
+This document maps the current v1 orchestration flow into a custom LangGraph
+graph that can run inside or alongside Open SWE infrastructure before any real
+runtime integration begins.
 
 This is a fit-spike document, not an implementation file. It answers:
 
-- What is the smallest graph that can represent the current policy flow?
+- What is the smallest custom LangGraph graph that can represent the current
+  policy flow?
 - Can the repo's own state and decision types stay central?
-- Where would policy, retrieval, response, and logging hook into a runtime?
+- Where would policy, retrieval, response, and logging hook into an Open SWE
+  deployment shell?
 - Which parts of the current contract look easy to map, and which parts look
   awkward or risky?
 
-This document intentionally avoids making framework-specific API claims. It
-describes the expected control flow that a real Open SWE spike should test.
+This document uses current Open SWE and LangGraph behavior as the fit target:
+Open SWE is built on LangGraph and Deep Agents, and provides sandbox,
+invocation, thread/run, middleware, and deployment infrastructure. Guided
+Intelligence stage policy must remain in this repo's own custom LangGraph nodes,
+not in Deep Agents prompts.
 
 ## Current V1 Flow To Preserve
 
@@ -43,15 +49,38 @@ EXPLAIN -> ASK -> HINT
 Important current policy details that the fit spike must preserve:
 
 - `EXPLAIN` responses now end with a knowledge-check question.
-- Direct-solution requests recover through `ASK`.
-- Stage-skipping attempts recover through `ASK`.
+- Direct-solution requests produce a stage-boundary choice response without
+  advancing the active stage.
+- Stage-skipping attempts keep the last valid stage active.
 - `HINT` is terminal for normal progress.
-- `HINT -> ASK` is allowed only as a recovery transition.
+
+## Open SWE Role Boundary
+
+Open SWE should be treated as operational infrastructure around the Guided
+Intelligence graph, not as the owner of the teaching policy.
+
+Use Open SWE for:
+
+- LangGraph deployment and run management.
+- Sandbox creation, reuse, and execution environment boundaries.
+- Invocation surfaces such as Slack, Linear, and GitHub.
+- Thread IDs, run IDs, persistence, traces, and optional operational middleware.
+
+Do not use Open SWE for:
+
+- Encoding stage policy in a Deep Agents system prompt.
+- Letting the default Deep Agents agent loop choose `EXPLAIN`, `ASK`, `HINT`, or
+  `STAGE_BOUNDARY_CHOICE`.
+- Replacing `ConversationState`, `OrchestratorDecision`, `PolicyViolation`, or
+  repo-owned logging events with framework-local ad hoc fields.
+
+Deep Agents may be useful later for separate coding-agent tasks, but it must not
+be the controller for Guided Intelligence stage flow.
 
 ## Minimal Graph To Test
 
-The theoretical minimum graph should be small enough to validate fit, not
-complete enough to commit to runtime architecture.
+The theoretical minimum custom LangGraph graph should be small enough to
+validate fit, not complete enough to commit to runtime architecture.
 
 Recommended node sequence:
 
@@ -64,7 +93,10 @@ state_load
   v
 policy_decision
   |
-  +--> violation_recovery_response
+  v
+branch_on_decision
+  |
+  +--> stage_boundary_response
   |
   +--> retrieval_plan
          |
@@ -83,13 +115,13 @@ policy_decision
 Equivalent condensed path:
 
 ```text
-policy -> retrieval -> response -> state update
+state_load -> policy_decision -> branch -> retrieval/response -> state_update
 ```
 
 Violation path:
 
 ```text
-policy -> boundary-check response -> state update
+state_load -> policy_decision -> branch -> stage-boundary response -> state_update
 ```
 
 This graph is enough to answer Step 4's real question:
@@ -97,6 +129,10 @@ This graph is enough to answer Step 4's real question:
 ```text
 Can Open SWE act as the shell around our policy core without owning the policy?
 ```
+
+The spike should expose a graph entrypoint compatible with LangGraph deployment
+conventions, while ensuring that the graph calls `V1PolicyEngine.decide(...)`
+instead of reimplementing policy in routing glue or prompts.
 
 ## Node Responsibilities
 
@@ -115,8 +151,8 @@ Output:
 
 Expectation:
 
-- Open SWE graph state should carry our `ConversationState` or a thin wrapper
-  around it.
+- Custom LangGraph state should carry our `ConversationState` or a thin wrapper
+  around it when deployed through Open SWE infrastructure.
 - The runtime should not force `ConversationState` fields to be split across
   unrelated framework-owned state objects.
 
@@ -140,7 +176,30 @@ Expectation:
 - The runtime should allow branching on `OrchestratorDecision` fields without
   re-encoding policy logic in graph glue.
 
-### 3. `retrieval_plan`
+### 3. `branch_on_decision`
+
+Input:
+
+- `OrchestratorDecision`
+
+Logic:
+
+- route shortcut violations to `stage_boundary_response`
+- route non-boundary decisions with `retrieval_required=True` to `retrieval_plan`
+- route non-boundary decisions with `retrieval_required=False` to `response_build`
+
+Output:
+
+- the selected next LangGraph node
+
+Expectation:
+
+- Branching should use LangGraph conditional edges or `Command`, not prompt
+  wording.
+- The branch function may inspect `OrchestratorDecision` fields, but must not
+  duplicate the policy rules that produced them.
+
+### 4. `retrieval_plan`
 
 Input:
 
@@ -160,7 +219,7 @@ Expectation:
 - The runtime should make conditional node execution easy.
 - Retrieval should be skipped cleanly when `retrieval_required` is `False`.
 
-### 4. `retrieval_fetch`
+### 5. `retrieval_fetch`
 
 Input:
 
@@ -180,7 +239,7 @@ Expectation:
 - The runtime should not require flattening evidence into prompt strings too
   early.
 
-### 5. `response_build`
+### 6. `response_build`
 
 Input:
 
@@ -199,10 +258,10 @@ Output:
 Expectation:
 
 - Response construction should remain downstream of policy.
-- Recovery responses should use the same node shape as normal responses, with a
+- Boundary responses should use the same node shape as normal responses, with a
   different template.
 
-### 6. `violation_recovery_response`
+### 7. `stage_boundary_response`
 
 Input:
 
@@ -210,7 +269,7 @@ Input:
 
 Logic:
 
-- build a `BOUNDARY_CHECK_QUESTION` response without retrieval
+- build a `STAGE_BOUNDARY_CHOICE` response without retrieval
 
 Output:
 
@@ -218,10 +277,10 @@ Output:
 
 Expectation:
 
-- The graph should support a short-circuit path for violations.
+- The graph should support a short-circuit path for shortcut violations.
 - The runtime should not force violations through the full retrieval path.
 
-### 7. `state_update`
+### 8. `state_update`
 
 Input:
 
@@ -252,6 +311,7 @@ Expectation:
 ```text
 state_load
   -> policy_decision
+  -> branch_on_decision
   -> retrieval_plan
   -> retrieval_fetch
   -> response_build
@@ -270,6 +330,7 @@ Expected result:
 ```text
 state_load
   -> policy_decision
+  -> branch_on_decision
   -> retrieval_plan (only if no evidence is attached)
   -> retrieval_fetch (only if retrieval ran)
   -> response_build
@@ -287,6 +348,7 @@ Expected result:
 ```text
 state_load
   -> policy_decision
+  -> branch_on_decision
   -> retrieval_plan (only if no evidence is attached)
   -> retrieval_fetch (only if retrieval ran)
   -> response_build
@@ -304,23 +366,24 @@ Expected result:
 ```text
 state_load
   -> policy_decision
-  -> violation_recovery_response
+  -> branch_on_decision
+  -> stage_boundary_response
   -> state_update
   -> end
 ```
 
 Expected result:
 
-- response template: `boundary_check_question`
+- response template: `stage_boundary_choice`
 - retrieval is skipped
-- next state stage: `HINT` after the recovery turn is emitted from `ASK`
+- next state stage: `EXPLAIN`
 
 Important nuance:
 
 ```text
-The current response is an ASK-stage recovery response.
-The next state still becomes HINT, because the policy treats the recovery turn
-as the ASK-stage turn itself.
+The response is a boundary response for the active EXPLAIN stage.
+The next state remains EXPLAIN until the user follows the current stage or
+chooses to return to explanation.
 ```
 
 ### Stage-Skipping Attempt
@@ -328,7 +391,8 @@ as the ASK-stage turn itself.
 ```text
 state_load
   -> policy_decision
-  -> violation_recovery_response
+  -> branch_on_decision
+  -> stage_boundary_response
   -> state_update
   -> end
 ```
@@ -336,15 +400,16 @@ state_load
 Expected result:
 
 - violation: `STAGE_SKIPPING`
-- response template: `boundary_check_question`
+- response template: `stage_boundary_choice`
 - retrieval is skipped
-- next state stage: `HINT`
+- next state stage: the last valid stage, `EXPLAIN` in the baseline scenario
 
 ### Unsupported Source Evidence
 
 ```text
 state_load
   -> policy_decision
+  -> branch_on_decision
   -> response_build
   -> state_update
   -> end
@@ -359,8 +424,9 @@ Expected result under the current contract:
 Important nuance:
 
 ```text
-Unsupported-source handling does not currently use the ASK-stage recovery path.
-It stays in the normal stage-driven decision shape with violations attached.
+Unsupported-source handling does not use the shortcut boundary path in this
+pass. It stays in the normal stage-driven decision shape with violations
+attached.
 ```
 
 That is acceptable for the fit spike as long as the runtime can carry violation
@@ -371,7 +437,7 @@ metadata without forcing one universal error branch.
 The cleanest runtime mapping is:
 
 ```text
-Open SWE graph state
+Custom LangGraph state inside Open SWE deployment
   {
     conversation_state: ConversationState
     decision: OrchestratorDecision | None
@@ -385,8 +451,8 @@ Open SWE graph state
 Why this shape is attractive:
 
 - It keeps the repo's own contracts intact.
-- It treats framework state as a transport container, not a replacement domain
-  model.
+- It treats LangGraph/Open SWE state as a transport container, not a replacement
+  domain model.
 - It preserves explicit node outputs for replay and debugging.
 
 What should not happen:
@@ -399,7 +465,8 @@ What should not happen:
 
 ## Policy Injection Points
 
-The fit spike should confirm three concrete policy injection points:
+The fit spike should confirm three concrete policy injection points. Each point
+must live in custom LangGraph nodes or edges, not in Deep Agents prompt text.
 
 ### Pre-retrieval gating
 
@@ -419,15 +486,34 @@ before any response builder or model call runs
 
 This is required because the model layer is constrained by stage and policy.
 
-### Recovery branching for shortcut violations
+### Boundary branching for shortcut violations
 
 ```text
-policy_decision decides whether the graph uses the short recovery path
+policy_decision decides whether the graph uses the short boundary path
 instead of the retrieval path
 ```
 
 This is required because direct-solution and stage-skipping handling is not a
 generic runtime exception; it is domain policy.
+
+## Deep Agents Boundary
+
+Default Open SWE composes a Deep Agents loop with tools, middleware, and a
+system prompt. That is a good coding-agent harness, but it is the wrong place to
+own Guided Intelligence stage policy.
+
+Acceptable Deep Agents usage:
+
+- later downstream coding-agent tasks that happen after the Guided Intelligence
+  controller has made a policy decision
+- optional operational middleware that does not decide stages
+- sandbox-backed tool execution when the task explicitly becomes code-changing
+
+Rejected Deep Agents usage:
+
+- asking a prompt to decide whether the user is in `EXPLAIN`, `ASK`, or `HINT`
+- placing direct-solution or stage-skipping handling only in prompt rules
+- letting middleware infer policy instead of calling `V1PolicyEngine`
 
 ## Logging Feasibility Map
 
@@ -462,25 +548,32 @@ This is a bad sign if:
 ### Looks easy
 
 - `V1PolicyEngine.decide(state)` is already a single clean branch point.
+- Raw LangGraph conditional edges or `Command` can branch from
+  `OrchestratorDecision` without requiring a model.
 - Retrieval already has a two-step interface: plan first, then fetch.
 - Response shape is already contract-driven through `response_template_id`.
 - Logging already has a small explicit schema.
 - The current stage machine is intentionally small.
+- Open SWE already contributes useful infrastructure: sandboxing, invocation
+  surfaces, thread/run management, middleware, and deployment around LangGraph.
 
 ### Looks manageable but worth testing
 
-- Recovery responses use `current_stage=ASK` and `next_stage=HINT`, even when
-  the incoming state was not `ASK`. The runtime must tolerate policy-driven
-  stage reassignment.
+- Shortcut boundary responses keep `current_stage` and `next_stage` equal, so
+  the runtime must tolerate explicit no-op stage updates on disallowed turns.
 - Unsupported-source violations currently stay inside the normal stage-driven
-  path instead of using one universal recovery branch.
+  path instead of using the shortcut boundary branch.
 - A real runtime will need a thin state-update layer because `ConversationState`
   is immutable.
+- The Open SWE invocation payloads must be normalized into `ConversationState`
+  inside `state_load`.
+- Open SWE thread metadata can carry operational IDs, but should not become the
+  source of truth for stage policy.
 
 ### Looks risky
 
-- If Open SWE expects the framework graph to own branching semantics instead of
-  letting node outputs drive branches, policy logic could leak into graph glue.
+- If the default Open SWE Deep Agents loop is used as the Guided Intelligence
+  controller, policy logic will leak into prompts and middleware.
 - If runtime state strongly prefers ad hoc mutable dicts, it may encourage
   duplication of information already present in `ConversationState` and
   `OrchestratorDecision`.
@@ -493,26 +586,33 @@ This is a bad sign if:
 - `ConversationState` remains the central state type for orchestration logic.
 - Retrieval and response nodes can stay thin wrappers around repo-owned
   interfaces.
-- Recovery paths can bypass retrieval cleanly.
+- Shortcut boundary paths can bypass retrieval cleanly.
 - Log events can be emitted at node boundaries in a stable order.
+- Open SWE provides deployment, sandbox, invocation, and trace infrastructure
+  without owning stage decisions.
 
 ## What Would Count As A Forced Fit
 
-- Policy rules must be re-encoded in graph routing configuration.
+- Policy rules must be re-encoded in Deep Agents prompts, middleware, or graph
+  routing configuration.
 - Core types must be rewritten to satisfy runtime-specific state requirements.
 - Logging depends on scattered framework hooks instead of explicit node outputs.
-- Retrieval and recovery paths cannot branch naturally from policy output.
+- Retrieval and shortcut boundary paths cannot branch naturally from policy output.
 - Stage transitions become implicit side effects instead of explicit updates.
+- Open SWE's default coding-agent workflow becomes the primary controller for
+  Guided Intelligence rather than a deployable shell around the custom graph.
 
 ## Recommended Output Of The Real Step 4 Spike
 
 The actual Open SWE spike should produce:
 
-1. a tiny graph with only policy, retrieval, response, and state-update nodes
+1. a tiny custom LangGraph graph with policy, branch, retrieval, response, and
+   state-update nodes
 2. a minimal runtime-local state wrapper around existing core contracts
 3. one normal explanation trace
-4. one direct-solution recovery trace
-5. one stage-skipping recovery trace
-6. a short conclusion stating whether the runtime fit felt natural or forced
+4. one direct-solution boundary trace
+5. one stage-skipping boundary trace
+6. a short conclusion stating whether Open SWE works cleanly as infrastructure
+   around the custom graph
 
 If the runtime cannot support that tiny graph cleanly, Step 5 should not begin.

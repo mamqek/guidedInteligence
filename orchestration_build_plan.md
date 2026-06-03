@@ -6,11 +6,11 @@ The system should be built as a **policy-guided orchestration platform** whose m
 
 ### High-level components
 
-- **Open SWE runtime shell**: Runs the workflow graph, sandboxing, and execution environment, but should not contain the actual policy logic.
+- **Open SWE runtime shell**: Provides LangGraph deployment, sandboxing, invocation, thread/run management, tracing, and optional middleware around the Guided Intelligence graph, but must not contain the actual policy logic.
 - **Core orchestration logic**: The single source of truth for stages, transition rules, source restrictions, response rules, and policy decisions.
 - **RAG layer**: Handles ingestion, retrieval, reranking, and evidence packaging across repository artifacts such as code, docs, issues, and pull requests, which the proposal explicitly names as relevant sources. fileciteturn3file1
 - **Model layer**: Provides constrained model calls for classification and response generation, while keeping the model as a controlled component rather than the decision-maker.
-- **Response enforcement layer**: Ensures that outputs follow the allowed stage and template, such as explanation-first behavior or redirection of direct-solution requests.
+- **Response enforcement layer**: Ensures that outputs follow the allowed stage and template, such as explanation-first behavior or stage-boundary responses for direct-solution requests.
 - **Logging and replay layer**: Captures retrieval decisions, prompts, model settings, outputs, and policy events, because reproducibility is one of the core requirements in the proposal. fileciteturn3file1
 - **Evaluation instrumentation**: Stores traces and structured outputs in a way that later supports the explanation-quality rubric, reasoning analysis, and overreliance analysis described in the proposal. fileciteturn3file1
 
@@ -92,7 +92,7 @@ These should not be implemented yet, but the architecture should remain reusable
 ### 1. Freeze the v1 system boundaries
 
 - **Define the exact v1 user flow**: Write down the supported interaction path for the first version so you are not building generic infrastructure before the actual behavior is fixed.
-- **Fix the initial response stages**: Lock the first stage sequence, such as `explain -> ask -> hint -> redirect`, because many later design decisions depend on these stage boundaries.
+- **Fix the initial response stages**: Lock the first stage sequence, such as `explain -> ask -> hint`, because many later design decisions depend on these stage boundaries.
 - **Define allowed source categories**: Decide which artifacts count as valid grounded evidence in v1, for example code, docs, issues, and pull requests, since the proposal explicitly expects project-specific artifacts to drive assistance. fileciteturn3file1
 - **Define what counts as a policy violation**: Make forbidden behavior explicit early, such as direct-solution requests, unsupported source usage, or stage skipping, so these rules do not stay vague.
 - **List required logs**: Specify the minimum events that must be recorded, such as stage changes, retrieval plans, evidence IDs, prompts, outputs, and violations, because reproducibility is a first-class requirement. fileciteturn3file1
@@ -115,18 +115,20 @@ These should not be implemented yet, but the architecture should remain reusable
 - **Exercise the main interaction paths**: Run simple scenarios such as explanation requests, direct-solution requests, and follow-up questions, so you can detect weak abstractions before frameworks are involved.
 - **Refine the core types if needed**: Treat awkwardness here as a warning signal, because if the interface is clumsy in the harness it will become worse once Open SWE is added.
 
-### 4. Do a strict Open SWE fit spike before deeper integration
+### 4. Do a strict Open SWE/LangGraph fit spike before deeper integration
 
-- **Map the stage flow to a tiny graph**: Represent only a minimal path like policy -> retrieval -> response -> redirect, so you can see whether your desired control flow fits Open SWE naturally.
-- **Check whether your own state can stay central**: Verify that your internal state types can be mapped cleanly into Open SWE graph state without framework types leaking into the core.
-- **Check policy injection points**: Confirm that the policy engine can run exactly where you need it, rather than forcing you to bury important decisions inside framework-specific callbacks.
+- **Map the stage flow to a custom LangGraph graph**: Represent only `state_load -> policy_decision -> branch -> retrieval/response -> state_update`, so the policy path is explicit before it is deployed through Open SWE infrastructure.
+- **Use Open SWE as infrastructure, not policy owner**: Validate sandboxing, invocation, thread/run persistence, traces, and optional middleware while keeping stage decisions inside repo-owned graph nodes.
+- **Check whether your own state can stay central**: Verify that `ConversationState`, `OrchestratorDecision`, evidence, response payloads, and log events can be wrapped in runtime state without framework types leaking into `core`.
+- **Check policy injection points**: Confirm that the graph calls `V1PolicyEngine.decide(...)` and branches from its output using LangGraph conditional edges or `Command`, rather than burying decisions inside Deep Agents prompts or middleware.
 - **Check logging feasibility**: Make sure you can record the control points you care about, such as transitions, retrieval plans, and violations, because poor observability would make the runtime a bad fit. fileciteturn3file1
-- **Stop if the fit feels forced**: Treat this as a validation spike, not a commitment phase, so you can reject the runtime early if it requires awkward compromises.
+- **Stop if the fit requires prompt-owned policy**: Treat default Deep Agents prompt/middleware ownership of stage policy as a forced fit, not as an acceptable implementation shortcut.
 
 ### 5. Commit to Open SWE as the runtime shell
 
-- **Implement the graph around your own policy core**: Build the actual runtime graph only after the fit spike works, so Open SWE becomes the execution shell rather than the owner of your system logic.
+- **Implement the custom graph around your own policy core**: Build the actual runtime graph only after the fit spike works, so Open SWE becomes the deployment and invocation shell rather than the owner of your system logic.
 - **Keep decisions in your code, not the runtime defaults**: Nodes should call your `PolicyEngine` and related services, instead of gradually shifting important logic into framework glue.
+- **Keep Deep Agents out of stage control**: Deep Agents may be useful later for coding-agent tasks, but Guided Intelligence stage decisions must remain in the custom LangGraph graph.
 - **Use only the Open SWE capabilities you need**: Ignore extra agentic features if they do not help the thesis, because your proposal prioritizes bounded roles and replaceability over tool-centric design. fileciteturn3file1
 - **Preserve a strict stage-driven flow**: Keep the graph aligned with your explicit stage machine so the runtime remains compatible with the proposal’s deterministic orchestration idea. fileciteturn3file1
 
@@ -152,13 +154,13 @@ These should not be implemented yet, but the architecture should remain reusable
 - **Choose one bounded model role first**: Start with either a lightweight classifier or a single constrained response generator so you validate the orchestration before increasing model complexity.
 - **Keep the model under explicit control**: Pass in only the evidence and instructions allowed by the current stage so the model remains a controlled component, as the proposal requires. fileciteturn3file1
 - **Use deterministic settings where possible**: Keep temperature and related settings stable so you can observe the effect of orchestration rather than chasing avoidable variability. fileciteturn3file1
-- **Verify stage-aware responses**: Check that the model output differs appropriately between explanation, follow-up, hinting, and redirection cases.
+- **Verify stage-aware responses**: Check that the model output differs appropriately between explanation, follow-up, hinting, and boundary cases.
 - **Do not add multiple models yet**: Delay supervisor/main-model splits until the first constrained path works reliably, because early multi-model complexity would increase scope without validating the foundation.
 
 ### 9. Validate the end-to-end v1 loop in Open SWE
 
 - **Test the normal explanation path**: Confirm that a standard understanding request moves cleanly through policy, retrieval, response construction, and output.
-- **Test direct-solution rejection or redirection**: Verify that forbidden requests trigger the intended response path rather than slipping through as partial answers.
+- **Test direct-solution rejection**: Verify that forbidden requests trigger the intended stage-boundary response rather than slipping through as partial answers.
 - **Test follow-up and hint progression**: Check that later-stage interactions only happen when the prior stage conditions are satisfied.
 - **Test insufficient-evidence behavior**: Make sure the system reacts sensibly when allowed retrieval does not provide enough grounded context, because that is a realistic constraint in onboarding scenarios.
 - **Test source restriction enforcement**: Confirm that the system does not rely on disallowed source categories or unsupported context even when that would be convenient.

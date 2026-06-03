@@ -101,25 +101,25 @@ The retrieval log should record the query, source policy, ordered sources, selec
 
 ## Model Providers
 
-Define model configuration as data so university API models and local models can run through the same harness:
+Define retrieval model configuration in the repo root `.env` so local secrets stay out of Git and the harness can switch endpoints without code changes.
 
-```json
-{
-  "provider": "university_api",
-  "model": "<model-name>",
-  "base_url": "<api-base-url>",
-  "api_key_env": "UNIVERSITY_LLM_API_KEY",
-  "temperature": 0,
-  "max_tokens": 2000
-}
+Copy `.env.example` to `.env` and configure:
+
+```dotenv
+RETRIEVAL_LLM_API_STYLE=openai_chat_completions
+RETRIEVAL_LLM_ENDPOINT_URL=https://api.openai.com/v1/chat/completions
+RETRIEVAL_LLM_MODEL=<model-name>
+RETRIEVAL_LLM_API_KEY=<api-key>
+RETRIEVAL_LLM_TEMPERATURE=0
+RETRIEVAL_LLM_MAX_TOKENS=2000
+RETRIEVAL_LLM_TIMEOUT_SECONDS=30
 ```
 
-Use these provider categories:
+Important:
 
-- `university_api`: remote models provided by the university API.
-- `ollama`: local model serving for first local Gemma experiments.
-- `llama_cpp`: later local serving when GGUF-level control, benchmarking, or lean deployment matters.
-- `vllm`: later GPU serving when batching, throughput, or larger hosted local deployment matters.
+- `RETRIEVAL_LLM_ENDPOINT_URL` must be the full request URL.
+- The runtime currently supports only `openai_chat_completions`.
+- Alternate providers are supported by configuration when they expose an OpenAI-compatible chat completions endpoint.
 
 For local Gemma, use Ollama first. Google documents direct Gemma support through Ollama, including Gemma 3 model tags such as `gemma3:4b`, and this is the fastest setup path for local experiments. Use `llama.cpp` later if you need direct GGUF control or lower-level benchmarking. Use `vLLM` only if the project needs serving throughput or GPU batching.
 

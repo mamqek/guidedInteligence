@@ -41,7 +41,7 @@ guidedInteligence/
 - `v1_boundaries.md`: frozen v1 behavior, allowed stages, allowed sources, policy violations, logging requirements, and exclusions.
 - `step3_harness_scenarios.md`: scenario and behavior specification for the local framework-free Step 3 harness.
 - `step3_harness_scenarios.py`: executable scenario fixture skeleton for the future local harness.
-- `step4_openswe_fit_spike.md`: theoretical Step 4 mapping of the current orchestration contract into a minimal Open SWE fit-spike graph.
+- `step4_openswe_fit_spike.md`: theoretical Step 4 mapping of the current orchestration contract into a custom LangGraph graph deployed inside or alongside Open SWE infrastructure.
 - `AGENTS.md`: project-local agent memory, including the NotebookLM source to consult when local context is insufficient.
 - `PROJECT_STRUCTURE.md`: central map of the repository structure and ownership boundaries.
 
@@ -78,13 +78,14 @@ Later additions should follow the original build plan:
 - `experiments/`: local harnesses, scenarios, and fixtures.
 - `services/retrieval/`: ingestion, retrieval, reranking, and context building implementations.
 - `services/models/`: one constrained model path after the deterministic harness works.
-- `runtime/openswe/`: Open SWE graph shell only after the core contract proves stable.
+- `runtime/openswe/`: custom LangGraph wrapper around core contracts, using Open SWE for deployment, sandboxing, invocation, thread/run infrastructure, tracing, and optional middleware. It must not contain stage-policy rules.
 - `tests/`: focused checks for policy, transitions, retrieval stubs, and runtime mapping.
 
 ## Boundary Rules
 
 - Keep framework-specific code out of `core/`.
 - Keep policy decisions in `core/policy.py` or later core policy modules, not in runtime glue.
+- Keep future Open SWE/Deep Agents prompts from owning stage policy; runtime code should call the policy engine and branch from its decision.
 - Keep source categories explicit and tied to `source_policy.py`.
 - Keep violations explicit and loggable through `PolicyViolation`.
 - Add `DESIGN_DECISION_REQUIRED` comments only when implementation would otherwise require guessing.

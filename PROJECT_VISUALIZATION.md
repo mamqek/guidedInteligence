@@ -76,7 +76,8 @@ flowchart TD
     loggingContracts["services.logging.store<br/>append() + list_events()"]
 
     futureHarness["future experiments/harness.py"]
-    futureRuntime["future runtime/openswe/*"]
+    futureRuntime["future runtime/openswe/*<br/>Custom LangGraph wrapper"]
+    openSweInfra["Open SWE infrastructure<br/>deployment + sandbox + invocation"]
     futureRag["future retrieval implementation"]
     futureLogStore["future logging implementation"]
 
@@ -90,6 +91,7 @@ flowchart TD
     futureRuntime --> coreContracts
     futureRuntime --> retrievalContracts
     futureRuntime --> loggingContracts
+    openSweInfra -. shell around .-> futureRuntime
 
     futureRag -. implements .-> retrievalContracts
     futureLogStore -. implements .-> loggingContracts
@@ -104,7 +106,8 @@ flowchart TD
 
     policy --> intent{"Intent"}
     intent -->|"direct solution request"| violation["PolicyViolation<br/>direct_solution_request"]
-    violation --> redirect["Response template<br/>violation_redirect"]
+    violation --> boundary["Response template<br/>stage_boundary_choice"]
+    boundary --> stayStage["Next stage: unchanged"]
 
     intent -->|"understand code / follow-up"| stage{"Current stage"}
     stage -->|"explain"| explain["Response template<br/>explanation"]
@@ -119,4 +122,3 @@ flowchart TD
     retrieval -->|"no"| retrievalRequired["retrieval_required = true"]
     retrieval -->|"yes"| retrievalNotRequired["retrieval_required = false"]
 ```
-

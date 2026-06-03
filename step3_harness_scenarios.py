@@ -5,48 +5,38 @@ from enum import Enum
 from typing import cast
 
 from core.logging_schema import LogEventType
-from core.models import ConversationState, EvidenceItem, UserIntent
-from core.response_contracts import ResponseTemplate
+from core.models import ConversationState, EvidenceItem, ResponseMode, UserIntent
 from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, SourceCategory
 from core.stages import ResponseStage
 from core.violations import PolicyViolationType
 
 
 class ScenarioOnlySourceCategory(str, Enum):
-    """Source category used only to exercise unsupported-source scenarios."""
-
     EXTERNAL_WEB = "external_web"
 
 
-UNSUPPORTED_SOURCE_CATEGORY = cast(
-    SourceCategory,
-    ScenarioOnlySourceCategory.EXTERNAL_WEB,
-)
+UNSUPPORTED_SOURCE_CATEGORY = cast(SourceCategory, ScenarioOnlySourceCategory.EXTERNAL_WEB)
 
 
 @dataclass(frozen=True)
-class ExpectedDecision:
-    """Expected policy fields a future Step 3 harness should assert."""
-
+class ExpectedPolicyResult:
     allowed: bool
-    current_stage: ResponseStage
+    active_stage: ResponseStage
     next_stage: ResponseStage
     intent: UserIntent
     retrieval_required: bool
-    response_template_id: str
+    response_mode: ResponseMode
     allowed_sources: tuple[SourceCategory, ...] = DEFAULT_ALLOWED_SOURCE_CATEGORIES
     violations: tuple[PolicyViolationType, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
 class HarnessScenario:
-    """Scenario fixture for the local framework-free harness."""
-
     scenario_id: str
     title: str
     purpose: str
     state: ConversationState
-    expected_decision: ExpectedDecision
+    expected_policy: ExpectedPolicyResult
     expected_log_events: tuple[LogEventType, ...]
     stub_evidence_after_retrieval: tuple[EvidenceItem, ...] = field(default_factory=tuple)
     notes: tuple[str, ...] = field(default_factory=tuple)
@@ -54,8 +44,8 @@ class HarnessScenario:
 
 SOURCE_CODE_EVIDENCE = EvidenceItem(
     source_category=SourceCategory.SOURCE_CODE,
-    source_id="core.policy.V1PolicyEngine",
-    snippet="V1PolicyEngine selects scaffolded stages and explicit policy violations.",
+    source_id="core.policy.PolicyStage",
+    snippet="PolicyStage selects scaffolded stages and explicit policy violations.",
     rank=1,
     metadata={"path": "core/policy.py"},
 )
@@ -63,7 +53,7 @@ SOURCE_CODE_EVIDENCE = EvidenceItem(
 DOCUMENTATION_EVIDENCE = EvidenceItem(
     source_category=SourceCategory.DOCUMENTATION,
     source_id="v1_boundaries.supported_flow",
-    snippet="The v1 flow is explain -> ask -> hint, with direct solutions redirected.",
+    snippet="The v1 flow is explain -> ask -> hint, with shortcut violations held at the active stage.",
     rank=2,
     metadata={"path": "v1_boundaries.md"},
 )
@@ -76,23 +66,28 @@ UNSUPPORTED_EVIDENCE = EvidenceItem(
     metadata={"url": "https://example.invalid/out-of-scope"},
 )
 
-DEFAULT_STUB_EVIDENCE = (
-    SOURCE_CODE_EVIDENCE,
-    DOCUMENTATION_EVIDENCE,
-)
+DEFAULT_STUB_EVIDENCE = (SOURCE_CODE_EVIDENCE, DOCUMENTATION_EVIDENCE)
 
-RETRIEVAL_RESPONSE_LOGS = (
+CONTROL_LAYER_RETRIEVAL_LOGS = (
+    LogEventType.RUN_STARTED,
     LogEventType.STAGE_DECISION,
     LogEventType.RETRIEVAL_PLAN,
     LogEventType.EVIDENCE_SELECTED,
+    LogEventType.RESPONSE_PLAN,
     LogEventType.PROMPT_PAYLOAD,
     LogEventType.RESPONSE_PAYLOAD,
+    LogEventType.RUN_COMPLETED,
 )
 
-NO_RETRIEVAL_RESPONSE_LOGS = (
+CONTROL_LAYER_NO_RETRIEVAL_LOGS = (
+    LogEventType.RUN_STARTED,
     LogEventType.STAGE_DECISION,
+    LogEventType.RETRIEVAL_PLAN,
+    LogEventType.EVIDENCE_SELECTED,
+    LogEventType.RESPONSE_PLAN,
     LogEventType.PROMPT_PAYLOAD,
     LogEventType.RESPONSE_PAYLOAD,
+    LogEventType.RUN_COMPLETED,
 )
 
 
@@ -108,15 +103,15 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
             intent=UserIntent.UNDERSTAND_CODE,
             stage_history=(ResponseStage.EXPLAIN,),
         ),
-        expected_decision=ExpectedDecision(
+        expected_policy=ExpectedPolicyResult(
             allowed=True,
-            current_stage=ResponseStage.EXPLAIN,
+            active_stage=ResponseStage.EXPLAIN,
             next_stage=ResponseStage.ASK,
             intent=UserIntent.UNDERSTAND_CODE,
             retrieval_required=True,
-            response_template_id=ResponseTemplate.EXPLANATION.value,
+            response_mode=ResponseMode.EXPLANATION,
         ),
-        expected_log_events=RETRIEVAL_RESPONSE_LOGS,
+        expected_log_events=CONTROL_LAYER_RETRIEVAL_LOGS,
         stub_evidence_after_retrieval=DEFAULT_STUB_EVIDENCE,
     ),
     HarnessScenario(
@@ -130,20 +125,16 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
             intent=UserIntent.FOLLOW_UP,
             stage_history=(ResponseStage.EXPLAIN, ResponseStage.ASK),
         ),
-        expected_decision=ExpectedDecision(
+        expected_policy=ExpectedPolicyResult(
             allowed=True,
-            current_stage=ResponseStage.ASK,
+            active_stage=ResponseStage.ASK,
             next_stage=ResponseStage.HINT,
             intent=UserIntent.FOLLOW_UP,
             retrieval_required=True,
-            response_template_id=ResponseTemplate.REASONING_QUESTION.value,
+            response_mode=ResponseMode.REASONING_QUESTION,
         ),
-        expected_log_events=RETRIEVAL_RESPONSE_LOGS,
+        expected_log_events=CONTROL_LAYER_RETRIEVAL_LOGS,
         stub_evidence_after_retrieval=DEFAULT_STUB_EVIDENCE,
-        notes=(
-            "Reasoning-question contracts do not require final evidence text, "
-            "but policy can still request retrieval when state has no evidence.",
-        ),
     ),
     HarnessScenario(
         scenario_id="hint_stage_follow_up",
@@ -154,27 +145,23 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
             user_input="I still need a hint about how to read this policy behavior.",
             current_stage=ResponseStage.HINT,
             intent=UserIntent.FOLLOW_UP,
-            stage_history=(
-                ResponseStage.EXPLAIN,
-                ResponseStage.ASK,
-                ResponseStage.HINT,
-            ),
+            stage_history=(ResponseStage.EXPLAIN, ResponseStage.ASK, ResponseStage.HINT),
         ),
-        expected_decision=ExpectedDecision(
+        expected_policy=ExpectedPolicyResult(
             allowed=True,
-            current_stage=ResponseStage.HINT,
+            active_stage=ResponseStage.HINT,
             next_stage=ResponseStage.HINT,
             intent=UserIntent.FOLLOW_UP,
             retrieval_required=True,
-            response_template_id=ResponseTemplate.HINT.value,
+            response_mode=ResponseMode.HINT,
         ),
-        expected_log_events=RETRIEVAL_RESPONSE_LOGS,
+        expected_log_events=CONTROL_LAYER_RETRIEVAL_LOGS,
         stub_evidence_after_retrieval=DEFAULT_STUB_EVIDENCE,
     ),
     HarnessScenario(
         scenario_id="direct_solution_request",
         title="Direct solution request",
-        purpose="Direct solution requests are redirected without retrieval.",
+        purpose="Direct solution requests are rejected without retrieval or stage advancement.",
         state=ConversationState(
             conversation_id="step3-direct-solution",
             user_input="Just solve this and write the solution for me.",
@@ -182,22 +169,25 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
             intent=UserIntent.UNKNOWN,
             stage_history=(ResponseStage.EXPLAIN,),
         ),
-        expected_decision=ExpectedDecision(
+        expected_policy=ExpectedPolicyResult(
             allowed=False,
-            current_stage=ResponseStage.ASK,
-            next_stage=ResponseStage.HINT,
+            active_stage=ResponseStage.EXPLAIN,
+            next_stage=ResponseStage.EXPLAIN,
             intent=UserIntent.DIRECT_SOLUTION_REQUEST,
             retrieval_required=False,
-            response_template_id=ResponseTemplate.BOUNDARY_CHECK_QUESTION.value,
+            response_mode=ResponseMode.BOUNDARY,
             violations=(PolicyViolationType.DIRECT_SOLUTION_REQUEST,),
         ),
         expected_log_events=(
+            LogEventType.RUN_STARTED,
             LogEventType.STAGE_DECISION,
             LogEventType.POLICY_VIOLATION,
+            LogEventType.RETRIEVAL_PLAN,
+            LogEventType.RESPONSE_PLAN,
             LogEventType.PROMPT_PAYLOAD,
             LogEventType.RESPONSE_PAYLOAD,
+            LogEventType.RUN_COMPLETED,
         ),
-        notes=("This scenario also covers the direct-solution keyword heuristic.",),
     ),
     HarnessScenario(
         scenario_id="stage_skipping_attempt",
@@ -210,24 +200,24 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
             intent=UserIntent.UNDERSTAND_CODE,
             stage_history=(ResponseStage.EXPLAIN,),
         ),
-        expected_decision=ExpectedDecision(
+        expected_policy=ExpectedPolicyResult(
             allowed=False,
-            current_stage=ResponseStage.ASK,
-            next_stage=ResponseStage.HINT,
+            active_stage=ResponseStage.EXPLAIN,
+            next_stage=ResponseStage.EXPLAIN,
             intent=UserIntent.UNDERSTAND_CODE,
             retrieval_required=False,
-            response_template_id=ResponseTemplate.BOUNDARY_CHECK_QUESTION.value,
+            response_mode=ResponseMode.BOUNDARY,
             violations=(PolicyViolationType.STAGE_SKIPPING,),
         ),
         expected_log_events=(
+            LogEventType.RUN_STARTED,
             LogEventType.STAGE_DECISION,
             LogEventType.POLICY_VIOLATION,
+            LogEventType.RETRIEVAL_PLAN,
+            LogEventType.RESPONSE_PLAN,
             LogEventType.PROMPT_PAYLOAD,
             LogEventType.RESPONSE_PAYLOAD,
-        ),
-        notes=(
-            "Stage-skipping recovery now uses ASK-stage questioning instead of "
-            "the skipped hint template.",
+            LogEventType.RUN_COMPLETED,
         ),
     ),
     HarnessScenario(
@@ -242,24 +232,24 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
             evidence=(UNSUPPORTED_EVIDENCE,),
             stage_history=(ResponseStage.EXPLAIN,),
         ),
-        expected_decision=ExpectedDecision(
+        expected_policy=ExpectedPolicyResult(
             allowed=False,
-            current_stage=ResponseStage.EXPLAIN,
+            active_stage=ResponseStage.EXPLAIN,
             next_stage=ResponseStage.ASK,
             intent=UserIntent.UNDERSTAND_CODE,
             retrieval_required=False,
-            response_template_id=ResponseTemplate.EXPLANATION.value,
+            response_mode=ResponseMode.EXPLANATION,
             violations=(PolicyViolationType.UNSUPPORTED_SOURCE_USAGE,),
         ),
         expected_log_events=(
+            LogEventType.RUN_STARTED,
             LogEventType.STAGE_DECISION,
             LogEventType.POLICY_VIOLATION,
+            LogEventType.RETRIEVAL_PLAN,
+            LogEventType.RESPONSE_PLAN,
             LogEventType.PROMPT_PAYLOAD,
             LogEventType.RESPONSE_PAYLOAD,
-        ),
-        notes=(
-            "SourceCategory currently contains only allowed v1 categories, so "
-            "this fixture uses a scenario-only cast to exercise the policy path.",
+            LogEventType.RUN_COMPLETED,
         ),
     ),
     HarnessScenario(
@@ -274,15 +264,15 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
             evidence=DEFAULT_STUB_EVIDENCE,
             stage_history=(ResponseStage.EXPLAIN,),
         ),
-        expected_decision=ExpectedDecision(
+        expected_policy=ExpectedPolicyResult(
             allowed=True,
-            current_stage=ResponseStage.EXPLAIN,
+            active_stage=ResponseStage.EXPLAIN,
             next_stage=ResponseStage.ASK,
             intent=UserIntent.UNDERSTAND_CODE,
             retrieval_required=False,
-            response_template_id=ResponseTemplate.EXPLANATION.value,
+            response_mode=ResponseMode.EXPLANATION,
         ),
-        expected_log_events=NO_RETRIEVAL_RESPONSE_LOGS,
+        expected_log_events=CONTROL_LAYER_NO_RETRIEVAL_LOGS,
     ),
     HarnessScenario(
         scenario_id="unknown_intent_heuristic",
@@ -295,30 +285,25 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
             intent=UserIntent.UNKNOWN,
             stage_history=(ResponseStage.EXPLAIN, ResponseStage.ASK),
         ),
-        expected_decision=ExpectedDecision(
+        expected_policy=ExpectedPolicyResult(
             allowed=True,
-            current_stage=ResponseStage.ASK,
+            active_stage=ResponseStage.ASK,
             next_stage=ResponseStage.HINT,
             intent=UserIntent.FOLLOW_UP,
             retrieval_required=True,
-            response_template_id=ResponseTemplate.REASONING_QUESTION.value,
+            response_mode=ResponseMode.REASONING_QUESTION,
         ),
-        expected_log_events=RETRIEVAL_RESPONSE_LOGS,
+        expected_log_events=CONTROL_LAYER_RETRIEVAL_LOGS,
         stub_evidence_after_retrieval=DEFAULT_STUB_EVIDENCE,
-        notes=("The future harness should assert policy output, not duplicate heuristics.",),
     ),
 )
 
 
 def scenario_ids() -> tuple[str, ...]:
-    """Return stable scenario IDs for lightweight smoke checks."""
-
     return tuple(scenario.scenario_id for scenario in SCENARIOS)
 
 
 def main() -> None:
-    """List available scenarios without executing the future harness."""
-
     for scenario in SCENARIOS:
         print(f"{scenario.scenario_id}: {scenario.title}")
 
