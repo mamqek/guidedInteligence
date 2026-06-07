@@ -6,11 +6,11 @@ import urllib.error
 import urllib.request
 from typing import Any, Callable, Mapping, Sequence
 
-from services.retrieval.step2.common import bounded_strings, looks_like_absolute_path
 from services.retrieval.tools.local import file_role as tool_file_role
 
 
 _TEMPERATURE_DISABLED_MODELS: set[tuple[str, str]] = set()
+_CONTINUITY_STATE: dict[tuple[str, str], str] = {}
 
 
 def complete_json(
@@ -24,7 +24,8 @@ def complete_json(
     api_key = str(config.api_key).strip()
     if not api_key:
         raise ValueError("Missing LLM API key in config.")
-    payload = _request_payload(config, messages, response_format=response_format)
+    effective_messages = _messages_with_continuity(config, messages)
+    payload = _request_payload(config, effective_messages, response_format=response_format)
 
     def _attempt(request_payload: Mapping[str, Any]) -> Mapping[str, Any]:
         started_at = time.perf_counter()
@@ -116,7 +117,7 @@ def complete_json(
                         "message": "temperature parameter rejected by model; retrying without temperature for the rest of the run",
                     }
                 )
-            response_data = _attempt(_request_payload(config, messages, response_format=response_format))
+            response_data = _attempt(_request_payload(config, effective_messages, response_format=response_format))
         else:
             raise RuntimeError(f"LLM request failed: HTTP {exc.status_code}: {exc.error_body}") from exc
 
@@ -136,7 +137,9 @@ def complete_json(
         raise RuntimeError("LLM response missing choices[0].message.content") from exc
     content_text = str(content)
     try:
-        return _parse_json_object(content_text)
+        parsed = _parse_json_object(content_text)
+        _store_continuity_response(config, parsed)
+        return parsed
     except RuntimeError:
         if log_warning is not None:
             log_warning(
@@ -226,9 +229,9 @@ def validate_role_bucket_assessment(response: Mapping[str, Any]) -> Mapping[str,
     return {
         "acceptance_satisfied": bool(response.get("acceptance_satisfied", False)),
         "stop_reason": str(response.get("stop_reason", "")).strip(),
-        "missing_areas": list(bounded_strings(response.get("missing_areas"), limit=8)),
-        "accepted_anchor_refs": list(bounded_strings(response.get("accepted_anchor_refs"), limit=16)),
-        "rejected_anchor_refs": list(bounded_strings(response.get("rejected_anchor_refs"), limit=16)),
+        "missing_areas": list(_bounded_strings(response.get("missing_areas"), limit=8)),
+        "accepted_anchor_refs": list(_bounded_strings(response.get("accepted_anchor_refs"), limit=16)),
+        "rejected_anchor_refs": list(_bounded_strings(response.get("rejected_anchor_refs"), limit=16)),
         "snippet_assessment": snippet_assessment,
         "follow_up_queries": follow_up_queries,
     }
@@ -341,6 +344,51 @@ def _request_payload(
     return payload
 
 
+def _messages_with_continuity(config: Any, messages: Sequence[Mapping[str, str]]) -> Sequence[Mapping[str, str]]:
+    if not bool(getattr(config, "continuity_enabled", False)):
+        return messages
+    previous = _CONTINUITY_STATE.get(_temperature_cache_key(config))
+    if not previous:
+        return messages
+    continuity_message = {
+        "role": "system",
+        "content": (
+            "Experimental retrieval continuity is enabled. "
+            "Use this compact previous JSON result only as process-local orientation; do not treat it as evidence.\n"
+            f"{previous}"
+        ),
+    }
+    return (continuity_message, *messages)
+
+
+def _store_continuity_response(config: Any, response: Mapping[str, Any]) -> None:
+    if not bool(getattr(config, "continuity_enabled", False)):
+        return
+    compact = json.dumps(_compact_continuity_response(response), sort_keys=True)
+    _CONTINUITY_STATE[_temperature_cache_key(config)] = compact[:2000]
+
+
+def _compact_continuity_response(response: Mapping[str, Any]) -> Mapping[str, Any]:
+    keep_keys = (
+        "prompt_summary",
+        "retrieval_terms",
+        "required_roles",
+        "supporting_roles",
+        "llm_subqueries",
+        "accepted_anchor_refs",
+        "rejected_anchor_refs",
+        "missing_areas",
+        "follow_up_queries",
+        "snippet_assessment",
+        "stop_reason",
+    )
+    compact: dict[str, Any] = {}
+    for key in keep_keys:
+        if key in response:
+            compact[key] = response[key]
+    return compact
+
+
 def _perform_request(config: Any, api_key: str, payload: Mapping[str, Any]) -> Mapping[str, Any]:
     request = urllib.request.Request(
         config.endpoint_url,
@@ -371,6 +419,19 @@ class _LoggedHTTPError(RuntimeError):
         super().__init__(str(exc))
         self.status_code = exc.code
         self.error_body = error_body
+
+
+def _bounded_strings(values: object, *, limit: int) -> tuple[str, ...]:
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        return ()
+    result: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if text:
+            result.append(text[:300])
+        if len(result) >= limit:
+            break
+    return tuple(result)
 
 
 def _role_bucket_response_format() -> Mapping[str, Any]:

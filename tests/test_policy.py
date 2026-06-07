@@ -80,6 +80,51 @@ class ControlLayerPolicyTests(unittest.TestCase):
             ],
         )
 
+    def test_explanation_response_renders_linked_evidence_sections(self) -> None:
+        retrieval = _StubRetrievalService(
+            RetrievalResult(
+                evidence=(
+                    EvidenceItem(
+                        source_category=SourceCategory.SOURCE_CODE,
+                        source_id="repo-pre:src/compiler/checker.ts:L4242-L4321",
+                        snippet="function checkClassLikeDeclaration(node) {\n  return Diagnostics.Abstract_class;\n}",
+                        rank=1,
+                        metadata={
+                            "path": "src/compiler/checker.ts",
+                            "coverage_area": "validation_checking",
+                            "retrieval_path": "direct_owner_file",
+                        },
+                    ),
+                ),
+                coverage_status="partial",
+                sufficient=False,
+                retrieval_summary={
+                    "deterministic_coverage_gate": {
+                        "satisfied": False,
+                        "missing_roles": ["input_parsing"],
+                        "reasons": ["input_parsing:no_strong_satisfying_candidate"],
+                    }
+                },
+            )
+        )
+        control_layer = ControlLayer(policy_stage=PolicyStage(), retrieval_stage=retrieval, logger=_InMemoryLogger())
+
+        result = control_layer.run(
+            ConversationState(
+                conversation_id="test-linked-response",
+                user_input="Explain abstract class handling.",
+                current_stage=ResponseStage.EXPLAIN,
+                intent=UserIntent.UNDERSTAND_CODE,
+            )
+        )
+
+        content = result.response_payload.content
+        self.assertIn("**Summary**", content)
+        self.assertIn("**Evidence**", content)
+        self.assertIn("[src/compiler/checker.ts:L4242-L4321](src/compiler/checker.ts#L4242-L4321)", content)
+        self.assertIn("function checkClassLikeDeclaration", content)
+        self.assertIn("input_parsing:no_strong_satisfying_candidate", content)
+
     def test_default_policy_engine_uses_v1_default_source_categories(self) -> None:
         state = ConversationState(
             conversation_id="test-default-source-policy",

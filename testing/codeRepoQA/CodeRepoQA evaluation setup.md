@@ -167,3 +167,47 @@ Use RAG metrics such as context precision, context recall, and faithfulness only
 - Google Gemma with Ollama: https://ai.google.dev/gemma/docs/integrations/ollama
 - llama.cpp: https://github.com/ggml-org/llama.cpp
 - Ragas evaluation metrics: https://docs.ragas.io/en/v0.1.21/getstarted/evaluation.html
+## Retrieval runtime requirements
+
+- Local Docker Qdrant is mandatory for the active workspace retriever.
+- There is no fallback to the previous local BM25-only search path.
+- Retrieval indexing and search also require a working OpenAI-compatible embeddings endpoint.
+
+## Local Qdrant setup
+
+From the repository root:
+
+```powershell
+docker compose -f docker-compose.qdrant.yml up -d
+```
+
+Expected local endpoint:
+
+- `http://localhost:6333`
+
+The provided compose file uses a named Docker volume so the Qdrant collection persists cleanly on Windows.
+
+## Required retrieval environment variables
+
+In addition to the retrieval LLM settings, the active retriever now requires:
+
+- `RETRIEVAL_EMBEDDING_API_STYLE`
+- `RETRIEVAL_EMBEDDING_ENDPOINT_URL`
+- `RETRIEVAL_EMBEDDING_MODEL`
+- `RETRIEVAL_EMBEDDING_API_KEY`
+- `RETRIEVAL_EMBEDDING_TIMEOUT_SECONDS`
+- `RETRIEVAL_EMBEDDING_BATCH_SIZE`
+- `RETRIEVAL_QDRANT_URL`
+- `RETRIEVAL_QDRANT_COLLECTION`
+- `RETRIEVAL_QDRANT_TIMEOUT_SECONDS`
+
+The current recommended embedding model for this repo is:
+
+- `text-embedding-3-large`
+
+## Notes
+
+- CGC still performs structural narrowing and graph confirmation.
+- Qdrant now performs the active dense+sparse chunk retrieval.
+- Document embeddings are cached in the retrieval index directory and should be reused across repeated runs for the same indexed snapshot.
+- Chunking is intentionally unchanged in this first migration and may be tuned later if snippet quality needs improvement.

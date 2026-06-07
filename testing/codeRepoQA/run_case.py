@@ -23,7 +23,14 @@ from core.stages import ResponseStage
 from services.logging.store import JsonlLogger
 from services.retrieval.bm25 import build_index_from_repo, save_index
 from services.retrieval.cases import HiddenCodeRepoQACase, VisibleCodeRepoQACase, load_coderepoqa_case
-from services.retrieval.config import RunLLMConfig, WorkspaceRetrievalConfig, load_retrieval_llm_config
+from services.retrieval.config import (
+    RunLLMConfig,
+    WorkspaceRetrievalConfig,
+    load_retrieval_embedding_config,
+    load_retrieval_enable_indexing,
+    load_retrieval_llm_config,
+    load_retrieval_qdrant_config,
+)
 from services.retrieval.workspace import WorkspaceRetrievalStage
 
 
@@ -88,7 +95,7 @@ def run_case(
         repo_pre_commit=repo_pre_commit,
     )
     source_policy = SourcePolicy(
-        allowed_categories=(SourceCategory.SOURCE_CODE,),
+        allowed_categories=(SourceCategory.LOCAL_NOTES, SourceCategory.SOURCE_CODE),
         policy_name="coderepoqa_workspace_initial",
     )
     state = ConversationState(
@@ -111,10 +118,14 @@ def run_case(
                 index_dir=str(index_dir),
                 run_dir=str(run_dir),
                 llm_config=llm_config,
+                embedding_config=load_retrieval_embedding_config(),
+                qdrant_config=load_retrieval_qdrant_config(),
                 cgc_repo_path=str(cgc_repo_path),
                 cgc_db_path=str(cgc_db_path),
+                cgc_force_reindex_each_request=False,
+                enable_indexing=load_retrieval_enable_indexing(),
                 cgc_timeout_seconds=180,
-                enabled_source_categories=(SourceCategory.SOURCE_CODE,),
+                enabled_source_categories=(SourceCategory.LOCAL_NOTES, SourceCategory.SOURCE_CODE),
             )
         ),
         logger=logger,

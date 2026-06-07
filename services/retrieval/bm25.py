@@ -12,6 +12,13 @@ from core.source_policy import SourceCategory
 
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|[0-9]+")
+DECLARATION_START_PATTERN = re.compile(
+    r"^\s*(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:async\s+)?(?:abstract\s+)?"
+    r"(?:class|interface|enum|namespace|module|type|function)\b"
+)
+DECLARATION_SYMBOL_PATTERN = re.compile(
+    r"\b(?:class|interface|enum|namespace|module|type|function)\s+([A-Za-z_][A-Za-z0-9_]*)\b"
+)
 EXCLUDED_DIRS = {".git", "node_modules", "dist", "build", ".cache", "coverage"}
 TEXT_EXTENSIONS = {
     ".c",
@@ -188,32 +195,18 @@ def build_index_from_repo(
         text = _read_text_file(file_path)
         if text is None:
             continue
-        lines = text.splitlines()
-        step = chunk_line_count - chunk_line_overlap
-        for start in range(0, len(lines), step):
-            chunk_lines = lines[start : start + chunk_line_count]
-            if not any(line.strip() for line in chunk_lines):
-                continue
-            line_start = start + 1
-            line_end = start + len(chunk_lines)
-            chunk_id = f"repo-pre:{relative_path}:L{line_start}-L{line_end}"
-            chunks.append(
-                IndexedChunk(
-                    chunk_id=chunk_id,
-                    source_category=_classify_source_category(relative_path),
-                    snapshot=snapshot,
-                    commit=commit,
-                    path=relative_path,
-                    line_start=line_start,
-                    line_end=line_end,
-                    text="\n".join(chunk_lines),
-                    symbols=(),
-                    metadata={
-                        "visibility": visibility,
-                        "origin": origin,
-                    },
-                )
+        chunks.extend(
+            _build_chunks_for_file(
+                relative_path=relative_path,
+                text=text,
+                commit=commit,
+                snapshot=snapshot,
+                visibility=visibility,
+                origin=origin,
+                chunk_line_count=chunk_line_count,
+                chunk_line_overlap=chunk_line_overlap,
             )
+        )
 
     documents = tuple(
         BM25Document(chunk=chunk, tokens=tuple(tokenize(_document_text(chunk)))) for chunk in chunks
@@ -261,7 +254,129 @@ def _iter_source_files(root: Path) -> Iterable[Path]:
             continue
         if path.suffix.lower() not in TEXT_EXTENSIONS:
             continue
+        relative_path = path.relative_to(root).as_posix()
+        if _should_skip_indexing(relative_path):
+            continue
         yield path
+
+
+def _build_chunks_for_file(
+    *,
+    relative_path: str,
+    text: str,
+    commit: str,
+    snapshot: str,
+    visibility: str,
+    origin: str,
+    chunk_line_count: int,
+    chunk_line_overlap: int,
+) -> list[IndexedChunk]:
+    lines = text.splitlines()
+    if not lines:
+        return []
+    source_category = _classify_source_category(relative_path)
+    metadata = {
+        "file_role": _file_role(relative_path),
+        "visibility": visibility,
+        "origin": origin,
+    }
+    spans = _structure_aware_spans(lines, chunk_line_count=chunk_line_count)
+    chunks: list[IndexedChunk] = []
+    for start, end in spans:
+        span_lines = lines[start:end]
+        symbol_names = tuple(_extract_chunk_symbols(span_lines))
+        chunks.extend(
+            _subdivide_span(
+                relative_path=relative_path,
+                source_category=source_category,
+                commit=commit,
+                snapshot=snapshot,
+                metadata=metadata,
+                lines=lines,
+                start=start,
+                end=end,
+                chunk_line_count=chunk_line_count,
+                chunk_line_overlap=chunk_line_overlap,
+                symbols=symbol_names,
+            )
+        )
+    return chunks
+
+
+def _structure_aware_spans(lines: list[str], *, chunk_line_count: int) -> list[tuple[int, int]]:
+    declaration_starts: list[int] = []
+    for index, line in enumerate(lines):
+        if DECLARATION_START_PATTERN.match(line):
+            declaration_starts.append(index)
+    if not declaration_starts:
+        return [(0, len(lines))]
+
+    spans: list[tuple[int, int]] = []
+    first_declaration = declaration_starts[0]
+    if any(line.strip() for line in lines[:first_declaration]):
+        spans.append((0, first_declaration))
+
+    for offset, start in enumerate(declaration_starts):
+        end = declaration_starts[offset + 1] if offset + 1 < len(declaration_starts) else len(lines)
+        if end <= start:
+            continue
+        spans.append((start, end))
+
+    filtered = [(start, end) for start, end in spans if any(line.strip() for line in lines[start:end])]
+    return filtered or [(0, len(lines))]
+
+
+def _subdivide_span(
+    *,
+    relative_path: str,
+    source_category: SourceCategory,
+    commit: str,
+    snapshot: str,
+    metadata: Mapping[str, str],
+    lines: list[str],
+    start: int,
+    end: int,
+    chunk_line_count: int,
+    chunk_line_overlap: int,
+    symbols: tuple[str, ...],
+) -> list[IndexedChunk]:
+    step = max(1, chunk_line_count - chunk_line_overlap)
+    chunks: list[IndexedChunk] = []
+    for window_start in range(start, end, step):
+        window_end = min(end, window_start + chunk_line_count)
+        chunk_lines = lines[window_start:window_end]
+        if not any(line.strip() for line in chunk_lines):
+            continue
+        line_start = window_start + 1
+        line_end = window_end
+        chunk_id = f"repo-pre:{relative_path}:L{line_start}-L{line_end}"
+        chunks.append(
+            IndexedChunk(
+                chunk_id=chunk_id,
+                source_category=source_category,
+                snapshot=snapshot,
+                commit=commit,
+                path=relative_path,
+                line_start=line_start,
+                line_end=line_end,
+                text="\n".join(chunk_lines),
+                symbols=symbols,
+                metadata=dict(metadata),
+            )
+        )
+    return chunks
+
+
+def _extract_chunk_symbols(lines: Iterable[str]) -> tuple[str, ...]:
+    symbols: list[str] = []
+    for line in lines:
+        match = DECLARATION_SYMBOL_PATTERN.search(line)
+        if match is None:
+            continue
+        symbols.append(match.group(1))
+        if len(symbols) >= 4:
+            break
+    return tuple(symbols)
 
 
 def _classify_source_category(relative_path: str) -> SourceCategory:
@@ -273,11 +388,67 @@ def _classify_source_category(relative_path: str) -> SourceCategory:
     return SourceCategory.SOURCE_CODE
 
 
+def _file_role(path: str) -> str:
+    normalized_path = path.lower().replace("\\", "/")
+    normalized = f"/{normalized_path}"
+    parts = tuple(part for part in normalized.split("/") if part)
+    name = parts[-1] if parts else ""
+    suffix = Path(name).suffix.lower()
+
+    if suffix in {".md", ".rst", ".adoc"} or "docs" in parts or "documentation" in parts:
+        return "documentation"
+    if (
+        "bin" in parts
+        or normalized.startswith("/bin/")
+        or "baseline" in normalized
+        or "baselines" in parts
+        or "snapshot" in normalized
+        or "snapshots" in parts
+        or "golden" in normalized
+        or "generated" in normalized
+        or name.endswith(".generated.ts")
+        or name.endswith(".generated.js")
+    ):
+        return "baseline_or_generated"
+    if (
+        "test" in parts
+        or "tests" in parts
+        or "__tests__" in parts
+        or "spec" in parts
+        or "fixtures" in parts
+        or name.endswith(".test.ts")
+        or name.endswith(".spec.ts")
+        or name.endswith(".test.js")
+        or name.endswith(".spec.js")
+    ):
+        return "test"
+    if any(part in normalized for part in ("/src/", "/lib/", "/app/", "/packages/", "/pkg/", "/core/", "/compiler/")):
+        return "implementation"
+    return "other"
+
+
+def _should_skip_indexing(relative_path: str) -> bool:
+    role = _file_role(relative_path)
+    if role == "baseline_or_generated":
+        return True
+    normalized = relative_path.lower().replace("\\", "/")
+    if "/bin/" in f"/{normalized}" or normalized.startswith("bin/"):
+        return True
+    return False
+
+
 def _read_text_file(path: Path) -> str | None:
-    try:
-        return path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
+    for encoding in ("utf-8", "utf-8-sig", "cp1252", "latin-1", "utf-16", "utf-16-le", "utf-16-be"):
         try:
-            return path.read_text(encoding="utf-8-sig")
-        except UnicodeDecodeError:
-            return None
+            text = path.read_text(encoding=encoding)
+        except UnicodeError:
+            continue
+        if _looks_like_bad_text_decode(text):
+            continue
+        return text
+    return None
+
+
+def _looks_like_bad_text_decode(text: str) -> bool:
+    nul_count = text.count("\x00")
+    return nul_count > max(1, len(text) // 200)
