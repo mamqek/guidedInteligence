@@ -167,46 +167,6 @@ class OpenFileTool:
 def local_tool_specs() -> tuple[ToolSpec, ...]:
     return (
         ToolSpec(
-            name="bm25_search",
-            title="BM25 Chunk Search",
-            description=(
-                "Exact lexical search over pre-resolution repository chunks. Use for identifiers, "
-                "diagnostic text, filenames, syntax keywords, and issue terms."
-            ),
-            arguments={
-                "query": "Required string. Search terms derived from the issue or prior observations.",
-                "limit": "Optional integer from 1 to 50. Defaults to 12.",
-                "path": "Optional relative repo path. Restricts search to one indexed file.",
-                "paths": "Optional list of relative repo paths. Restricts search to a CGC-narrowed file set.",
-                "min_score": "Optional number. Filters out results below this BM25 score.",
-            },
-            examples=(
-                {
-                    "tool_name": "bm25_search",
-                    "arguments": {"query": "abstract class constructor error", "limit": 12},
-                    "reason": "Find source chunks with exact issue terms.",
-                },
-                {
-                    "tool_name": "bm25_search",
-                    "arguments": {
-                        "query": "parse abstract keyword class modifier",
-                        "path": "src/compiler/parser.ts",
-                        "limit": 8,
-                    },
-                    "reason": "Search a likely parser file for relevant syntax handling.",
-                },
-                {
-                    "tool_name": "bm25_search",
-                    "arguments": {
-                        "query": "retry coordinator state transition",
-                        "paths": ["src/runtime/coordinator.ts", "src/runtime/retry.ts"],
-                        "limit": 6,
-                    },
-                    "reason": "After CGC narrows likely files, search only inside those files for exact snippets.",
-                },
-            ),
-        ),
-        ToolSpec(
             name="codegraph_search",
             title="Codegraph File Search",
             description=(

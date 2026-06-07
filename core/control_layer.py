@@ -14,6 +14,7 @@ from core.models import (
     RetrievalResult,
 )
 from core.policy import PolicyStage
+from core.response_builder import render_response
 from services.logging.store import JsonlLogger
 from services.retrieval.workspace import WorkspaceRetrievalStage
 
@@ -159,18 +160,4 @@ def _render_response(
     retrieval_result: RetrievalResult | None,
     response_plan: ResponsePlan,
 ) -> ResponsePayload:
-    evidence_refs = tuple(item.source_id for item in (retrieval_result.evidence if retrieval_result is not None else ()))
-    if response_plan.mode == ResponseMode.BOUNDARY:
-        content = f"Remain in {policy_result.active_stage.value}. {policy_result.reason}"
-    else:
-        content = (
-            f"Planned {response_plan.mode.value} response for stage "
-            f"{response_plan.stage.value} using {len(evidence_refs)} evidence item(s)."
-        )
-    return ResponsePayload(
-        stage=response_plan.stage,
-        mode=response_plan.mode,
-        content=content,
-        evidence_refs=evidence_refs,
-        violations=policy_result.violations,
-    )
+    return render_response(policy_result, retrieval_result, response_plan)

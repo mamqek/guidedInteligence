@@ -101,7 +101,7 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
             self.assertTrue(result.evidence)
             self.assertEqual(len(_RecordingWorkspaceRetrievalStage.instances), 1)
             config = _RecordingWorkspaceRetrievalStage.instances[0].config
-            self.assertEqual(config.enabled_source_categories, (SourceCategory.SOURCE_CODE,))
+            self.assertEqual(config.enabled_source_categories, (SourceCategory.LOCAL_NOTES, SourceCategory.SOURCE_CODE))
             prompt = _RecordingWorkspaceRetrievalStage.captured_states[0].user_input
             self.assertIn("Title: Suggestion: abstract classes", prompt)
             self.assertIn("Support an `abstract` keyword", prompt)

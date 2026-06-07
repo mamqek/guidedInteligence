@@ -1,0 +1,16 @@
+{
+  "name": "guided-inteligence",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "obsidian:index": "set OBSIDIAN_VAULT_PATH=docs/obsidian&& obsidian-hybrid-search --db docs/obsidian/.obsidian-hybrid-search.db reindex",
+    "obsidian:status": "set OBSIDIAN_VAULT_PATH=docs/obsidian&& obsidian-hybrid-search --db docs/obsidian/.obsidian-hybrid-search.db status",
+    "obsidian:search": "set OBSIDIAN_VAULT_PATH=docs/obsidian&& obsidian-hybrid-search --db docs/obsidian/.obsidian-hybrid-search.db search"
+  },
+  "dependencies": {
+    "obsidian-hybrid-search": "0.13.5"
+  }
+}

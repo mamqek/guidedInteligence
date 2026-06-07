@@ -16,6 +16,7 @@ from services.retrieval.tools.local import (
     build_repo_sketch,
     local_tool_specs,
 )
+from services.retrieval.tools.qdrant import QdrantHybridSearchTool, qdrant_tool_specs
 
 __all__ = [
     "CGCAnalyzeDepsTool",
@@ -26,9 +27,11 @@ __all__ = [
     "CGCQueryGraphTool",
     "CGCRunCliTool",
     "BM25SearchTool",
+    "QdrantHybridSearchTool",
     "CodeGraphTool",
     "OpenFileTool",
     "cgc_tool_specs",
+    "qdrant_tool_specs",
     "RetrievalTool",
     "ToolObservation",
     "ToolRequest",

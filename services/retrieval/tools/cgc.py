@@ -87,8 +87,26 @@ class CGCIndexRepoTool(CGCBaseTool):
 
     def run(self, request: ToolRequest) -> ToolObservation:
         repo_path = str(self.config.cgc_repo_path or self.config.workspace_root)
+        db_path = Path(self.config.cgc_db_path)
+        force_refresh = bool(self.config.cgc_force_reindex_each_request)
+        if not force_refresh and db_path.exists():
+            return ToolObservation(
+                tool_name=self.name,
+                status="ok",
+                payload={
+                    "repo_path": repo_path,
+                    "forced": False,
+                    "skipped": True,
+                    "db_path": str(db_path),
+                },
+                metadata={"result_count": "1", "command": "skipped_existing_index"},
+            )
         try:
-            result = self._run_command(["index", "--force", repo_path])
+            args = ["index"]
+            if force_refresh:
+                args.append("--force")
+            args.append(repo_path)
+            result = self._run_command(args)
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
             return self._error_observation(None, f"cgc_unavailable:{exc}")
         if _command_failed(result):
@@ -99,7 +117,7 @@ class CGCIndexRepoTool(CGCBaseTool):
             payload={
                 "command": list(result.command),
                 "repo_path": repo_path,
-                "forced": True,
+                "forced": force_refresh,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
             },

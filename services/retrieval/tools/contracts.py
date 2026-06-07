@@ -6,7 +6,7 @@ from typing import Any, Mapping, Protocol, Sequence
 
 ALLOWED_TOOL_NAMES = frozenset(
     {
-        "bm25_search",
+        "qdrant_hybrid_search",
         "codegraph_search",
         "open_file",
         "cgc_index_repo",
