@@ -78,6 +78,13 @@ HELPER_PATH_TOKENS = ("helper", "helpers", "util", "utils", "utilities", "common
 PLUMBING_PATH_TOKENS = ("commandline", "services", "server", "project", "config", "options", "watch")
 LOW_LEVEL_PATH_TOKENS = ("src/datetime", "np_datetime", "npdatetime", "conversion", "convert")
 PUBLIC_API_PATH_TOKENS = ("api", "indexes", "index", "arrays", "series", "frame", "timestamp", "datetimes")
+ROLE_OWNER_PATH_TOKENS: Mapping[str, tuple[str, ...]] = {
+    "validation_checking": ("checker", "semantic", "validator", "validate", "typecheck", "type_check", "resolver", "rules"),
+    "behavior_output": ("emitter", "runtime", "transform", "renderer", "directive"),
+    "input_parsing": ("parser", "scanner"),
+    "representation": ("types", "symbols", "ast", "nodes", "schema", "model"),
+    "diagnostics": ("diagnostic", "diagnostics", "messages"),
+}
 
 
 def profile_candidate(role: str, *, path: str, text: str, file_role: str = "") -> FileResponsibilityProfile:
@@ -103,6 +110,9 @@ def profile_candidate(role: str, *, path: str, text: str, file_role: str = "") -
     if any(token in normalized_path for token in LOW_LEVEL_PATH_TOKENS):
         support_score += 2.3
         reasons.append("low_level_leaf")
+    if _matches_other_role_owner_path(role, normalized_path):
+        support_score += 3.0
+        reasons.append("cross_role_owner_path")
 
     if owner_score >= support_score + 1.2:
         classification = "likely_owner"
@@ -301,3 +311,15 @@ def _dedupe_intents(intents: Sequence[ResponsibilityExpansionIntent]) -> tuple[R
 
 def _normalized_path(value: str) -> str:
     return value.replace("\\", "/").strip().lower()
+
+
+def _matches_other_role_owner_path(role: str, path: str) -> bool:
+    current_tokens = ROLE_OWNER_PATH_TOKENS.get(role, ())
+    if any(token in path for token in current_tokens):
+        return False
+    return any(
+        token in path
+        for other_role, tokens in ROLE_OWNER_PATH_TOKENS.items()
+        if other_role != role
+        for token in tokens
+    )

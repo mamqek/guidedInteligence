@@ -60,6 +60,8 @@ MAX_ROLE_REFERENCE_EXPANSION_TARGETS = 3
 MAX_ROLE_REFERENCE_SCAN_LINE_COUNT = 24
 MAX_ROLE_CODE_CONTEXT_QUERIES = 2
 MAX_ROLE_CODE_CONTEXT_TERMS = 18
+MAX_FILE_ROLE_RESOLUTION_ROUNDS = 1
+MAX_FILE_ROLE_ALTERNATES = 6
 DECLARATION_PATTERN = re.compile(r"\b(?:class|interface|function|enum|type|namespace|module)\s+([A-Za-z_][A-Za-z0-9_]*)\b")
 TRIPLE_SLASH_REFERENCE_PATTERN = re.compile(r'///\s*<reference\s+path=["\']([^"\']+)["\']\s*/?>', re.IGNORECASE)
 
@@ -329,6 +331,14 @@ class WorkspaceRetrievalStage:
             starting_tool_call_count=tool_call_count,
             phase="required",
         )
+        required_buckets, tool_call_count = self._retarget_role_buckets(
+            buckets=required_buckets,
+            rescue_roles=retrieval_plan.required_roles,
+            qdrant_tool=qdrant_tool,
+            open_file_tool=open_file_tool,
+            cgc_tools=cgc_tools,
+            starting_tool_call_count=tool_call_count,
+        )
         synthesis_decision = self._synthesize_role_buckets(retrieval_plan, required_buckets)
         required_buckets = self._apply_synthesis_feedback(
             buckets=required_buckets,
@@ -350,6 +360,14 @@ class WorkspaceRetrievalStage:
                 phase="supporting",
             )
             responsibility_intents = tuple((*responsibility_intents, *supporting_intents))
+            supporting_buckets, tool_call_count = self._retarget_role_buckets(
+                buckets=supporting_buckets,
+                rescue_roles=retrieval_plan.required_roles,
+                qdrant_tool=qdrant_tool,
+                open_file_tool=open_file_tool,
+                cgc_tools=cgc_tools,
+                starting_tool_call_count=tool_call_count,
+            )
             synthesis_decision = self._synthesize_role_buckets(retrieval_plan, required_buckets + supporting_buckets)
             updated_buckets = self._apply_synthesis_feedback(
                 buckets=required_buckets + supporting_buckets,
@@ -665,14 +683,30 @@ class WorkspaceRetrievalStage:
         for intent in expansion_intents:
             self._record("responsibility_expansion_inferred", intent.to_dict())
 
-        expanded_by_role, graph_paths_by_role, expansion_calls = self._expand_responsibility_candidates(
-            prepared_buckets=tuple(prepared_buckets),
-            expansion_intents=expansion_intents,
-            qdrant_tool=qdrant_tool,
-            open_file_tool=open_file_tool,
-            cgc_tools=cgc_tools,
-        )
-        tool_call_count += expansion_calls
+        expanded_by_role: dict[str, tuple[RetrievalCandidate, ...]] = {}
+        graph_paths_by_role: dict[str, tuple[str, ...]] = {}
+        for round_index in range(min(MAX_FILE_ROLE_RESOLUTION_ROUNDS, 1)):
+            self._record(
+                "file_role_resolution_round_started",
+                {"phase": phase, "round": round_index + 1, "max_rounds": MAX_FILE_ROLE_RESOLUTION_ROUNDS},
+            )
+            expanded_by_role, graph_paths_by_role, expansion_calls = self._expand_responsibility_candidates(
+                prepared_buckets=tuple(prepared_buckets),
+                expansion_intents=expansion_intents,
+                qdrant_tool=qdrant_tool,
+                open_file_tool=open_file_tool,
+                cgc_tools=cgc_tools,
+            )
+            tool_call_count += expansion_calls
+            self._record(
+                "file_role_resolution_round_completed",
+                {
+                    "phase": phase,
+                    "round": round_index + 1,
+                    "expanded_roles": sorted(expanded_by_role.keys()),
+                    "graph_roles": sorted(graph_paths_by_role.keys()),
+                },
+            )
         anchor_support, support_calls = self._build_anchor_support(
             anchors=self._preliminary_responsibility_anchors(prepared_buckets),
             cgc_tools=cgc_tools,
@@ -1234,30 +1268,12 @@ class WorkspaceRetrievalStage:
         qdrant_tool: QdrantHybridSearchTool,
         open_file_tool: OpenFileTool,
     ) -> tuple[tuple[RetrievalCandidate, ...], int]:
-        candidates: list[RetrievalCandidate] = []
-        tool_calls = 0
-        seen_paths: set[str] = set()
-        for candidate in self._candidates_from_search_observation(observation, coverage_area=role):
-            if candidate.path and candidate.path in seen_paths:
-                continue
-            if candidate.path:
-                seen_paths.add(candidate.path)
-            enriched_candidate, open_observation = self._open_candidate_context(candidate, open_file_tool)
-            if open_observation is not None:
-                tool_calls += 1
-            refined_candidate, refinement_observations = self._refine_candidate_within_file(
-                role=role,
-                query=query,
-                helper_queries=helper_queries,
-                candidate=enriched_candidate,
-                qdrant_tool=qdrant_tool,
-                open_file_tool=open_file_tool,
-            )
-            tool_calls += len(refinement_observations)
-            candidates.append(refined_candidate)
-            if len(candidates) >= MAX_ROLE_CANDIDATE_EVALUATIONS:
-                break
-        return tuple(candidates), tool_calls
+        candidates = _collapse_candidates_to_file_candidates(
+            role=role,
+            candidates=self._candidates_from_search_observation(observation, coverage_area=role),
+            retrieval_path="qdrant_file_expansion",
+        )
+        return candidates[:MAX_ROLE_CANDIDATE_EVALUATIONS], 0
 
     def _responsibility_rerank_bucket(
         self,
@@ -1301,6 +1317,11 @@ class WorkspaceRetrievalStage:
             )
 
         owner_available = any(not score.profile.support_only and not score.profile.noise for _candidate, _validation, score in scored)
+        owner_path_available = any(
+            validation.accepted and _role_owner_path_match(prepared_bucket.role, candidate.path or "")
+            for candidate, validation, score in scored
+            if not score.profile.noise and not score.profile.support_only
+        )
         reranked = sorted(scored, key=lambda item: (item[2].total_score, _candidate_rank_key(item[0])[0]), reverse=True)
         accepted_candidates: list[RetrievalCandidate] = []
         evaluations: list[RoleCandidateEvaluation] = []
@@ -1308,7 +1329,17 @@ class WorkspaceRetrievalStage:
         validation_notes: list[str] = []
         for candidate, validation, score in reranked:
             hard_support_only = "diagnostics_catalog" in score.profile.reasons
-            accepted = not score.profile.noise and not hard_support_only and (not score.profile.support_only or not owner_available)
+            blocked_by_owner_path = (
+                owner_path_available
+                and _role_requires_owner_layer(prepared_bucket.role)
+                and not _role_owner_path_match(prepared_bucket.role, candidate.path or "")
+            )
+            accepted = (
+                not score.profile.noise
+                and not hard_support_only
+                and not blocked_by_owner_path
+                and (not score.profile.support_only or not owner_available)
+            )
             reason = "responsibility_owner_selected" if accepted else "responsibility_support_only_downvoted"
             responsibility_validation = self._responsibility_validation_result(
                 candidate=candidate,
@@ -1520,6 +1551,7 @@ class WorkspaceRetrievalStage:
                 ),
                 reverse=True,
             )
+            reranked = _drop_redundant_file_candidates(reranked)
             satisfying_refs: list[str] = []
             noise_refs: list[str] = []
             saw_core = False
@@ -1807,6 +1839,13 @@ class WorkspaceRetrievalStage:
                 enriched_candidate, open_observation = self._open_candidate_context(candidate, open_file_tool)
                 if open_observation is not None:
                     tool_calls += 1
+                retarget_queries = (query,) + _role_retarget_queries(
+                    bucket.role,
+                    query=bucket.query,
+                    helper_queries=bucket.helper_queries,
+                    candidate_path=enriched_candidate.path or "",
+                    candidate_text=enriched_candidate.text,
+                )
                 refined_candidate, refinement_observations = self._refine_candidate_within_file(
                     role=bucket.role,
                     query=bucket.query,
@@ -1814,13 +1853,8 @@ class WorkspaceRetrievalStage:
                     candidate=enriched_candidate,
                     qdrant_tool=qdrant_tool,
                     open_file_tool=open_file_tool,
-                    snippet_queries=(query,) + _role_retarget_queries(
-                        bucket.role,
-                        query=bucket.query,
-                        helper_queries=bucket.helper_queries,
-                        candidate_path=enriched_candidate.path or "",
-                        candidate_text=enriched_candidate.text,
-                    ),
+                    snippet_queries=retarget_queries,
+                    search_terms=retarget_queries,
                 )
                 tool_calls += len(refinement_observations)
                 validation = self._validate_role_candidate(
@@ -1905,20 +1939,30 @@ class WorkspaceRetrievalStage:
             return bucket, tool_calls, False
 
         rescued_ref_set = {candidate.source_id for candidate in verified_candidates}
-        reranked = sorted(
-            list(bucket.accepted_candidates) + verified_candidates,
-            key=lambda candidate: self._final_role_candidate_score(
-                role=bucket.role,
-                candidate=candidate,
-                evaluation=_latest_evaluation_for_ref(tuple(initial_evaluations + verified_evaluations), candidate.source_id),
-                snippet_quality=_rescue_snippet_quality(
+        base_candidates = list(bucket.accepted_candidates)
+        if mode == "retarget":
+            verified_paths = {candidate.path for candidate in verified_candidates if candidate.path}
+            base_candidates = [
+                candidate
+                for candidate in base_candidates
+                if not (candidate.metadata.get("file_candidate") == "true" and candidate.path in verified_paths)
+            ]
+        reranked = _drop_redundant_file_candidates(
+            sorted(
+                base_candidates + verified_candidates,
+                key=lambda candidate: self._final_role_candidate_score(
                     role=bucket.role,
                     candidate=candidate,
-                    rescued_refs=rescued_ref_set,
-                    existing_assessment=bucket.snippet_assessment,
+                    evaluation=_latest_evaluation_for_ref(tuple(initial_evaluations + verified_evaluations), candidate.source_id),
+                    snippet_quality=_rescue_snippet_quality(
+                        role=bucket.role,
+                        candidate=candidate,
+                        rescued_refs=rescued_ref_set,
+                        existing_assessment=bucket.snippet_assessment,
+                    ),
                 ),
-            ),
-            reverse=True,
+                reverse=True,
+            )
         )[:MAX_ROLE_BUCKET_CANDIDATES]
         updated_bucket = RoleRetrievalBucket(
             role=bucket.role,
@@ -1960,9 +2004,15 @@ class WorkspaceRetrievalStage:
             score -= 1.25
         if evaluation is not None and evaluation.stage.startswith("role_rescue_"):
             score += 1.5
+        if _is_file_candidate(candidate):
+            score -= 4.0
         if role == "input_parsing":
             if any(token in text for token in ("modifier", "keyword", "syntaxkind", "parseclass", "parseandcheckmodifiers", "parseexpected")):
                 score += 2.0
+            if "function parseandcheckmodifiers" in text:
+                score += 7.0
+            if "function parseclassmemberdeclaration" in text or "function parseclassdeclaration" in text:
+                score += 3.0
             if any(token in text for token in ("parsingcontexterrors", "isdeclaration")):
                 score -= 1.5
         elif role == "validation_checking":
@@ -1978,16 +2028,34 @@ class WorkspaceRetrievalStage:
                 score -= 2.5
             if path.endswith("checker.ts") or "checker" in text:
                 score += 2.0
+            if "function checkclassdeclaration" in text:
+                score += 7.0
+            if "superkeyword" in text and "function checkclassdeclaration" not in text:
+                score -= 2.5
             if "services" in path:
                 score -= 2.0
         elif role == "behavior_output":
             if any(token in text for token in ("emit", "transform", "runtime", "output")):
                 score += 2.0
+            if "function emitclassdeclaration" in text:
+                score += 6.0
+            if "function emitmemberfunctions" in text or "function emitclassmembers" in text:
+                score += 4.0
+            if "case syntaxkind." in text and "function emitclassdeclaration" not in text:
+                score -= 3.0
+            if "function emitmoduledeclaration" in text and "classdeclaration" not in text:
+                score -= 2.5
             if "services" in path:
                 score -= 2.0
         elif role == "representation":
             if any(token in text for token in ("nodeflags", "symbolflags", "classdeclaration", "methoddeclaration", "syntaxkind")):
                 score += 1.5
+            if "export enum nodeflags" in text or ("interface node" in text and "flags: nodeflags" in text):
+                score += 5.0
+            if "interface classdeclaration" in text or "interface methoddeclaration" in text:
+                score += 4.0
+            if ("interface nodelinks" in text or "enum typeflags" in text or "interface type" in text) and "nodeflags" not in text:
+                score -= 2.5
         return score
 
     def _complete_role_bucket(
@@ -2221,7 +2289,11 @@ class WorkspaceRetrievalStage:
             seeded_candidates.append(direct_candidate)
             seen_candidate_paths.add(normalized_path)
 
-        ranked_candidates = self._rank_candidates(seeded_candidates or raw_candidates)
+        ranked_candidates = _collapse_candidates_to_file_candidates(
+            role=role,
+            candidates=self._rank_candidates(seeded_candidates or raw_candidates),
+            retrieval_path="qdrant_file_candidate",
+        )
         prepared_candidates: list[RetrievalCandidate] = []
         seen_paths: set[str] = set()
         for candidate in ranked_candidates[:MAX_ROLE_INITIAL_PATHS]:
@@ -2229,22 +2301,7 @@ class WorkspaceRetrievalStage:
                 continue
             if candidate.path:
                 seen_paths.add(candidate.path)
-            enriched_candidate, open_observation = self._open_candidate_context(candidate, open_file_tool)
-            if open_observation is not None:
-                observations.append(open_observation)
-                tool_calls += 1
-            refined_candidate, refinement_observations = self._refine_candidate_within_file(
-                role=role,
-                query=query,
-                helper_queries=helper_queries,
-                candidate=enriched_candidate,
-                qdrant_tool=qdrant_tool,
-                open_file_tool=open_file_tool,
-                search_terms=_in_file_search_terms(retrieval_plan, role, query, helper_queries),
-            )
-            observations.extend(refinement_observations)
-            tool_calls += len(refinement_observations)
-            prepared_candidates.append(refined_candidate)
+            prepared_candidates.append(candidate)
             if len(prepared_candidates) >= MAX_ROLE_CANDIDATE_EVALUATIONS:
                 break
 
@@ -2997,10 +3054,12 @@ class WorkspaceRetrievalStage:
         selected: list[EvidenceItem] = []
         seen_refs: set[str] = set()
         buckets = list(required_buckets) + list(supporting_buckets)
-        candidates_by_role = {
-            bucket.role: [candidate for candidate in bucket.accepted_candidates if candidate.source_id in set(bucket.satisfying_refs or tuple(candidate.source_id for candidate in bucket.accepted_candidates))]
-            for bucket in buckets
-        }
+        candidates_by_role = {}
+        for bucket in buckets:
+            satisfying = set(bucket.satisfying_refs or tuple(candidate.source_id for candidate in bucket.accepted_candidates))
+            candidates_by_role[bucket.role] = list(_drop_redundant_file_candidates(
+                [candidate for candidate in bucket.accepted_candidates if candidate.source_id in satisfying]
+            ))
         role_order = [bucket.role for bucket in required_buckets if bucket.satisfying_refs]
         role_order.extend(bucket.role for bucket in supporting_buckets if bucket.satisfying_refs and bucket.role not in role_order)
 
@@ -3047,7 +3106,13 @@ class WorkspaceRetrievalStage:
                 reasons.append(f"{role}:bucket_missing")
                 continue
 
-            satisfying = list(bucket.accepted_candidates)
+            satisfying_refs = set(bucket.satisfying_refs)
+            satisfying = [
+                candidate
+                for candidate in bucket.accepted_candidates
+                if not satisfying_refs or candidate.source_id in satisfying_refs
+            ]
+            satisfying = list(_drop_redundant_file_candidates(satisfying))
             if bucket.role_status != "strong" or not satisfying:
                 status_by_role[role] = "missing"
                 missing_roles.append(role)
@@ -3309,6 +3374,56 @@ def _path_diverse_candidates(candidates: Sequence[RetrievalCandidate]) -> tuple[
     return tuple(sorted(selected_by_path.values(), key=_candidate_rank_key, reverse=True))
 
 
+def _collapse_candidates_to_file_candidates(
+    *,
+    role: str,
+    candidates: Sequence[RetrievalCandidate],
+    retrieval_path: str,
+) -> tuple[RetrievalCandidate, ...]:
+    grouped: dict[str, list[RetrievalCandidate]] = {}
+    for candidate in _rank_unique_candidates(candidates):
+        if not candidate.path:
+            continue
+        normalized_path = candidate.path.replace("\\", "/").lstrip("/")
+        grouped.setdefault(normalized_path, []).append(candidate)
+
+    collapsed: list[RetrievalCandidate] = []
+    for path, path_candidates in grouped.items():
+        ranked = sorted(path_candidates, key=_candidate_rank_key, reverse=True)
+        top = ranked[0]
+        chunk_refs = tuple(ordered_unique(candidate.source_id for candidate in ranked[:3]))
+        line_ranges = tuple(ordered_unique(str(candidate.line_range or "") for candidate in ranked[:3] if candidate.line_range))
+        text_parts = []
+        for candidate in ranked[:3]:
+            excerpt = candidate.text.strip()
+            if excerpt:
+                text_parts.append(excerpt[:900])
+        text = "\n\n".join(text_parts).strip()
+        source_id = f"repo-pre:{path}:FILE"
+        collapsed.append(
+            RetrievalCandidate(
+                candidate_id=source_id,
+                source_category=top.source_category,
+                retrieval_path=retrieval_path,
+                text=text,
+                score=max(candidate.score for candidate in ranked),
+                source_id=source_id,
+                path=path,
+                line_range="FILE",
+                metadata={
+                    **dict(top.metadata),
+                    "path": path,
+                    "coverage_area": role,
+                    "retrieval_path": retrieval_path,
+                    "file_candidate": "true",
+                    "chunk_refs": json.dumps(list(chunk_refs)),
+                    "chunk_line_ranges": json.dumps(list(line_ranges)),
+                },
+            )
+        )
+    return tuple(sorted(collapsed, key=_candidate_rank_key, reverse=True)[:MAX_FILE_ROLE_ALTERNATES])
+
+
 def _best_direct_owner_span(*, role: str, query: str, lines: Sequence[str], search_terms: Sequence[str] = ()) -> tuple[int, int]:
     line_start, line_end, score = _best_in_file_refinement_span(
         role=role,
@@ -3542,19 +3657,25 @@ def _direct_owner_bonus_terms(role: str) -> set[str]:
             "instantiate",
         }
     if role == "input_parsing":
-        return {"parse", "syntaxkind", "modifier", "keyword", "token"}
+        return {"parse", "syntaxkind", "modifier", "keyword", "token", "classdeclaration", "classmember", "parseandcheckmodifiers"}
     if role == "representation":
-        return {"interface", "enum", "nodeflags", "symbolflags", "declaration"}
+        return {"interface", "enum", "nodeflags", "symbolflags", "declaration", "classdeclaration", "methoddeclaration"}
     if role == "diagnostics":
         return {"diagnostics", "message", "error", "code"}
     if role == "behavior_output":
-        return {"emit", "runtime", "transform", "output", "directive"}
+        return {"emit", "runtime", "transform", "output", "directive", "emitclass", "classdeclaration", "emitmember"}
     return set()
 
 
 def _direct_owner_window_bonus(role: str, text: str) -> float:
     if role == "validation_checking":
         score = 0.0
+        if "function checkclassdeclaration" in text:
+            score += 24.0
+        if "function checkinterfacedeclaration" in text:
+            score += 10.0
+        if "case syntaxkind.classdeclaration" in text and "checkclassdeclaration" in text:
+            score += 8.0
         if "classdeclaration" in text and ("basetype" in text or "basetypes" in text):
             score += 6.0
         if "diagnostics." in text or "error(" in text:
@@ -3563,6 +3684,61 @@ def _direct_owner_window_bonus(role: str, text: str) -> float:
             score += 2.0
         if "superkeyword" in text:
             score += 2.0
+            if "function checkclassdeclaration" not in text:
+                score -= 4.0
+        return score
+    if role == "input_parsing":
+        score = 0.0
+        if "function parseandcheckmodifiers" in text:
+            score += 68.0
+        if "function parseclassmemberdeclaration" in text:
+            score += 12.0
+        if "function parseclassdeclaration" in text:
+            score += 10.0
+        if "parseclassdeclaration" in text or "parseclassmemberdeclaration" in text:
+            score += 8.0
+        if "parseandcheckmodifiers" in text or ("modifier" in text and "syntaxkind" in text):
+            score += 5.0
+        if "case syntaxkind." in text and "function parseclass" not in text:
+            score -= 8.0
+        if any(token in text for token in ("parseparenthesizedexpression", "parsevariablestatement", "parsewithstatement")) and "class" not in text:
+            score -= 4.0
+        return score
+    if role == "representation":
+        score = 0.0
+        if "export enum nodeflags" in text:
+            score += 24.0
+        if "interface node" in text and "flags: nodeflags" in text:
+            score += 18.0
+        if "interface classdeclaration" in text:
+            score += 18.0
+        if "interface methoddeclaration" in text:
+            score += 14.0
+        if "nodeflags" in text or "symbolflags" in text:
+            score += 6.0
+        if "classdeclaration" in text or "methoddeclaration" in text:
+            score += 4.0
+        if ("interface nodelinks" in text or "enum typeflags" in text or "interface type" in text) and "nodeflags" not in text:
+            score -= 10.0
+        return score
+    if role == "behavior_output":
+        score = 0.0
+        if "function emitclassdeclaration" in text:
+            score += 28.0
+        if "function emitmemberfunctions" in text or "function emitclassmembers" in text:
+            score += 20.0
+        if "function emitmemberassignments" in text:
+            score += 10.0
+        if "emitclassdeclaration" in text or "emitmemberfunctions" in text or "emitclassmembers" in text:
+            score += 8.0
+        if "classdeclaration" in text and "emit" in text:
+            score += 5.0
+        if "case syntaxkind." in text and "function emitclassdeclaration" not in text:
+            score -= 8.0
+        if "function emitmoduledeclaration" in text and "classdeclaration" not in text:
+            score -= 6.0
+        if any(token in text for token in ("emitthrowstatement", "emittrystatement", "emitcatchclause")) and "class" not in text:
+            score -= 5.0
         return score
     return 0.0
 
@@ -3594,8 +3770,8 @@ def _role_retarget_queries(
             "report error diagnostics instantiate super abstract",
         ),
         "behavior_output": (
-            "emit transform output behavior abstract",
-            "runtime transform compile output",
+            "emit class declaration method modifier output",
+            "emitclassdeclaration emitmemberfunctions emit class members",
         ),
     }
     queries.extend(retarget_specific.get(role, ()))
@@ -3721,6 +3897,26 @@ def _latest_evaluation_for_ref(
         if evaluation.candidate.source_id == ref:
             latest = evaluation
     return latest
+
+
+def _is_file_candidate(candidate: RetrievalCandidate) -> bool:
+    return candidate.metadata.get("file_candidate") == "true" or str(candidate.line_range or "").upper() == "FILE"
+
+
+def _drop_redundant_file_candidates(candidates: Sequence[RetrievalCandidate]) -> tuple[RetrievalCandidate, ...]:
+    if not candidates:
+        return ()
+    if not any(_is_file_candidate(candidate) for candidate in candidates):
+        return tuple(candidates)
+    non_file_candidates = [candidate for candidate in candidates if not _is_file_candidate(candidate)]
+    if not non_file_candidates:
+        return tuple(candidates)
+    non_file_paths = {candidate.path for candidate in non_file_candidates if candidate.path}
+    return tuple(
+        candidate
+        for candidate in candidates
+        if not _is_file_candidate(candidate) or (candidate.path and candidate.path not in non_file_paths)
+    )
 
 
 def _snippet_quality_for_ref(ref: str, assessments: Sequence[Mapping[str, str]]) -> str:

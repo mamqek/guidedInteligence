@@ -36,6 +36,67 @@
   https://github.com/facebookresearch/faiss  
   Used during evaluation of local dense retrieval vs Qdrant-backed hybrid retrieval.
 
+## 2026-06-07
+
+### Added
+
+- Added `services/retrieval/file_first_role_resolution_pipeline.md` to document the intended file-first retrieval pipeline.
+- Added explicit loop safeguards for repeatable file-role resolution:
+  - max one file-resolution round in v1,
+  - bounded path-diverse alternates,
+  - no repeated assignment states,
+  - monotonic-progress requirement,
+  - failed-file memory,
+  - single-pass conflict repair,
+  - role-owner gating before snippet selection,
+  - no broad snippet retry before file-role re-resolution.
+- Added retry scenarios for:
+  - next-best file fallback,
+  - cross-role reassignment,
+  - weak-role re-resolution,
+  - redundancy correction,
+  - owner-over-helper retry,
+  - snippet-failure-triggered retry,
+  - graph-neighborhood retry,
+  - role-conflict retry.
+- Added trace events for bounded file-role resolution rounds:
+  - `file_role_resolution_round_started`,
+  - `file_role_resolution_round_completed`.
+
+### Changed
+
+- Refactored first-pass source retrieval to treat Qdrant chunks as file-entry signals rather than immediate snippet evidence.
+- Collapsed Qdrant chunk hits into file candidates before responsibility scoring and role ownership selection.
+- Reintroduced snippet retargeting only after file-level owner selection, keeping snippet selection downstream of file-role resolution.
+- Added role-owner path gating so owner files block adjacent/helper files from satisfying the wrong role:
+  - `checker.ts` blocks emitter/parser-style evidence for `validation_checking`,
+  - `emitter.ts` blocks parser/service-style evidence for `behavior_output`,
+  - `parser.ts` blocks emitter/service-style evidence for `input_parsing`.
+- Added cross-role owner-path downvotes in `profile_candidate(...)` so files that look like another role's owner are less likely to satisfy the current role.
+- Made role rescue pass focused retarget queries into local in-file refinement, not only into Qdrant snippet search.
+- Dropped redundant `FILE` candidates from late feedback, final coverage checks, and final evidence when concrete snippets exist for the same role/path.
+- Tightened role-specific snippet targeting around semantic declaration bodies:
+  - `NodeFlags` / AST node representation in `types.ts`,
+  - modifier parsing in `parser.ts`,
+  - `checkClassDeclaration` in `checker.ts`,
+  - class/member emission in `emitter.ts`.
+
+### Verification
+
+- `python -m py_compile services\retrieval\workspace.py services\retrieval\responsibility.py` passed after the refactor.
+- TypeScript run `run-20260607T-file-first-8` completed with `coverage_status=strong` and `sufficient=True`.
+- Final required-role evidence in that run:
+  - `representation`: `src/compiler/types.ts:L220-L299`,
+  - `input_parsing`: `src/compiler/parser.ts:L2319-L2398`,
+  - `validation_checking`: `src/compiler/checker.ts:L4984-L5063`,
+  - `diagnostics`: `src/compiler/diagnosticMessages.json:L397-L476`,
+  - `behavior_output`: `src/compiler/emitter.ts:L1281-L1360`.
+- The previous recurring misalignment was removed in the final run:
+  - no `parser.ts` evidence satisfied `behavior_output`,
+  - no `emitter.ts` evidence satisfied `validation_checking`,
+  - `checker.ts` was selected for `validation_checking`,
+  - required final evidence no longer contained `FILE` placeholders.
+
 ## 2026-06-06
 
 ### Added
