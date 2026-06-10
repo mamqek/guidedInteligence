@@ -105,6 +105,14 @@ from services.retrieval.pipeline.snippet_level import (
     snippet_quality_for_ref as _snippet_quality_for_ref,
     snippet_reason_for_ref as _snippet_reason_for_ref,
 )
+from services.retrieval.role_specs import (
+    path_matches_role,
+    path_matches_role_support,
+    role_keywords,
+    role_path_hints,
+    role_phrase_from_spec,
+    text_matches_role_keywords,
+)
 from services.retrieval.role_completion import RoleCompletionContext, score_role_completion
 from services.retrieval.role_validation import AnchorRecord, AnchorSupport, RoleValidationContext, validator_for_role
 from services.retrieval.responsibility import (
@@ -1936,56 +1944,16 @@ class WorkspaceRetrievalStage:
             score += 1.5
         if _is_file_candidate(candidate):
             score -= 4.0
-        if role == "input_parsing":
-            if any(token in text for token in ("modifier", "keyword", "syntaxkind", "parseclass", "parseandcheckmodifiers", "parseexpected")):
-                score += 2.0
-            if "function parseandcheckmodifiers" in text:
-                score += 7.0
-            if "function parseclassmemberdeclaration" in text or "function parseclassdeclaration" in text:
-                score += 3.0
-            if any(token in text for token in ("parsingcontexterrors", "isdeclaration")):
-                score -= 1.5
-        elif role == "validation_checking":
-            enforcement_terms = ("check", "cannot", "must", "instantiate", "implement", "super", "diagnostic", "semantic", "error", "extends")
-            has_enforcement = any(token in text for token in enforcement_terms)
-            if has_enforcement:
-                score += 3.5
-            if any(token in text for token in ("bind", "symbol", "export")) and not has_enforcement:
-                score -= 3.0
-            if path.endswith("binder.ts") and not has_enforcement:
-                score -= 2.5
-            if path.endswith("types.ts") and not has_enforcement:
-                score -= 2.5
-            if path.endswith("checker.ts") or "checker" in text:
-                score += 2.0
-            if "function checkclassdeclaration" in text:
-                score += 7.0
-            if "superkeyword" in text and "function checkclassdeclaration" not in text:
-                score -= 2.5
-            if "services" in path:
-                score -= 2.0
-        elif role == "behavior_output":
-            if any(token in text for token in ("emit", "transform", "runtime", "output")):
-                score += 2.0
-            if "function emitclassdeclaration" in text:
-                score += 6.0
-            if "function emitmemberfunctions" in text or "function emitclassmembers" in text:
-                score += 4.0
-            if "case syntaxkind." in text and "function emitclassdeclaration" not in text:
-                score -= 3.0
-            if "function emitmoduledeclaration" in text and "classdeclaration" not in text:
-                score -= 2.5
-            if "services" in path:
-                score -= 2.0
-        elif role == "representation":
-            if any(token in text for token in ("nodeflags", "symbolflags", "classdeclaration", "methoddeclaration", "syntaxkind")):
-                score += 1.5
-            if "export enum nodeflags" in text or ("interface node" in text and "flags: nodeflags" in text):
-                score += 5.0
-            if "interface classdeclaration" in text or "interface methoddeclaration" in text:
-                score += 4.0
-            if ("interface nodelinks" in text or "enum typeflags" in text or "interface type" in text) and "nodeflags" not in text:
-                score -= 2.5
+        if text_matches_role_keywords(role, candidate.text, minimum_hits=1):
+            score += 2.0
+        if path_matches_role(role, candidate.path or ""):
+            score += 1.5
+        if path_matches_role_support(role, candidate.path or "") and not text_matches_role_keywords(role, candidate.text, minimum_hits=1):
+            score -= 1.5
+        if role == "representation" and re.search(r"\b(?:class|interface|enum|type)\s+[A-Za-z_][A-Za-z0-9_]*", candidate.text, re.IGNORECASE):
+            score += 1.5
+        if role in {"input_parsing", "validation_checking", "behavior_output"} and re.search(r"\bfunction\s+[A-Za-z_][A-Za-z0-9_]*", candidate.text, re.IGNORECASE):
+            score += 1.0
         return score
 
     def _complete_role_bucket(
@@ -3180,24 +3148,15 @@ def _role_retarget_queries(
     candidate_text: str,
 ) -> tuple[str, ...]:
     queries: list[str] = [query.strip(), *[value.strip() for value in helper_queries if value.strip()]]
-    lowered_text = candidate_text.lower()
-    if role == "input_parsing":
-        parser_identifiers = [
-            token.lower()
-            for token in IDENTIFIER_PATTERN.findall(candidate_text)
-            if token.lower().startswith("parse")
-        ]
-        if parser_identifiers and "parseandcheckmodifiers" not in parser_identifiers:
-            parser_identifiers.append("parseandcheckmodifiers")
-        if parser_identifiers:
-            queries.append(" ".join(ordered_unique(parser_identifiers)[:3]))
-        queries.append(f"parser {query}".strip())
-    elif role == "validation_checking":
-        if "check" in lowered_text:
-            queries.append(f"checker {query}".strip())
-    elif role == "diagnostics":
-        if "diagnostic" in lowered_text or "error" in lowered_text:
-            queries.append(f"diagnostic {query}".strip())
+    role_identifiers = [
+        token
+        for token in IDENTIFIER_PATTERN.findall(candidate_text)
+        if len(token) >= 5 and any(hint in token.lower() for hint in role_path_hints(role))
+    ]
+    if role_identifiers:
+        queries.append(" ".join(ordered_unique(token.lower() for token in role_identifiers)[:3]))
+    queries.extend(role_keywords(role)[:2])
+    queries.append(f"{role_phrase_from_spec(role, max_terms=2)} {query}".strip())
     path_stem = Path(candidate_path.replace("\\", "/")).stem.strip()
     if path_stem:
         queries.append(path_stem)

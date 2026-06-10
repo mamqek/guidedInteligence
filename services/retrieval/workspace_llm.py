@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Callable, Mapping, Sequence
 
+from services.retrieval.role_specs import role_compact_payload
 from services.retrieval.tools.local import file_role as tool_file_role
 from services.llm import json_completion as _json_completion
 from services.llm.json_completion import complete_json
@@ -26,6 +27,7 @@ def generate_role_helper_queries_with_llm(
     repo_sketch = dict(repo_context.get("repo_sketch", {})) if isinstance(repo_context, Mapping) else {}
     compact_payload = {
         "role": role,
+        "role_spec": role_compact_payload(role),
         "main_query": query,
         "prompt_summary": retrieval_plan.prompt_summary,
         "retrieval_terms": list(retrieval_plan.retrieval_terms[:8]),
@@ -47,20 +49,16 @@ def generate_role_helper_queries_with_llm(
                 "Output exactly 3 helper queries in queries. "
                 "Each query must be 2 to 6 words. "
                 "Each query must be a compact lexical search phrase, not a sentence. "
+                "Use the supplied role_spec to stay aligned to the role semantics. "
                 "Use repository vocabulary from the repo sketch, representative files, identifiers, and confirmed anchors. "
                 "Prefer path stems, identifiers, owner-file vocabulary, and code-search terms over explanatory prose. "
                 "Do not explain. Do not add numbering. Do not add punctuation-heavy text. "
                 "Do not repeat the main query verbatim. "
-                "For role fit: representation should sound like types flags symbols nodes declarations; "
-                "input_parsing like parser scanner token modifier keyword syntax; "
-                "validation_checking like checker semantic instantiate implement constraint super; "
-                "diagnostics like diagnostic error message report; "
-                "behavior_output like emitter emit runtime output transform. "
+                "Queries must be semantically aligned to the role, but they must remain repo-grounded. "
+                "Use generic role language, not issue-specific symbols or exact compiler function names. "
                 "Queries must stay repo-grounded, concise, and distinct from each other. "
-                "Good examples: NodeFlags modifier flags; parse class declaration; checker abstract members; "
-                "diagnostic message abstract; emitter class transform. "
-                "Bad examples: How does the parser handle abstract classes; "
-                "where are diagnostics for abstract classes defined in the codebase."
+                "Good outputs look like compact lexical searches built from repo terms. "
+                "Bad outputs are explanatory questions, full sentences, or issue-specific symbol memorization."
             ),
         },
         {"role": "user", "content": json.dumps(compact_payload, sort_keys=True)},

@@ -4,6 +4,15 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Mapping, Sequence
 
+from services.retrieval.role_specs import (
+    path_matches_role,
+    path_matches_role_support,
+    role_keywords,
+    role_path_hints,
+    role_phrase_from_spec,
+    role_support_path_hints,
+)
+
 
 @dataclass(frozen=True)
 class FileResponsibilityProfile:
@@ -73,17 +82,17 @@ NOISE_PATH_TOKENS = (
     "/node_modules/",
 )
 
-DIAGNOSTIC_PATH_TOKENS = ("diagnosticmessages", "diagnostic_messages", "diagnostics")
+DIAGNOSTIC_PATH_TOKENS = role_path_hints("diagnostics")
 HELPER_PATH_TOKENS = ("helper", "helpers", "util", "utils", "utilities", "common")
 PLUMBING_PATH_TOKENS = ("commandline", "services", "server", "project", "config", "options", "watch")
 LOW_LEVEL_PATH_TOKENS = ("src/datetime", "np_datetime", "npdatetime", "conversion", "convert")
 PUBLIC_API_PATH_TOKENS = ("api", "indexes", "index", "arrays", "series", "frame", "timestamp", "datetimes")
 ROLE_OWNER_PATH_TOKENS: Mapping[str, tuple[str, ...]] = {
-    "validation_checking": ("checker", "semantic", "validator", "validate", "typecheck", "type_check", "resolver", "rules"),
-    "behavior_output": ("emitter", "runtime", "transform", "renderer", "directive"),
-    "input_parsing": ("parser", "scanner"),
-    "representation": ("types", "symbols", "ast", "nodes", "schema", "model"),
-    "diagnostics": ("diagnostic", "diagnostics", "messages"),
+    "validation_checking": role_path_hints("validation_checking"),
+    "behavior_output": role_path_hints("behavior_output"),
+    "input_parsing": role_path_hints("input_parsing"),
+    "representation": role_path_hints("representation"),
+    "diagnostics": role_path_hints("diagnostics"),
 }
 
 
@@ -194,21 +203,21 @@ def infer_expansion_intents(
         all_paths = " ".join(path.lower() for path, _text, _profile in entries)
 
         if role == "validation_checking" and likely_count == 0:
-            if any(token in all_paths for token in ("parser", "types", "binder")) or support_count:
+            if any(token in all_paths for token in role_support_path_hints(role)) or support_count:
                 intents.append(
                     ResponsibilityExpansionIntent(
                         role=role,
-                        query=_join_query(prompt, "semantic checker enforcement diagnostics validation"),
+                        query=_join_query(prompt, role_phrase_from_spec(role)),
                         reason="parser_or_representation_without_validation_owner",
                         source_paths=paths,
                     )
                 )
         if role == "behavior_output" and likely_count == 0:
-            if any(token in all_paths for token in ("parser", "directive", "syntax")) or support_count:
+            if any(token in all_paths for token in role_support_path_hints(role)) or support_count:
                 intents.append(
                     ResponsibilityExpansionIntent(
                         role=role,
-                        query=_join_query(prompt, "runtime behavior validation owner directive enforcement"),
+                        query=_join_query(prompt, role_phrase_from_spec(role)),
                         reason="syntax_without_behavior_owner",
                         source_paths=paths,
                     )
@@ -227,41 +236,12 @@ def infer_expansion_intents(
 
 def _owner_signal_score(role: str, path: str, text: str, reasons: list[str]) -> float:
     score = 0.0
-    if role == "validation_checking":
-        if any(token in path for token in ("checker", "semantic")):
-            score += 3.2
-            reasons.append("validation_owner_path")
-        if any(token in text for token in ("cannot", "must", "instantiate", "implement", "diagnostic", "error", "semantic", "check")):
-            score += 3.2
-            reasons.append("enforcement_text")
-    elif role == "input_parsing":
-        if any(token in path for token in ("parser", "scanner")):
-            score += 3.0
-            reasons.append("parser_owner_path")
-        if any(token in text for token in ("parse", "syntaxkind", "modifier", "keyword", "token")):
-            score += 2.0
-            reasons.append("parser_text")
-    elif role == "representation":
-        if any(token in path for token in ("types", "symbols", "ast", "nodes")):
-            score += 3.0
-            reasons.append("representation_owner_path")
-        if any(token in text for token in ("interface", "enum", "classdeclaration", "nodeflags", "symbolflags", "type")):
-            score += 2.2
-            reasons.append("representation_text")
-    elif role == "diagnostics":
-        if any(token in path for token in DIAGNOSTIC_PATH_TOKENS):
-            score += 3.0
-            reasons.append("diagnostics_owner_path")
-        if any(token in text for token in ("diagnostic", "error", "message", "report")):
-            score += 2.0
-            reasons.append("diagnostics_text")
-    elif role == "behavior_output":
-        if any(token in path for token in ("runtime", "directive", "transform", "emitter", "renderer")):
-            score += 3.0
-            reasons.append("behavior_owner_path")
-        if any(token in text for token in ("runtime", "behavior", "validate", "warn", "emit", "transform", "directive")):
-            score += 2.2
-            reasons.append("behavior_text")
+    if path_matches_role(role, path):
+        score += 3.0
+        reasons.append(f"{role}_owner_path")
+    if any(token in text for token in role_keywords(role)):
+        score += 2.2
+        reasons.append(f"{role}_text")
 
     if any(token in path for token in PUBLIC_API_PATH_TOKENS):
         score += 1.4
@@ -274,13 +254,10 @@ def _owner_signal_score(role: str, path: str, text: str, reasons: list[str]) -> 
 
 def _support_signal_score(role: str, path: str, text: str, reasons: list[str]) -> float:
     score = 0.0
-    if role == "validation_checking" and any(token in path for token in ("parser", "scanner", "types", "binder")):
-        score += 2.7
-        reasons.append("adjacent_validation_support_layer")
-    if role == "behavior_output" and any(token in path for token in ("parser", "scanner", "syntax")):
-        score += 2.4
-        reasons.append("adjacent_behavior_support_layer")
-    if role != "diagnostics" and "diagnostic" in text and not any(token in text for token in ("check", "validate", "cannot", "must")):
+    if path_matches_role_support(role, path):
+        score += 2.5
+        reasons.append(f"adjacent_{role}_support_layer")
+    if role != "diagnostics" and "diagnostic" in text and not any(token in text for token in role_keywords(role)):
         score += 1.5
         reasons.append("diagnostic_text_without_enforcement")
     return score
