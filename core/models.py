@@ -154,6 +154,7 @@ class ResponsePayload:
     content: str
     evidence_refs: tuple[str, ...] = field(default_factory=tuple)
     violations: tuple[PolicyViolation, ...] = field(default_factory=tuple)
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -162,6 +163,7 @@ class ResponsePayload:
             "content": self.content,
             "evidence_refs": list(self.evidence_refs),
             "violations": [_violation_to_dict(violation) for violation in self.violations],
+            "metadata": _primitive_mapping(self.metadata),
         }
 
 

@@ -129,6 +129,7 @@ def run_case(
             )
         ),
         logger=logger,
+        response_llm_config=llm_config,
     )
     result = control_layer.run(state)
     if not result.policy_result.allowed:
@@ -256,7 +257,15 @@ def resolve_repo_pre_snapshot(
 
     repo_pre_commit = _git(repo_dir, "rev-list", "-1", f"--before={created_at}", "HEAD").strip()
     if not repo_pre_commit:
-        raise RuntimeError(f"No commit found before issue created_at {created_at}.")
+        root_commits = [line.strip() for line in _git(repo_dir, "rev-list", "--max-parents=0", "HEAD").splitlines() if line.strip()]
+        if not root_commits:
+            raise RuntimeError(f"No commit found before issue created_at {created_at}.")
+        return SnapshotResolution(
+            repo_pre_commit=root_commits[0],
+            strategy="earliest_available_commit",
+            confidence="lower",
+            details={"created_at": created_at},
+        )
     return SnapshotResolution(
         repo_pre_commit=repo_pre_commit,
         strategy="latest_commit_before_created_at",

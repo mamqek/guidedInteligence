@@ -36,6 +36,41 @@
   https://github.com/facebookresearch/faiss  
   Used during evaluation of local dense retrieval vs Qdrant-backed hybrid retrieval.
 
+## 2026-06-08
+
+### Added
+
+- Added a grouped retrieval pipeline package under `services/retrieval/pipeline/`:
+  - `constants.py`,
+  - `models.py`,
+  - `file_level.py`,
+  - `snippet_level.py`.
+
+### Changed
+
+- Split shared retrieval state models out of `workspace.py` into `services/retrieval/pipeline/models.py`.
+- Split file-level retrieval helpers out of `workspace.py` into `services/retrieval/pipeline/file_level.py`.
+- Split snippet-level refinement and snippet-quality helpers out of `workspace.py` into `services/retrieval/pipeline/snippet_level.py`.
+- Reduced `services/retrieval/workspace.py` from `4112` lines to `3020` lines by moving the reusable helper families into the new package.
+- Renamed the old post-owner `retarget/rescue` method family to cleaner follow-up terminology:
+  - `_retarget_role_buckets(...)` -> `_refine_selected_role_buckets(...)`,
+  - `_retarget_role_bucket(...)` -> `_refine_selected_role_bucket(...)`,
+  - `_retarget_role_rescue_specs(...)` -> `_build_snippet_followup_specs(...)`,
+  - `_late_role_rescue_specs(...)` -> `_build_late_recovery_followup_specs(...)`,
+  - `_run_role_rescue_pipeline(...)` -> `_run_role_followup_pipeline(...)`.
+- Renamed follow-up trace events from `role_rescue_*` to `role_followup_*` to match the new naming.
+
+### Verification
+
+- `python -m py_compile services\retrieval\workspace.py services\retrieval\pipeline\models.py services\retrieval\pipeline\file_level.py services\retrieval\pipeline\snippet_level.py services\retrieval\responsibility.py` passed after the split.
+- TypeScript verification run `run-20260608T-pipeline-split-3` completed with `coverage_status=strong` and `sufficient=True`.
+- Required-role evidence remained architecture-faithful after the file split:
+  - `representation`: `src/compiler/types.ts:L220-L299`,
+  - `input_parsing`: `src/compiler/parser.ts:L2319-L2398`,
+  - `validation_checking`: `src/compiler/checker.ts:L4984-L5063`,
+  - `diagnostics`: `src/compiler/diagnosticMessages.json:L399-L478`,
+  - `behavior_output`: `src/compiler/emitter.ts:L1281-L1360`.
+
 ## 2026-06-07
 
 ### Added

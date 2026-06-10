@@ -21,6 +21,12 @@ class LogEventType(str, Enum):
     RESPONSE_PLAN = "response_plan"
     #: Model or response builder input payload was created.
     PROMPT_PAYLOAD = "prompt_payload"
+    #: Explanation LLM request payload was sent.
+    RESPONSE_GENERATION_REQUESTED = "response_generation_requested"
+    #: Explanation LLM response payload was received.
+    RESPONSE_GENERATION_RECEIVED = "response_generation_received"
+    #: Explanation LLM generation failed.
+    RESPONSE_GENERATION_FAILED = "response_generation_failed"
     #: Final structured response payload was produced.
     RESPONSE_PAYLOAD = "response_payload"
     #: Model configuration was used for a model-backed step.
