@@ -12,35 +12,14 @@ from services.retrieval.pipeline.file_level import (
     role_owner_context_terms,
 )
 from services.retrieval.pipeline.models import RetrievalCandidate, RoleCandidateEvaluation
+from services.retrieval.role_specs import role_keywords, role_path_hints, role_query_hints, text_matches_role_keywords
 from services.retrieval.step2 import WorkspaceRetrievalPlan
 from services.retrieval.step2.common import ordered_unique
 
 
 def role_snippet_queries(role: str, *, query: str, helper_queries: Sequence[str]) -> tuple[str, ...]:
     queries = [query.strip()]
-    role_specific = {
-        "representation": (
-            "class declaration interface symbol flags",
-            "ast node method declaration type representation",
-        ),
-        "input_parsing": (
-            "parse declaration syntaxkind modifier keyword",
-            "parseexpected createnode parser declaration",
-        ),
-        "validation_checking": (
-            "check diagnostics error cannot must enforce",
-            "checker semantic constraint implementation instantiate",
-        ),
-        "diagnostics": (
-            "diagnostics error message grammarerror",
-            "report error diagnostics message",
-        ),
-        "behavior_output": (
-            "emit transform runtime output",
-            "compile time behavior runtime prevent",
-        ),
-    }
-    queries.extend(role_specific.get(role, ()))
+    queries.extend(role_query_hints(role))
     queries.extend(helper_queries[:2])
     return ordered_unique(value for value in queries if value and value.strip())
 
@@ -130,29 +109,7 @@ def in_file_refinement_terms(*, role: str, query_text: str) -> tuple[str, ...]:
     terms = list(tokenize_for_direct_owner_query(query_text))
     terms.extend(term.lower() for term in role_owner_context_terms(role))
     terms.extend(direct_owner_bonus_terms(role))
-    terms.extend(
-        {
-            "validation_checking": (
-                "check",
-                "error",
-                "diagnostics",
-                "assignable",
-                "implements",
-                "extends",
-                "base",
-                "constructor",
-                "construct",
-                "call",
-                "property",
-                "method",
-                "declaration",
-            ),
-            "input_parsing": ("parse", "modifier", "keyword", "token", "declaration", "member"),
-            "representation": ("flags", "symbol", "declaration", "type", "interface", "enum", "modifier"),
-            "diagnostics": ("diagnostics", "message", "error", "code"),
-            "behavior_output": ("emit", "transform", "output", "runtime"),
-        }.get(role, ())
-    )
+    terms.extend(role_keywords(role))
     return tuple(ordered_unique(term.lower() for term in terms if len(term) >= 3))
 
 
@@ -197,46 +154,57 @@ def declaration_anchor_bonus(*, role: str, query_text: str, text: str) -> float:
     declarations = [match.group(0).lower() for match in re.finditer(r"\b(?:function|class|interface|enum|type)\s+[A-Za-z_][A-Za-z0-9_]*", text)]
     if not declarations:
         return bonus
-    query_wants_class = any(term in query_text for term in ("class", "base", "extends", "implements", "constructor"))
-    query_wants_super = "super" in query_text
-    query_wants_diagnostics = any(term in query_text for term in ("diagnostic", "error", "cannot", "must"))
+    query_wants_class = any(term in query_text for term in ("class", "extends", "implements", "base"))
+    query_wants_constructor = any(term in query_text for term in ("constructor", "super"))
     for declaration in declarations:
-        if role == "validation_checking" and declaration.startswith("function check"):
-            bonus += 4.0
+        if role == "validation_checking" and declaration.startswith("function") and any(prefix in declaration for prefix in ("check", "validate", "verify")):
+            bonus += 3.0
             if query_wants_class and "class" in declaration:
-                bonus += 8.0
-            if query_wants_super and "super" in declaration:
-                bonus += 5.0
-            if query_wants_diagnostics:
-                bonus += 1.5
-        elif role == "input_parsing" and declaration.startswith("function parse"):
-            bonus += 5.0
-        elif role == "representation" and any(kind in declaration for kind in ("interface", "enum", "type")):
-            bonus += 4.0
-        elif role == "behavior_output" and declaration.startswith("function emit"):
-            bonus += 4.0
+                bonus += 4.0
+            if query_wants_constructor and "constructor" in declaration:
+                bonus += 2.0
+        elif role == "input_parsing" and declaration.startswith("function") and any(prefix in declaration for prefix in ("parse", "scan", "read")):
+            bonus += 3.0
+            if query_wants_class and any(token in declaration for token in ("class", "member", "declaration", "statement")):
+                bonus += 2.0
+        elif role == "representation" and any(kind in declaration for kind in ("interface", "enum", "type", "class")):
+            bonus += 2.5
+        elif role == "behavior_output" and declaration.startswith("function") and any(prefix in declaration for prefix in ("emit", "render", "transform", "serialize", "generate")):
+            bonus += 3.0
+        elif role == "diagnostics" and declaration.startswith("function") and any(prefix in declaration for prefix in ("report", "error", "diagnostic", "message")):
+            bonus += 2.0
     return bonus
 
 
 def preferred_direct_owner_line(*, role: str, query: str, lines: Sequence[str]) -> int | None:
-    if role != "validation_checking":
-        return None
-    lowered_query = query.lower()
-    wants_class_layer = any(term in lowered_query for term in ("class", "inherit", "extends", "base", "implement"))
-    wants_super_layer = "super" in lowered_query
-    if wants_class_layer:
-        for index, line in enumerate(lines, start=1):
-            lowered = line.lower()
-            if "classdeclaration" in lowered and any(term in lowered for term in ("basetype", "basetypes", "extends")):
-                return index
-        for index, line in enumerate(lines, start=1):
-            lowered = line.lower()
-            if "getdeclaredtypeofclass" in lowered or ("classdeclaration" in lowered and "declaration" in lowered):
-                return index
-    if wants_super_layer:
-        for index, line in enumerate(lines, start=1):
-            if "superkeyword" in line.lower():
-                return index
+    best_index: int | None = None
+    best_score = 0.0
+    query_terms = tokenize_for_direct_owner_query(query)
+    for index, line in enumerate(lines, start=1):
+        lowered = line.lower()
+        if not re.search(r"\b(?:function|class|interface|enum|type)\s+[A-Za-z_][A-Za-z0-9_]*", lowered):
+            continue
+        score = 0.0
+        score += sum(1.0 for token in query_terms if token in lowered)
+        if role == "validation_checking" and "function" in lowered and any(token in lowered for token in ("check", "validate", "verify")):
+            score += 3.0
+            if "class" in lowered or "type" in lowered:
+                score += 2.0
+        elif role == "input_parsing" and "function" in lowered and any(token in lowered for token in ("parse", "scan", "read")):
+            score += 3.0
+            if any(token in lowered for token in ("class", "member", "declaration", "statement")):
+                score += 2.0
+        elif role == "behavior_output" and "function" in lowered and any(token in lowered for token in ("emit", "render", "transform", "serialize", "generate")):
+            score += 3.0
+        elif role == "representation" and any(token in lowered for token in ("class", "interface", "enum", "type")):
+            score += 2.0
+        elif role == "diagnostics" and any(token in lowered for token in ("error", "message", "diagnostic", "report")):
+            score += 2.0
+        if score > best_score:
+            best_score = score
+            best_index = index
+    if best_score > 0 and best_index is not None:
+        return best_index
     return None
 
 
@@ -262,106 +230,23 @@ def tokenize_for_direct_owner_query(query: str) -> tuple[str, ...]:
 
 
 def direct_owner_bonus_terms(role: str) -> set[str]:
-    if role == "validation_checking":
-        return {
-            "classdeclaration",
-            "basetype",
-            "basetypes",
-            "getbasetypes",
-            "getdeclaredtypeofclass",
-            "getpropertiesoftype",
-            "getsignaturesoftype",
-            "diagnostics",
-            "error",
-            "superkeyword",
-            "construct",
-            "instantiate",
-        }
-    if role == "input_parsing":
-        return {"parse", "syntaxkind", "modifier", "keyword", "token", "classdeclaration", "classmember", "parseandcheckmodifiers"}
-    if role == "representation":
-        return {"interface", "enum", "nodeflags", "symbolflags", "declaration", "classdeclaration", "methoddeclaration"}
-    if role == "diagnostics":
-        return {"diagnostics", "message", "error", "code"}
-    if role == "behavior_output":
-        return {"emit", "runtime", "transform", "output", "directive", "emitclass", "classdeclaration", "emitmember"}
-    return set()
+    return set(role_keywords(role)) | set(role_path_hints(role))
 
 
 def direct_owner_window_bonus(role: str, text: str) -> float:
-    if role == "validation_checking":
-        score = 0.0
-        if "function checkclassdeclaration" in text:
-            score += 24.0
-        if "function checkinterfacedeclaration" in text:
-            score += 10.0
-        if "case syntaxkind.classdeclaration" in text and "checkclassdeclaration" in text:
-            score += 8.0
-        if "classdeclaration" in text and ("basetype" in text or "basetypes" in text):
-            score += 6.0
-        if "diagnostics." in text or "error(" in text:
-            score += 3.0
-        if "getdeclaredtypeofclass" in text or "getpropertiesoftype" in text:
-            score += 2.0
-        if "superkeyword" in text:
-            score += 2.0
-            if "function checkclassdeclaration" not in text:
-                score -= 4.0
-        return score
-    if role == "input_parsing":
-        score = 0.0
-        if "function parseandcheckmodifiers" in text:
-            score += 68.0
-        if "function parseclassmemberdeclaration" in text:
-            score += 12.0
-        if "function parseclassdeclaration" in text:
-            score += 10.0
-        if "parseclassdeclaration" in text or "parseclassmemberdeclaration" in text:
-            score += 8.0
-        if "parseandcheckmodifiers" in text or ("modifier" in text and "syntaxkind" in text):
-            score += 5.0
-        if "case syntaxkind." in text and "function parseclass" not in text:
-            score -= 8.0
-        if any(token in text for token in ("parseparenthesizedexpression", "parsevariablestatement", "parsewithstatement")) and "class" not in text:
-            score -= 4.0
-        return score
-    if role == "representation":
-        score = 0.0
-        if "export enum nodeflags" in text:
-            score += 24.0
-        if "interface node" in text and "flags: nodeflags" in text:
-            score += 18.0
-        if "interface classdeclaration" in text:
-            score += 18.0
-        if "interface methoddeclaration" in text:
-            score += 14.0
-        if "nodeflags" in text or "symbolflags" in text:
-            score += 6.0
-        if "classdeclaration" in text or "methoddeclaration" in text:
-            score += 4.0
-        if ("interface nodelinks" in text or "enum typeflags" in text or "interface type" in text) and "nodeflags" not in text:
-            score -= 10.0
-        return score
-    if role == "behavior_output":
-        score = 0.0
-        if "function emitclassdeclaration" in text:
-            score += 28.0
-        if "function emitmemberfunctions" in text or "function emitclassmembers" in text:
-            score += 20.0
-        if "function emitmemberassignments" in text:
-            score += 10.0
-        if "emitclassdeclaration" in text or "emitmemberfunctions" in text or "emitclassmembers" in text:
-            score += 8.0
-        if "classdeclaration" in text and "emit" in text:
-            score += 5.0
-        if "case syntaxkind." in text and "function emitclassdeclaration" not in text:
-            score -= 8.0
-        if "function emitmoduledeclaration" in text and "classdeclaration" not in text:
-            score -= 6.0
-        if any(token in text for token in ("emitthrowstatement", "emittrystatement", "emitcatchclause")) and "class" not in text:
-            score -= 5.0
-        return score
-    return 0.0
+    score = 0.0
+    score += sum(0.6 for token in role_keywords(role) if token in text)
+    if role == "validation_checking" and re.search(r"\bfunction\s+[A-Za-z_][A-Za-z0-9_]*(check|validate|verify)", text):
+        score += 2.5
+    if role == "input_parsing" and re.search(r"\bfunction\s+[A-Za-z_][A-Za-z0-9_]*(parse|scan|read)", text):
+        score += 2.5
+    if role == "representation" and re.search(r"\b(?:class|interface|enum|type)\s+[A-Za-z_][A-Za-z0-9_]*", text):
+        score += 2.2
+    if role == "behavior_output" and re.search(r"\bfunction\s+[A-Za-z_][A-Za-z0-9_]*(emit|render|transform|serialize|generate)", text):
+        score += 2.5
+    if role == "diagnostics" and any(token in text for token in ("error", "message", "report", "diagnostic")):
+        score += 1.8
+    return score
 
 
 def role_followup_queries(
@@ -373,29 +258,7 @@ def role_followup_queries(
     candidate_text: str,
 ) -> tuple[str, ...]:
     queries: list[str] = []
-    followup_specific = {
-        "representation": (
-            "nodeflags modifier syntaxkind classdeclaration methoddeclaration",
-            "symbolflags declaration interface class method",
-        ),
-        "input_parsing": (
-            "parse declaration modifier syntaxkind keyword",
-            "parseclassdeclaration parseclassmemberdeclaration parseandcheckmodifiers",
-        ),
-        "validation_checking": (
-            "check abstract instantiate implement diagnostics",
-            "cannot must enforce semantic error abstract",
-        ),
-        "diagnostics": (
-            "diagnostics grammarerror error message abstract",
-            "report error diagnostics instantiate super abstract",
-        ),
-        "behavior_output": (
-            "emit class declaration method modifier output",
-            "emitclassdeclaration emitmemberfunctions emit class members",
-        ),
-    }
-    queries.extend(followup_specific.get(role, ()))
+    queries.extend(role_query_hints(role))
     queries.extend(role_snippet_queries(role, query=query, helper_queries=helper_queries)[1:])
     for token in DECLARATION_PATTERN.findall(candidate_text):
         if len(token) >= 5:
@@ -503,18 +366,8 @@ def followup_snippet_quality(
 ) -> str:
     if candidate.source_id not in rescued_refs:
         return snippet_quality_for_ref(candidate.source_id, existing_assessment)
-    if role == "validation_checking":
-        text = candidate.text.lower()
-        if any(token in text for token in ("cannot", "must", "instantiate", "implement", "super", "diagnostic", "semantic", "extends", "check")):
-            return "core"
-    if role == "input_parsing":
-        text = candidate.text.lower()
-        if any(token in text for token in ("parseclass", "parseandcheckmodifiers", "modifier", "syntaxkind", "keyword")):
-            return "core"
-    if role == "behavior_output":
-        text = candidate.text.lower()
-        if any(token in text for token in ("emit", "transform", "runtime", "output")):
-            return "core"
+    if text_matches_role_keywords(role, candidate.text, minimum_hits=2):
+        return "core"
     return "secondary"
 
 
@@ -560,12 +413,10 @@ def salient_candidate_excerpt(candidate: RetrievalCandidate, *, limit: int) -> s
         if DECLARATION_PATTERN.search(line) or re.search(r"\bfunction\s+[A-Za-z_][A-Za-z0-9_]*\b", line):
             score += 5.0
         score += sum(1.0 for term in terms[:24] if term in lowered)
-        if role == "validation_checking" and re.search(r"\bfunction\s+check", lowered):
+        if role == "validation_checking" and re.search(r"\bfunction\s+[A-Za-z_][A-Za-z0-9_]*(check|validate|verify)", lowered):
             score += 6.0
-            if "class" in lowered:
-                score += 12.0
-            if any(term in lowered for term in ("base", "implement", "inherit", "extends", "super", "construct")):
-                score += 4.0
+        if role == "input_parsing" and re.search(r"\bfunction\s+[A-Za-z_][A-Za-z0-9_]*(parse|scan|read)", lowered):
+            score += 5.0
         if score > best_score:
             best_score = score
             best_index = index

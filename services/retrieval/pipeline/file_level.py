@@ -15,6 +15,15 @@ from services.retrieval.pipeline.constants import (
     MAX_ROLE_QUERIES,
 )
 from services.retrieval.pipeline.models import RetrievalCandidate, RoleRetrievalBucket, RoleValidationResult
+from services.retrieval.role_specs import (
+    path_matches_role,
+    role_generic_terms,
+    role_keywords as shared_role_keywords,
+    role_path_hints,
+    role_phrase_from_spec,
+    role_query_hints,
+    role_support_path_hints,
+)
 from services.retrieval.responsibility import FileResponsibilityProfile, profile_candidate
 from services.retrieval.step2 import WorkspaceRetrievalPlan
 from services.retrieval.step2.common import IDENTIFIER_PATTERN, ordered_unique
@@ -66,39 +75,19 @@ def resolve_explicit_reference_path(candidate_path: str, reference_path: str) ->
 
 
 def role_keywords(role: str) -> tuple[str, ...]:
-    mapping = {
-        "representation": ("represent", "symbol", "node", "declaration", "flag", "type"),
-        "input_parsing": ("parse", "parser", "parsing", "scanner", "syntax", "token", "modifier"),
-        "validation_checking": ("check", "checker", "validation", "constraint", "instantiate", "abstract", "semantic"),
-        "diagnostics": ("diagnostic", "error", "message", "report"),
-        "behavior_output": ("emit", "runtime", "behavior", "output", "transform"),
-        "tests": ("test", "conformance", "fourslash", "baseline", "unit"),
-        "docs": ("docs", "documentation", "readme", "handbook"),
-        "config": ("config", "setting", "option", "tsconfig", "compileroption"),
-    }
-    return mapping.get(role, ())
+    return shared_role_keywords(role)
 
 
 def role_query_package(plan: WorkspaceRetrievalPlan, role: str, query: str) -> tuple[str, ...]:
     queries = [query.strip()]
-    synthetic_helpers = {
-        "representation": ("data model type declaration", "entity schema flags metadata", "symbols nodes declarations"),
-        "input_parsing": ("syntax parser tokens modifiers", "declaration parsing flow", "input grammar parsing"),
-        "validation_checking": ("semantic validation rules", "constraint enforcement checker", "rule evaluation validation"),
-        "diagnostics": ("error diagnostics messages", "validation failure reporting", "user facing error messages"),
-        "behavior_output": ("output generation runtime behavior", "emit transform render output", "runtime execution behavior"),
-        "docs": ("feature documentation guide",),
-        "config": ("configuration options settings",),
-        "tests": ("feature tests cases",),
-    }
-    queries.extend(synthetic_helpers.get(role, ()))
+    queries.extend(role_query_hints(role))
     role_term_set = set(role_keywords(role))
     for term in plan.retrieval_terms:
         lowered = term.lower()
         if any(keyword in lowered for keyword in role_term_set):
             queries.append(term)
-    if role == "input_parsing" and plan.prompt_summary.strip():
-        queries.append(f"{plan.prompt_summary.strip()} parser")
+    if plan.prompt_summary.strip():
+        queries.append(f"{plan.prompt_summary.strip()} {role_phrase_from_spec(role, max_terms=2)}".strip())
     for entity in (plan.confirmed_entities or plan.grounded_entities)[:2]:
         if entity.strip():
             queries.append(entity)
@@ -157,13 +146,7 @@ def code_identifier_terms(text: str) -> tuple[str, ...]:
 
 
 def role_owner_context_terms(role: str) -> tuple[str, ...]:
-    return {
-        "validation_checking": ("checker", "semantic", "diagnostics", "enforce", "constraint", "TypeChecker"),
-        "input_parsing": ("parser", "scanner", "SyntaxKind", "token", "modifier"),
-        "representation": ("types", "symbols", "NodeFlags", "SymbolFlags", "Declaration"),
-        "diagnostics": ("diagnosticMessages", "Diagnostics", "error", "message"),
-        "behavior_output": ("emitter", "runtime", "transform", "behavior", "output"),
-    }.get(role, ())
+    return role_generic_terms(role)
 
 
 def clean_query_terms(terms: Sequence[str]) -> tuple[str, ...]:
@@ -397,9 +380,9 @@ def candidate_is_reference_expansion_source(role: str, path: str, profile: FileR
         return False
     if profile.support_only or profile.classification == "possible_owner":
         return True
-    if any(reason.startswith("adjacent_") for reason in profile.reasons):
+    if profile.classification == "likely_owner" and not path_matches_role(role, normalized_path):
         return True
-    if role == "validation_checking" and any(token in normalized_path for token in ("/services/", "/compiler/tc.", "commandline", "project", "watch")):
+    if any(reason.startswith("adjacent_") for reason in profile.reasons):
         return True
     return False
 
@@ -428,18 +411,11 @@ def has_role_owner_candidate(role: str, candidates: Sequence[RetrievalCandidate]
 
 
 def role_owner_path_match(role: str, path: str) -> bool:
-    normalized_path = path.replace("\\", "/").lower()
-    return any(token in normalized_path for token in role_owner_path_tokens(role))
+    return path_matches_role(role, path)
 
 
 def role_owner_path_tokens(role: str) -> tuple[str, ...]:
-    return {
-        "validation_checking": ("checker", "semantic", "validator", "validate", "typecheck", "type_check", "resolver", "rules"),
-        "behavior_output": ("emitter", "runtime", "transform", "renderer", "directive"),
-        "input_parsing": ("parser", "scanner"),
-        "representation": ("types", "symbols", "ast", "nodes", "schema", "model"),
-        "diagnostics": ("diagnostic", "diagnostics", "messages"),
-    }.get(role, ())
+    return role_path_hints(role)
 
 
 def target_matches_reference_owner_vocab(role: str, path: str) -> bool:
@@ -449,8 +425,7 @@ def target_matches_reference_owner_vocab(role: str, path: str) -> bool:
 def is_generic_reference_hub(role: str, path: str) -> bool:
     normalized_path = path.replace("\\", "/").lower()
     if role == "validation_checking":
-        blocked = ("types.ts", "core.ts", "scanner.ts", "binder.ts", "parser.ts")
-        return any(normalized_path.endswith(token) for token in blocked)
+        return any(token in normalized_path for token in role_support_path_hints(role))
     return False
 
 
@@ -534,14 +509,6 @@ def obsidian_source_queries(prompt: str) -> tuple[str, ...]:
     title_match = re.search(r"^Title:\s*(.+)$", normalized, re.IGNORECASE | re.MULTILINE)
     if title_match:
         candidates.append(title_match.group(1))
-    lowered = normalized.lower()
-    if "abstract" in lowered and "class" in lowered:
-        candidates.extend(
-            [
-                "abstract class TypeScript",
-                "abstract classes",
-            ]
-        )
     identifiers = [
         token
         for token in IDENTIFIER_PATTERN.findall(normalized)

@@ -1258,8 +1258,10 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             candidate_text="function parseClassDeclaration() { return parseClassMemberDeclaration(); }",
         )
 
-        self.assertIn("parseclassdeclaration parseclassmemberdeclaration parseandcheckmodifiers", queries)
-        self.assertIn("parser How does parsing handle abstract classes?", queries)
+        self.assertIn("abstract keyword parser", queries)
+        self.assertIn("parse", queries)
+        self.assertIn("parser", queries)
+        self.assertIn("parser syntax tokens How does parsing handle abstract classes?", queries)
 
     def test_prepare_role_bucket_uses_llm_generated_helper_queries(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server(
@@ -2428,9 +2430,9 @@ class _FakeLLMHandler(BaseHTTPRequestHandler):
             else:
                 content = {
                     "queries": [
-                        "parser modifier syntax",
-                        "checker semantic rules",
-                        "diagnostic message errors",
+                        "parser syntax tokens",
+                        "semantic validation rules",
+                        "diagnostic error messages",
                     ]
                 }
         else:
