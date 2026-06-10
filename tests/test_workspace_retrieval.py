@@ -1261,6 +1261,95 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
         self.assertIn("parseclassdeclaration parseclassmemberdeclaration parseandcheckmodifiers", queries)
         self.assertIn("parser How does parsing handle abstract classes?", queries)
 
+    def test_prepare_role_bucket_uses_llm_generated_helper_queries(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server(
+            [
+                {
+                    "queries": [
+                        "NodeFlags modifier flags",
+                        "types declaration nodes",
+                        "symbol flags representation",
+                    ]
+                }
+            ]
+        ) as server_url:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            (repo / "src" / "compiler").mkdir(parents=True)
+            (repo / "src" / "compiler" / "types.ts").write_text(
+                "\n".join(
+                    [
+                        "export enum NodeFlags {",
+                        "  Export = 1,",
+                        "  Ambient = 2,",
+                        "}",
+                        "export interface Declaration {",
+                        "  flags: NodeFlags;",
+                        "}",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            index_dir = root / "index"
+            index = build_index_from_repo(repo_path=repo, commit="test", chunk_line_count=40, chunk_line_overlap=10)
+            save_index(index, index_dir)
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=str(repo),
+                    index_dir=str(index_dir),
+                    llm_config=_llm_config(server_url),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                )
+            )
+            retrieval_plan = replace(
+                _test_retrieval_plan(required_roles=("representation",)),
+                metadata={
+                    "planner": "test",
+                    "repo_context": {
+                        "repo_sketch": {
+                            "top_directories": ["src/compiler"],
+                            "representative_files": ["src/compiler/types.ts"],
+                            "file_index": [
+                                {
+                                    "path": "src/compiler/types.ts",
+                                    "role": "implementation",
+                                    "identifiers": ["NodeFlags", "Declaration", "flags"],
+                                }
+                            ],
+                        }
+                    },
+                },
+            )
+            qdrant_tool = QdrantHybridSearchTool(
+                index,
+                qdrant_config=_qdrant_config(),
+                embedding_config=_embedding_config(),
+                cache_path=str(root / "qdrant-cache.json"),
+            )
+            open_file_tool = OpenFileTool(index)
+
+            prepared, _tool_calls = stage._prepare_role_bucket(
+                retrieval_plan=retrieval_plan,
+                role="representation",
+                query="where are modifier flags represented",
+                qdrant_tool=qdrant_tool,
+                open_file_tool=open_file_tool,
+                narrowed_files=("src/compiler/types.ts",),
+                phase="required",
+            )
+
+            self.assertEqual(
+                prepared.helper_queries,
+                (
+                    "where are modifier flags represented",
+                    "NodeFlags modifier flags",
+                    "types declaration nodes",
+                    "symbol flags representation",
+                ),
+            )
+            self.assertTrue(prepared.candidates)
+
     def test_late_assessment_downgrades_noise_bucket(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server([_step2_response()]) as server_url:
             root = Path(temp_dir)
@@ -1287,6 +1376,57 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     snippet_assessment=({"ref": "repo:binder", "role": "noise", "reason": "binder plumbing"},),
                     stop_reason="missing checker logic",
                     follow_up_queries=({"role": "validation_checking", "query": "semantic checker diagnostics", "reason": "missing enforcement"},),
+                ),
+                required_roles=("validation_checking",),
+            )
+            self.assertEqual(updated[0].role_status, "missing")
+            self.assertEqual(updated[0].satisfying_refs, ())
+
+    def test_file_only_candidate_cannot_satisfy_required_role(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server([_step2_response()]) as server_url:
+            root = Path(temp_dir)
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=str(root),
+                    index_dir=str(root / "index"),
+                    llm_config=_llm_config(server_url),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                )
+            )
+            bucket = RoleRetrievalBucket(
+                role="validation_checking",
+                query="where are abstract class rules enforced",
+                helper_queries=("where are abstract class rules enforced",),
+                observations=(),
+                retrieved_candidates=(_test_file_candidate("src/compiler/checker.ts", "function checkClassDeclaration() {}", "validation_checking", "repo:checker:FILE"),),
+                evaluations=(
+                    RoleCandidateEvaluation(
+                        candidate=_test_file_candidate("src/compiler/checker.ts", "function checkClassDeclaration() {}", "validation_checking", "repo:checker:FILE"),
+                        validation=_test_validation(accepted=True, reason="responsibility_owner_selected", total_score=8.0),
+                        stage="responsibility_rerank",
+                        source_role="validation_checking",
+                    ),
+                ),
+                accepted_candidates=(_test_file_candidate("src/compiler/checker.ts", "function checkClassDeclaration() {}", "validation_checking", "repo:checker:FILE"),),
+                rejected_refs=(),
+                validation_notes=("responsibility_owner_selected",),
+                missing_reason="owner_only_file_candidates",
+                role_status="weak",
+                satisfying_refs=(),
+                snippet_assessment=(),
+                satisfaction_source="responsibility_rerank",
+            )
+            updated = stage._apply_synthesis_feedback(
+                buckets=(bucket,),
+                decision=RetrievalSynthesisDecision(
+                    acceptance_satisfied=True,
+                    missing_areas=(),
+                    accepted_anchor_refs=("repo:checker:FILE",),
+                    rejected_anchor_refs=(),
+                    snippet_assessment=({"ref": "repo:checker:FILE", "role": "core", "reason": "owner file only"},),
+                    stop_reason="context gathered",
+                    follow_up_queries=(),
                 ),
                 required_roles=("validation_checking",),
             )
@@ -2083,6 +2223,20 @@ def _test_candidate(path: str, text: str, coverage_area: str, source_id: str) ->
     )
 
 
+def _test_file_candidate(path: str, text: str, coverage_area: str, source_id: str) -> RetrievalCandidate:
+    return RetrievalCandidate(
+        candidate_id=source_id,
+        source_category=SourceCategory.SOURCE_CODE,
+        retrieval_path="qdrant_file_candidate",
+        text=text,
+        score=10.0,
+        source_id=source_id,
+        path=path,
+        line_range="FILE",
+        metadata={"path": path, "coverage_area": coverage_area, "file_role": "implementation", "file_candidate": "true"},
+    )
+
+
 def _test_validation(*, accepted: bool, reason: str, total_score: float, acceptance_source: str = "local_only") -> RoleValidationResult:
     return RoleValidationResult(
         accepted=accepted,
@@ -2260,8 +2414,27 @@ class _FakeLLMHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length", "0"))
-        self.rfile.read(length)
-        content = self.response_payloads.pop(0)
+        raw_request = self.rfile.read(length)
+        request_payload = json.loads(raw_request.decode("utf-8"))
+        response_name = (
+            request_payload.get("response_format", {})
+            .get("json_schema", {})
+            .get("name", "")
+        )
+        if response_name == "workspace_retrieval_role_helper_queries":
+            queued = self.response_payloads[0] if self.response_payloads else None
+            if isinstance(queued, dict) and "queries" in queued:
+                content = self.response_payloads.pop(0)
+            else:
+                content = {
+                    "queries": [
+                        "parser modifier syntax",
+                        "checker semantic rules",
+                        "diagnostic message errors",
+                    ]
+                }
+        else:
+            content = self.response_payloads.pop(0)
         if not isinstance(content, str):
             content = json.dumps(content)
         body = json.dumps({"choices": [{"message": {"content": content}}]}).encode("utf-8")

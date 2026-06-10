@@ -106,7 +106,10 @@ def plan_workspace_retrieval_step(
         negative_filters=merged_negative_filters,
         required_roles=DEFAULT_REQUIRED_RETRIEVAL_ROLES,
         supporting_roles=DEFAULT_SUPPORTING_RETRIEVAL_ROLES,
-        metadata={"planner": "llm_workspace_grounded_v2"},
+        metadata={
+            "planner": "llm_workspace_grounded_v2",
+            "repo_context": dict(repo_context or {}),
+        },
     )
 
 

@@ -11,3 +11,9 @@
 - Do not silently fall back from an LLM-backed stage to a deterministic surrogate.
 - If a stage requires an LLM and no LLM configuration is available, fail immediately.
 - If an LLM-backed stage fails at runtime, return an explicit error response or surface the failure directly; do not substitute a hardcoded explanation.
+
+## Tool Rerun Requests
+
+- If the user asks to rerun the tool, rerun the actual pipeline or serving command first.
+- Do not substitute unit tests, fake servers, or isolated harness checks for a requested tool rerun.
+- Use tests only as secondary verification after the real tool path has been exercised, or when the real tool path is unavailable and that limitation is stated explicitly.

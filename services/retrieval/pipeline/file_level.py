@@ -81,53 +81,15 @@ def role_keywords(role: str) -> tuple[str, ...]:
 
 def role_query_package(plan: WorkspaceRetrievalPlan, role: str, query: str) -> tuple[str, ...]:
     queries = [query.strip()]
-    # Previous prompt-specific helpers kept here for comparison during tuning.
-    # They overfit to the abstract-classes testcase and should stay disabled.
-    #
-    # synthetic_helpers = {
-    #     "representation": ("symbol flags type representation", "class method declaration types", "ast node declaration symbol"),
-    #     "input_parsing": ("abstract keyword parser", "class method parser modifier", "class declaration parser", "method declaration parser"),
-    #     "validation_checking": ("abstract class checker", "abstract method checker validation", "constraint enforcement checker", "semantic error checker"),
-    #     "diagnostics": ("abstract diagnostic message", "super abstract error message", "diagnostic error reporting"),
-    #     "behavior_output": ("abstract emit transform", "abstract runtime behavior", "compile time behavior"),
-    #     "docs": ("abstract class documentation",),
-    #     "config": ("abstract compiler option",),
-    #     "tests": ("abstract class test",),
-    # }
-    #
-    # Current helpers are role-only query expansions. They stay generic to the
-    # retrieval role rather than to any specific prompt. This follows the usual
-    # concept-location / query-reformulation pattern of mixing the task query
-    # with short structural terms developers commonly use when locating code.
     synthetic_helpers = {
-        "representation": (
-            "ast declaration member representation",
-            "type symbol node flags",
-            "declaration structure symbol table",
-        ),
-        "input_parsing": (
-            "parser syntax token modifier",
-            "parse declaration member keyword",
-            "scanner syntaxkind parse token",
-        ),
-        "validation_checking": (
-            "checker semantic validation constraint",
-            "enforce rule diagnostics check",
-            "inheritance implementation override check",
-        ),
-        "diagnostics": (
-            "diagnostic error message reporting",
-            "diagnostic definitions and uses",
-            "report error diagnostics",
-        ),
-        "behavior_output": (
-            "emitter transform runtime output",
-            "code generation emit behavior",
-            "runtime output transformation",
-        ),
-        "docs": ("readme handbook language documentation",),
-        "config": ("compiler option feature flag config",),
-        "tests": ("conformance baseline fourslash test", "negative unit compiler test"),
+        "representation": ("data model type declaration", "entity schema flags metadata", "symbols nodes declarations"),
+        "input_parsing": ("syntax parser tokens modifiers", "declaration parsing flow", "input grammar parsing"),
+        "validation_checking": ("semantic validation rules", "constraint enforcement checker", "rule evaluation validation"),
+        "diagnostics": ("error diagnostics messages", "validation failure reporting", "user facing error messages"),
+        "behavior_output": ("output generation runtime behavior", "emit transform render output", "runtime execution behavior"),
+        "docs": ("feature documentation guide",),
+        "config": ("configuration options settings",),
+        "tests": ("feature tests cases",),
     }
     queries.extend(synthetic_helpers.get(role, ()))
     role_term_set = set(role_keywords(role))
