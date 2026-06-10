@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import re
 import subprocess
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import datetime, timezone
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from core.models import ConversationState, EvidenceItem, PolicyResult, RetrievalResult
@@ -17,6 +17,93 @@ from services.retrieval.obsidian import (
     ObsidianSearchError,
     ObsidianSearchResult,
     trusted_file_hints_from_obsidian_results,
+)
+from services.retrieval.pipeline.constants import (
+    MAX_EVIDENCE_ITEMS,
+    MAX_FILE_ROLE_ALTERNATES,
+    MAX_FILE_ROLE_RESOLUTION_ROUNDS,
+    MAX_ROLE_BUCKET_CANDIDATES,
+    MAX_ROLE_CANDIDATE_EVALUATIONS,
+    MAX_ROLE_CODE_CONTEXT_QUERIES,
+    MAX_ROLE_CODE_CONTEXT_TERMS,
+    MAX_ROLE_COMPLETION_CANDIDATES,
+    MAX_ROLE_FILE_REFINE_QUERIES,
+    MAX_ROLE_FOLLOWUP_QUERIES,
+    MAX_ROLE_INITIAL_PATHS,
+    MAX_ROLE_PER_QUERY_TOP_PATHS,
+    MAX_ROLE_QUERIES,
+    MAX_ROLE_REFERENCE_EXPANSION_SOURCES,
+    MAX_ROLE_REFERENCE_EXPANSION_TARGETS,
+    MAX_ROLE_REFERENCE_SCAN_LINE_COUNT,
+)
+from services.retrieval.pipeline.file_level import (
+    anchor_support_paths as _anchor_support_paths,
+    bucket_missing_roles as _bucket_missing_roles,
+    bucket_unresolved_roles as _bucket_unresolved_roles,
+    candidate_from_chunk_payload as _candidate_from_chunk_payload,
+    candidate_is_reference_expansion_source as _candidate_is_reference_expansion_source,
+    candidate_rank_key as _candidate_rank_key,
+    candidate_satisfies_owner_layer as _candidate_satisfies_owner_layer,
+    candidate_symbol as _candidate_symbol,
+    clean_query_terms as _clean_query_terms,
+    collapse_candidates_to_file_candidates as _collapse_candidates_to_file_candidates,
+    code_identifier_terms as _code_identifier_terms,
+    completion_redundancy_penalty as _completion_redundancy_penalty,
+    coverage_area_names as _coverage_area_names,
+    diagnostics_like_candidate as _diagnostics_like_candidate,
+    extract_explicit_reference_paths as _extract_explicit_reference_paths,
+    has_role_owner_candidate as _has_role_owner_candidate,
+    is_generic_reference_hub as _is_generic_reference_hub,
+    iterative_code_context_queries as _iterative_code_context_queries,
+    line_start_from_range as _line_start_from_range,
+    looks_like_source_file as _looks_like_source_file,
+    matched_anchor_paths as _matched_anchor_paths,
+    merge_source_priorities,
+    obsidian_source_queries as _obsidian_source_queries,
+    path_diverse_candidates as _path_diverse_candidates,
+    rank_unique_candidates as _rank_unique_candidates,
+    recovery_anchor_queries as _recovery_anchor_queries,
+    resolve_explicit_reference_path as _resolve_explicit_reference_path,
+    role_owner_context_terms as _role_owner_context_terms,
+    role_owner_path_match as _role_owner_path_match,
+    role_owner_path_tokens as _role_owner_path_tokens,
+    role_phase_path_allowed as _role_phase_path_allowed,
+    role_query_package as _role_query_package,
+    role_requires_owner_layer as _role_requires_owner_layer,
+    role_scoped_narrowed_files as _role_scoped_narrowed_files,
+    select_diverse_completion_entries as _select_diverse_completion_entries,
+    target_matches_reference_owner_vocab as _target_matches_reference_owner_vocab,
+    tool_summary_payload as _tool_summary_payload,
+    trusted_file_hints_for_result as _trusted_file_hints_for_result,
+)
+from services.retrieval.pipeline.models import (
+    DeterministicCoverageGate,
+    PreparedRoleBucket,
+    RetrievalCandidate,
+    RetrievalSynthesisDecision,
+    RoleCandidateEvaluation,
+    RoleRetrievalBucket,
+    RoleValidationResult,
+)
+from services.retrieval.pipeline.snippet_level import (
+    best_direct_owner_span as _best_direct_owner_span,
+    best_in_file_refinement_span as _best_in_file_refinement_span,
+    direct_owner_window_bonus as _direct_owner_window_bonus,
+    drop_redundant_file_candidates as _drop_redundant_file_candidates,
+    followup_snippet_quality as _rescue_snippet_quality,
+    in_file_refinement_terms as _in_file_refinement_terms,
+    in_file_search_terms as _in_file_search_terms,
+    is_file_candidate as _is_file_candidate,
+    late_snippet_quality as _late_snippet_quality,
+    latest_evaluation_for_ref as _latest_evaluation_for_ref,
+    merge_retrieved_candidates as _merge_retrieved_candidates,
+    planning_snippets as _planning_snippets,
+    read_owner_text_file as _read_owner_text_file,
+    role_followup_queries as _role_followup_queries,
+    role_snippet_queries as _role_snippet_queries,
+    salient_candidate_excerpt as _salient_candidate_excerpt,
+    snippet_quality_for_ref as _snippet_quality_for_ref,
+    snippet_reason_for_ref as _snippet_reason_for_ref,
 )
 from services.retrieval.role_completion import RoleCompletionContext, score_role_completion
 from services.retrieval.role_validation import AnchorRecord, AnchorSupport, RoleValidationContext, validator_for_role
@@ -44,186 +131,6 @@ from services.retrieval.tools import (
 )
 from services.retrieval.tools.local import build_repo_sketch, file_role as tool_file_role
 from services.retrieval.workspace_llm import assess_role_buckets_with_llm
-
-
-MAX_EVIDENCE_ITEMS = 12
-MAX_ROLE_BUCKET_CANDIDATES = 2
-MAX_ROLE_CANDIDATE_EVALUATIONS = 4
-MAX_ROLE_QUERIES = 5
-MAX_ROLE_FILE_REFINE_QUERIES = 2
-MAX_ROLE_PER_QUERY_TOP_PATHS = 2
-MAX_ROLE_INITIAL_PATHS = 8
-MAX_ROLE_COMPLETION_CANDIDATES = 12
-MAX_ROLE_RETARGET_QUERIES = 4
-MAX_ROLE_REFERENCE_EXPANSION_SOURCES = 8
-MAX_ROLE_REFERENCE_EXPANSION_TARGETS = 3
-MAX_ROLE_REFERENCE_SCAN_LINE_COUNT = 24
-MAX_ROLE_CODE_CONTEXT_QUERIES = 2
-MAX_ROLE_CODE_CONTEXT_TERMS = 18
-MAX_FILE_ROLE_RESOLUTION_ROUNDS = 1
-MAX_FILE_ROLE_ALTERNATES = 6
-DECLARATION_PATTERN = re.compile(r"\b(?:class|interface|function|enum|type|namespace|module)\s+([A-Za-z_][A-Za-z0-9_]*)\b")
-TRIPLE_SLASH_REFERENCE_PATTERN = re.compile(r'///\s*<reference\s+path=["\']([^"\']+)["\']\s*/?>', re.IGNORECASE)
-
-
-@dataclass(frozen=True)
-class RetrievalCandidate:
-    candidate_id: str
-    source_category: SourceCategory
-    retrieval_path: str
-    text: str
-    score: float
-    source_id: str
-    path: str | None
-    line_range: str | None
-    metadata: Mapping[str, str]
-
-
-@dataclass(frozen=True)
-class RoleValidationResult:
-    accepted: bool
-    reason: str
-    local_intent_score: float
-    role_path_score: float
-    dependency_support_score: float
-    anchor_proximity_score: float
-    call_flow_score: float
-    total_score: float
-    threshold: float
-    acceptance_source: str
-    symbol: str | None
-    dependency_paths: tuple[str, ...]
-    call_paths: tuple[str, ...]
-    anchor_paths: tuple[str, ...]
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "accepted": self.accepted,
-            "reason": self.reason,
-            "local_intent_score": round(self.local_intent_score, 3),
-            "role_path_score": round(self.role_path_score, 3),
-            "dependency_support_score": round(self.dependency_support_score, 3),
-            "anchor_proximity_score": round(self.anchor_proximity_score, 3),
-            "call_flow_score": round(self.call_flow_score, 3),
-            "total_score": round(self.total_score, 3),
-            "threshold": round(self.threshold, 3),
-            "acceptance_source": self.acceptance_source,
-            "symbol": self.symbol or "",
-            "dependency_paths": list(self.dependency_paths),
-            "call_paths": list(self.call_paths),
-            "anchor_paths": list(self.anchor_paths),
-        }
-
-
-@dataclass(frozen=True)
-class RoleCandidateEvaluation:
-    candidate: RetrievalCandidate
-    validation: RoleValidationResult
-    stage: str = "initial"
-    source_role: str = ""
-
-
-@dataclass(frozen=True)
-class PreparedRoleBucket:
-    role: str
-    query: str
-    helper_queries: tuple[str, ...]
-    observations: tuple[ToolObservation, ...]
-    candidates: tuple[RetrievalCandidate, ...]
-
-
-@dataclass(frozen=True)
-class DeterministicCoverageGate:
-    satisfied: bool
-    role_status: Mapping[str, str]
-    missing_roles: tuple[str, ...]
-    reasons: tuple[str, ...]
-
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "satisfied": self.satisfied,
-            "role_status": dict(self.role_status),
-            "missing_roles": list(self.missing_roles),
-            "reasons": list(self.reasons),
-        }
-
-
-@dataclass(frozen=True)
-class RoleRetrievalBucket:
-    role: str
-    query: str
-    helper_queries: tuple[str, ...]
-    observations: tuple[ToolObservation, ...]
-    retrieved_candidates: tuple[RetrievalCandidate, ...]
-    evaluations: tuple[RoleCandidateEvaluation, ...]
-    accepted_candidates: tuple[RetrievalCandidate, ...]
-    rejected_refs: tuple[str, ...]
-    validation_notes: tuple[str, ...]
-    missing_reason: str
-    role_status: str = "missing"
-    satisfying_refs: tuple[str, ...] = ()
-    snippet_assessment: tuple[Mapping[str, str], ...] = ()
-    satisfaction_source: str = "initial"
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "role": self.role,
-            "query": self.query,
-            "helper_queries": list(self.helper_queries),
-            "role_status": self.role_status,
-            "satisfaction_source": self.satisfaction_source,
-            "retrieved_refs": [candidate.source_id for candidate in self.retrieved_candidates],
-            "accepted_refs": [candidate.source_id for candidate in self.accepted_candidates],
-            "satisfying_refs": list(self.satisfying_refs),
-            "rejected_refs": list(self.rejected_refs),
-            "validation_notes": list(self.validation_notes),
-            "missing_reason": self.missing_reason,
-            "snippet_assessment": [dict(item) for item in self.snippet_assessment],
-            "evaluations": [
-                {
-                    "ref": evaluation.candidate.source_id,
-                    "path": evaluation.candidate.path or "",
-                    "stage": evaluation.stage,
-                    "source_role": evaluation.source_role or self.role,
-                    "validation": evaluation.validation.to_dict(),
-                }
-                for evaluation in self.evaluations
-            ],
-            "snippets": [
-                {
-                    "ref": candidate.source_id,
-                    "path": candidate.path or "",
-                    "line_range": candidate.line_range or "",
-                    "file_role": candidate.metadata.get("file_role", ""),
-                    "snippet_quality": _snippet_quality_for_ref(candidate.source_id, self.snippet_assessment),
-                    "satisfies_role": candidate.source_id in set(self.satisfying_refs),
-                    "snippet": _salient_candidate_excerpt(candidate, limit=500),
-                }
-                for candidate in self.accepted_candidates[:MAX_ROLE_BUCKET_CANDIDATES]
-            ],
-        }
-
-
-@dataclass(frozen=True)
-class RetrievalSynthesisDecision:
-    acceptance_satisfied: bool
-    missing_areas: tuple[str, ...]
-    accepted_anchor_refs: tuple[str, ...]
-    rejected_anchor_refs: tuple[str, ...]
-    snippet_assessment: tuple[Mapping[str, str], ...]
-    stop_reason: str
-    follow_up_queries: tuple[Mapping[str, str], ...]
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "acceptance_satisfied": self.acceptance_satisfied,
-            "missing_areas": list(self.missing_areas),
-            "accepted_anchor_refs": list(self.accepted_anchor_refs),
-            "rejected_anchor_refs": list(self.rejected_anchor_refs),
-            "snippet_assessment": [dict(item) for item in self.snippet_assessment],
-            "stop_reason": self.stop_reason,
-            "follow_up_queries": [dict(item) for item in self.follow_up_queries],
-        }
 
 
 class WorkspaceRetrievalStage:
@@ -331,7 +238,7 @@ class WorkspaceRetrievalStage:
             starting_tool_call_count=tool_call_count,
             phase="required",
         )
-        required_buckets, tool_call_count = self._retarget_role_buckets(
+        required_buckets, tool_call_count = self._refine_selected_role_buckets(
             buckets=required_buckets,
             rescue_roles=retrieval_plan.required_roles,
             qdrant_tool=qdrant_tool,
@@ -360,7 +267,7 @@ class WorkspaceRetrievalStage:
                 phase="supporting",
             )
             responsibility_intents = tuple((*responsibility_intents, *supporting_intents))
-            supporting_buckets, tool_call_count = self._retarget_role_buckets(
+            supporting_buckets, tool_call_count = self._refine_selected_role_buckets(
                 buckets=supporting_buckets,
                 rescue_roles=retrieval_plan.required_roles,
                 qdrant_tool=qdrant_tool,
@@ -781,7 +688,7 @@ class WorkspaceRetrievalStage:
         for prepared_bucket in prepared_buckets:
             role = prepared_bucket.role
             expansion_queries = list(intent_by_role.get(role, ()))
-            for intent in expansion_queries[:MAX_ROLE_RETARGET_QUERIES]:
+            for intent in expansion_queries[:MAX_ROLE_FOLLOWUP_QUERIES]:
                 request = ToolRequest(
                     tool_name="qdrant_hybrid_search",
                     arguments={
@@ -1493,7 +1400,7 @@ class WorkspaceRetrievalStage:
         )
         return tuple(completed)
 
-    def _retarget_role_buckets(
+    def _refine_selected_role_buckets(
         self,
         *,
         buckets: Sequence[RoleRetrievalBucket],
@@ -1508,21 +1415,21 @@ class WorkspaceRetrievalStage:
         anchors = self._accepted_anchor_records(buckets)
         anchor_support, tool_call_count = self._build_anchor_support(anchors=anchors, cgc_tools=cgc_tools)
         total_tool_calls = starting_tool_call_count + tool_call_count
-        retargeted: list[RoleRetrievalBucket] = []
+        refined_buckets: list[RoleRetrievalBucket] = []
         for bucket in buckets:
             if bucket.role not in rescue_roles:
-                retargeted.append(bucket)
+                refined_buckets.append(bucket)
                 continue
-            updated_bucket, bucket_tool_calls = self._retarget_role_bucket(
+            updated_bucket, bucket_tool_calls = self._refine_selected_role_bucket(
                 bucket=bucket,
                 anchor_support=anchor_support,
                 qdrant_tool=qdrant_tool,
                 open_file_tool=open_file_tool,
                 cgc_tools=cgc_tools,
             )
-            retargeted.append(updated_bucket)
+            refined_buckets.append(updated_bucket)
             total_tool_calls += bucket_tool_calls
-        return tuple(retargeted), total_tool_calls
+        return tuple(refined_buckets), total_tool_calls
 
     def _apply_synthesis_feedback(
         self,
@@ -1697,14 +1604,14 @@ class WorkspaceRetrievalStage:
         narrowed_files: Sequence[str],
         all_buckets: Sequence[RoleRetrievalBucket],
         ) -> tuple[RoleRetrievalBucket, int, bool]:
-        return self._run_role_rescue_pipeline(
+        return self._run_role_followup_pipeline(
             bucket=bucket,
             mode="late_recovery",
             qdrant_tool=qdrant_tool,
             open_file_tool=open_file_tool,
             cgc_tools=cgc_tools,
             anchor_support=anchor_support,
-            search_specs=self._late_role_rescue_specs(
+            search_specs=self._build_late_recovery_followup_specs(
                 bucket=bucket,
                 follow_up_queries=follow_up_queries,
                 narrowed_files=narrowed_files,
@@ -1712,7 +1619,7 @@ class WorkspaceRetrievalStage:
             ),
         )
 
-    def _retarget_role_rescue_specs(
+    def _build_snippet_followup_specs(
         self,
         bucket: RoleRetrievalBucket,
     ) -> tuple[Mapping[str, Any], ...]:
@@ -1720,13 +1627,13 @@ class WorkspaceRetrievalStage:
         for candidate in bucket.accepted_candidates:
             if not candidate.path:
                 continue
-            snippet_queries = _role_retarget_queries(
+            snippet_queries = _role_followup_queries(
                 bucket.role,
                 query=bucket.query,
                 helper_queries=bucket.helper_queries,
                 candidate_path=candidate.path,
                 candidate_text=candidate.text,
-            )[:MAX_ROLE_RETARGET_QUERIES]
+            )[:MAX_ROLE_FOLLOWUP_QUERIES]
             for query in snippet_queries:
                 specs.append(
                     {
@@ -1737,7 +1644,7 @@ class WorkspaceRetrievalStage:
                 )
         return tuple(specs)
 
-    def _late_role_rescue_specs(
+    def _build_late_recovery_followup_specs(
         self,
         *,
         bucket: RoleRetrievalBucket,
@@ -1765,7 +1672,7 @@ class WorkspaceRetrievalStage:
                     "origin_ref": "",
                 }
             )
-            if len(specs) >= MAX_ROLE_RETARGET_QUERIES:
+            if len(specs) >= MAX_ROLE_FOLLOWUP_QUERIES:
                 return tuple(specs)
 
         narrowed_paths = tuple(narrowed_files)
@@ -1784,12 +1691,12 @@ class WorkspaceRetrievalStage:
                     "origin_ref": "",
                 }
             )
-            if len(specs) >= MAX_ROLE_RETARGET_QUERIES:
+            if len(specs) >= MAX_ROLE_FOLLOWUP_QUERIES:
                 break
 
         return tuple(specs)
 
-    def _run_role_rescue_pipeline(
+    def _run_role_followup_pipeline(
         self,
         *,
         bucket: RoleRetrievalBucket,
@@ -1805,9 +1712,9 @@ class WorkspaceRetrievalStage:
         tool_calls = 0
         existing_refs = {candidate.source_id for candidate in bucket.accepted_candidates}
         initial_evaluations = list(bucket.evaluations)
-        rescue_candidates: list[tuple[RetrievalCandidate, RoleValidationResult]] = []
+        followup_candidates: list[tuple[RetrievalCandidate, RoleValidationResult]] = []
         self._record(
-            "role_rescue_started",
+            "role_followup_started",
             {"role": bucket.role, "mode": mode, "spec_count": len(search_specs)},
         )
         for spec in search_specs:
@@ -1826,20 +1733,20 @@ class WorkspaceRetrievalStage:
                     "source_category": "source_code",
                     "file_role": "implementation",
                 },
-                reason=f"Rescue a stronger {bucket.role} snippet via {mode}.",
+                reason=f"Refine stronger {bucket.role} evidence via {mode}.",
             )
             observation = qdrant_tool.run(request)
             self._record_tool(request, observation, round_index=0)
             tool_calls += 1
             self._record(
-                "role_rescue_candidates_retrieved",
+                "role_followup_candidates_retrieved",
                 {"role": bucket.role, "mode": mode, "query": query, "origin_ref": origin_ref, "refs": list(observation.source_refs)},
             )
             for candidate in self._candidates_from_search_observation(observation, coverage_area=bucket.role):
                 enriched_candidate, open_observation = self._open_candidate_context(candidate, open_file_tool)
                 if open_observation is not None:
                     tool_calls += 1
-                retarget_queries = (query,) + _role_retarget_queries(
+                followup_queries = (query,) + _role_followup_queries(
                     bucket.role,
                     query=bucket.query,
                     helper_queries=bucket.helper_queries,
@@ -1853,8 +1760,8 @@ class WorkspaceRetrievalStage:
                     candidate=enriched_candidate,
                     qdrant_tool=qdrant_tool,
                     open_file_tool=open_file_tool,
-                    snippet_queries=retarget_queries,
-                    search_terms=retarget_queries,
+                    snippet_queries=followup_queries,
+                    search_terms=followup_queries,
                 )
                 tool_calls += len(refinement_observations)
                 validation = self._validate_role_candidate(
@@ -1870,12 +1777,12 @@ class WorkspaceRetrievalStage:
                     RoleCandidateEvaluation(
                         candidate=refined_candidate,
                         validation=validation,
-                        stage=f"role_rescue_{mode}_initial",
+                        stage=f"role_followup_{mode}_initial",
                         source_role=bucket.role,
                     )
                 )
                 self._record(
-                    "role_rescue_candidate_scored",
+                    "role_followup_candidate_scored",
                     {
                         "role": bucket.role,
                         "mode": mode,
@@ -1886,22 +1793,22 @@ class WorkspaceRetrievalStage:
                     },
                 )
                 if validation.accepted and refined_candidate.source_id not in existing_refs:
-                    rescue_candidates.append((refined_candidate, validation))
+                    followup_candidates.append((refined_candidate, validation))
                     existing_refs.add(refined_candidate.source_id)
-        if not rescue_candidates:
-            self._record("role_rescue_completed", {"role": bucket.role, "mode": mode, "changed": False, "selected_refs": list(bucket.satisfying_refs)})
+        if not followup_candidates:
+            self._record("role_followup_completed", {"role": bucket.role, "mode": mode, "changed": False, "selected_refs": list(bucket.satisfying_refs)})
             return bucket, tool_calls, False
 
         shortlist = sorted(
-            rescue_candidates,
+            followup_candidates,
             key=lambda item: self._final_role_candidate_score(
                 role=bucket.role,
                 candidate=item[0],
-                evaluation=RoleCandidateEvaluation(candidate=item[0], validation=item[1], stage=f"role_rescue_{mode}_initial", source_role=bucket.role),
+                evaluation=RoleCandidateEvaluation(candidate=item[0], validation=item[1], stage=f"role_followup_{mode}_initial", source_role=bucket.role),
                 snippet_quality=_rescue_snippet_quality(
                     role=bucket.role,
                     candidate=item[0],
-                    rescued_refs={candidate.source_id for candidate, _ in rescue_candidates},
+                    rescued_refs={candidate.source_id for candidate, _ in followup_candidates},
                     existing_assessment=bucket.snippet_assessment,
                 ),
             ),
@@ -1924,23 +1831,23 @@ class WorkspaceRetrievalStage:
                 RoleCandidateEvaluation(
                     candidate=candidate,
                     validation=verified_validation,
-                    stage=f"role_rescue_{mode}",
+                    stage=f"role_followup_{mode}",
                     source_role=bucket.role,
                 )
             )
             self._record(
-                "role_rescue_candidate_verified",
+                "role_followup_candidate_verified",
                 {"role": bucket.role, "mode": mode, "ref": candidate.source_id, "validation": verified_validation.to_dict()},
             )
             if verified_validation.accepted:
                 verified_candidates.append(candidate)
         if not verified_candidates:
-            self._record("role_rescue_completed", {"role": bucket.role, "mode": mode, "changed": False, "selected_refs": list(bucket.satisfying_refs)})
+            self._record("role_followup_completed", {"role": bucket.role, "mode": mode, "changed": False, "selected_refs": list(bucket.satisfying_refs)})
             return bucket, tool_calls, False
 
-        rescued_ref_set = {candidate.source_id for candidate in verified_candidates}
+        promoted_ref_set = {candidate.source_id for candidate in verified_candidates}
         base_candidates = list(bucket.accepted_candidates)
-        if mode == "retarget":
+        if mode == "snippet_refinement":
             verified_paths = {candidate.path for candidate in verified_candidates if candidate.path}
             base_candidates = [
                 candidate
@@ -1957,7 +1864,7 @@ class WorkspaceRetrievalStage:
                     snippet_quality=_rescue_snippet_quality(
                         role=bucket.role,
                         candidate=candidate,
-                        rescued_refs=rescued_ref_set,
+                        rescued_refs=promoted_ref_set,
                         existing_assessment=bucket.snippet_assessment,
                     ),
                 ),
@@ -1978,11 +1885,11 @@ class WorkspaceRetrievalStage:
             role_status=bucket.role_status,
             satisfying_refs=tuple(candidate.source_id for candidate in reranked),
             snippet_assessment=bucket.snippet_assessment,
-            satisfaction_source=bucket.satisfaction_source if mode == "retarget" else "recovery_pending",
+            satisfaction_source=bucket.satisfaction_source if mode == "snippet_refinement" else "recovery_pending",
         )
         changed = tuple(candidate.source_id for candidate in reranked) != tuple(candidate.source_id for candidate in bucket.accepted_candidates)
         self._record(
-            "role_rescue_completed",
+            "role_followup_completed",
             {"role": bucket.role, "mode": mode, "changed": changed, "selected_refs": [candidate.source_id for candidate in reranked]},
         )
         return updated_bucket, tool_calls, changed
@@ -2002,7 +1909,7 @@ class WorkspaceRetrievalStage:
         score += quality_bonus
         if evaluation is not None and evaluation.stage == "role_completion":
             score -= 1.25
-        if evaluation is not None and evaluation.stage.startswith("role_rescue_"):
+        if evaluation is not None and evaluation.stage.startswith("role_followup_"):
             score += 1.5
         if _is_file_candidate(candidate):
             score -= 4.0
@@ -2197,7 +2104,7 @@ class WorkspaceRetrievalStage:
         )
         return completed_bucket
 
-    def _retarget_role_bucket(
+    def _refine_selected_role_bucket(
         self,
         *,
         bucket: RoleRetrievalBucket,
@@ -2208,14 +2115,14 @@ class WorkspaceRetrievalStage:
     ) -> tuple[RoleRetrievalBucket, int]:
         if not bucket.accepted_candidates:
             return bucket, 0
-        updated_bucket, tool_calls, _changed = self._run_role_rescue_pipeline(
+        updated_bucket, tool_calls, _changed = self._run_role_followup_pipeline(
             bucket=bucket,
-            mode="retarget",
+            mode="snippet_refinement",
             qdrant_tool=qdrant_tool,
             open_file_tool=open_file_tool,
             cgc_tools=cgc_tools,
             anchor_support=anchor_support,
-            search_specs=self._retarget_role_rescue_specs(bucket),
+            search_specs=self._build_snippet_followup_specs(bucket),
         )
         return updated_bucket, tool_calls
 
@@ -3184,883 +3091,6 @@ class WorkspaceRetrievalStage:
         with (run_dir / "retrieval-trace.jsonl").open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True) + "\n")
 
-
-def _coverage_area_names(plan: WorkspaceRetrievalPlan) -> tuple[str, ...]:
-    values = [subquery.role for subquery in plan.llm_subqueries]
-    values.extend(plan.required_roles)
-    values.append("prompt")
-    return ordered_unique(values)
-
-
-def _extract_explicit_reference_paths(text: str) -> tuple[str, ...]:
-    if not text.strip():
-        return ()
-    return ordered_unique(match.group(1).strip() for match in TRIPLE_SLASH_REFERENCE_PATTERN.finditer(text) if match.group(1).strip())
-
-
-def _resolve_explicit_reference_path(candidate_path: str, reference_path: str) -> str | None:
-    normalized_candidate = candidate_path.replace("\\", "/").strip()
-    normalized_reference = reference_path.replace("\\", "/").strip()
-    if not normalized_candidate or not normalized_reference:
-        return None
-    if ":" in normalized_reference or normalized_reference.startswith("/"):
-        return None
-    if not _looks_like_source_file(normalized_reference):
-        return None
-    base_dir = PurePosixPath(normalized_candidate).parent
-    resolved = str((base_dir / PurePosixPath(normalized_reference)).as_posix())
-    normalized_parts: list[str] = []
-    for part in resolved.split("/"):
-        if not part or part == ".":
-            continue
-        if part == "..":
-            if not normalized_parts:
-                return None
-            normalized_parts.pop()
-            continue
-        normalized_parts.append(part)
-    if not normalized_parts:
-        return None
-    return "/".join(normalized_parts)
-
-
-def _role_keywords(role: str) -> tuple[str, ...]:
-    mapping = {
-        "representation": ("represent", "symbol", "node", "declaration", "flag", "type"),
-        "input_parsing": ("parse", "parser", "parsing", "scanner", "syntax", "token", "modifier"),
-        "validation_checking": ("check", "checker", "validation", "constraint", "instantiate", "abstract", "semantic"),
-        "diagnostics": ("diagnostic", "error", "message", "report"),
-        "behavior_output": ("emit", "runtime", "behavior", "output", "transform"),
-        "tests": ("test", "conformance", "fourslash", "baseline", "unit"),
-        "docs": ("docs", "documentation", "readme", "handbook"),
-        "config": ("config", "setting", "option", "tsconfig", "compileroption"),
-    }
-    return mapping.get(role, ())
-
-
-def _role_query_package(plan: WorkspaceRetrievalPlan, role: str, query: str) -> tuple[str, ...]:
-    queries = [query.strip()]
-    synthetic_helpers = {
-        "representation": ("symbol flags type representation", "class method declaration types", "ast node declaration symbol"),
-        "input_parsing": ("abstract keyword parser", "class method parser modifier", "class declaration parser", "method declaration parser"),
-        "validation_checking": ("abstract class checker", "abstract method checker validation", "constraint enforcement checker", "semantic error checker"),
-        "diagnostics": ("abstract diagnostic message", "super abstract error message", "diagnostic error reporting"),
-        "behavior_output": ("abstract emit transform", "abstract runtime behavior", "compile time behavior"),
-        "docs": ("abstract class documentation",),
-        "config": ("abstract compiler option",),
-        "tests": ("abstract class test",),
-    }
-    queries.extend(synthetic_helpers.get(role, ()))
-    role_keywords = set(_role_keywords(role))
-    for term in plan.retrieval_terms:
-        lowered = term.lower()
-        if any(keyword in lowered for keyword in role_keywords):
-            queries.append(term)
-    if role == "input_parsing" and plan.prompt_summary.strip():
-        queries.append(f"{plan.prompt_summary.strip()} parser")
-    for entity in (plan.confirmed_entities or plan.grounded_entities)[:2]:
-        if entity.strip():
-            queries.append(entity)
-    return ordered_unique(value for value in queries if value and value.strip())[:MAX_ROLE_QUERIES]
-
-
-def _role_snippet_queries(role: str, *, query: str, helper_queries: Sequence[str]) -> tuple[str, ...]:
-    queries = [query.strip()]
-    role_specific = {
-        "representation": (
-            "class declaration interface symbol flags",
-            "ast node method declaration type representation",
-        ),
-        "input_parsing": (
-            "parse declaration syntaxkind modifier keyword",
-            "parseexpected createnode parser declaration",
-        ),
-        "validation_checking": (
-            "check diagnostics error cannot must enforce",
-            "checker semantic constraint implementation instantiate",
-        ),
-        "diagnostics": (
-            "diagnostics error message grammarerror",
-            "report error diagnostics message",
-        ),
-        "behavior_output": (
-            "emit transform runtime output",
-            "compile time behavior runtime prevent",
-        ),
-    }
-    queries.extend(role_specific.get(role, ()))
-    queries.extend(helper_queries[:2])
-    return ordered_unique(value for value in queries if value and value.strip())
-
-
-def _iterative_code_context_queries(
-    *,
-    role: str,
-    query: str,
-    candidates: Sequence[RetrievalCandidate],
-) -> tuple[str, ...]:
-    path_diverse = _path_diverse_candidates(candidates)
-    terms: list[str] = []
-    for candidate in path_diverse[:MAX_ROLE_CANDIDATE_EVALUATIONS]:
-        if candidate.path:
-            terms.append(PurePosixPath(candidate.path.replace("\\", "/")).stem)
-        for reference_path in _extract_explicit_reference_paths(candidate.text):
-            resolved = _resolve_explicit_reference_path(candidate.path or "", reference_path)
-            if resolved:
-                terms.append(PurePosixPath(resolved).stem)
-        terms.extend(_code_identifier_terms(candidate.text))
-    terms.extend(_role_owner_context_terms(role))
-    selected_terms = ordered_unique(_clean_query_terms(terms))[:MAX_ROLE_CODE_CONTEXT_TERMS]
-    if not selected_terms:
-        return ()
-    return (f"{query} {' '.join(selected_terms)}".strip(),)
-
-
-def _code_identifier_terms(text: str) -> tuple[str, ...]:
-    blocked = {
-        "return",
-        "function",
-        "class",
-        "interface",
-        "module",
-        "export",
-        "public",
-        "private",
-        "static",
-        "undefined",
-        "string",
-        "number",
-        "boolean",
-    }
-    terms: list[str] = []
-    for token in IDENTIFIER_PATTERN.findall(text):
-        if len(token) < 5:
-            continue
-        lowered = token.lower()
-        if lowered in blocked:
-            continue
-        if token[0].isupper() or any(char.isupper() for char in token[1:]):
-            terms.append(token)
-    return tuple(terms[:MAX_ROLE_CODE_CONTEXT_TERMS])
-
-
-def _role_owner_context_terms(role: str) -> tuple[str, ...]:
-    return {
-        "validation_checking": ("checker", "semantic", "diagnostics", "enforce", "constraint", "TypeChecker"),
-        "input_parsing": ("parser", "scanner", "SyntaxKind", "token", "modifier"),
-        "representation": ("types", "symbols", "NodeFlags", "SymbolFlags", "Declaration"),
-        "diagnostics": ("diagnosticMessages", "Diagnostics", "error", "message"),
-        "behavior_output": ("emitter", "runtime", "transform", "behavior", "output"),
-    }.get(role, ())
-
-
-def _clean_query_terms(terms: Sequence[str]) -> tuple[str, ...]:
-    cleaned: list[str] = []
-    for term in terms:
-        value = re.sub(r"[^A-Za-z0-9_./-]+", " ", str(term)).strip()
-        if not value or len(value) < 3:
-            continue
-        cleaned.append(value)
-    return tuple(cleaned)
-
-
-def _path_diverse_candidates(candidates: Sequence[RetrievalCandidate]) -> tuple[RetrievalCandidate, ...]:
-    selected_by_path: dict[str, RetrievalCandidate] = {}
-    for candidate in _rank_unique_candidates(candidates):
-        key = (candidate.path or candidate.source_id or candidate.candidate_id).replace("\\", "/").lower()
-        existing = selected_by_path.get(key)
-        if existing is None or _candidate_rank_key(candidate) > _candidate_rank_key(existing):
-            selected_by_path[key] = candidate
-    return tuple(sorted(selected_by_path.values(), key=_candidate_rank_key, reverse=True))
-
-
-def _collapse_candidates_to_file_candidates(
-    *,
-    role: str,
-    candidates: Sequence[RetrievalCandidate],
-    retrieval_path: str,
-) -> tuple[RetrievalCandidate, ...]:
-    grouped: dict[str, list[RetrievalCandidate]] = {}
-    for candidate in _rank_unique_candidates(candidates):
-        if not candidate.path:
-            continue
-        normalized_path = candidate.path.replace("\\", "/").lstrip("/")
-        grouped.setdefault(normalized_path, []).append(candidate)
-
-    collapsed: list[RetrievalCandidate] = []
-    for path, path_candidates in grouped.items():
-        ranked = sorted(path_candidates, key=_candidate_rank_key, reverse=True)
-        top = ranked[0]
-        chunk_refs = tuple(ordered_unique(candidate.source_id for candidate in ranked[:3]))
-        line_ranges = tuple(ordered_unique(str(candidate.line_range or "") for candidate in ranked[:3] if candidate.line_range))
-        text_parts = []
-        for candidate in ranked[:3]:
-            excerpt = candidate.text.strip()
-            if excerpt:
-                text_parts.append(excerpt[:900])
-        text = "\n\n".join(text_parts).strip()
-        source_id = f"repo-pre:{path}:FILE"
-        collapsed.append(
-            RetrievalCandidate(
-                candidate_id=source_id,
-                source_category=top.source_category,
-                retrieval_path=retrieval_path,
-                text=text,
-                score=max(candidate.score for candidate in ranked),
-                source_id=source_id,
-                path=path,
-                line_range="FILE",
-                metadata={
-                    **dict(top.metadata),
-                    "path": path,
-                    "coverage_area": role,
-                    "retrieval_path": retrieval_path,
-                    "file_candidate": "true",
-                    "chunk_refs": json.dumps(list(chunk_refs)),
-                    "chunk_line_ranges": json.dumps(list(line_ranges)),
-                },
-            )
-        )
-    return tuple(sorted(collapsed, key=_candidate_rank_key, reverse=True)[:MAX_FILE_ROLE_ALTERNATES])
-
-
-def _best_direct_owner_span(*, role: str, query: str, lines: Sequence[str], search_terms: Sequence[str] = ()) -> tuple[int, int]:
-    line_start, line_end, score = _best_in_file_refinement_span(
-        role=role,
-        query=query,
-        helper_queries=(),
-        search_terms=search_terms,
-        lines=lines,
-    )
-    if score > 0:
-        return line_start, line_end
-    window_size = 80
-    step = 40
-    preferred_line = _preferred_direct_owner_line(role=role, query=query, lines=lines)
-    if preferred_line is not None:
-        line_start = max(1, preferred_line - 20)
-        return line_start, min(len(lines), line_start + window_size - 1)
-    query_terms = set(_tokenize_for_direct_owner_query(query))
-    query_terms.update(term.lower() for term in _role_owner_context_terms(role))
-    query_terms.update(_direct_owner_bonus_terms(role))
-    best_score = -1.0
-    best_start = 1
-    total = len(lines)
-    for start_index in range(0, total, step):
-        end_index = min(total, start_index + window_size)
-        text = "\n".join(lines[start_index:end_index]).lower()
-        score = float(sum(1 for term in query_terms if term and term in text))
-        score += _direct_owner_window_bonus(role, text)
-        if score > best_score:
-            best_score = score
-            best_start = start_index + 1
-        if end_index >= total:
-            break
-    return best_start, min(total, best_start + window_size - 1)
-
-
-def _best_in_file_refinement_span(
-    *,
-    role: str,
-    query: str,
-    helper_queries: Sequence[str],
-    search_terms: Sequence[str],
-    lines: Sequence[str],
-) -> tuple[int, int, float]:
-    window_size = 80
-    query_text = " ".join([query, *helper_queries, *search_terms])
-    terms = _in_file_refinement_terms(role=role, query_text=query_text)
-    if not terms:
-        return 1, min(len(lines), window_size), 0.0
-
-    best_score = -1.0
-    best_start = 1
-    seen_starts: set[int] = set()
-    for start in _in_file_candidate_window_starts(lines, terms=terms, window_size=window_size):
-        if start in seen_starts:
-            continue
-        seen_starts.add(start)
-        end = min(len(lines), start + window_size - 1)
-        text = "\n".join(lines[start - 1 : end])
-        score = _score_in_file_window(role=role, query_text=query_text, text=text, start_line=start)
-        if score > best_score:
-            best_score = score
-            best_start = start
-    return best_start, min(len(lines), best_start + window_size - 1), max(best_score, 0.0)
-
-
-def _in_file_candidate_window_starts(lines: Sequence[str], *, terms: Sequence[str], window_size: int) -> tuple[int, ...]:
-    starts: list[int] = []
-    total = len(lines)
-    step = max(20, window_size // 2)
-    for index in range(0, total, step):
-        starts.append(index + 1)
-        if index + window_size >= total:
-            break
-    for index, line in enumerate(lines, start=1):
-        lowered = line.lower()
-        is_declaration = bool(DECLARATION_PATTERN.search(line)) or re.search(r"\bfunction\s+[A-Za-z_][A-Za-z0-9_]*\b", line)
-        if is_declaration or any(term in lowered for term in terms[:18]):
-            starts.append(max(1, index - 20))
-    return tuple(ordered_unique(starts))
-
-
-def _in_file_refinement_terms(*, role: str, query_text: str) -> tuple[str, ...]:
-    terms = list(_tokenize_for_direct_owner_query(query_text))
-    terms.extend(term.lower() for term in _role_owner_context_terms(role))
-    terms.extend(_direct_owner_bonus_terms(role))
-    terms.extend(
-        {
-            "validation_checking": (
-                "check",
-                "error",
-                "diagnostics",
-                "assignable",
-                "implements",
-                "extends",
-                "base",
-                "constructor",
-                "construct",
-                "call",
-                "property",
-                "method",
-                "declaration",
-            ),
-            "input_parsing": ("parse", "modifier", "keyword", "token", "declaration", "member"),
-            "representation": ("flags", "symbol", "declaration", "type", "interface", "enum", "modifier"),
-            "diagnostics": ("diagnostics", "message", "error", "code"),
-            "behavior_output": ("emit", "transform", "output", "runtime"),
-        }.get(role, ())
-    )
-    return tuple(ordered_unique(term.lower() for term in terms if len(term) >= 3))
-
-
-def _score_in_file_window(
-    *,
-    role: str,
-    query_text: str,
-    text: str,
-    start_line: int,
-) -> float:
-    lowered = text.lower()
-    query_lowered = query_text.lower()
-    terms = _in_file_refinement_terms(role=role, query_text=query_text)
-    score = 0.0
-    for term in terms:
-        if term in lowered:
-            score += 1.0
-            score += min(lowered.count(term), 4) * 0.2
-    for phrase in _important_query_phrases(query_text):
-        if phrase in lowered:
-            score += 3.0
-    score += _direct_owner_window_bonus(role, lowered)
-    score += _declaration_anchor_bonus(role=role, query_text=query_lowered, text=text)
-    score -= min(start_line / 10000.0, 0.6)
-    return score
-
-
-def _important_query_phrases(query_text: str) -> tuple[str, ...]:
-    phrases: list[str] = []
-    for raw_phrase in re.findall(r"`([^`]+)`|'([^']+)'|\"([^\"]+)\"", query_text):
-        phrase = next((item for item in raw_phrase if item), "")
-        normalized = re.sub(r"\s+", " ", phrase.strip().lower())
-        if len(normalized) >= 5:
-            phrases.append(normalized)
-    for phrase in re.findall(r"\b(?:cannot|must|only|incorrectly|extends|implements)\s+[a-z0-9_ .-]{4,80}", query_text.lower()):
-        phrases.append(re.sub(r"\s+", " ", phrase.strip()))
-    return tuple(ordered_unique(phrases[:12]))
-
-
-def _declaration_anchor_bonus(*, role: str, query_text: str, text: str) -> float:
-    bonus = 0.0
-    declarations = [match.group(0).lower() for match in re.finditer(r"\b(?:function|class|interface|enum|type)\s+[A-Za-z_][A-Za-z0-9_]*", text)]
-    if not declarations:
-        return bonus
-    query_wants_class = any(term in query_text for term in ("class", "base", "extends", "implements", "constructor"))
-    query_wants_super = "super" in query_text
-    query_wants_diagnostics = any(term in query_text for term in ("diagnostic", "error", "cannot", "must"))
-    for declaration in declarations:
-        if role == "validation_checking" and declaration.startswith("function check"):
-            bonus += 4.0
-            if query_wants_class and "class" in declaration:
-                bonus += 8.0
-            if query_wants_super and "super" in declaration:
-                bonus += 5.0
-            if query_wants_diagnostics:
-                bonus += 1.5
-        elif role == "input_parsing" and declaration.startswith("function parse"):
-            bonus += 5.0
-        elif role == "representation" and any(kind in declaration for kind in ("interface", "enum", "type")):
-            bonus += 4.0
-        elif role == "behavior_output" and declaration.startswith("function emit"):
-            bonus += 4.0
-    return bonus
-
-
-def _preferred_direct_owner_line(*, role: str, query: str, lines: Sequence[str]) -> int | None:
-    if role != "validation_checking":
-        return None
-    lowered_query = query.lower()
-    wants_class_layer = any(term in lowered_query for term in ("class", "inherit", "extends", "base", "implement"))
-    wants_super_layer = "super" in lowered_query
-    if wants_class_layer:
-        for index, line in enumerate(lines, start=1):
-            lowered = line.lower()
-            if "classdeclaration" in lowered and any(term in lowered for term in ("basetype", "basetypes", "extends")):
-                return index
-        for index, line in enumerate(lines, start=1):
-            lowered = line.lower()
-            if "getdeclaredtypeofclass" in lowered or ("classdeclaration" in lowered and "declaration" in lowered):
-                return index
-    if wants_super_layer:
-        for index, line in enumerate(lines, start=1):
-            if "superkeyword" in line.lower():
-                return index
-    return None
-
-
-def _read_owner_text_file(path: Path) -> str | None:
-    for encoding in ("utf-8", "utf-8-sig", "cp1252", "latin-1", "utf-16", "utf-16-le", "utf-16-be"):
-        try:
-            text = path.read_text(encoding=encoding)
-        except UnicodeError:
-            continue
-        if _looks_like_bad_text_decode(text):
-            continue
-        return text
-    return None
-
-
-def _looks_like_bad_text_decode(text: str) -> bool:
-    nul_count = text.count("\x00")
-    return nul_count > max(1, len(text) // 200)
-
-
-def _tokenize_for_direct_owner_query(query: str) -> tuple[str, ...]:
-    return tuple(term for term in re.findall(r"[A-Za-z_][A-Za-z0-9_]{3,}", query.lower()) if term not in {"where", "find", "search", "like", "with", "that", "this", "from"})
-
-
-def _direct_owner_bonus_terms(role: str) -> set[str]:
-    if role == "validation_checking":
-        return {
-            "classdeclaration",
-            "basetype",
-            "basetypes",
-            "getbasetypes",
-            "getdeclaredtypeofclass",
-            "getpropertiesoftype",
-            "getsignaturesoftype",
-            "diagnostics",
-            "error",
-            "superkeyword",
-            "construct",
-            "instantiate",
-        }
-    if role == "input_parsing":
-        return {"parse", "syntaxkind", "modifier", "keyword", "token", "classdeclaration", "classmember", "parseandcheckmodifiers"}
-    if role == "representation":
-        return {"interface", "enum", "nodeflags", "symbolflags", "declaration", "classdeclaration", "methoddeclaration"}
-    if role == "diagnostics":
-        return {"diagnostics", "message", "error", "code"}
-    if role == "behavior_output":
-        return {"emit", "runtime", "transform", "output", "directive", "emitclass", "classdeclaration", "emitmember"}
-    return set()
-
-
-def _direct_owner_window_bonus(role: str, text: str) -> float:
-    if role == "validation_checking":
-        score = 0.0
-        if "function checkclassdeclaration" in text:
-            score += 24.0
-        if "function checkinterfacedeclaration" in text:
-            score += 10.0
-        if "case syntaxkind.classdeclaration" in text and "checkclassdeclaration" in text:
-            score += 8.0
-        if "classdeclaration" in text and ("basetype" in text or "basetypes" in text):
-            score += 6.0
-        if "diagnostics." in text or "error(" in text:
-            score += 3.0
-        if "getdeclaredtypeofclass" in text or "getpropertiesoftype" in text:
-            score += 2.0
-        if "superkeyword" in text:
-            score += 2.0
-            if "function checkclassdeclaration" not in text:
-                score -= 4.0
-        return score
-    if role == "input_parsing":
-        score = 0.0
-        if "function parseandcheckmodifiers" in text:
-            score += 68.0
-        if "function parseclassmemberdeclaration" in text:
-            score += 12.0
-        if "function parseclassdeclaration" in text:
-            score += 10.0
-        if "parseclassdeclaration" in text or "parseclassmemberdeclaration" in text:
-            score += 8.0
-        if "parseandcheckmodifiers" in text or ("modifier" in text and "syntaxkind" in text):
-            score += 5.0
-        if "case syntaxkind." in text and "function parseclass" not in text:
-            score -= 8.0
-        if any(token in text for token in ("parseparenthesizedexpression", "parsevariablestatement", "parsewithstatement")) and "class" not in text:
-            score -= 4.0
-        return score
-    if role == "representation":
-        score = 0.0
-        if "export enum nodeflags" in text:
-            score += 24.0
-        if "interface node" in text and "flags: nodeflags" in text:
-            score += 18.0
-        if "interface classdeclaration" in text:
-            score += 18.0
-        if "interface methoddeclaration" in text:
-            score += 14.0
-        if "nodeflags" in text or "symbolflags" in text:
-            score += 6.0
-        if "classdeclaration" in text or "methoddeclaration" in text:
-            score += 4.0
-        if ("interface nodelinks" in text or "enum typeflags" in text or "interface type" in text) and "nodeflags" not in text:
-            score -= 10.0
-        return score
-    if role == "behavior_output":
-        score = 0.0
-        if "function emitclassdeclaration" in text:
-            score += 28.0
-        if "function emitmemberfunctions" in text or "function emitclassmembers" in text:
-            score += 20.0
-        if "function emitmemberassignments" in text:
-            score += 10.0
-        if "emitclassdeclaration" in text or "emitmemberfunctions" in text or "emitclassmembers" in text:
-            score += 8.0
-        if "classdeclaration" in text and "emit" in text:
-            score += 5.0
-        if "case syntaxkind." in text and "function emitclassdeclaration" not in text:
-            score -= 8.0
-        if "function emitmoduledeclaration" in text and "classdeclaration" not in text:
-            score -= 6.0
-        if any(token in text for token in ("emitthrowstatement", "emittrystatement", "emitcatchclause")) and "class" not in text:
-            score -= 5.0
-        return score
-    return 0.0
-
-
-def _role_retarget_queries(
-    role: str,
-    *,
-    query: str,
-    helper_queries: Sequence[str],
-    candidate_path: str,
-    candidate_text: str,
-) -> tuple[str, ...]:
-    queries = list(_role_snippet_queries(role, query=query, helper_queries=helper_queries))
-    retarget_specific = {
-        "representation": (
-            "nodeflags modifier syntaxkind classdeclaration methoddeclaration",
-            "symbolflags declaration interface class method",
-        ),
-        "input_parsing": (
-            "parse declaration modifier syntaxkind keyword",
-            "parseclassdeclaration parseclassmemberdeclaration parseandcheckmodifiers",
-        ),
-        "validation_checking": (
-            "check abstract instantiate implement diagnostics",
-            "cannot must enforce semantic error abstract",
-        ),
-        "diagnostics": (
-            "diagnostics grammarerror error message abstract",
-            "report error diagnostics instantiate super abstract",
-        ),
-        "behavior_output": (
-            "emit class declaration method modifier output",
-            "emitclassdeclaration emitmemberfunctions emit class members",
-        ),
-    }
-    queries.extend(retarget_specific.get(role, ()))
-    for token in DECLARATION_PATTERN.findall(candidate_text):
-        if len(token) >= 5:
-            queries.append(token)
-    stem = Path(candidate_path).stem.lower() if candidate_path else ""
-    if stem:
-        queries.append(f"{stem} {query.strip()}".strip())
-    return ordered_unique(value for value in queries if value and value.strip())
-
-
-def _in_file_search_terms(
-    retrieval_plan: WorkspaceRetrievalPlan,
-    role: str,
-    query: str,
-    helper_queries: Sequence[str],
-) -> tuple[str, ...]:
-    role_queries = [subquery.query for subquery in retrieval_plan.llm_subqueries if subquery.role == role]
-    return tuple(
-        ordered_unique(
-            [
-                query,
-                *helper_queries,
-                *role_queries,
-                *retrieval_plan.retrieval_terms,
-                *retrieval_plan.raw_prompt_evidence,
-                *retrieval_plan.grounded_entities,
-                *retrieval_plan.confirmed_entities,
-                retrieval_plan.prompt_summary,
-            ]
-        )
-    )
-
-
-def _role_scoped_narrowed_files(
-    retrieval_plan: WorkspaceRetrievalPlan,
-    role: str,
-    narrowed_files: Sequence[str],
-) -> tuple[str, ...]:
-    metadata_hints = retrieval_plan.metadata.get("trusted_local_note_file_hints", ())
-    trusted_hints = tuple(
-        str(path).replace("\\", "/").lstrip("/")
-        for path in metadata_hints
-        if str(path).strip()
-    ) if isinstance(metadata_hints, Sequence) and not isinstance(metadata_hints, (str, bytes)) else ()
-    role_hints = tuple(path for path in trusted_hints if _role_owner_path_match(role, path))
-    return merge_paths(role_hints, narrowed_files)
-
-
-def _better_retarget_candidate(
-    *,
-    candidate: RetrievalCandidate,
-    validation: RoleValidationResult,
-    best_candidate: RetrievalCandidate,
-    best_validation: RoleValidationResult,
-) -> bool:
-    if validation.accepted and not best_validation.accepted:
-        return True
-    if validation.accepted != best_validation.accepted:
-        return False
-    if validation.total_score > best_validation.total_score:
-        return True
-    if validation.total_score < best_validation.total_score:
-        return False
-    return _candidate_rank_key(candidate) > _candidate_rank_key(best_candidate)
-
-
-def _select_diverse_completion_entries(
-    entries: Sequence[tuple[RetrievalCandidate, str, str, RoleValidationResult, float]],
-    *,
-    limit: int,
-) -> tuple[tuple[RetrievalCandidate, str, str, RoleValidationResult, float], ...]:
-    remaining = list(entries)
-    selected: list[tuple[RetrievalCandidate, str, str, RoleValidationResult, float]] = []
-    while remaining and len(selected) < limit:
-        best_index = 0
-        best_effective_score: float | None = None
-        for index, entry in enumerate(remaining):
-            effective_score = entry[4] - _completion_redundancy_penalty(entry, selected)
-            if best_effective_score is None or effective_score > best_effective_score:
-                best_effective_score = effective_score
-                best_index = index
-        selected.append(remaining.pop(best_index))
-    return tuple(selected)
-
-
-def _completion_redundancy_penalty(
-    entry: tuple[RetrievalCandidate, str, str, RoleValidationResult, float],
-    selected: Sequence[tuple[RetrievalCandidate, str, str, RoleValidationResult, float]],
-) -> float:
-    candidate, source_role, _, _, _ = entry
-    penalty = 0.0
-    candidate_path = (candidate.path or "").replace("\\", "/").lower()
-    candidate_dir = str(Path(candidate_path).parent).replace("\\", "/")
-    for selected_candidate, selected_source_role, _, _, _ in selected:
-        selected_path = (selected_candidate.path or "").replace("\\", "/").lower()
-        if candidate_path and selected_path and candidate_path == selected_path:
-            penalty += 2.5
-        elif candidate_dir and candidate_dir == str(Path(selected_path).parent).replace("\\", "/"):
-            penalty += 0.7
-        if source_role and source_role == selected_source_role:
-            penalty += 0.35
-    return penalty
-
-
-def _bucket_missing_roles(buckets: Sequence[RoleRetrievalBucket]) -> tuple[str, ...]:
-    missing = [bucket.role for bucket in buckets if bucket.role_status == "missing"]
-    return tuple(ordered_unique(missing))
-
-
-def _bucket_unresolved_roles(buckets: Sequence[RoleRetrievalBucket]) -> tuple[str, ...]:
-    missing = [bucket.role for bucket in buckets if bucket.role_status != "strong"]
-    return tuple(ordered_unique(missing))
-
-
-def _latest_evaluation_for_ref(
-    evaluations: Sequence[RoleCandidateEvaluation],
-    ref: str,
-) -> RoleCandidateEvaluation | None:
-    latest: RoleCandidateEvaluation | None = None
-    for evaluation in evaluations:
-        if evaluation.candidate.source_id == ref:
-            latest = evaluation
-    return latest
-
-
-def _is_file_candidate(candidate: RetrievalCandidate) -> bool:
-    return candidate.metadata.get("file_candidate") == "true" or str(candidate.line_range or "").upper() == "FILE"
-
-
-def _drop_redundant_file_candidates(candidates: Sequence[RetrievalCandidate]) -> tuple[RetrievalCandidate, ...]:
-    if not candidates:
-        return ()
-    if not any(_is_file_candidate(candidate) for candidate in candidates):
-        return tuple(candidates)
-    non_file_candidates = [candidate for candidate in candidates if not _is_file_candidate(candidate)]
-    if not non_file_candidates:
-        return tuple(candidates)
-    non_file_paths = {candidate.path for candidate in non_file_candidates if candidate.path}
-    return tuple(
-        candidate
-        for candidate in candidates
-        if not _is_file_candidate(candidate) or (candidate.path and candidate.path not in non_file_paths)
-    )
-
-
-def _snippet_quality_for_ref(ref: str, assessments: Sequence[Mapping[str, str]]) -> str:
-    for item in assessments:
-        if str(item.get("ref", "")) == ref:
-            role = str(item.get("role", "")).strip().lower()
-            if role:
-                return role
-    return ""
-
-
-def _snippet_reason_for_ref(ref: str, assessments: Sequence[Mapping[str, str]]) -> str:
-    for item in assessments:
-        if str(item.get("ref", "")) == ref:
-            return str(item.get("reason", "")).strip()
-    return ""
-
-
-def _late_snippet_quality(
-    *,
-    ref: str,
-    quality_by_ref: Mapping[str, str],
-    rejected_refs: set[str],
-    accepted_refs: set[str],
-) -> str:
-    if ref in rejected_refs:
-        return "noise"
-    quality = quality_by_ref.get(ref, "").strip().lower()
-    if quality in {"core", "secondary", "noise"}:
-        return quality
-    if ref in accepted_refs:
-        return "core"
-    return "secondary"
-
-
-def _rescue_snippet_quality(
-    *,
-    role: str,
-    candidate: RetrievalCandidate,
-    rescued_refs: set[str],
-    existing_assessment: Sequence[Mapping[str, str]],
-) -> str:
-    if candidate.source_id not in rescued_refs:
-        return _snippet_quality_for_ref(candidate.source_id, existing_assessment)
-    if role == "validation_checking":
-        text = candidate.text.lower()
-        if any(token in text for token in ("cannot", "must", "instantiate", "implement", "super", "diagnostic", "semantic", "extends", "check")):
-            return "core"
-    if role == "input_parsing":
-        text = candidate.text.lower()
-        if any(token in text for token in ("parseclass", "parseandcheckmodifiers", "modifier", "syntaxkind", "keyword")):
-            return "core"
-    if role == "behavior_output":
-        text = candidate.text.lower()
-        if any(token in text for token in ("emit", "transform", "runtime", "output")):
-            return "core"
-    return "secondary"
-
-
-def _merge_retrieved_candidates(
-    existing: Sequence[RetrievalCandidate],
-    new_candidates: Sequence[RetrievalCandidate],
-) -> tuple[RetrievalCandidate, ...]:
-    merged: dict[str, RetrievalCandidate] = {candidate.source_id: candidate for candidate in existing}
-    for candidate in new_candidates:
-        merged[candidate.source_id] = candidate
-    return tuple(merged.values())
-
-
-def _rank_unique_candidates(candidates: Sequence[RetrievalCandidate]) -> tuple[RetrievalCandidate, ...]:
-    unique: dict[str, RetrievalCandidate] = {}
-    for candidate in candidates:
-        key = candidate.source_id or candidate.candidate_id
-        existing = unique.get(key)
-        if existing is None or _candidate_rank_key(candidate) > _candidate_rank_key(existing):
-            unique[key] = candidate
-    return tuple(sorted(unique.values(), key=_candidate_rank_key, reverse=True))
-
-
-def _recovery_anchor_queries(role: str, buckets: Sequence[RoleRetrievalBucket]) -> tuple[str, ...]:
-    queries: list[str] = []
-    for bucket in buckets:
-        if bucket.role == role or bucket.role_status != "strong":
-            continue
-        for candidate in bucket.accepted_candidates[:1]:
-            tokens = DECLARATION_PATTERN.findall(candidate.text)
-            if tokens:
-                queries.append(f"{role} {' '.join(tokens[:2])}".strip())
-            stem = Path(candidate.path or "").stem.lower() if candidate.path else ""
-            if stem:
-                queries.append(f"{role} {stem}".strip())
-    return ordered_unique(queries)
-
-
-def _role_phase_path_allowed(role: str, path: str) -> bool:
-    normalized_path = path.lower().replace("\\", "/")
-    file_role = tool_file_role(normalized_path)
-    if file_role in {"test", "baseline_or_generated"}:
-        return False
-    if "harness" in normalized_path or "fixture" in normalized_path:
-        return False
-    if "diagnostic" in normalized_path and role != "diagnostics":
-        return False
-    if role == "diagnostics":
-        return file_role == "implementation" and ("diagnostic" in normalized_path or normalized_path.endswith(".json"))
-    return file_role == "implementation"
-
-
-def _anchor_support_path_allowed(path: str) -> bool:
-    normalized_path = path.lower().replace("\\", "/")
-    file_role = tool_file_role(normalized_path)
-    if file_role in {"test", "baseline_or_generated"}:
-        return False
-    if "harness" in normalized_path or "fixture" in normalized_path:
-        return False
-    return file_role == "implementation"
-
-
-def _anchor_support_paths(observation: ToolObservation) -> tuple[str, ...]:
-    files = observation.payload.get("files", ())
-    selected: list[str] = []
-    for item in files:
-        if not isinstance(item, Mapping):
-            continue
-        path = str(item.get("path", "")).strip().replace("\\", "/")
-        if path and _anchor_support_path_allowed(path):
-            selected.append(path)
-    return tuple(ordered_unique(selected))
-
-
-def _matched_anchor_paths(
-    candidate_path: str,
-    anchors: Sequence[AnchorRecord],
-    support_map: Mapping[str, Sequence[str]],
-) -> tuple[str, ...]:
-    normalized = candidate_path.replace("\\", "/").lower()
-    supporting_paths: list[str] = []
-    for anchor in anchors:
-        supported = {path.replace("\\", "/").lower() for path in support_map.get(anchor.path, ())}
-        if normalized in supported:
-            supporting_paths.append(anchor.path)
-    return tuple(ordered_unique(supporting_paths))
-
-
 def _cypher_relative_path(path: str) -> str:
     return path.replace("/", "\\")
 
@@ -4088,292 +3118,9 @@ def _is_structural_symbol_name(value: str) -> bool:
     return len(value) >= 5 and value[:1].isupper()
 
 
-def _diagnostics_like_candidate(candidate: RetrievalCandidate) -> bool:
-    path = (candidate.path or "").lower()
-    text = candidate.text.lower()
-    return "diagnostic" in path or "error" in text or "message" in text
-
-
-def _candidate_symbol(candidate: RetrievalCandidate) -> str | None:
-    for match in DECLARATION_PATTERN.finditer(candidate.text):
-        symbol = match.group(1)
-        if symbol and len(symbol) >= 4:
-            return symbol
-    for token in IDENTIFIER_PATTERN.findall(candidate.text):
-        if token and len(token) >= 5 and token[0].isupper():
-            return token
-    return None
-
-
-def _candidate_is_reference_expansion_source(role: str, path: str, profile: FileResponsibilityProfile) -> bool:
-    normalized_path = path.replace("\\", "/").lower()
-    if profile.noise:
-        return False
-    if profile.support_only or profile.classification == "possible_owner":
-        return True
-    if any(reason.startswith("adjacent_") for reason in profile.reasons):
-        return True
-    if role == "validation_checking" and any(token in normalized_path for token in ("/services/", "/compiler/tc.", "commandline", "project", "watch")):
-        return True
-    return False
-
-
-def _role_requires_owner_layer(role: str) -> bool:
-    return role in {"validation_checking", "input_parsing", "representation", "diagnostics", "behavior_output"}
-
-
-def _candidate_satisfies_owner_layer(role: str, candidate: RetrievalCandidate) -> bool:
-    path = candidate.path or ""
-    if _role_owner_path_match(role, path):
-        return True
-    profile = profile_candidate(
-        role,
-        path=path,
-        text=candidate.text,
-        file_role=candidate.metadata.get("file_role", ""),
-    )
-    if profile.noise or profile.support_only:
-        return False
-    return profile.classification == "likely_owner" and not any(reason in profile.reasons for reason in ("plumbing_path", "helper_path", "low_level_leaf"))
-
-
-def _has_role_owner_candidate(role: str, candidates: Sequence[RetrievalCandidate]) -> bool:
-    return any(_candidate_satisfies_owner_layer(role, candidate) for candidate in candidates)
-
-
-def _role_owner_path_match(role: str, path: str) -> bool:
-    normalized_path = path.replace("\\", "/").lower()
-    return any(token in normalized_path for token in _role_owner_path_tokens(role))
-
-
-def _role_owner_path_tokens(role: str) -> tuple[str, ...]:
-    return {
-        "validation_checking": ("checker", "semantic", "validator", "validate", "typecheck", "type_check", "resolver", "rules"),
-        "behavior_output": ("emitter", "runtime", "transform", "renderer", "directive"),
-        "input_parsing": ("parser", "scanner"),
-        "representation": ("types", "symbols", "ast", "nodes", "schema", "model"),
-        "diagnostics": ("diagnostic", "diagnostics", "messages"),
-    }.get(role, ())
-
-
-def _target_matches_reference_owner_vocab(role: str, path: str) -> bool:
-    return _role_owner_path_match(role, path)
-
-
-def _is_generic_reference_hub(role: str, path: str) -> bool:
-    normalized_path = path.replace("\\", "/").lower()
-    if role == "validation_checking":
-        blocked = ("types.ts", "core.ts", "scanner.ts", "binder.ts", "parser.ts")
-        return any(normalized_path.endswith(token) for token in blocked)
-    return False
-
-
-def _looks_like_source_file(path: str) -> bool:
-    lowered = path.lower()
-    return lowered.endswith((".ts", ".tsx", ".js", ".jsx", ".py", ".c", ".cc", ".cpp", ".h", ".hpp", ".java", ".cs"))
-
-
-def _line_start_from_range(line_range: str | None) -> int:
-    if not line_range:
-        return 1
-    match = re.match(r"L(\d+)", line_range)
-    if match is None:
-        return 1
-    return max(1, int(match.group(1)))
-
-
-def _planning_snippets(candidates: Sequence[RetrievalCandidate]) -> tuple[dict[str, Any], ...]:
-    snippets: list[dict[str, Any]] = []
-    for candidate in list(candidates)[:MAX_EVIDENCE_ITEMS]:
-        snippets.append(
-            {
-                "ref": candidate.source_id or (candidate.path or ""),
-                "path": candidate.path or "",
-                "line_range": candidate.line_range or "",
-                "retrieval_path": candidate.retrieval_path,
-                "file_role": candidate.metadata.get("file_role", ""),
-                "score": candidate.score,
-                "snippet": _salient_candidate_excerpt(candidate, limit=900),
-            }
-        )
-    return tuple(snippets)
-
-
-def _salient_candidate_excerpt(candidate: RetrievalCandidate, *, limit: int) -> str:
-    text = candidate.text
-    if len(text) <= limit:
-        return text
-    role = candidate.metadata.get("coverage_area", "")
-    terms = _in_file_refinement_terms(role=role, query_text=text)
-    lines = text.splitlines()
-    best_index = 0
-    best_score = -1.0
-    for index, line in enumerate(lines):
-        lowered = line.lower()
-        score = 0.0
-        if DECLARATION_PATTERN.search(line) or re.search(r"\bfunction\s+[A-Za-z_][A-Za-z0-9_]*\b", line):
-            score += 5.0
-        score += sum(1.0 for term in terms[:24] if term in lowered)
-        if role == "validation_checking" and re.search(r"\bfunction\s+check", lowered):
-            score += 6.0
-            if "class" in lowered:
-                score += 12.0
-            if any(term in lowered for term in ("base", "implement", "inherit", "extends", "super", "construct")):
-                score += 4.0
-        if score > best_score:
-            best_score = score
-            best_index = index
-    selected: list[str] = []
-    char_count = 0
-    start = max(0, best_index - 8)
-    for line in lines[start:]:
-        if selected and char_count + len(line) + 1 > limit:
-            break
-        selected.append(line)
-        char_count += len(line) + 1
-    excerpt = "\n".join(selected).strip()
-    if not excerpt:
-        return text[:limit]
-    if start > 0:
-        excerpt = "...\n" + excerpt
-    return excerpt
-
-
 def _is_step2_repo_path_allowed(path: str) -> bool:
     role = tool_file_role(path)
     return role in {"implementation", "documentation"}
-
-
-def _candidate_from_chunk_payload(payload: Mapping[str, Any], *, coverage_area: str, retrieval_path: str) -> RetrievalCandidate:
-    path = str(payload.get("path", "") or "")
-    line_range = str(payload.get("line_range", "") or "")
-    metadata = {
-        "snapshot": str(payload.get("snapshot", "")),
-        "commit": str(payload.get("commit", "")),
-        "visibility": str(payload.get("visibility", "")),
-        "file_role": tool_file_role(path) if path else "",
-        "coverage_area": coverage_area,
-        "retrieval_path": retrieval_path,
-        "path": path,
-    }
-    return RetrievalCandidate(
-        candidate_id=str(payload.get("chunk_id", "")),
-        source_category=SourceCategory(str(payload.get("source_category", SourceCategory.SOURCE_CODE.value))),
-        retrieval_path=retrieval_path,
-        text=str(payload.get("text", "")),
-        score=float(payload.get("score", 0.0) or 0.0),
-        source_id=str(payload.get("chunk_id", "")),
-        path=path or None,
-        line_range=line_range or None,
-        metadata=metadata,
-    )
-
-
-def _candidate_rank_key(candidate: RetrievalCandidate) -> tuple[float, float]:
-    role_weight = {
-        "implementation": 1.3,
-        "documentation": 0.85,
-        "test": 0.2,
-        "baseline_or_generated": 0.1,
-        "other": 0.6,
-        "": 0.7,
-    }.get(candidate.metadata.get("file_role", ""), 0.6)
-    category_weight = {
-        SourceCategory.SOURCE_CODE: 1.3,
-        SourceCategory.DOCUMENTATION: 0.8,
-        SourceCategory.ISSUE_TRACKER: 0.5,
-        SourceCategory.PULL_REQUEST: 0.5,
-        SourceCategory.LOCAL_NOTES: 0.5,
-        SourceCategory.NOTEBOOKLM: 0.5,
-    }.get(candidate.source_category, 0.5)
-    return candidate.score * role_weight * category_weight, candidate.score
-
-
-def merge_source_priorities(
-    preferred: Sequence[SourceCategory],
-    existing: Sequence[SourceCategory],
-) -> tuple[SourceCategory, ...]:
-    selected: list[SourceCategory] = []
-    for category in (*preferred, *existing):
-        if category not in selected:
-            selected.append(category)
-    return tuple(selected)
-
-
-def _trusted_file_hints_for_result(result: ObsidianSearchResult) -> tuple[str, ...]:
-    return trusted_file_hints_from_obsidian_results((result,))
-
-
-def _obsidian_source_queries(prompt: str) -> tuple[str, ...]:
-    normalized = prompt.replace("`", " ")
-    candidates: list[str] = []
-    title_match = re.search(r"^Title:\s*(.+)$", normalized, re.IGNORECASE | re.MULTILINE)
-    if title_match:
-        candidates.append(title_match.group(1))
-    lowered = normalized.lower()
-    if "abstract" in lowered and "class" in lowered:
-        candidates.extend(
-            [
-                "abstract class TypeScript",
-                "abstract classes",
-            ]
-        )
-    identifiers = [
-        token
-        for token in IDENTIFIER_PATTERN.findall(normalized)
-        if len(token) >= 4 and token.lower() not in {"explain", "code", "context", "needed", "issue", "support"}
-    ]
-    if identifiers:
-        candidates.append(" ".join(identifiers[:5]))
-    candidates.append(prompt[:500])
-    return ordered_unique([candidate.strip() for candidate in candidates if candidate.strip()])
-
-
-def _tool_summary_payload(observation: ToolObservation) -> dict[str, Any]:
-    links: list[str] = []
-    seen_links: set[str] = set()
-
-    def add_link(value: str) -> None:
-        normalized = value.strip()
-        if not normalized or normalized in seen_links:
-            return
-        seen_links.add(normalized)
-        links.append(normalized)
-
-    for ref in observation.source_refs:
-        add_link(str(ref))
-
-    payload = observation.payload
-    if isinstance(payload.get("files"), list):
-        for item in payload["files"][:20]:
-            if not isinstance(item, Mapping):
-                continue
-            path = str(item.get("path", "")).strip()
-            line = item.get("line")
-            add_link(f"{path}:L{line}" if path and line else path)
-    if isinstance(payload.get("results"), list):
-        for item in payload["results"][:20]:
-            if not isinstance(item, Mapping):
-                continue
-            chunk_id = str(item.get("chunk_id", "")).strip()
-            path = str(item.get("path", "")).strip()
-            line_range = str(item.get("line_range", "")).strip()
-            add_link(chunk_id or (f"{path}:{line_range}" if path and line_range else path))
-    if isinstance(payload.get("snippets"), list):
-        for item in payload["snippets"][:20]:
-            if not isinstance(item, Mapping):
-                continue
-            chunk_id = str(item.get("chunk_id", "")).strip()
-            path = str(item.get("path", "")).strip()
-            line_range = str(item.get("line_range", "")).strip()
-            add_link(chunk_id or (f"{path}:{line_range}" if path and line_range else path))
-
-    return {
-        "result_count": str(observation.metadata.get("result_count", "")),
-        "result_links": links,
-        "metadata": dict(observation.metadata),
-    }
-
 
 def _load_sync_manifest(path: Path) -> Mapping[str, Any]:
     if not path.exists():

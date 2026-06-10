@@ -1661,7 +1661,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 return _FakeHTTPResponse({"choices": [{"message": {"content": json.dumps(responses.pop(0))}}]})
 
             with _fake_cgc(files=[{"path": "src/parser.ts"}]), patch(
-                "services.retrieval.workspace_llm.urllib.request.urlopen",
+                "services.llm.json_completion.urllib.request.urlopen",
                 side_effect=fake_urlopen,
             ):
                 result = stage.retrieve(state, _policy_result(state))
@@ -1986,7 +1986,7 @@ class RetrievalLLMConfigTests(unittest.TestCase):
             timeout_seconds=12,
         )
 
-        with patch("services.retrieval.workspace_llm.urllib.request.urlopen", side_effect=fake_urlopen):
+        with patch("services.llm.json_completion.urllib.request.urlopen", side_effect=fake_urlopen):
             response = workspace_llm.complete_json(config, [{"role": "user", "content": "hi"}])
 
         self.assertEqual(response, {"ok": True})

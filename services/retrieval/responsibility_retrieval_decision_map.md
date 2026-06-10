@@ -127,3 +127,19 @@ Expected explanations for remaining gaps:
 - the role owner vocabulary is too narrow for the target framework
 - Qdrant chunking splits owner evidence away from the symbols that identify the owner file
 
+
+
+GraphLocator: Graph-guided Causal Reasoning for Issue Localization
+Link: https://arxiv.org/abs/2512.22469
+Used for: graph-guided expansion from symptom/support files toward likely owner files.
+Relevant result: reports average gains of +19.49% function-level recall, +11.89% precision, and +28.74% downstream resolving performance.
+
+RepoCoder: Repository-Level Code Completion Through Iterative Retrieval and Generation
+Link: https://aclanthology.org/2023.emnlp-main.151/
+Used for: the idea that first-pass retrieved code should seed a second retrieval pass with code-native terms.
+Relevant result: reports over 10% improvement over in-file completion baselines across settings.
+
+On The Importance of Reasoning for Context Retrieval in Repository-Level Code Editing
+Link: https://arxiv.org/abs/2406.04464
+Used for: the decision to keep deterministic/tool-based sufficiency checks instead of trusting LLM judgment alone.
+Main lesson: reasoning can improve precision, but is weak at deciding whether retrieved context is complete.

@@ -108,6 +108,13 @@
   - no file/snippet yet
   - may inform: `S3`, `S5`
 
+- `Per-role query expansion / helper query packaging`
+  - deterministic
+  - query-level
+  - expands each role query produced by `Step-2 issue decomposition and role planning`
+  - may add role-keyword helpers, repo-grounded retrieval terms, and other packaged subqueries before retrieval
+  - no file/snippet yet
+
 - `Initial CGC narrowing`
   - CGC + deterministic filtering
   - file-level

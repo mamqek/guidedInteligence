@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Any, Mapping
 
 from core.logging_schema import LogEvent, LogEventType
 from core.models import (
@@ -17,6 +17,7 @@ from core.policy import PolicyStage
 from core.response_builder import render_response
 from services.logging.store import JsonlLogger
 from services.retrieval.workspace import WorkspaceRetrievalStage
+from services.response_generation.explanation import prompt_template_id
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class ControlLayer:
     policy_stage: PolicyStage
     retrieval_stage: WorkspaceRetrievalStage
     logger: JsonlLogger | None = None
+    response_llm_config: Any | None = None
 
     def run(self, state: ConversationState) -> OrchestrationResult:
         self._record(LogEventType.RUN_STARTED, state.conversation_id, {"current_stage": state.current_stage.value})
@@ -81,9 +83,20 @@ class ControlLayer:
                 "response_mode": response_plan.mode.value,
                 "required_sections": list(response_plan.required_sections),
                 "must_include_evidence": response_plan.must_include_evidence,
+                "notes": dict(response_plan.notes),
             },
         )
-        response_payload = _render_response(policy_result, retrieval_result, response_plan)
+        resolved_response_llm_config = self.response_llm_config
+        if resolved_response_llm_config is None:
+            resolved_response_llm_config = getattr(getattr(self.retrieval_stage, "config", None), "llm_config", None)
+        response_payload = _render_response(
+            policy_result,
+            retrieval_result,
+            response_plan,
+            state=state,
+            llm_config=resolved_response_llm_config,
+            record_event=lambda event_type, payload: self._record(event_type, state.conversation_id, payload),
+        )
         self._record(LogEventType.RESPONSE_PAYLOAD, state.conversation_id, response_payload.to_dict())
 
         result = OrchestrationResult(
@@ -130,14 +143,7 @@ def _build_response_plan(
         )
 
     sections_by_mode = {
-        ResponseMode.EXPLANATION: (
-            "summary",
-            "evidence",
-            "reasoning_path",
-            "confirmed_from_evidence",
-            "hypotheses_to_investigate",
-            "knowledge_check_question",
-        ),
+        ResponseMode.EXPLANATION: ("generated_explanation",),
         ResponseMode.REASONING_QUESTION: ("question", "why_this_matters"),
         ResponseMode.HINT: ("hint", "evidence"),
     }
@@ -146,6 +152,8 @@ def _build_response_plan(
         "coverage_status": retrieval_result.coverage_status if retrieval_result is not None else "not_run",
         "retrieval_sufficient": retrieval_result.sufficient if retrieval_result is not None else False,
     }
+    if policy_result.response_mode == ResponseMode.EXPLANATION:
+        notes["prompt_template_id"] = prompt_template_id()
     return ResponsePlan(
         mode=policy_result.response_mode,
         stage=policy_result.active_stage,
@@ -159,5 +167,16 @@ def _render_response(
     policy_result: PolicyResult,
     retrieval_result: RetrievalResult | None,
     response_plan: ResponsePlan,
+    *,
+    state: ConversationState,
+    llm_config: Any | None,
+    record_event,
 ) -> ResponsePayload:
-    return render_response(policy_result, retrieval_result, response_plan)
+    return render_response(
+        policy_result,
+        retrieval_result,
+        response_plan,
+        state=state,
+        llm_config=llm_config,
+        log_event=record_event,
+    )

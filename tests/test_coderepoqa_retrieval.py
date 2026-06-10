@@ -232,6 +232,38 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
             self.assertEqual(resolution.repo_pre_commit, repo_pre_commit)
             self.assertEqual(resolution.strategy, "fixed_by_parent")
 
+    def test_resolve_repo_pre_snapshot_falls_back_to_earliest_commit_when_issue_predates_history(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            repo.mkdir()
+            self._git(repo, "init")
+            self._git(repo, "config", "user.name", "Test User")
+            self._git(repo, "config", "user.email", "test@example.com")
+            (repo / "src").mkdir()
+            (repo / "src" / "parser.ts").write_text("const parser = 1;\n", encoding="utf-8")
+            self._git(repo, "add", ".")
+            self._git_commit(repo, "initial", "2014-07-10T12:00:00Z")
+            earliest_commit = self._git(repo, "rev-parse", "HEAD").strip()
+            issue_json = root / "issue.json"
+            issue_json.write_text(
+                json.dumps(
+                    {
+                        "repository_url": "https://api.github.com/repos/example/repo",
+                        "number": 242,
+                        "title": "Directive method calls don't support object params",
+                        "created_at": "2014-04-16T14:47:51Z",
+                        "body": "Parser issue.",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            resolution = resolve_repo_pre_snapshot(issue_json, repo)
+
+            self.assertEqual(resolution.repo_pre_commit, earliest_commit)
+            self.assertEqual(resolution.strategy, "earliest_available_commit")
+
     def _git(self, cwd: Path, *args: str) -> str:
         completed = subprocess.run(
             ["git", *args],

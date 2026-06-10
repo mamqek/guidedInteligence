@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from core.control_layer import ControlLayer
 from core.logging_schema import LogEventType
@@ -10,6 +13,8 @@ from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, SourceCategory
 from core.stages import ResponseStage
 from core.transitions import can_transition
 from core.violations import PolicyViolationType
+from services.response_generation.explanation import prompt_sources_path
+from services.retrieval.config import RunLLMConfig
 from step3_harness_scenarios import DEFAULT_STUB_EVIDENCE, SCENARIOS
 
 
@@ -54,17 +59,8 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertEqual(result.active_stage, ResponseStage.EXPLAIN)
         self.assertEqual(result.next_stage, ResponseStage.ASK)
         self.assertEqual(result.response_plan.mode, ResponseMode.EXPLANATION)
-        self.assertEqual(
-            result.response_plan.required_sections,
-            (
-                "summary",
-                "evidence",
-                "reasoning_path",
-                "confirmed_from_evidence",
-                "hypotheses_to_investigate",
-                "knowledge_check_question",
-            ),
-        )
+        self.assertEqual(result.response_plan.required_sections, ("generated_explanation",))
+        self.assertEqual(result.response_plan.notes["prompt_template_id"], "explanation_markdown_v2")
         self.assertEqual(len(self.retrieval.calls), 1)
         self.assertEqual(
             [event.event_type for event in self.logger.events],
@@ -119,11 +115,84 @@ class ControlLayerPolicyTests(unittest.TestCase):
         )
 
         content = result.response_payload.content
-        self.assertIn("**Summary**", content)
-        self.assertIn("**Evidence**", content)
-        self.assertIn("[src/compiler/checker.ts:L4242-L4321](src/compiler/checker.ts#L4242-L4321)", content)
-        self.assertIn("function checkClassLikeDeclaration", content)
-        self.assertIn("input_parsing:no_strong_satisfying_candidate", content)
+        self.assertEqual(content, "**Error**\nExplanation generation requires a configured LLM. No response LLM configuration is available.")
+        self.assertEqual(result.response_payload.metadata["error"], "missing_llm_config")
+
+    def test_explanation_mode_uses_llm_generation_when_configured(self) -> None:
+        retrieval = _StubRetrievalService(
+            RetrievalResult(
+                evidence=(
+                    EvidenceItem(
+                        source_category=SourceCategory.SOURCE_CODE,
+                        source_id="repo-pre:src/compiler/checker.ts:L4242-L4321",
+                        snippet="function checkClassLikeDeclaration(node) {\n  return Diagnostics.Abstract_class;\n}",
+                        rank=1,
+                        metadata={"path": "src/compiler/checker.ts", "coverage_area": "validation_checking"},
+                    ),
+                ),
+                coverage_status="partial",
+                sufficient=False,
+                retrieval_summary={"deterministic_coverage_gate": {"satisfied": False, "missing_roles": ["input_parsing"], "reasons": []}},
+            )
+        )
+        logger = _InMemoryLogger()
+        with _fake_llm_server(
+            [
+                {
+                    "markdown": "# Bottom line\n\nThe main enforcement point is [src/compiler/checker.ts:L4242-L4321](src/compiler/checker.ts#L4242-L4321).",
+                    "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L4242-L4321"],
+                    "render_notes": {"title": "Bottom line", "summary": "Checker enforces abstract rules."},
+                }
+            ]
+        ) as server_url:
+            control_layer = ControlLayer(
+                policy_stage=PolicyStage(),
+                retrieval_stage=retrieval,
+                logger=logger,
+                response_llm_config=_llm_config(server_url),
+            )
+
+            result = control_layer.run(
+                ConversationState(
+                    conversation_id="test-llm-explanation",
+                    user_input="Explain abstract class handling.",
+                    current_stage=ResponseStage.EXPLAIN,
+                    intent=UserIntent.UNDERSTAND_CODE,
+                )
+            )
+
+        self.assertEqual(result.response_payload.content, "# Bottom line\n\nThe main enforcement point is [src/compiler/checker.ts:L4242-L4321](src/compiler/checker.ts#L4242-L4321).")
+        self.assertEqual(
+            result.response_payload.evidence_refs,
+            ("repo-pre:src/compiler/checker.ts:L4242-L4321",),
+        )
+        self.assertEqual(result.response_payload.metadata["generator"], "llm_explanation")
+        self.assertIn(LogEventType.RESPONSE_GENERATION_REQUESTED, [event.event_type for event in logger.events])
+        self.assertIn(LogEventType.RESPONSE_GENERATION_RECEIVED, [event.event_type for event in logger.events])
+
+    def test_explanation_llm_failure_returns_error_response(self) -> None:
+        retrieval = _StubRetrievalService()
+        logger = _InMemoryLogger()
+        with _fake_llm_server(["not json"]) as server_url:
+            control_layer = ControlLayer(
+                policy_stage=PolicyStage(),
+                retrieval_stage=retrieval,
+                logger=logger,
+                response_llm_config=_llm_config(server_url),
+            )
+            result = control_layer.run(
+                ConversationState(
+                    conversation_id="test-llm-error",
+                    user_input="Explain the policy flow.",
+                    current_stage=ResponseStage.EXPLAIN,
+                    intent=UserIntent.UNDERSTAND_CODE,
+                )
+            )
+
+        self.assertIn("**Error**", result.response_payload.content)
+        self.assertIn("Explanation generation failed:", result.response_payload.content)
+        self.assertIn(LogEventType.RESPONSE_GENERATION_FAILED, [event.event_type for event in logger.events])
+        self.assertIn("valid JSON", result.response_payload.metadata["error"])
 
     def test_default_policy_engine_uses_v1_default_source_categories(self) -> None:
         state = ConversationState(
@@ -261,6 +330,35 @@ class ControlLayerPolicyTests(unittest.TestCase):
         retrieval_event = [event for event in logger.events if event.event_type == LogEventType.RETRIEVAL_PLAN][-1]
         self.assertEqual(retrieval_event.payload["action"], "skip_existing_evidence")
 
+    def test_reasoning_question_mode_stays_deterministic_when_llm_configured(self) -> None:
+        logger = _InMemoryLogger()
+        with _fake_llm_server([]) as server_url:
+            control_layer = ControlLayer(
+                policy_stage=PolicyStage(),
+                retrieval_stage=_StubRetrievalService(),
+                logger=logger,
+                response_llm_config=_llm_config(server_url),
+            )
+            result = control_layer.run(
+                ConversationState(
+                    conversation_id="test-ask-deterministic",
+                    user_input="What should I inspect next?",
+                    current_stage=ResponseStage.ASK,
+                    intent=UserIntent.UNDERSTAND_CODE,
+                    evidence=DEFAULT_STUB_EVIDENCE,
+                    stage_history=(ResponseStage.EXPLAIN, ResponseStage.ASK),
+                )
+            )
+
+        self.assertEqual(result.response_plan.mode, ResponseMode.REASONING_QUESTION)
+        self.assertIn("**Question**", result.response_payload.content)
+        self.assertNotIn(LogEventType.RESPONSE_GENERATION_REQUESTED, [event.event_type for event in logger.events])
+
+    def test_prompt_sources_note_is_checked_in(self) -> None:
+        content = prompt_sources_path().read_text(encoding="utf-8")
+        self.assertIn("digital.gov/guides/plain-language/principles/write-for-reader/", content)
+        self.assertIn("link.springer.com/article/10.1007/s10648-010-9145-4", content)
+
 
 class TransitionTests(unittest.TestCase):
     def test_hint_to_ask_is_disallowed(self) -> None:
@@ -290,6 +388,56 @@ class ScenarioFixtureTests(unittest.TestCase):
                     tuple(violation.violation_type for violation in result.violations),
                     expected.violations,
                 )
+
+class _FakeLLMHandler(BaseHTTPRequestHandler):
+    response_payloads: list[object] = []
+
+    def do_POST(self) -> None:
+        length = int(self.headers.get("Content-Length", "0"))
+        self.rfile.read(length)
+        content = self.response_payloads.pop(0)
+        if not isinstance(content, str):
+            content = json.dumps(content)
+        body = json.dumps({"choices": [{"message": {"content": content}}]}).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args) -> None:
+        return
+
+
+class _fake_llm_server:
+    def __init__(self, response_payloads: list[object]) -> None:
+        self.response_payloads = response_payloads
+        self.server: HTTPServer | None = None
+        self.thread: threading.Thread | None = None
+
+    def __enter__(self) -> str:
+        _FakeLLMHandler.response_payloads = list(self.response_payloads)
+        self.server = HTTPServer(("127.0.0.1", 0), _FakeLLMHandler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        host, port = self.server.server_address
+        return f"http://{host}:{port}/v1/chat/completions"
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if self.server is not None:
+            self.server.shutdown()
+            self.server.server_close()
+        if self.thread is not None:
+            self.thread.join(timeout=2)
+
+
+def _llm_config(server_url: str) -> RunLLMConfig:
+    return RunLLMConfig(
+        api_style="openai_chat_completions",
+        model="test-model",
+        endpoint_url=server_url,
+        api_key="test-key",
+    )
 
 
 if __name__ == "__main__":

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from core.models import EvidenceItem, PolicyResult, ResponseMode, ResponsePayload, ResponsePlan, RetrievalResult
+from core.logging_schema import LogEventType
+from core.models import ConversationState, EvidenceItem, PolicyResult, ResponseMode, ResponsePayload, ResponsePlan, RetrievalResult
+from services.response_generation.explanation import generate_explanation, prompt_template_id
 
 
 LINE_RANGE_PATTERN = re.compile(r":L(?P<start>\d+)(?:-L(?P<end>\d+))?$")
@@ -17,9 +19,14 @@ def render_response(
     policy_result: PolicyResult,
     retrieval_result: RetrievalResult | None,
     response_plan: ResponsePlan,
+    *,
+    state: ConversationState | None = None,
+    llm_config: Any | None = None,
+    log_event: Callable[[LogEventType, Mapping[str, object]], None] | None = None,
 ) -> ResponsePayload:
     evidence = tuple(retrieval_result.evidence if retrieval_result is not None else ())
     evidence_refs = tuple(item.source_id for item in evidence)
+    metadata: dict[str, object] = dict(response_plan.notes)
     if response_plan.mode == ResponseMode.BOUNDARY:
         content = f"Remain in {policy_result.active_stage.value}. {policy_result.reason}"
     elif response_plan.mode == ResponseMode.REASONING_QUESTION:
@@ -27,33 +34,114 @@ def render_response(
     elif response_plan.mode == ResponseMode.HINT:
         content = _render_hint(retrieval_result)
     else:
-        content = _render_explanation(retrieval_result)
+        content, evidence_refs, generated_metadata = _render_explanation(
+            retrieval_result,
+            state=state,
+            llm_config=llm_config,
+            log_event=log_event,
+        )
+        metadata.update(generated_metadata)
     return ResponsePayload(
         stage=response_plan.stage,
         mode=response_plan.mode,
         content=content,
         evidence_refs=evidence_refs,
         violations=policy_result.violations,
+        metadata=metadata,
     )
 
 
-def _render_explanation(retrieval_result: RetrievalResult | None) -> str:
-    if retrieval_result is None:
-        return _section("Summary", "No retrieval result is available for this response.")
+def _render_explanation(
+    retrieval_result: RetrievalResult | None,
+    *,
+    state: ConversationState | None,
+    llm_config: Any | None,
+    log_event: Callable[[LogEventType, Mapping[str, object]], None] | None,
+) -> tuple[str, tuple[str, ...], Mapping[str, object]]:
+    if retrieval_result is None or state is None:
+        return (
+            _render_explanation_error("Explanation generation requires retrieval context, but none is available."),
+            (),
+            {
+                "generator": "llm_explanation",
+                "prompt_template_id": prompt_template_id(),
+                "used_evidence_refs": [],
+                "render_notes": {},
+                "error": "missing_retrieval_context",
+            },
+        )
+    if llm_config is None:
+        return (
+            _render_explanation_error("Explanation generation requires a configured LLM. No response LLM configuration is available."),
+            tuple(item.source_id for item in retrieval_result.evidence),
+            {
+                "generator": "llm_explanation",
+                "prompt_template_id": prompt_template_id(),
+                "used_evidence_refs": [],
+                "render_notes": {},
+                "error": "missing_llm_config",
+            },
+        )
 
-    evidence = tuple(retrieval_result.evidence)
-    lines = [
-        _section(
-            "Summary",
-            _summary_text(retrieval_result, evidence),
-        ),
-        _section("Evidence", _evidence_markdown(evidence)),
-        _section("Reasoning Path", _reasoning_path_markdown(evidence, retrieval_result.retrieval_summary)),
-        _section("Confirmed From Evidence", _confirmed_markdown(evidence)),
-        _section("Hypotheses To Investigate", _hypotheses_markdown(retrieval_result)),
-        _section("Knowledge Check Question", _knowledge_check_question(evidence)),
-    ]
-    return "\n\n".join(lines)
+    try:
+        if log_event is not None:
+            log_event(
+                LogEventType.RESPONSE_GENERATION_REQUESTED,
+                {
+                    "prompt_template_id": prompt_template_id(),
+                    "coverage_status": retrieval_result.coverage_status,
+                    "retrieval_sufficient": retrieval_result.sufficient,
+                    "evidence_count": len(retrieval_result.evidence),
+                },
+            )
+        generated = generate_explanation(
+            state=state,
+            retrieval_result=retrieval_result,
+            llm_config=llm_config,
+        )
+        if log_event is not None:
+            log_event(
+                LogEventType.RESPONSE_GENERATION_RECEIVED,
+                {
+                    "prompt_template_id": generated.prompt_template_id,
+                    "used_evidence_refs": list(generated.used_evidence_refs),
+                    "render_notes": dict(generated.render_notes),
+                },
+            )
+        return (
+            generated.markdown,
+            tuple(generated.used_evidence_refs or tuple(item.source_id for item in retrieval_result.evidence)),
+            {
+                "generator": "llm_explanation",
+                "prompt_template_id": generated.prompt_template_id,
+                "used_evidence_refs": list(generated.used_evidence_refs),
+                "render_notes": dict(generated.render_notes),
+            },
+        )
+    except Exception as exc:
+        if log_event is not None:
+            log_event(
+                LogEventType.RESPONSE_GENERATION_FAILED,
+                {
+                    "prompt_template_id": prompt_template_id(),
+                    "reason": str(exc),
+                },
+            )
+        return (
+            _render_explanation_error(f"Explanation generation failed: {exc}"),
+            tuple(item.source_id for item in retrieval_result.evidence),
+            {
+                "generator": "llm_explanation",
+                "prompt_template_id": prompt_template_id(),
+                "used_evidence_refs": [],
+                "render_notes": {},
+                "error": str(exc),
+            },
+        )
+
+
+def _render_explanation_error(message: str) -> str:
+    return _section("Error", message)
 
 
 def _render_hint(retrieval_result: RetrievalResult | None) -> str:
