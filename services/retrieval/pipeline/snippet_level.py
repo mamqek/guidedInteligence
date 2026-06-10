@@ -372,7 +372,7 @@ def role_followup_queries(
     candidate_path: str,
     candidate_text: str,
 ) -> tuple[str, ...]:
-    queries = list(role_snippet_queries(role, query=query, helper_queries=helper_queries))
+    queries: list[str] = []
     followup_specific = {
         "representation": (
             "nodeflags modifier syntaxkind classdeclaration methoddeclaration",
@@ -396,12 +396,14 @@ def role_followup_queries(
         ),
     }
     queries.extend(followup_specific.get(role, ()))
+    queries.extend(role_snippet_queries(role, query=query, helper_queries=helper_queries)[1:])
     for token in DECLARATION_PATTERN.findall(candidate_text):
         if len(token) >= 5:
             queries.append(token)
     stem = Path(candidate_path).stem.lower() if candidate_path else ""
     if stem:
-        queries.append(f"{stem} {query.strip()}".strip())
+        queries.append(stem)
+    queries.append(query.strip())
     return ordered_unique(value for value in queries if value and value.strip())
 
 

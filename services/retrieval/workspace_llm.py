@@ -13,6 +13,69 @@ _CONTINUITY_STATE = _json_completion._CONTINUITY_STATE
 
 
 
+def generate_role_helper_queries_with_llm(
+    *,
+    role: str,
+    query: str,
+    retrieval_plan: Any,
+    llm_config: Any,
+    log_warning: Callable[[Mapping[str, Any]], None] | None = None,
+    log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
+) -> tuple[str, ...]:
+    repo_context = retrieval_plan.metadata.get("repo_context", {}) if isinstance(retrieval_plan.metadata, Mapping) else {}
+    repo_sketch = dict(repo_context.get("repo_sketch", {})) if isinstance(repo_context, Mapping) else {}
+    compact_payload = {
+        "role": role,
+        "main_query": query,
+        "prompt_summary": retrieval_plan.prompt_summary,
+        "retrieval_terms": list(retrieval_plan.retrieval_terms[:8]),
+        "grounded_entities": list((retrieval_plan.confirmed_entities or retrieval_plan.grounded_entities)[:6]),
+        "confirmed_file_hints": list((retrieval_plan.confirmed_file_hints or retrieval_plan.grounded_file_hints)[:6]),
+        "repo_sketch": {
+            "top_directories": list(repo_sketch.get("top_directories", [])[:6]),
+            "representative_files": list(repo_sketch.get("representative_files", [])[:10]),
+            "file_index": list(repo_sketch.get("file_index", [])[:10]),
+        },
+        "confirmed_anchor_examples": list(repo_context.get("confirmed_anchor_examples", [])[:6]) if isinstance(repo_context, Mapping) else [],
+    }
+    messages = (
+        {
+            "role": "system",
+            "content": (
+                "You generate lexical code-search helper queries for one retrieval role. "
+                "Return JSON only with key queries. "
+                "Output exactly 3 helper queries in queries. "
+                "Each query must be 2 to 6 words. "
+                "Each query must be a compact lexical search phrase, not a sentence. "
+                "Use repository vocabulary from the repo sketch, representative files, identifiers, and confirmed anchors. "
+                "Prefer path stems, identifiers, owner-file vocabulary, and code-search terms over explanatory prose. "
+                "Do not explain. Do not add numbering. Do not add punctuation-heavy text. "
+                "Do not repeat the main query verbatim. "
+                "For role fit: representation should sound like types flags symbols nodes declarations; "
+                "input_parsing like parser scanner token modifier keyword syntax; "
+                "validation_checking like checker semantic instantiate implement constraint super; "
+                "diagnostics like diagnostic error message report; "
+                "behavior_output like emitter emit runtime output transform. "
+                "Queries must stay repo-grounded, concise, and distinct from each other. "
+                "Good examples: NodeFlags modifier flags; parse class declaration; checker abstract members; "
+                "diagnostic message abstract; emitter class transform. "
+                "Bad examples: How does the parser handle abstract classes; "
+                "where are diagnostics for abstract classes defined in the codebase."
+            ),
+        },
+        {"role": "user", "content": json.dumps(compact_payload, sort_keys=True)},
+    )
+    response = complete_json(
+        llm_config,
+        messages,
+        response_format=_role_helper_queries_response_format(),
+        log_warning=log_warning,
+        log_event=log_event,
+    )
+    raw_queries = response.get("queries", ())
+    return tuple(" ".join(str(value).strip().split()) for value in raw_queries if str(value).strip())
+
+
 def assess_role_buckets_with_llm(
     *,
     intent: Any,
@@ -229,6 +292,29 @@ def _role_bucket_response_format() -> Mapping[str, Any]:
                     "snippet_assessment",
                     "follow_up_queries",
                 ],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _role_helper_queries_response_format() -> Mapping[str, Any]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "workspace_retrieval_role_helper_queries",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "queries": {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 3,
+                        "items": {"type": "string"},
+                    }
+                },
+                "required": ["queries"],
                 "additionalProperties": False,
             },
         },

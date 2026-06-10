@@ -49,7 +49,7 @@ class WorkspaceRetrievalPlan:
     negative_filters: tuple[str, ...]
     required_roles: tuple[str, ...]
     supporting_roles: tuple[str, ...]
-    metadata: Mapping[str, str] = field(default_factory=dict)
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

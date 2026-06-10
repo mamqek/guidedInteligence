@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import hashlib
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,7 +69,6 @@ from services.retrieval.pipeline.file_level import (
     role_owner_path_match as _role_owner_path_match,
     role_owner_path_tokens as _role_owner_path_tokens,
     role_phase_path_allowed as _role_phase_path_allowed,
-    role_query_package as _role_query_package,
     role_requires_owner_layer as _role_requires_owner_layer,
     role_scoped_narrowed_files as _role_scoped_narrowed_files,
     select_diverse_completion_entries as _select_diverse_completion_entries,
@@ -130,7 +130,7 @@ from services.retrieval.tools import (
     ToolRequest,
 )
 from services.retrieval.tools.local import build_repo_sketch, file_role as tool_file_role
-from services.retrieval.workspace_llm import assess_role_buckets_with_llm
+from services.retrieval.workspace_llm import assess_role_buckets_with_llm, generate_role_helper_queries_with_llm
 
 
 class WorkspaceRetrievalStage:
@@ -138,7 +138,14 @@ class WorkspaceRetrievalStage:
 
     def __init__(self, config: WorkspaceRetrievalConfig) -> None:
         config.validate()
-        self.config = config
+        resolved_qdrant = replace(
+            config.qdrant_config,
+            collection_name=self._repo_scoped_collection_name(
+                base_collection_name=config.qdrant_config.collection_name,
+                workspace_root=Path(config.workspace_root),
+            ),
+        )
+        self.config = replace(config, qdrant_config=resolved_qdrant)
 
     def retrieve(self, state: ConversationState, policy_result: PolicyResult) -> RetrievalResult:
         connected_documents = self._connected_documents()
@@ -506,6 +513,14 @@ class WorkspaceRetrievalStage:
                     "top_directories": repo_sketch.get("top_directories", [])[:8],
                     "file_roles": repo_sketch.get("file_roles", {}),
                     "representative_files": repo_sketch.get("representative_files", [])[:12],
+                    "file_index": [
+                        {
+                            "path": str(entry.get("path", "")),
+                            "role": str(entry.get("role", "")),
+                            "identifiers": list(entry.get("identifiers", ())[:8]),
+                        }
+                        for entry in repo_sketch.get("file_index", [])[:12]
+                    ],
                 },
                 "confirmed_entities": list(ordered_unique(confirmed_entities)),
                 "confirmed_file_hints": list(ordered_unique(confirmed_file_hints)),
@@ -1278,7 +1293,12 @@ class WorkspaceRetrievalStage:
                     {"role": prepared_bucket.role, "ref": candidate.source_id, "score": score.to_dict(), "reason": reason},
                 )
 
-        role_status = "strong" if accepted_candidates else "missing"
+        if accepted_candidates:
+            role_status = "weak"
+            missing_reason = "snippet_selection_pending"
+        else:
+            role_status = "missing"
+            missing_reason = "no_responsible_owner_candidates"
         return RoleRetrievalBucket(
             role=prepared_bucket.role,
             query=prepared_bucket.query,
@@ -1289,10 +1309,10 @@ class WorkspaceRetrievalStage:
             accepted_candidates=tuple(accepted_candidates),
             rejected_refs=tuple(ordered_unique(rejected_refs)),
             validation_notes=tuple(validation_notes),
-            missing_reason="" if accepted_candidates else "no_responsible_owner_candidates",
+            missing_reason=missing_reason,
             role_status=role_status,
-            satisfying_refs=tuple(candidate.source_id for candidate in accepted_candidates),
-            snippet_assessment=tuple({"ref": candidate.source_id, "role": "core", "reason": "responsibility owner selected"} for candidate in accepted_candidates),
+            satisfying_refs=(),
+            snippet_assessment=(),
             satisfaction_source="responsibility_rerank",
         )
 
@@ -1475,6 +1495,8 @@ class WorkspaceRetrievalStage:
                         "snippet_excluded_as_noise",
                         {"role": bucket.role, "ref": candidate.source_id},
                     )
+                    continue
+                if _is_file_candidate(candidate):
                     continue
                 satisfying_refs.append(candidate.source_id)
                 saw_core = saw_core or quality == "core"
@@ -1871,6 +1893,7 @@ class WorkspaceRetrievalStage:
                 reverse=True,
             )
         )[:MAX_ROLE_BUCKET_CANDIDATES]
+        satisfying_candidates = tuple(candidate for candidate in reranked if not _is_file_candidate(candidate))
         updated_bucket = RoleRetrievalBucket(
             role=bucket.role,
             query=bucket.query,
@@ -1881,9 +1904,9 @@ class WorkspaceRetrievalStage:
             accepted_candidates=tuple(reranked),
             rejected_refs=bucket.rejected_refs,
             validation_notes=bucket.validation_notes,
-            missing_reason=bucket.missing_reason,
-            role_status=bucket.role_status,
-            satisfying_refs=tuple(candidate.source_id for candidate in reranked),
+            missing_reason="" if satisfying_candidates else "owner_only_file_candidates",
+            role_status="strong" if satisfying_candidates else "weak",
+            satisfying_refs=tuple(candidate.source_id for candidate in satisfying_candidates),
             snippet_assessment=bucket.snippet_assessment,
             satisfaction_source=bucket.satisfaction_source if mode == "snippet_refinement" else "recovery_pending",
         )
@@ -2078,6 +2101,12 @@ class WorkspaceRetrievalStage:
         validation_notes = list(target_bucket.validation_notes)
         if promoted_refs:
             validation_notes.extend(["role_completion_promoted"] * len(promoted_refs))
+        if selected_candidates:
+            role_status = "weak"
+            missing_reason = "snippet_selection_pending"
+        else:
+            role_status = "missing"
+            missing_reason = target_bucket.missing_reason
         completed_bucket = RoleRetrievalBucket(
             role=target_bucket.role,
             query=target_bucket.query,
@@ -2088,9 +2117,9 @@ class WorkspaceRetrievalStage:
             accepted_candidates=selected_candidates,
             rejected_refs=rejected_refs,
             validation_notes=tuple(validation_notes),
-            missing_reason="" if selected_candidates else target_bucket.missing_reason,
-            role_status=target_bucket.role_status if selected_candidates else "missing",
-            satisfying_refs=tuple(candidate.source_id for candidate in selected_candidates),
+            missing_reason=missing_reason,
+            role_status=role_status,
+            satisfying_refs=(),
             snippet_assessment=target_bucket.snippet_assessment,
             satisfaction_source=target_bucket.satisfaction_source,
         )
@@ -2137,7 +2166,15 @@ class WorkspaceRetrievalStage:
         narrowed_files: Sequence[str],
         phase: str,
     ) -> tuple[PreparedRoleBucket, int]:
-        helper_queries = _role_query_package(retrieval_plan, role, query)
+        generated_helper_queries = generate_role_helper_queries_with_llm(
+            role=role,
+            query=query,
+            retrieval_plan=retrieval_plan,
+            llm_config=self.config.llm_config,
+            log_warning=lambda payload: self._record("llm_request_warning", {"conversation_id": retrieval_plan.conversation_id, **payload}),
+            log_event=lambda event_type, payload: self._record(event_type, {"conversation_id": retrieval_plan.conversation_id, **payload}),
+        )
+        helper_queries = ordered_unique((query.strip(), *generated_helper_queries))[:MAX_ROLE_QUERIES]
         self._record("role_subquery_started", {"role": role, "query": query, "phase": phase, "helper_queries": list(helper_queries)})
         observations: list[ToolObservation] = []
         raw_candidates: list[RetrievalCandidate] = []
@@ -3091,12 +3128,80 @@ class WorkspaceRetrievalStage:
         with (run_dir / "retrieval-trace.jsonl").open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True) + "\n")
 
+    @staticmethod
+    def _repo_scoped_collection_name(*, base_collection_name: str, workspace_root: Path) -> str:
+        identity = WorkspaceRetrievalStage._repo_identity(workspace_root)
+        slug = re.sub(r"[^a-z0-9]+", "_", identity.lower()).strip("_") or "workspace"
+        digest = hashlib.sha1(identity.encode("utf-8")).hexdigest()[:8]
+        candidate = f"{base_collection_name}__{slug}__{digest}"
+        return candidate[:180]
+
+    @staticmethod
+    def _repo_identity(workspace_root: Path) -> str:
+        resolved = workspace_root.resolve()
+        parts = resolved.parts
+        if len(parts) >= 3 and parts[-2].lower() == "s":
+            return parts[-3]
+
+        git_root = WorkspaceRetrievalStage._git_root(resolved)
+        if git_root is not None:
+            identity = git_root.name.strip() or "repo"
+            digest = hashlib.sha1(str(git_root).lower().encode("utf-8")).hexdigest()[:8]
+            return f"{identity}:{digest}"
+
+        identity = resolved.name.strip() or "workspace"
+        digest = hashlib.sha1(str(resolved).lower().encode("utf-8")).hexdigest()[:8]
+        return f"{identity}:{digest}"
+
+    @staticmethod
+    def _git_root(start: Path) -> Path | None:
+        current = start
+        while True:
+            if (current / ".git").exists():
+                return current
+            if current.parent == current:
+                return None
+            current = current.parent
+
 def _cypher_relative_path(path: str) -> str:
     return path.replace("/", "\\")
 
 
 def _cypher_string(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "\\'")
+
+
+def _role_retarget_queries(
+    role: str,
+    *,
+    query: str,
+    helper_queries: Sequence[str],
+    candidate_path: str,
+    candidate_text: str,
+) -> tuple[str, ...]:
+    queries: list[str] = [query.strip(), *[value.strip() for value in helper_queries if value.strip()]]
+    lowered_text = candidate_text.lower()
+    if role == "input_parsing":
+        parser_identifiers = [
+            token.lower()
+            for token in IDENTIFIER_PATTERN.findall(candidate_text)
+            if token.lower().startswith("parse")
+        ]
+        if parser_identifiers and "parseandcheckmodifiers" not in parser_identifiers:
+            parser_identifiers.append("parseandcheckmodifiers")
+        if parser_identifiers:
+            queries.append(" ".join(ordered_unique(parser_identifiers)[:3]))
+        queries.append(f"parser {query}".strip())
+    elif role == "validation_checking":
+        if "check" in lowered_text:
+            queries.append(f"checker {query}".strip())
+    elif role == "diagnostics":
+        if "diagnostic" in lowered_text or "error" in lowered_text:
+            queries.append(f"diagnostic {query}".strip())
+    path_stem = Path(candidate_path.replace("\\", "/")).stem.strip()
+    if path_stem:
+        queries.append(path_stem)
+    return ordered_unique(value for value in queries if value)
 
 
 def _anchor_symbol_relation_query(anchor_path: str, candidate_path: str) -> str:
