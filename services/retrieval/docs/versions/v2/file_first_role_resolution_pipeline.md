@@ -1,5 +1,11 @@
 # File-First Retrieval Pipeline
 
+## Version Summary
+
+This version makes file-role ownership the main organizing principle of the retrieval pipeline and adds explicit loop guards, retries, and conflict handling around file selection.
+
+Compared with earlier versions, it moves snippet selection more clearly after file ownership resolution and treats file-level reranking as a first-class stage. Compared with V3, it is still less strict about forcing snippet grounding inside the winning owner file before wider recovery and support expansion.
+
 ## Repeatable Stage
 
 - `File-role resolution loop`

@@ -14,6 +14,15 @@
 - LocAgent: Graph-Guided LLM Agents for Code Localization  
   https://aclanthology.org/2025.acl-long.426/  
   Used for graph-guided multi-granularity code localization ideas.
+- GraphLocator: Graph-guided Causal Reasoning for Issue Localization  
+  https://arxiv.org/abs/2512.22469  
+  Used for graph-guided expansion from symptom/support files toward likely owner files.
+- RepoCoder: Repository-Level Code Completion Through Iterative Retrieval and Generation  
+  https://aclanthology.org/2023.emnlp-main.151/  
+  Used for the idea that first-pass retrieved code should seed a second retrieval pass with code-native terms.
+- On The Importance of Reasoning for Context Retrieval in Repository-Level Code Editing  
+  https://arxiv.org/abs/2406.04464  
+  Used for the decision to keep deterministic/tool-based sufficiency checks instead of trusting LLM judgment alone.
 - SweRank: Software Issue Localization with Code Ranking  
   https://arxiv.org/abs/2505.07849  
   Used for retrieve-then-rerank framing instead of trusting first-pass retrieval alone.
@@ -35,6 +44,50 @@
 - FAISS official repository  
   https://github.com/facebookresearch/faiss  
   Used during evaluation of local dense retrieval vs Qdrant-backed hybrid retrieval.
+
+## 2026-06-11
+
+### Added
+
+- Added `services/retrieval/corrected_retrieval_pipeline.md` as a cleaned-up description of the intended retrieval shape: owner-first, snippet-grounded, support-later.
+- Added `services/retrieval/corrected_retrieval_pipeline_mapping.md` to map that corrected pipeline back onto the current code paths and current stage boundaries.
+- Added LLM-assisted owner-declaration selection inside winning files:
+  - `services/retrieval/workspace_llm.py::select_owner_declarations_with_llm(...)`
+  - `services/retrieval/pipeline/snippet_level.py::declaration_candidates_for_llm(...)`
+  - `services/retrieval/workspace.py::_select_owner_declaration_candidate(...)`
+
+### Changed
+
+- Tightened required-role refinement to behave more like the intended owner-first pipeline instead of broadening all roles equally from the start:
+  - required roles are now ranked into focused owner candidates first,
+  - supporting expansion is deferred until focused owner grounding is confirmed,
+  - weak required buckets are recovered before broad support expansion continues.
+- Changed late snippet recovery to search inside accepted owner files first before spending the initial refinement budget on broad global snippet recovery.
+- Preserved direct owner snippet candidates during file preparation instead of collapsing them back into file-only state before later refinement.
+- Refined owner-file local span selection so deterministic lexical windows now compete with an LLM-picked declaration candidate inside the same file, instead of relying only on broad window scoring.
+- Removed one incorrect special case where `validation_checking` reference expansion was allowed to draw from all prepared buckets rather than its own bucket.
+- Reduced hardcoded retrieval bias in role-completion scoring:
+  - removed the local compiler-shaped keyword/path tables from `services/retrieval/role_completion/scoring.py`,
+  - switched that scorer to shared role semantics from `services/retrieval/role_specs.py` instead of per-file TypeScript-specific string lists.
+- Improved in-file scoring to weight prompt-specific terms more heavily than generic role vocabulary when choosing a span inside a selected owner file.
+
+### Verification
+
+- Final verified TypeScript case run after the owner-first/snippet-grounding changes:
+  - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260610T232007Z`
+  - `coverage_status=strong`
+  - `sufficient=True`
+  - `evidence_count=8`
+- Final required-role evidence in that run:
+  - `representation`: `src/compiler/types.ts:L754-L833`, `src/compiler/types.ts:L676-L755`
+  - `input_parsing`: `src/compiler/parser.ts:L2174-L2253`
+  - `validation_checking`: `src/compiler/checker.ts:L4340-L4419`
+  - `diagnostics`: `src/compiler/diagnosticMessages.json:L961-L1040`, `src/compiler/diagnosticMessages.json:L993-L1072`
+  - `behavior_output`: `src/compiler/emitter.ts:L529-L608`, `src/compiler/emitter.ts:L518-L597`
+- Token usage from the successful retrieval trace with direct OpenAI `gpt-4.1-mini`:
+  - `prompt_tokens=34030`
+  - `completion_tokens=3368`
+  - `total_tokens=37398`
 
 ## 2026-06-08
 

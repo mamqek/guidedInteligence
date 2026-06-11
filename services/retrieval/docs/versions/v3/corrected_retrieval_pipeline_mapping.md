@@ -1,5 +1,11 @@
 # Corrected Retrieval Pipeline Mapping
 
+## Version Summary
+
+This document maps the corrected V3 pipeline back onto the current implementation.
+
+Compared with the V3 pipeline spec itself, this file is implementation-facing: it explains where each corrected stage lives in code, what parts already exist, and what orchestration changes are needed to make the implementation match the corrected design.
+
 ## Purpose
 
 This document maps the corrected retrieval pipeline onto the current implementation.

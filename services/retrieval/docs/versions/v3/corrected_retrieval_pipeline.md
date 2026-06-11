@@ -1,5 +1,11 @@
 # Corrected Retrieval Pipeline
 
+## Version Summary
+
+This is the corrected owner-first, snippet-grounded retrieval pipeline.
+
+Compared with V2, it tightens the core evidence rule: a file can be a likely owner, but it is not grounded evidence until the pipeline finds the decisive snippet inside it. Support expansion and final explanation quality are therefore downstream of owner-file snippet grounding.
+
 ## Purpose
 
 This pipeline is meant to match the actual evidence-finding method more closely.

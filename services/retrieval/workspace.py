@@ -88,6 +88,7 @@ from services.retrieval.pipeline.models import (
 from services.retrieval.pipeline.snippet_level import (
     best_direct_owner_span as _best_direct_owner_span,
     best_in_file_refinement_span as _best_in_file_refinement_span,
+    declaration_candidates_for_llm as _declaration_candidates_for_llm,
     direct_owner_window_bonus as _direct_owner_window_bonus,
     drop_redundant_file_candidates as _drop_redundant_file_candidates,
     followup_snippet_quality as _rescue_snippet_quality,
@@ -138,7 +139,11 @@ from services.retrieval.tools import (
     ToolRequest,
 )
 from services.retrieval.tools.local import build_repo_sketch, file_role as tool_file_role
-from services.retrieval.workspace_llm import assess_role_buckets_with_llm, generate_role_helper_queries_with_llm
+from services.retrieval.workspace_llm import (
+    assess_role_buckets_with_llm,
+    generate_role_helper_queries_with_llm,
+    select_owner_declarations_with_llm,
+)
 
 
 class WorkspaceRetrievalStage:
@@ -253,9 +258,17 @@ class WorkspaceRetrievalStage:
             starting_tool_call_count=tool_call_count,
             phase="required",
         )
+        owner_focus_roles = self._owner_focus_roles(retrieval_plan=retrieval_plan, buckets=required_buckets)
+        self._record(
+            "owner_focus_roles_selected",
+            {
+                "required_roles": list(retrieval_plan.required_roles),
+                "focused_roles": list(owner_focus_roles),
+            },
+        )
         required_buckets, tool_call_count = self._refine_selected_role_buckets(
             buckets=required_buckets,
-            rescue_roles=retrieval_plan.required_roles,
+            rescue_roles=owner_focus_roles,
             qdrant_tool=qdrant_tool,
             open_file_tool=open_file_tool,
             cgc_tools=cgc_tools,
@@ -267,10 +280,28 @@ class WorkspaceRetrievalStage:
             decision=synthesis_decision,
             required_roles=retrieval_plan.required_roles,
         )
+        required_buckets, tool_call_count, synthesis_decision = self._recover_weak_role_buckets(
+            retrieval_plan=retrieval_plan,
+            buckets=required_buckets,
+            synthesis_decision=synthesis_decision,
+            qdrant_tool=qdrant_tool,
+            open_file_tool=open_file_tool,
+            cgc_tools=cgc_tools,
+            narrowed_files=global_narrowed_files,
+            starting_tool_call_count=tool_call_count,
+        )
         deterministic_gate = self._deterministic_coverage_gate(retrieval_plan.required_roles, required_buckets)
 
         supporting_buckets: tuple[RoleRetrievalBucket, ...] = ()
-        if not synthesis_decision.acceptance_satisfied and _bucket_unresolved_roles(required_buckets):
+        owner_grounded = self._focused_owner_grounded(required_buckets, owner_focus_roles)
+        self._record(
+            "owner_grounding_checked",
+            {
+                "focused_roles": list(owner_focus_roles),
+                "grounded": owner_grounded,
+            },
+        )
+        if not synthesis_decision.acceptance_satisfied and _bucket_unresolved_roles(required_buckets) and owner_grounded:
             supporting_buckets, tool_call_count, supporting_intents = self._retrieve_responsibility_role_buckets(
                 retrieval_plan=retrieval_plan,
                 subquery_roles=retrieval_plan.supporting_roles,
@@ -284,7 +315,7 @@ class WorkspaceRetrievalStage:
             responsibility_intents = tuple((*responsibility_intents, *supporting_intents))
             supporting_buckets, tool_call_count = self._refine_selected_role_buckets(
                 buckets=supporting_buckets,
-                rescue_roles=retrieval_plan.required_roles,
+                rescue_roles=retrieval_plan.supporting_roles,
                 qdrant_tool=qdrant_tool,
                 open_file_tool=open_file_tool,
                 cgc_tools=cgc_tools,
@@ -299,6 +330,15 @@ class WorkspaceRetrievalStage:
             required_buckets = tuple(bucket for bucket in updated_buckets if bucket.role in retrieval_plan.required_roles)
             supporting_buckets = tuple(bucket for bucket in updated_buckets if bucket.role in retrieval_plan.supporting_roles)
             deterministic_gate = self._deterministic_coverage_gate(retrieval_plan.required_roles, required_buckets)
+        elif not owner_grounded and _bucket_unresolved_roles(required_buckets):
+            self._record(
+                "supporting_expansion_deferred",
+                {
+                    "reason": "owner_not_grounded",
+                    "unresolved_required_roles": list(_bucket_unresolved_roles(required_buckets)),
+                    "focused_roles": list(owner_focus_roles),
+                },
+            )
 
         selected = self._select_evidence_items(required_buckets, supporting_buckets, policy_result.allowed_sources)
         self._record("deterministic_coverage_gate_completed", deterministic_gate.to_dict())
@@ -1034,8 +1074,6 @@ class WorkspaceRetrievalStage:
         prepared_buckets: Sequence[PreparedRoleBucket],
     ) -> tuple[RetrievalCandidate, ...]:
         source_buckets = [prepared_bucket]
-        if role == "validation_checking":
-            source_buckets = list(prepared_buckets)
         raw_candidates: list[RetrievalCandidate] = []
         for bucket in source_buckets:
             raw_candidates.extend(bucket.candidates)
@@ -1459,6 +1497,68 @@ class WorkspaceRetrievalStage:
             total_tool_calls += bucket_tool_calls
         return tuple(refined_buckets), total_tool_calls
 
+    def _owner_focus_roles(
+        self,
+        *,
+        retrieval_plan: WorkspaceRetrievalPlan,
+        buckets: Sequence[RoleRetrievalBucket],
+    ) -> tuple[str, ...]:
+        bucket_by_role = {bucket.role: bucket for bucket in buckets}
+        ranked_roles: list[tuple[float, int, str]] = []
+        for index, role in enumerate(retrieval_plan.required_roles):
+            bucket = bucket_by_role.get(role)
+            if bucket is None:
+                ranked_roles.append((-1000.0, -index, role))
+                continue
+            accepted = list(bucket.accepted_candidates)
+            best_validation = max(
+                (
+                    evaluation.validation.total_score
+                    for evaluation in bucket.evaluations
+                    if evaluation.candidate.source_id in {candidate.source_id for candidate in accepted}
+                ),
+                default=0.0,
+            )
+            owner_path_hits = sum(1 for candidate in accepted if _role_owner_path_match(role, candidate.path or ""))
+            only_file_level = bool(accepted) and all(_is_file_candidate(candidate) for candidate in accepted)
+            has_snippet = any(not _is_file_candidate(candidate) for candidate in accepted)
+            score = best_validation
+            if _role_requires_owner_layer(role):
+                score += 3.0
+            score += owner_path_hits * 1.5
+            if only_file_level:
+                score += 1.5
+            if has_snippet:
+                score -= 0.5
+            ranked_roles.append((score, -index, role))
+        ordered_roles = [role for _score, _index, role in sorted(ranked_roles, reverse=True)]
+        focused = [role for role in ordered_roles if role in bucket_by_role][:2]
+        if not focused:
+            focused = [role for role in retrieval_plan.required_roles[:1]]
+        return tuple(ordered_unique(focused))
+
+    def _focused_owner_grounded(
+        self,
+        buckets: Sequence[RoleRetrievalBucket],
+        focused_roles: Sequence[str],
+    ) -> bool:
+        if not focused_roles:
+            return False
+        bucket_by_role = {bucket.role: bucket for bucket in buckets}
+        for role in focused_roles:
+            bucket = bucket_by_role.get(role)
+            if bucket is None or bucket.role_status != "strong":
+                continue
+            satisfying_refs = set(bucket.satisfying_refs or ())
+            satisfying_candidates = [
+                candidate
+                for candidate in bucket.accepted_candidates
+                if (not satisfying_refs or candidate.source_id in satisfying_refs) and not _is_file_candidate(candidate)
+            ]
+            if satisfying_candidates:
+                return True
+        return False
+
     def _apply_synthesis_feedback(
         self,
         *,
@@ -1684,26 +1784,35 @@ class WorkspaceRetrievalStage:
     ) -> tuple[Mapping[str, Any], ...]:
         anchor_queries = tuple(_recovery_anchor_queries(bucket.role, all_buckets))
         fallback_queries = tuple(_role_snippet_queries(bucket.role, query=bucket.query, helper_queries=bucket.helper_queries))
+        owner_paths = tuple(
+            ordered_unique(
+                candidate.path
+                for candidate in bucket.accepted_candidates
+                if candidate.path and _role_owner_path_match(bucket.role, candidate.path)
+            )
+        )
         specs: list[Mapping[str, Any]] = []
         seen_queries: set[tuple[str, tuple[str, ...]]] = set()
 
-        for query in ordered_unique(list(follow_up_queries) + list(anchor_queries)):
-            normalized = query.strip()
-            if not normalized:
-                continue
-            key = (normalized, ())
-            if key in seen_queries:
-                continue
-            seen_queries.add(key)
-            specs.append(
-                {
-                    "query": normalized,
-                    "paths": (),
-                    "origin_ref": "",
-                }
-            )
-            if len(specs) >= MAX_ROLE_FOLLOWUP_QUERIES:
-                return tuple(specs)
+        primary_queries = ordered_unique(list(follow_up_queries) + list(anchor_queries) + list(fallback_queries))
+        if owner_paths:
+            for query in primary_queries:
+                normalized = query.strip()
+                if not normalized:
+                    continue
+                key = (normalized, owner_paths)
+                if key in seen_queries:
+                    continue
+                seen_queries.add(key)
+                specs.append(
+                    {
+                        "query": normalized,
+                        "paths": owner_paths,
+                        "origin_ref": "",
+                    }
+                )
+                if len(specs) >= MAX_ROLE_FOLLOWUP_QUERIES:
+                    return tuple(specs)
 
         narrowed_paths = tuple(narrowed_files)
         for query in fallback_queries:
@@ -1718,6 +1827,24 @@ class WorkspaceRetrievalStage:
                 {
                     "query": normalized,
                     "paths": narrowed_paths,
+                    "origin_ref": "",
+                }
+            )
+            if len(specs) >= MAX_ROLE_FOLLOWUP_QUERIES:
+                break
+
+        for query in primary_queries:
+            normalized = query.strip()
+            if not normalized:
+                continue
+            key = (normalized, ())
+            if key in seen_queries:
+                continue
+            seen_queries.add(key)
+            specs.append(
+                {
+                    "query": normalized,
+                    "paths": (),
                     "origin_ref": "",
                 }
             )
@@ -1913,7 +2040,7 @@ class WorkspaceRetrievalStage:
             rejected_refs=bucket.rejected_refs,
             validation_notes=bucket.validation_notes,
             missing_reason="" if satisfying_candidates else "owner_only_file_candidates",
-            role_status="strong" if satisfying_candidates else "weak",
+            role_status="weak" if satisfying_candidates else "missing",
             satisfying_refs=tuple(candidate.source_id for candidate in satisfying_candidates),
             snippet_assessment=bucket.snippet_assessment,
             satisfaction_source=bucket.satisfaction_source if mode == "snippet_refinement" else "recovery_pending",
@@ -2147,6 +2274,7 @@ class WorkspaceRetrievalStage:
         observations: list[ToolObservation] = []
         raw_candidates: list[RetrievalCandidate] = []
         seeded_candidates: list[RetrievalCandidate] = []
+        direct_owner_candidates: list[RetrievalCandidate] = []
         tool_calls = 0
         role_narrowed_files = _role_scoped_narrowed_files(retrieval_plan, role, narrowed_files)
         shared_arguments: dict[str, Any] = {"limit": min(self.config.cgc_max_files_for_bm25, MAX_EVIDENCE_ITEMS)}
@@ -2199,12 +2327,20 @@ class WorkspaceRetrievalStage:
                 continue
             raw_candidates.append(direct_candidate)
             seeded_candidates.append(direct_candidate)
+            direct_owner_candidates.append(direct_candidate)
             seen_candidate_paths.add(normalized_path)
 
-        ranked_candidates = _collapse_candidates_to_file_candidates(
+        ranked_file_candidates = _collapse_candidates_to_file_candidates(
             role=role,
             candidates=self._rank_candidates(seeded_candidates or raw_candidates),
             retrieval_path="qdrant_file_candidate",
+        )
+        direct_owner_paths = {candidate.path for candidate in direct_owner_candidates if candidate.path}
+        ranked_candidates = tuple(
+            _rank_unique_candidates(
+                list(direct_owner_candidates)
+                + [candidate for candidate in ranked_file_candidates if candidate.path not in direct_owner_paths]
+            )
         )
         prepared_candidates: list[RetrievalCandidate] = []
         seen_paths: set[str] = set()
@@ -2307,6 +2443,22 @@ class WorkspaceRetrievalStage:
         lines = text.splitlines()
         if not lines:
             return None
+        query_text = " ".join([query, *helper_queries, *search_terms]).strip()
+        declaration_candidates = _declaration_candidates_for_llm(
+            role=role,
+            query_text=query_text,
+            path=normalized_path,
+            lines=lines,
+        )
+        llm_candidate = self._select_owner_declaration_candidate(
+            role=role,
+            query=query,
+            helper_queries=helper_queries,
+            path=normalized_path,
+            lines=lines,
+            base_candidate=candidate,
+            declaration_candidates=declaration_candidates,
+        )
         line_start, line_end, score = _best_in_file_refinement_span(
             role=role,
             query=query,
@@ -2314,28 +2466,105 @@ class WorkspaceRetrievalStage:
             search_terms=search_terms,
             lines=lines,
         )
-        if score <= 0:
+        lexical_candidate: RetrievalCandidate | None = None
+        if score > 0:
+            lexical_candidate = self._candidate_from_local_span(
+                role=role,
+                candidate=candidate,
+                normalized_path=normalized_path,
+                lines=lines,
+                line_start=line_start,
+                line_end=line_end,
+                score=score,
+                event_type="role_candidate_locally_refined",
+            )
+        if llm_candidate is None:
+            return lexical_candidate
+        if lexical_candidate is None or _candidate_rank_key(llm_candidate) >= _candidate_rank_key(lexical_candidate):
+            return llm_candidate
+        return lexical_candidate
+
+    def _select_owner_declaration_candidate(
+        self,
+        *,
+        role: str,
+        query: str,
+        helper_queries: Sequence[str],
+        path: str,
+        lines: Sequence[str],
+        base_candidate: RetrievalCandidate,
+        declaration_candidates: Sequence[Mapping[str, Any]],
+    ) -> RetrievalCandidate | None:
+        if not declaration_candidates:
+            return None
+        selections = select_owner_declarations_with_llm(
+            role=role,
+            query=query,
+            helper_queries=helper_queries,
+            path=path,
+            declaration_candidates=declaration_candidates,
+            llm_config=self.config.llm_config,
+            log_warning=lambda payload: self._record("llm_request_warning", payload),
+            log_event=lambda event_type, payload: self._record(event_type, payload),
+        )
+        selected_by_id = {str(item.get("id", "")): item for item in declaration_candidates}
+        best_candidate: RetrievalCandidate | None = None
+        for selection in selections:
+            selected = selected_by_id.get(selection["id"])
+            if selected is None:
+                continue
+            candidate = self._candidate_from_local_span(
+                role=role,
+                candidate=base_candidate,
+                normalized_path=path,
+                lines=lines,
+                line_start=int(selected["start_line"]),
+                line_end=int(selected["end_line"]),
+                score=float(selected.get("lexical_score", 0.0)) + 4.0,
+                event_type="role_candidate_declaration_selected",
+                extra_payload={"selection_reason": selection.get("reason", ""), "declaration_name": str(selected.get("name", ""))},
+            )
+            if candidate is None:
+                continue
+            if best_candidate is None or _candidate_rank_key(candidate) > _candidate_rank_key(best_candidate):
+                best_candidate = candidate
+        return best_candidate
+
+    def _candidate_from_local_span(
+        self,
+        *,
+        role: str,
+        candidate: RetrievalCandidate,
+        normalized_path: str,
+        lines: Sequence[str],
+        line_start: int,
+        line_end: int,
+        score: float,
+        event_type: str,
+        extra_payload: Mapping[str, Any] | None = None,
+    ) -> RetrievalCandidate | None:
+        if line_start < 1 or line_end < line_start:
             return None
         snippet = "\n".join(lines[line_start - 1 : line_end])
         source_id = f"repo-pre:{normalized_path}:L{line_start}-L{line_end}"
-        self._record(
-            "role_candidate_locally_refined",
-            {
-                "role": role,
-                "original_ref": candidate.source_id,
-                "refined_ref": source_id,
-                "path": normalized_path,
-                "line_start": line_start,
-                "line_end": line_end,
-                "score": round(score, 3),
-            },
-        )
+        payload = {
+            "role": role,
+            "original_ref": candidate.source_id,
+            "refined_ref": source_id,
+            "path": normalized_path,
+            "line_start": line_start,
+            "line_end": line_end,
+            "score": round(score, 3),
+        }
+        if extra_payload:
+            payload.update(dict(extra_payload))
+        self._record(event_type, payload)
         return RetrievalCandidate(
             candidate_id=source_id,
             source_category=SourceCategory.SOURCE_CODE,
             retrieval_path="local_in_file_refinement",
             text=snippet,
-            score=max(candidate.score, 6.5) + min(score / 20.0, 3.0),
+            score=max(candidate.score, 6.5) + min(score / 20.0, 3.5),
             source_id=source_id,
             path=normalized_path,
             line_range=f"L{line_start}-L{line_end}",

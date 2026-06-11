@@ -1,5 +1,11 @@
 # Responsibility Retrieval Decision Map
 
+## Version Summary
+
+This version introduces responsibility-aware retrieval: first-pass hits are treated as symptoms, then expanded toward likely owner files before final snippet choice.
+
+Compared with earlier versions, it makes owner-finding and second-pass code-context retrieval explicit. Compared with V3, it still allows broader retrieval logic to compete too early with decisive owner-file snippet grounding.
+
 ## Purpose
 
 Workspace retrieval should find the code that owns the behavior, not only the files that lexically mention the issue terms. The retrieval path therefore treats first-pass search results as symptoms, expands toward likely owner files, reranks at file level, and only then selects snippets.
