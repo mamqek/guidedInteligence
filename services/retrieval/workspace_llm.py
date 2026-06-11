@@ -55,10 +55,14 @@ def generate_role_helper_queries_with_llm(
                 "Do not explain. Do not add numbering. Do not add punctuation-heavy text. "
                 "Do not repeat the main query verbatim. "
                 "Queries must be semantically aligned to the role, but they must remain repo-grounded. "
-                "Use generic role language, not issue-specific symbols or exact compiler function names. "
+                "Use issue-grounded code-search language, not broad generic role paraphrases. "
+                "Keep concrete issue anchors when they are code-searchable, such as modifier names, failure phrases, or member-call patterns. "
+                "For input_parsing, prefer declaration parsing, member parsing, and modifier parsing terms over scanner, tokenization, or raw keyword-lexing terms unless the issue is explicitly about lexing. "
+                "For behavior_output, prefer class emission, method emission, accessor emission, or modifier-erasure terms over broad runtime wording or generic emit dispatchers. "
+                "Do not use exact compiler function names unless they are already present in confirmed anchors or repo sketch identifiers. "
                 "Queries must stay repo-grounded, concise, and distinct from each other. "
                 "Good outputs look like compact lexical searches built from repo terms. "
-                "Bad outputs are explanatory questions, full sentences, or issue-specific symbol memorization."
+                "Bad outputs are explanatory questions, full sentences, tokenization drift, broad generic role labels, or issue-specific symbol memorization."
             ),
         },
         {"role": "user", "content": json.dumps(compact_payload, sort_keys=True)},
