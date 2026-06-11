@@ -1,3 +1,13 @@
+# V1 Retrieval Outline
+
+## Version Summary
+
+This version captures the initial structured retrieval flow for the repository-level retrieval system.
+
+Compared with later versions, it establishes the main stages of planning, narrowing, retrieval, enrichment, and refinement, but it does not yet express a strong owner-first retrieval rule or a decisive snippet-grounding requirement.
+
+##
+
 - `Policy / retrieval decision`
   - deterministic
   - no file/snippet yet

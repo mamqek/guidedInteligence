@@ -1,5 +1,11 @@
 # In-File Refinement Design Note
 
+## Version Summary
+
+This version introduces Codex-like local snippet choice inside already selected files.
+
+Compared with earlier versions, it shifts snippet selection away from relying only on tool-returned spans and toward searching locally inside likely owner files using compact accumulated retrieval state. Compared with V3, it is still a design note for one step rather than a fully corrected owner-first pipeline specification.
+
 When retrieval has selected a likely owner file, the next step should fuse existing retrieval state with a Codex-style local search inside that file.
 
 The in-file search should use:

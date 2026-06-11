@@ -119,6 +119,72 @@ def assess_role_buckets_with_llm(
     )
 
 
+def select_owner_declarations_with_llm(
+    *,
+    role: str,
+    query: str,
+    helper_queries: Sequence[str],
+    path: str,
+    declaration_candidates: Sequence[Mapping[str, Any]],
+    llm_config: Any,
+    log_warning: Callable[[Mapping[str, Any]], None] | None = None,
+    log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
+) -> tuple[dict[str, str], ...]:
+    payload = {
+        "role": role,
+        "role_spec": role_compact_payload(role),
+        "query": query,
+        "helper_queries": list(helper_queries[:4]),
+        "path": path,
+        "declaration_candidates": [
+            {
+                "id": str(item.get("id", "")),
+                "kind": str(item.get("kind", "")),
+                "name": str(item.get("name", "")),
+                "start_line": int(item.get("start_line", 0)),
+                "end_line": int(item.get("end_line", 0)),
+                "header": str(item.get("header", "")),
+                "preview": str(item.get("preview", ""))[:700],
+                "lexical_score": float(item.get("lexical_score", 0.0)),
+            }
+            for item in declaration_candidates[:18]
+        ],
+    }
+    messages = (
+        {
+            "role": "system",
+            "content": (
+                "You are selecting declarations inside one owner file for code retrieval. "
+                "Choose up to 2 declaration ids most likely to contain the decisive implementation for the given role and query. "
+                "Prefer declarations whose name and preview are closest to the requested behavior. "
+                "When the feature is not explicitly implemented yet, prefer the declaration that is the nearest enforcement or integration point. "
+                "Avoid generic utilities, unrelated type-reference checks, and declarations whose preview does not align with the requested behavior. "
+                "Return JSON only with key selections."
+            ),
+        },
+        {"role": "user", "content": json.dumps(payload, sort_keys=True)},
+    )
+    response = complete_json(
+        llm_config,
+        messages,
+        response_format=_owner_declaration_selection_response_format(),
+        log_warning=log_warning,
+        log_event=log_event,
+    )
+    selections: list[dict[str, str]] = []
+    for item in response.get("selections", ()):
+        if not isinstance(item, Mapping):
+            continue
+        declaration_id = str(item.get("id", "")).strip()
+        reason = str(item.get("reason", "")).strip()
+        if not declaration_id:
+            continue
+        selections.append({"id": declaration_id, "reason": reason[:300]})
+        if len(selections) >= 2:
+            break
+    return tuple(selections)
+
+
 def validate_role_bucket_assessment(response: Mapping[str, Any]) -> Mapping[str, Any]:
     snippet_assessment: list[dict[str, str]] = []
     for item in response.get("snippet_assessment", ()):
@@ -313,6 +379,37 @@ def _role_helper_queries_response_format() -> Mapping[str, Any]:
                     }
                 },
                 "required": ["queries"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _owner_declaration_selection_response_format() -> Mapping[str, Any]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "workspace_owner_declaration_selection",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "selections": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 2,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "reason": {"type": "string"},
+                            },
+                            "required": ["id", "reason"],
+                            "additionalProperties": False,
+                        },
+                    }
+                },
+                "required": ["selections"],
                 "additionalProperties": False,
             },
         },

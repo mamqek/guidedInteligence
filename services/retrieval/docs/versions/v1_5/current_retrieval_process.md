@@ -1,5 +1,11 @@
 # Current Retrieval Process
 
+## Version Summary
+
+This intermediate version formalizes the first major end-to-end retrieval pipeline around deterministic prompt extraction, LLM planning, CGC narrowing, role retrieval, and late sufficiency checks.
+
+Compared with V1, it is a fuller operational pipeline with explicit role validation and completion stages. Compared with later versions, it still does not strongly enforce that a winning owner file must be grounded by a decisive in-file snippet before broader support expansion.
+
 ## Summary
 
 The current workspace retrieval flow is:

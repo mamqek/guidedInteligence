@@ -12,7 +12,7 @@ from services.retrieval.pipeline.file_level import (
     role_owner_context_terms,
 )
 from services.retrieval.pipeline.models import RetrievalCandidate, RoleCandidateEvaluation
-from services.retrieval.role_specs import role_keywords, role_path_hints, role_query_hints, text_matches_role_keywords
+from services.retrieval.role_specs import role_generic_terms, role_keywords, role_path_hints, role_query_hints, text_matches_role_keywords
 from services.retrieval.step2 import WorkspaceRetrievalPlan
 from services.retrieval.step2.common import ordered_unique
 
@@ -72,6 +72,7 @@ def best_in_file_refinement_span(
     terms = in_file_refinement_terms(role=role, query_text=query_text)
     if not terms:
         return 1, min(len(lines), window_size), 0.0
+    term_weights = _in_file_term_weights(role=role, query_text=query_text, lines=lines)
 
     best_score = -1.0
     best_start = 1
@@ -82,7 +83,13 @@ def best_in_file_refinement_span(
         seen_starts.add(start)
         end = min(len(lines), start + window_size - 1)
         text = "\n".join(lines[start - 1 : end])
-        score = score_in_file_window(role=role, query_text=query_text, text=text, start_line=start)
+        score = score_in_file_window(
+            role=role,
+            query_text=query_text,
+            text=text,
+            start_line=start,
+            term_weights=term_weights,
+        )
         if score > best_score:
             best_score = score
             best_start = start
@@ -106,7 +113,9 @@ def in_file_candidate_window_starts(lines: Sequence[str], *, terms: Sequence[str
 
 
 def in_file_refinement_terms(*, role: str, query_text: str) -> tuple[str, ...]:
-    terms = list(tokenize_for_direct_owner_query(query_text))
+    specific_terms = list(_specific_query_terms(role=role, query_text=query_text))
+    other_query_terms = [term for term in tokenize_for_direct_owner_query(query_text) if term not in specific_terms]
+    terms = [*specific_terms, *other_query_terms]
     terms.extend(term.lower() for term in role_owner_context_terms(role))
     terms.extend(direct_owner_bonus_terms(role))
     terms.extend(role_keywords(role))
@@ -119,18 +128,26 @@ def score_in_file_window(
     query_text: str,
     text: str,
     start_line: int,
+    term_weights: Mapping[str, float] | None = None,
 ) -> float:
     lowered = text.lower()
     query_lowered = query_text.lower()
-    terms = in_file_refinement_terms(role=role, query_text=query_text)
+    term_weight_map = dict(term_weights or _default_term_weights(role=role, query_text=query_text))
+    specific_terms = _specific_query_terms(role=role, query_text=query_text)
+    specific_hits = sum(1 for term in specific_terms if term in lowered)
     score = 0.0
-    for term in terms:
+    for term, weight in term_weight_map.items():
         if term in lowered:
-            score += 1.0
-            score += min(lowered.count(term), 4) * 0.2
+            score += weight
+            score += min(lowered.count(term), 4) * min(weight * 0.2, 0.5)
     for phrase in important_query_phrases(query_text):
         if phrase in lowered:
             score += 3.0
+    if specific_terms:
+        if specific_hits == 0:
+            score -= 2.5
+        else:
+            score += min(specific_hits, 4) * 1.25
     score += direct_owner_window_bonus(role, lowered)
     score += declaration_anchor_bonus(role=role, query_text=query_lowered, text=text)
     score -= min(start_line / 10000.0, 0.6)
@@ -247,6 +264,41 @@ def direct_owner_window_bonus(role: str, text: str) -> float:
     if role == "diagnostics" and any(token in text for token in ("error", "message", "report", "diagnostic")):
         score += 1.8
     return score
+
+
+def _default_term_weights(*, role: str, query_text: str) -> Mapping[str, float]:
+    return {term: 1.0 for term in in_file_refinement_terms(role=role, query_text=query_text)}
+
+
+def _in_file_term_weights(*, role: str, query_text: str, lines: Sequence[str]) -> Mapping[str, float]:
+    terms = in_file_refinement_terms(role=role, query_text=query_text)
+    if not terms:
+        return {}
+    whole_file = "\n".join(lines).lower()
+    generic_terms = set(role_keywords(role)) | set(role_owner_context_terms(role))
+    specific_terms = set(_specific_query_terms(role=role, query_text=query_text))
+    weights: dict[str, float] = {}
+    for term in terms:
+        frequency = whole_file.count(term)
+        if frequency <= 0:
+            continue
+        rarity_weight = 2.2 if frequency == 1 else 1.8 if frequency <= 3 else 1.2 if frequency <= 8 else 0.8
+        if term in specific_terms:
+            rarity_weight += 0.8
+        if term in generic_terms:
+            rarity_weight *= 0.45
+        weights[term] = rarity_weight
+    return weights
+
+
+def _specific_query_terms(*, role: str, query_text: str) -> tuple[str, ...]:
+    generic_terms = set(role_generic_terms(role))
+    specific: list[str] = []
+    for term in tokenize_for_direct_owner_query(query_text):
+        if term in generic_terms:
+            continue
+        specific.append(term)
+    return tuple(ordered_unique(specific))
 
 
 def role_followup_queries(
@@ -396,6 +448,56 @@ def planning_snippets(candidates: Sequence[RetrievalCandidate]) -> tuple[dict[st
             }
         )
     return tuple(snippets)
+
+
+def declaration_candidates_for_llm(
+    *,
+    role: str,
+    query_text: str,
+    path: str,
+    lines: Sequence[str],
+    limit: int = 18,
+) -> tuple[dict[str, Any], ...]:
+    if not lines:
+        return ()
+    declarations: list[dict[str, Any]] = []
+    starts: list[tuple[int, str, str]] = []
+    declaration_pattern = re.compile(r"\b(function|class|interface|enum|type)\s+([A-Za-z_][A-Za-z0-9_]*)\b")
+    for index, line in enumerate(lines, start=1):
+        match = declaration_pattern.search(line)
+        if not match:
+            continue
+        starts.append((index, match.group(1), match.group(2)))
+    if not starts:
+        return ()
+    for position, (start_line, kind, name) in enumerate(starts):
+        next_start = starts[position + 1][0] if position + 1 < len(starts) else len(lines) + 1
+        end_line = min(len(lines), min(next_start - 1, start_line + 79))
+        text = "\n".join(lines[start_line - 1 : end_line])
+        lexical_score = score_in_file_window(
+            role=role,
+            query_text=query_text,
+            text=text,
+            start_line=start_line,
+            term_weights=_default_term_weights(role=role, query_text=query_text),
+        )
+        preview_lines = lines[start_line - 1 : min(end_line, start_line + 11)]
+        preview = "\n".join(preview_lines).strip()
+        declarations.append(
+            {
+                "id": f"decl_{len(declarations) + 1}",
+                "path": path,
+                "start_line": start_line,
+                "end_line": end_line,
+                "kind": kind,
+                "name": name,
+                "header": lines[start_line - 1].strip(),
+                "preview": preview[:700],
+                "lexical_score": round(lexical_score, 3),
+            }
+        )
+    ranked = sorted(declarations, key=lambda item: (float(item["lexical_score"]), -int(item["start_line"])), reverse=True)
+    return tuple(ranked[:limit])
 
 
 def salient_candidate_excerpt(candidate: RetrievalCandidate, *, limit: int) -> str:
