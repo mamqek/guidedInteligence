@@ -44,6 +44,18 @@
 - FAISS official repository  
   https://github.com/facebookresearch/faiss  
   Used during evaluation of local dense retrieval vs Qdrant-backed hybrid retrieval.
+- Analytics Vidhya, "Choosing the Right Vector Database for RAG and AI Applications"  
+  https://www.analyticsvidhya.com/blog/2026/06/vector-database-comparison/  
+  Used for the distinction between fast vector search, filtering, and the cost/quality trade-offs of vector database infrastructure.
+- Outcome School, "How does a Reranker work?"  
+  https://outcomeschool.com/blog/how-does-a-reranker-work  
+  Used for the retrieve-then-rerank framing: broad retrieval first, then a more precise relevance pass over a smaller candidate set.
+- Pinecone, "Rerankers and Two-Stage Retrieval"  
+  https://www.pinecone.io/learn/series/rag/rerankers/  
+  Used for the two-stage retrieval principle: retrieve broadly with a cheaper first-stage system, then rerank only a narrowed candidate set.
+- MongoDB, "What are Rerankers?"  
+  https://www.mongodb.com/resources/basics/artificial-intelligence/reranking-models  
+  Used for the explicit cost warning that rerankers process query-document pairs at query time, so candidate count directly drives latency and token cost.
 
 ## 2026-06-11
 
@@ -88,6 +100,254 @@
   - `prompt_tokens=34030`
   - `completion_tokens=3368`
   - `total_tokens=37398`
+
+### Cost Tracking
+
+- Current TypeScript retrieval baseline before the new cost-cutting experiments:
+  - run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260611T084358Z`
+  - model: `gpt-4.1-mini-2025-04-14`
+  - retrieval result: `coverage_status=strong`, `sufficient=True`, `evidence_count=9`
+  - retrieval LLM calls: `72`
+  - retrieval tokens:
+    - `prompt_tokens=249155`
+    - `completion_tokens=6394`
+    - `total_tokens=255549`
+
+### Experiment Log
+
+- Experiment 1: cache repeated owner-declaration selections within a single retrieval run.
+  - code change:
+    - `services/retrieval/workspace.py`
+    - added a strict per-run cache for `_select_owner_declaration_candidate(...)`, keyed by the exact LLM selector payload
+  - verification run:
+    - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260611T092300Z`
+  - measured effect:
+    - retrieval LLM calls: `72 -> 57`
+    - retrieval tokens: `255549 -> 204113`
+    - token delta: `-51436` total retrieval tokens
+    - cache hits observed: `32`
+  - result quality impact:
+    - retrieval result regressed from `coverage_status=strong`, `sufficient=True`
+    - to `coverage_status=partial`, `sufficient=False`
+  - observed drift:
+    - `validation_checking` widened from `src/compiler/checker.ts:L4981-L5060` to `src/compiler/checker.ts:L4355-L4434`
+    - `behavior_output` widened from `src/compiler/emitter.ts:L518-L597` to `src/compiler/emitter.ts:L2024-L2103`
+    - the cache saved cost, but it also locked repeated in-file declaration picks early enough that later retries no longer had a chance to recover to the tighter snippet choices
+- Experiment 2: skip the second late LLM bucket assessment when post-recovery deterministic coverage looked sufficient.
+  - code change:
+    - `services/retrieval/workspace.py`
+    - tried short-circuiting the second `_synthesize_role_buckets(...)` call after weak-role recovery
+  - verification run:
+    - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260611T093522Z`
+  - measured effect:
+    - retrieval LLM role-bucket assessments: `2 -> 3`
+    - retrieval tokens: `255549 -> 260590`
+    - token delta: `+5041` total retrieval tokens
+  - result quality impact:
+    - retrieval result regressed from `coverage_status=strong`, `sufficient=True`
+    - to `coverage_status=partial`, `sufficient=False`
+  - conclusion:
+    - this shortcut did not trigger on the intended path because post-recovery deterministic coverage still was not satisfied
+    - the run instead drifted into an extra late assessment and ended worse, so this experiment was reverted
+- Experiment 3: exact helper-query reuse inside a single run.
+  - code change:
+    - `services/retrieval/workspace.py`
+    - tried caching `generate_role_helper_queries_with_llm(...)` results by exact `(role, query, retrieval-plan payload)` identity
+  - verification run:
+    - first attempt failed with an OpenAI read timeout and correctly surfaced the runtime error with no fallback
+    - successful retry: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260611T095113Z`
+  - measured effect:
+    - helper-query cache hits observed: `0`
+    - helper-query LLM calls stayed at `5`
+    - retrieval result on the retry was `coverage_status=partial`, `sufficient=False`
+  - conclusion:
+    - on this case, helper-query generation already happens only once per required role, so exact reuse does not activate
+    - this experiment does not reduce cost on the current TypeScript path and was reverted
+- Experiment 4: shrink owner-declaration LLM shortlist from `18` candidates to `12`.
+  - code change:
+    - `services/retrieval/pipeline/snippet_level.py`
+    - reduced `declaration_candidates_for_llm(..., limit=18)` to `limit=12`
+  - verification run:
+    - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260611T100117Z`
+  - measured effect:
+    - owner-declaration candidate payload: `18 -> 12` per call
+    - owner-declaration LLM calls: `64 -> 96`
+    - owner-declaration retrieval tokens: `232642 -> 248175`
+    - total retrieval tokens: `255549 -> 271705`
+  - result quality impact:
+    - retrieval result regressed from `coverage_status=strong`, `sufficient=True`
+    - to `coverage_status=partial`, `sufficient=False`
+  - observed drift:
+    - `validation_checking` widened from `src/compiler/checker.ts:L4981-L5060` to `src/compiler/checker.ts:L4355-L4434`
+    - `input_parsing` shifted from `src/compiler/parser.ts:L2174-L2253` to `src/compiler/parser.ts:L1928-L2007`
+    - `diagnostics` shifted from `src/compiler/diagnosticMessages.json:L969-L1048` and `L989-L1068`
+      to `L958-L1037` and `L966-L1045`
+  - conclusion:
+    - shrinking the shortlist reduced per-call payload but changed the retrieval path enough to trigger more owner-declaration selection calls overall
+    - net cost increased and result quality fell, so this experiment was reverted
+- Experiment 5: remove explanation text from owner-declaration selection responses and return ids only.
+  - code change:
+    - `services/retrieval/workspace_llm.py`
+    - changed `workspace_owner_declaration_selection` schema from `{id, reason}` to `{id}` only
+  - verification run:
+    - first attempt failed with an OpenAI read timeout and correctly surfaced the runtime error with no fallback
+    - successful retry: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260611T102023Z`
+  - measured effect:
+    - owner-declaration completion tokens: `4743 -> 1440`
+    - owner-declaration total tokens: `232642 -> 284715`
+    - owner-declaration calls: `64 -> 80`
+    - total retrieval tokens: `255549 -> 307215`
+  - result quality impact:
+    - retrieval result regressed from `coverage_status=strong`, `sufficient=True`
+    - to `coverage_status=partial`, `sufficient=False`
+  - observed drift:
+    - `validation_checking` disappeared from final evidence
+    - `representation` drifted to `src/compiler/types.ts:L754-L833`
+    - `behavior_output` drifted to `src/compiler/emitter.ts:L2077-L2156` and `L2024-L2103`
+  - conclusion:
+    - even though completion text became cheaper, changing the response contract altered model behavior enough to increase owner-selection retries and worsen final evidence
+    - this experiment was reverted
+- Experiment 6: skip owner-declaration LLM selection for `behavior_output` and rely on lexical in-file refinement only.
+  - code change:
+    - `services/retrieval/workspace.py`
+    - bypassed `_select_owner_declaration_candidate(...)` for `behavior_output` only
+  - motivation:
+    - in the strong baseline run, `behavior_output` was the only role where the top lexical declaration matched the LLM first choice in all `16/16` observed calls
+  - verification run:
+    - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260611T102907Z`
+  - measured effect:
+    - skipped owner-selection calls: `16`
+    - but owner-declaration LLM calls overall still rose: `64 -> 144`
+    - owner-declaration total tokens: `232642 -> 365835`
+    - total retrieval tokens: `255549 -> 403528`
+  - result quality impact:
+    - retrieval result regressed from `coverage_status=strong`, `sufficient=True`
+    - to `coverage_status=partial`, `sufficient=False`
+  - observed drift:
+    - `validation_checking` widened from `src/compiler/checker.ts:L4981-L5060` to `src/compiler/checker.ts:L4355-L4434`
+    - `representation` drifted to `src/compiler/types.ts:L754-L833` and `L715-L794`
+    - `behavior_output` drifted to broader emitter spans `src/compiler/emitter.ts:L2077-L2156` and `L2026-L2105`
+  - conclusion:
+    - local lexical agreement on a single role was not enough; removing LLM selection there changed later recovery behavior and made the whole run much more expensive
+    - this experiment was reverted
+
+### Structural Conclusion After Experiments 1-6
+
+- The dominant cost remains `workspace_owner_declaration_selection`.
+- The repeated experiments show that this stage is path-sensitive: even small local contract or gating changes cause different later refinement loops and often increase total owner-selection calls instead of reducing them.
+- A final baseline analysis before further edits showed:
+  - exact duplicate owner-selection request shapes do exist, but caching them earlier already harmed recovery quality
+  - lexical top-1 agreement with the LLM is weak for most roles:
+    - `behavior_output`: lexical top-1 matched the LLM first choice in `16/16` calls
+    - `diagnostics`: `10/16`
+    - `input_parsing`: `0/16`
+    - `representation`: `0/16`
+  - lexical and LLM spans almost never coincide directly in the strong run, so a broader lexical prefilter is not justified as a safe micro-optimization
+- Practical conclusion:
+  - no further small local token-cutting tweak is currently justified by the measured signal
+  - the next meaningful reduction in cost requires a larger redesign of repeated owner-file refinement rounds rather than another isolated patch around the current selector
+
+### Structural Redesign Direction
+
+- The measured system flaw is that the current pipeline invokes the expensive owner-declaration selector as a repeated per-candidate operation.
+- This violates the two-stage retrieval pattern from the reranking references:
+  - the cheap first stage should gather and narrow candidates,
+  - the expensive relevance model should run only after candidates are grouped and reduced,
+  - reranker cost grows with query-candidate pairs, so repeated per-candidate reranking is the wrong cost shape.
+- The redesign target should be:
+  - group candidates by `(role, owner_file)` before owner-declaration selection,
+  - produce one compact declaration candidate set per role/file,
+  - run the LLM selector once per role/file/round rather than once per retrieved candidate,
+  - feed selected declaration spans back into the existing role bucket scoring,
+  - preserve a deterministic lexical fallback only as first-stage narrowing, not as a replacement for ambiguous reranking.
+- This is larger than the previous micro-experiments because it changes where the reranking boundary lives: from candidate-level reranking to grouped role/file reranking.
+
+- Experiment 7: lexical-first owner refinement for high-confidence `input_parsing`.
+  - code change:
+    - `services/retrieval/workspace.py`
+    - moved local lexical span selection before owner-declaration LLM selection
+    - skipped the owner-declaration LLM only when `role == "input_parsing"` and lexical score was at least `50.0`
+  - motivation:
+    - in the strong baseline trace, all `input_parsing` local spans scored above `50`
+    - the lexical parser span matched the final accepted parser evidence better than the declaration selector's preferred parser declarations
+  - verification run:
+    - first attempt failed with an OpenAI read timeout and correctly surfaced the runtime error with no fallback
+    - successful retry: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260611T111834Z`
+  - measured effect:
+    - skipped owner-selection calls: `32`
+    - owner-declaration total tokens: `232642 -> 215234`
+    - total retrieval tokens: `255549 -> 239345`
+    - token delta: `-16204` total retrieval tokens
+  - result quality impact:
+    - retrieval result regressed from `coverage_status=strong`, `sufficient=True`
+    - to `coverage_status=partial`, `sufficient=False`
+  - observed drift:
+    - `validation_checking` widened from `src/compiler/checker.ts:L4981-L5060` to `src/compiler/checker.ts:L4355-L4434`
+    - `behavior_output` drifted to broader emitter spans `src/compiler/emitter.ts:L2077-L2156` and `L2087-L2166`
+  - conclusion:
+    - this was the first redesign slice that reduced total retrieval cost materially
+    - it still failed the quality gate, showing that local role-specific lexical gating cannot be applied independently without changing later recovery behavior
+    - this experiment was reverted
+- Experiment 8: scoped owner-declaration selector cache inside one follow-up batch.
+  - code change:
+    - `services/retrieval/workspace.py`
+    - added a cache local to `_run_role_followup_pipeline(...)`, keyed by the exact owner-declaration selector payload
+    - the cache reset on every follow-up batch and did not apply to the whole retrieval run
+  - motivation:
+    - this tested the structural reranking idea from the references more conservatively than Experiment 1:
+      - avoid repeated expensive selector calls only inside one grouped follow-up pass
+      - do not freeze choices across later recovery rounds
+  - verification run:
+    - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260611T113147Z`
+  - measured effect:
+    - scoped selector cache hits observed: `15`
+    - retrieval LLM calls: `72 -> 57`
+    - owner-declaration selector calls: `64 -> 49`
+    - owner-declaration total tokens: `232642 -> 179249`
+    - total retrieval tokens: `255549 -> 201980`
+    - token delta: `-53569` total retrieval tokens
+  - result quality impact:
+    - retrieval result regressed from `coverage_status=strong`, `sufficient=True`
+    - to `coverage_status=partial`, `sufficient=False`
+  - observed drift:
+    - `validation_checking` widened from `src/compiler/checker.ts:L4981-L5060` to `src/compiler/checker.ts:L4355-L4434`
+    - final evidence count dropped from `9` to `8`
+    - one diagnostics evidence item disappeared
+  - conclusion:
+    - even a follow-up-local exact cache materially reduces token cost
+    - it still changes the final accepted evidence enough to fail sufficiency
+    - repeated selector calls are not merely duplicate waste in the current design; they also act as stochastic recovery opportunities
+    - this experiment was reverted
+- Experiment 9: reuse the first owner-declaration selection for the same file for the rest of the retrieval run.
+  - code change:
+    - `services/retrieval/pipeline/refinement.py`
+    - `services/retrieval/workspace.py`
+  - motivation:
+    - stop asking the owner-declaration selector more than once for the same file, regardless of later refinement retries
+    - test the stronger claim that repeated declaration choice on the same file is pure waste
+  - verification run:
+    - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260611T142742Z`
+  - measured effect:
+    - retrieval LLM calls: `72 -> 20`
+    - owner-declaration selector calls: `64 -> 8`
+    - owner-declaration same-file cache hits observed: `184`
+    - owner-declaration same-file cache misses observed: `8`
+    - retrieval tokens:
+      - `prompt_tokens=249155 -> 58437`
+      - `completion_tokens=6394 -> 3570`
+      - `total_tokens=255549 -> 62007`
+    - token delta: `-193542` total retrieval tokens
+  - result quality impact:
+    - retrieval result regressed from `coverage_status=strong`, `sufficient=True`
+    - to `coverage_status=partial`, `sufficient=False`
+  - observed drift:
+    - `validation_checking` widened from `src/compiler/checker.ts:L4981-L5060` to `src/compiler/checker.ts:L4355-L4434`
+    - `input_parsing` drifted to weaker spans in both `scanner.ts` and `parser.ts`
+    - `behavior_output` drifted from `src/compiler/emitter.ts:L518-L597` to broader emitter spans `L1216-L1295` and `L2054-L2133`
+  - conclusion:
+    - same-file declaration re-selection is not behaving like redundant waste in the current pipeline
+    - freezing the first declaration choice per file collapses token cost dramatically, but it also removes later recovery behavior and fails the quality gate
+    - this experiment should not be kept in the current retrieval shape
 
 ## 2026-06-08
 
