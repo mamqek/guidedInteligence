@@ -460,9 +460,20 @@ def declaration_candidates_for_llm(
 ) -> tuple[dict[str, Any], ...]:
     if not lines:
         return ()
+    lowered_path = path.lower()
+    if lowered_path.endswith(".json"):
+        return ()
     declarations: list[dict[str, Any]] = []
     starts: list[tuple[int, str, str]] = []
-    declaration_pattern = re.compile(r"\b(function|class|interface|enum|type)\s+([A-Za-z_][A-Za-z0-9_]*)\b")
+    if lowered_path.endswith((".ts", ".tsx", ".js", ".jsx")):
+        declaration_pattern = re.compile(
+            r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?"
+            r"(function|class|interface|enum|type)\s+([A-Za-z_][A-Za-z0-9_]*)\b"
+        )
+    else:
+        declaration_pattern = re.compile(
+            r"^\s*(function|class|interface|enum|type)\s+([A-Za-z_][A-Za-z0-9_]*)\b"
+        )
     for index, line in enumerate(lines, start=1):
         match = declaration_pattern.search(line)
         if not match:

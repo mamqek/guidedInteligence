@@ -57,6 +57,59 @@
   https://www.mongodb.com/resources/basics/artificial-intelligence/reranking-models  
   Used for the explicit cost warning that rerankers process query-document pairs at query time, so candidate count directly drives latency and token cost.
 
+## 2026-06-12
+
+### Changed
+
+- Replaced per-candidate snippet refinement with grouped `(role, file)` refinement in:
+  - `services/retrieval/pipeline/refinement.py`
+  - `services/retrieval/workspace.py`
+- The snippet stage now:
+  - accumulates file-local evidence across follow-up hits,
+  - builds one compact declaration shortlist per grouped role/file pass,
+  - runs owner-declaration selection once per grouped pass,
+  - expands declaration and lexical spans locally before validation.
+- Tightened grouped declaration extraction and scoring:
+  - only real declaration-shaped lines are considered in `.ts/.js` files,
+  - `.json` files no longer fabricate declaration candidates,
+  - role-shaped names are favored more strongly during grouped shortlist scoring,
+  - raw support snippets are no longer carried through unless they stay close to shortlisted declarations.
+
+### Added
+
+- Added `services/retrieval/docs/decisions/grouped_role_file_refinement_pipeline.md` to document:
+  - the token/quality problem in the old snippet stage,
+  - the grouped role-file refinement design,
+  - how iterative mutation is preserved without repeated full declaration prompts.
+
+### Verification
+
+- TypeScript grouped-refinement verification run:
+  - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260612T020815Z`
+  - model: `gpt-4.1-mini-2025-04-14`
+  - retrieval result: `coverage_status=strong`, `sufficient=True`, `evidence_count=9`
+  - retrieval LLM calls: `13`
+  - owner-declaration selector calls: `5`
+  - retrieval tokens:
+    - `prompt_tokens=30270`
+    - `completion_tokens=2046`
+    - `total_tokens=32316`
+  - compared to the previous current version (`run-20260611T142742Z`):
+    - `total_tokens=62007 -> 32316`
+    - token delta: `-29691`
+- TypeScript grouped-refinement repeat runs after the stabilization pass:
+  - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260612T172412Z`
+  - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260612T172630Z`
+  - both runs: `coverage_status=strong`, `sufficient=True`, `evidence_count=9`
+  - retrieval tokens:
+    - `29148`
+    - `29004`
+  - owner-declaration selector calls:
+    - `3`
+    - `3`
+  - compared to the previous current version (`run-20260611T142742Z`):
+    - token deltas: `-32859`, `-33003`
+
 ## 2026-06-11
 
 ### Added
