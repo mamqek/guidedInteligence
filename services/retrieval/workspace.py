@@ -87,7 +87,7 @@ from services.retrieval.pipeline.models import (
     RoleRetrievalBucket,
     RoleValidationResult,
 )
-from services.retrieval.pipeline.refinement import refine_candidate_within_file as _refine_candidate_within_file
+from services.retrieval.pipeline.refinement import refine_role_file_group as _refine_role_file_group
 from services.retrieval.pipeline.snippet_level import (
     best_direct_owner_span as _best_direct_owner_span,
     direct_owner_window_bonus as _direct_owner_window_bonus,
@@ -159,10 +159,8 @@ class WorkspaceRetrievalStage:
             ),
         )
         self.config = replace(config, qdrant_config=resolved_qdrant)
-        self._owner_declaration_file_cache: dict[str, tuple[dict[str, str], ...]] = {}
 
     def retrieve(self, state: ConversationState, policy_result: PolicyResult) -> RetrievalResult:
-        self._owner_declaration_file_cache = {}
         connected_documents = self._connected_documents()
         if state.evidence:
             retrieval_plan = existing_evidence_plan(
@@ -1872,6 +1870,8 @@ class WorkspaceRetrievalStage:
         existing_refs = {candidate.source_id for candidate in bucket.accepted_candidates}
         initial_evaluations = list(bucket.evaluations)
         followup_candidates: list[tuple[RetrievalCandidate, RoleValidationResult]] = []
+        grouped_candidates: dict[str, list[RetrievalCandidate]] = {}
+        grouped_queries: dict[str, list[str]] = {}
         self._record(
             "role_followup_started",
             {"role": bucket.role, "mode": mode, "spec_count": len(search_specs)},
@@ -1912,23 +1912,60 @@ class WorkspaceRetrievalStage:
                     candidate_path=enriched_candidate.path or "",
                     candidate_text=enriched_candidate.text,
                 )
-                refined_candidate, refinement_observations = _refine_candidate_within_file(
-                    role=bucket.role,
-                    query=bucket.query,
-                    helper_queries=bucket.helper_queries,
-                    candidate=enriched_candidate,
-                    qdrant_tool=qdrant_tool,
-                    open_file_tool=open_file_tool,
-                    snippet_queries=followup_queries,
-                    search_terms=followup_queries,
-                    workspace_root=self.config.workspace_root,
-                    llm_config=self.config.llm_config,
-                    owner_declaration_file_cache=self._owner_declaration_file_cache,
-                    record=self._record,
-                    record_tool=lambda request, observation: self._record_tool(request, observation, round_index=0),
-                    open_candidate_context=self._open_candidate_context,
-                )
-                tool_calls += len(refinement_observations)
+                if not enriched_candidate.path:
+                    validation = self._validate_role_candidate(
+                        role=bucket.role,
+                        query=bucket.query,
+                        helper_queries=bucket.helper_queries,
+                        candidate=enriched_candidate,
+                        anchor_support=anchor_support,
+                        cgc_tools=cgc_tools,
+                        allow_cgc_queries=False,
+                    )
+                    initial_evaluations.append(
+                        RoleCandidateEvaluation(
+                            candidate=enriched_candidate,
+                            validation=validation,
+                            stage=f"role_followup_{mode}_initial",
+                            source_role=bucket.role,
+                        )
+                    )
+                    self._record(
+                        "role_followup_candidate_scored",
+                        {
+                            "role": bucket.role,
+                            "mode": mode,
+                            "query": query,
+                            "origin_ref": origin_ref,
+                            "ref": enriched_candidate.source_id,
+                            "validation": validation.to_dict(),
+                        },
+                    )
+                    if validation.accepted and enriched_candidate.source_id not in existing_refs:
+                        followup_candidates.append((enriched_candidate, validation))
+                        existing_refs.add(enriched_candidate.source_id)
+                    continue
+                normalized_path = enriched_candidate.path.replace("\\", "/")
+                grouped_candidates.setdefault(normalized_path, []).append(enriched_candidate)
+                grouped_queries.setdefault(normalized_path, []).extend(followup_queries)
+        for path, candidates in grouped_candidates.items():
+            refined_candidates, refinement_observations = _refine_role_file_group(
+                role=bucket.role,
+                query=bucket.query,
+                helper_queries=bucket.helper_queries,
+                path=path,
+                raw_candidates=candidates,
+                snippet_queries=tuple(grouped_queries.get(path, ())),
+                qdrant_tool=qdrant_tool,
+                open_file_tool=open_file_tool,
+                workspace_root=self.config.workspace_root,
+                llm_config=self.config.llm_config,
+                record=self._record,
+                record_tool=lambda request, observation: self._record_tool(request, observation, round_index=0),
+                open_candidate_context=self._open_candidate_context,
+            )
+            tool_calls += len(refinement_observations)
+            for refined_candidate in refined_candidates:
                 validation = self._validate_role_candidate(
                     role=bucket.role,
                     query=bucket.query,
@@ -1951,8 +1988,8 @@ class WorkspaceRetrievalStage:
                     {
                         "role": bucket.role,
                         "mode": mode,
-                        "query": query,
-                        "origin_ref": origin_ref,
+                        "query": path,
+                        "origin_ref": "",
                         "ref": refined_candidate.source_id,
                         "validation": validation.to_dict(),
                     },
