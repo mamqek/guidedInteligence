@@ -57,10 +57,179 @@
   https://www.mongodb.com/resources/basics/artificial-intelligence/reranking-models  
   Used for the explicit cost warning that rerankers process query-document pairs at query time, so candidate count directly drives latency and token cost.
 
+## 2026-06-13
+
+### Changed
+
+- Added an owner-artifact planning split to Step 2:
+  - `surface_context_terms` describe the visible API/directive/error surface,
+  - `owner_artifact_terms` describe the deeper rule/parser/validator/emitter/resolver artifact,
+  - `owner_subqueries` are preferred for owner search,
+  - `support_subqueries` remain bridge/context searches.
+- Added generic owner-artifact normalization:
+  - phrases like `expression parsing` and `Error parsing expression` can derive `expression parser`,
+  - owner path matching now tolerates compact/stemmed file names such as `exp-parser.js` for `expression parser`.
+- Added JS/TS relationship expansion:
+  - explicit `import`, `export ... from`, `require(...)`, and triple-slash references are scanned,
+  - extensionless local references resolve to source files using the importing file's extension first, then common TS/JS/JSON extensions.
+- Added a final evidence handoff guard:
+  - line-level refs accepted by the latest synthesis decision can be materialized into final evidence when they were accepted by the assessor but missed by bucket selection.
+
+### Verification
+
+- Corrected Vue baseline before this owner-artifact pass:
+  - `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260612T221251Z`
+  - oracle files: `src/exp-parser.js`, `test/unit/specs/exp-parser.js`
+  - retrieved files: `src/directives/on.js`, `src/text-parser.js`, `src/directive.js`, `src/compiler.js`
+  - `overlap_count=0`
+  - `coverage_status=partial`
+  - `sufficient=False`
+  - retrieval tokens: `55638`
+- Intermediate Vue owner-artifact runs:
+  - `run-20260613T083214Z`: `overlap_count=0`, retrieval tokens `62950`
+  - `run-20260613T083720Z`: `overlap_count=0`, retrieval tokens `67826`
+  - `run-20260613T084210Z`: internally accepted `src/exp-parser.js:L73-L152`, but final evidence still dropped it; retrieval tokens `51306`
+- Final Vue run after accepted-line-ref evidence handoff:
+  - `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260613T084723Z`
+  - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/emitter.js`, `src/exp-parser.js`, `src/directives/index.js`
+  - `overlap_files=["src/exp-parser.js"]`
+  - `overlap_count=1`
+  - `coverage_status=partial`
+  - `sufficient=False`
+  - retrieval tokens: `71087`
+- TypeScript guard run:
+  - `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260613T085108Z`
+  - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+  - `overlap_count=0`
+  - `coverage_status=partial`
+  - `sufficient=False`
+  - retrieval tokens: `54862`
+
+### Conclusion
+
+- The owner-artifact split plus relationship expansion is directionally useful: the corrected Vue case now reaches and returns the true owner file `src/exp-parser.js`.
+- It is not sufficient yet: Vue remains `partial / sufficient=False`, and token cost increased versus the corrected baseline.
+- The next fix should reduce surface-role noise after owner-artifact evidence appears, especially noisy `model.js`/`emitter.js` evidence that competes with `exp-parser.js`.
+
+### Changed: Lower-Cost Role Retrieval Restructure
+
+- Intended stage boundary:
+  - keep the Step 2 retrieval plan LLM,
+  - replace per-role helper-query LLM calls with deterministic role/query packages,
+  - replace owner-declaration selector LLM calls with deterministic declaration and lexical span refinement,
+  - keep one compact late assessor as the only LLM gate after candidate gathering,
+  - let accepted full-file owner artifacts trigger path-scoped local recovery rather than broad follow-up search.
+- Expected quality impact:
+  - preserve owner-file discovery for Vue (`src/exp-parser.js`),
+  - preserve the previously strong TypeScript abstract-class result,
+  - reduce noisy surface evidence by making late synthesis see snippets rather than redundant file artifacts.
+- Expected token impact:
+  - remove helper-query and owner-declaration selector prompt volume,
+  - reduce late-assessor prompt size with a compact retrieval intent,
+  - target retrieval usage closer to focused manual inspection than the previous 55k-71k runs.
+- Known regression risks:
+  - deterministic declaration selection can miss cases where only an LLM recognizes the owner declaration,
+  - late-assessor decisions can still over-prioritize surface roles,
+  - Vue sufficiency remains unstable when diagnostic evidence is found but labeled secondary.
+- Comparison method:
+  - reran the real `testing\codeRepoQA\run_case.py run-case` pipeline for Vue issue 242 and TypeScript issue 6 after each behavior slice,
+  - compared `coverage_status`, `sufficient`, retrieved source files, retrieval LLM call counts, and total retrieval tokens from actual trace usage.
+
+### Verification: Lower-Cost Role Retrieval Restructure
+
+- Deterministic helper-query package:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260613T093028Z-det-helper`
+    - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/emitter.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `23 / 39162`
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260613T093317Z-det-helper`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `14 / 46296`
+- Snippet-grounded synthesis input:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260613T093931Z-det-helper-grounded-synth`
+    - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/directive.js`, `src/emitter.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `22 / 38473`
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260613T094427Z-det-helper-grounded-synth`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `6 / 23575`
+- Path-scoped late recovery for accepted file/artifact candidates:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260613T102835Z-det-helper-file-recovery`
+    - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/directive.js`, `src/emitter.js`, `src/exp-parser.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `17 / 43343`
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260613T103438Z-det-helper-file-recovery`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `6 / 23745`
+- Compact late-assessor intent:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260613T104358Z-compact-assessor`
+    - retrieved files: `src/directives/model.js`, `src/exp-parser.js`, `src/emitter.js`, `src/text-parser.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `12 / 25634`
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260613T105041Z-compact-assessor`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `7 / 22162`
+- Deterministic-only declaration selection:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260613T111911Z-det-decls`
+    - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/emitter.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `3 / 16444`
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260613T113138Z-det-decls`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=strong`, `sufficient=True`
+    - retrieval LLM calls/tokens: `3 / 14709`
+- Clearing `file_candidate` metadata from materialized spans:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260613T210112Z-span-metadata-fix`
+    - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/exp-parser.js`, `src/emitter.js`, `src/directive.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `3 / 15780`
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260613T210938Z-span-metadata-fix`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `3 / 14389`
+- Assessor-accepted required-role snippets can satisfy the deterministic gate:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260613T211351Z-assessor-strong-gate`
+    - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/exp-parser.js`, `src/emitter.js`, `src/deps-parser.js`, `src/directive.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `4 / 25504`
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260613T211914Z-assessor-strong-gate`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=strong`, `sufficient=True`
+    - retrieval LLM calls/tokens: `3 / 14284`
+- Rejected experiment: pre-assessment materialization of accepted full-file candidates into local spans:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260613T215553Z-assessment-spans`
+    - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/emitter.js`, `src/compiler.js`, `src/directive.js`, `src/exp-parser.js`, `src/filters.js`, `src/deps-parser.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `4 / 26030`
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260613T215857Z-assessment-spans`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=strong`, `sufficient=True`
+    - retrieval LLM calls/tokens: `3 / 14421`
+  - conclusion: this experiment was reverted because it made Vue noisier without improving sufficiency.
+
+### Conclusion: Lower-Cost Role Retrieval Restructure
+
+- Kept the low-cost structure through the assessor-strong-gate slice.
+- Compared to the high-token 2026-06-13 baseline:
+  - Vue: `71087 -> 25504` retrieval tokens while still returning `src/exp-parser.js`; quality remains `partial / sufficient=False`.
+  - TypeScript: `54862 -> 14284` retrieval tokens and improves to `strong / sufficient=True`.
+- The remaining Vue issue is not broad retrieval volume; the owner file is present. The remaining failure is ranking/sufficiency judgment around the exact directive validation and diagnostics evidence.
+
 ## 2026-06-12
 
 ### Changed
 
+- Fixed CodeRepoQA verification for cases whose fixing commit is present in issue `events` but not in `fixed_by`.
+  - `testing/codeRepoQA/run_case.py` now:
+    - still prefers `fixed_by` when present,
+    - keeps timestamp-based snapshot resolution when that snapshot is an ancestor of the referenced event commit,
+    - falls back to the referenced event commit's parent when no coherent timestamp snapshot exists,
+    - builds oracle files from that event commit only when the resolver used `event_commit_parent`.
+  - This preserves the TypeScript snapshot path while correcting the Vue issue 242 snapshot/oracle.
 - Replaced per-candidate snippet refinement with grouped `(role, file)` refinement in:
   - `services/retrieval/pipeline/refinement.py`
   - `services/retrieval/workspace.py`
@@ -109,6 +278,92 @@
     - `3`
   - compared to the previous current version (`run-20260611T142742Z`):
     - token deltas: `-32859`, `-33003`
+- Experiment: deterministic path-only owner resolution before grouped snippet refinement.
+  - attempted shape:
+    - rerank required-role buckets by scored owner paths before `_refine_selected_role_buckets(...)`,
+    - pick `1-2` owner files per role from the evaluated path pool,
+    - seed grouped snippet refinement only from those routed owner files.
+  - Vue comparison:
+    - baseline: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260612T190155Z`
+    - experimental: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260612T190622Z`
+    - result:
+      - `coverage_status` stayed `partial`
+      - `sufficient` stayed `False`
+      - retrieval tokens dropped: `66463 -> 57830`
+      - owner-routing fired for all five required roles, but still misrouted role ownership
+  - TypeScript regression check:
+    - experimental run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260612T191029Z`
+    - result:
+      - `coverage_status=partial`
+      - `sufficient=False`
+      - retrieval tokens dropped further to `27045`
+  - conclusion:
+    - cheap path-only owner routing is not safe enough to keep,
+    - it can lower token cost, but without function/declaration-level ownership evidence it redirects stable cases onto the wrong files,
+
+    - the live hook was reverted.
+- Experiment: declaration-level owner boost during responsibility reranking.
+  - attempted shape:
+    - extract real declarations from evaluated candidate files,
+    - score declaration names and previews against the role and issue terms,
+    - add a responsibility-rerank bonus instead of hard-filtering files,
+    - let grouped snippet refinement continue from the newly ordered bucket.
+  - Vue comparisons:
+    - baseline: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260612T190155Z`
+      - `coverage_status=partial`
+      - `sufficient=False`
+      - retrieval tokens: `66463`
+    - first declaration-boost run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260612T210721Z`
+      - `coverage_status=partial`
+      - `sufficient=False`
+      - retrieval tokens: `66808`
+    - tightened declaration-boost run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260612T211138Z`
+      - `coverage_status=partial`
+      - `sufficient=False`
+      - retrieval tokens: `68764`
+  - conclusion:
+    - declaration-level evidence is the right kind of signal, but a deterministic boost alone is too noisy,
+    - body-term matches still over-promote adjacent helpers such as DOM/component utilities,
+    - token cost rose without improving sufficiency,
+    - the live behavior was disabled.
+- Corrected Vue verification rerun after the event-commit oracle fix:
+  - run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260612T221251Z`
+  - resolution:
+    - `strategy=event_commit_parent`
+    - `repo_pre_commit=bab4829f0079f0fd6f95eb1700c2e277429495e8`
+    - event commit: `e422d959452332862a3ea9d70c58bccc475daccb`
+  - oracle files:
+    - `src/exp-parser.js`
+    - `test/unit/specs/exp-parser.js`
+  - retrieved source files:
+    - `src/directives/on.js`
+    - `src/text-parser.js`
+    - `src/directive.js`
+    - `src/compiler.js`
+  - result:
+    - `coverage_status=partial`
+    - `sufficient=False`
+    - `overlap_count=0`
+    - retrieval tokens: `55638`
+  - conclusion:
+    - previous Vue analysis used the wrong snapshot/oracle,
+    - the real Vue failure is missing `src/exp-parser.js` as final evidence,
+    - previous codegen/html-parser owner-routing experiments should not be retried as-is.
+- TypeScript guard rerun after the verification fix:
+  - run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260612T221554Z`
+  - resolution stayed timestamp-based:
+    - `strategy=latest_commit_before_created_at`
+    - `repo_pre_commit=455364cf5a2e4f9cece69599475677bb41e2ac36`
+  - oracle stayed comment-derived rather than event-commit-derived:
+    - `event_commit=False`
+    - `oracle_file_count=4`
+  - result:
+    - `coverage_status=partial`
+    - `sufficient=False`
+    - retrieval tokens: `53796`
+  - conclusion:
+    - the verification fix did not move the TypeScript snapshot/oracle onto the event commit,
+    - the retrieval result itself remains run-unstable and should be treated separately from this verification fix.
 
 ## 2026-06-11
 

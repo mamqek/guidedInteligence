@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from typing import Any, Callable, Mapping, Sequence
 
-from services.retrieval.role_specs import role_compact_payload
 from services.retrieval.tools.local import file_role as tool_file_role
 from services.llm import json_completion as _json_completion
 from services.llm.json_completion import complete_json
@@ -11,71 +10,6 @@ from services.llm.json_completion import complete_json
 
 _TEMPERATURE_DISABLED_MODELS = _json_completion._TEMPERATURE_DISABLED_MODELS
 _CONTINUITY_STATE = _json_completion._CONTINUITY_STATE
-
-
-
-def generate_role_helper_queries_with_llm(
-    *,
-    role: str,
-    query: str,
-    retrieval_plan: Any,
-    llm_config: Any,
-    log_warning: Callable[[Mapping[str, Any]], None] | None = None,
-    log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
-) -> tuple[str, ...]:
-    repo_context = retrieval_plan.metadata.get("repo_context", {}) if isinstance(retrieval_plan.metadata, Mapping) else {}
-    repo_sketch = dict(repo_context.get("repo_sketch", {})) if isinstance(repo_context, Mapping) else {}
-    compact_payload = {
-        "role": role,
-        "role_spec": role_compact_payload(role),
-        "main_query": query,
-        "prompt_summary": retrieval_plan.prompt_summary,
-        "retrieval_terms": list(retrieval_plan.retrieval_terms[:8]),
-        "grounded_entities": list((retrieval_plan.confirmed_entities or retrieval_plan.grounded_entities)[:6]),
-        "confirmed_file_hints": list((retrieval_plan.confirmed_file_hints or retrieval_plan.grounded_file_hints)[:6]),
-        "repo_sketch": {
-            "top_directories": list(repo_sketch.get("top_directories", [])[:6]),
-            "representative_files": list(repo_sketch.get("representative_files", [])[:10]),
-            "file_index": list(repo_sketch.get("file_index", [])[:10]),
-        },
-        "confirmed_anchor_examples": list(repo_context.get("confirmed_anchor_examples", [])[:6]) if isinstance(repo_context, Mapping) else [],
-    }
-    messages = (
-        {
-            "role": "system",
-            "content": (
-                "You generate lexical code-search helper queries for one retrieval role. "
-                "Return JSON only with key queries. "
-                "Output exactly 3 helper queries in queries. "
-                "Each query must be 2 to 6 words. "
-                "Each query must be a compact lexical search phrase, not a sentence. "
-                "Use the supplied role_spec to stay aligned to the role semantics. "
-                "Use repository vocabulary from the repo sketch, representative files, identifiers, and confirmed anchors. "
-                "Prefer path stems, identifiers, owner-file vocabulary, and code-search terms over explanatory prose. "
-                "Do not explain. Do not add numbering. Do not add punctuation-heavy text. "
-                "Do not repeat the main query verbatim. "
-                "Queries must be semantically aligned to the role, but they must remain repo-grounded. "
-                "Use issue-grounded code-search language, not broad generic role paraphrases. "
-                "Keep concrete issue anchors when they are code-searchable, such as modifier names, failure phrases, or member-call patterns. "
-                "For input_parsing, prefer declaration parsing, member parsing, and modifier parsing terms over scanner, tokenization, or raw keyword-lexing terms unless the issue is explicitly about lexing. "
-                "For behavior_output, prefer class emission, method emission, accessor emission, or modifier-erasure terms over broad runtime wording or generic emit dispatchers. "
-                "Do not use exact compiler function names unless they are already present in confirmed anchors or repo sketch identifiers. "
-                "Queries must stay repo-grounded, concise, and distinct from each other. "
-                "Good outputs look like compact lexical searches built from repo terms. "
-                "Bad outputs are explanatory questions, full sentences, tokenization drift, broad generic role labels, or issue-specific symbol memorization."
-            ),
-        },
-        {"role": "user", "content": json.dumps(compact_payload, sort_keys=True)},
-    )
-    response = complete_json(
-        llm_config,
-        messages,
-        response_format=_role_helper_queries_response_format(),
-        log_warning=log_warning,
-        log_event=log_event,
-    )
-    raw_queries = response.get("queries", ())
-    return tuple(" ".join(str(value).strip().split()) for value in raw_queries if str(value).strip())
 
 
 def assess_role_buckets_with_llm(
@@ -89,7 +23,7 @@ def assess_role_buckets_with_llm(
     log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
 ) -> Mapping[str, Any]:
     payload = {
-        "intent": intent.to_dict(),
+        "intent": _compact_retrieval_intent(intent),
         "role_buckets": [_compact_role_bucket(bucket) for bucket in role_buckets],
         "current_snippets": [dict(snippet) for snippet in current_snippets],
         "missing_roles": list(missing_roles),
@@ -123,70 +57,16 @@ def assess_role_buckets_with_llm(
     )
 
 
-def select_owner_declarations_with_llm(
-    *,
-    role: str,
-    query: str,
-    helper_queries: Sequence[str],
-    path: str,
-    declaration_candidates: Sequence[Mapping[str, Any]],
-    llm_config: Any,
-    log_warning: Callable[[Mapping[str, Any]], None] | None = None,
-    log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
-) -> tuple[dict[str, str], ...]:
-    payload = {
-        "role": role,
-        "role_spec": role_compact_payload(role),
-        "query": query,
-        "helper_queries": list(helper_queries[:4]),
-        "path": path,
-        "declaration_candidates": [
-            {
-                "id": str(item.get("id", "")),
-                "kind": str(item.get("kind", "")),
-                "name": str(item.get("name", "")),
-                "start_line": int(item.get("start_line", 0)),
-                "end_line": int(item.get("end_line", 0)),
-                "header": str(item.get("header", "")),
-                "preview": str(item.get("preview", ""))[:700],
-                "lexical_score": float(item.get("lexical_score", 0.0)),
-            }
-            for item in declaration_candidates[:18]
-        ],
+def _compact_retrieval_intent(intent: Any) -> Mapping[str, Any]:
+    return {
+        "prompt_summary": str(getattr(intent, "prompt_summary", "")),
+        "raw_prompt_evidence": list(getattr(intent, "raw_prompt_evidence", ())[:8]),
+        "retrieval_terms": list(getattr(intent, "retrieval_terms", ())[:8]),
+        "surface_context_terms": list(getattr(intent, "surface_context_terms", ())[:6]),
+        "owner_artifact_terms": list(getattr(intent, "owner_artifact_terms", ())[:8]),
+        "grounded_entities": list((getattr(intent, "confirmed_entities", ()) or getattr(intent, "grounded_entities", ()))[:6]),
+        "required_roles": list(getattr(intent, "required_roles", ())),
     }
-    messages = (
-        {
-            "role": "system",
-            "content": (
-                "You are selecting declarations inside one owner file for code retrieval. "
-                "Choose up to 2 declaration ids most likely to contain the decisive implementation for the given role and query. "
-                "Prefer declarations whose name and preview are closest to the requested behavior. "
-                "When the feature is not explicitly implemented yet, prefer the declaration that is the nearest enforcement or integration point. "
-                "Avoid generic utilities, unrelated type-reference checks, and declarations whose preview does not align with the requested behavior. "
-                "Return JSON only with key selections."
-            ),
-        },
-        {"role": "user", "content": json.dumps(payload, sort_keys=True)},
-    )
-    response = complete_json(
-        llm_config,
-        messages,
-        response_format=_owner_declaration_selection_response_format(),
-        log_warning=log_warning,
-        log_event=log_event,
-    )
-    selections: list[dict[str, str]] = []
-    for item in response.get("selections", ()):
-        if not isinstance(item, Mapping):
-            continue
-        declaration_id = str(item.get("id", "")).strip()
-        reason = str(item.get("reason", "")).strip()
-        if not declaration_id:
-            continue
-        selections.append({"id": declaration_id, "reason": reason[:300]})
-        if len(selections) >= 2:
-            break
-    return tuple(selections)
 
 
 def validate_role_bucket_assessment(response: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -360,60 +240,6 @@ def _role_bucket_response_format() -> Mapping[str, Any]:
                     "snippet_assessment",
                     "follow_up_queries",
                 ],
-                "additionalProperties": False,
-            },
-        },
-    }
-
-
-def _role_helper_queries_response_format() -> Mapping[str, Any]:
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "workspace_retrieval_role_helper_queries",
-            "strict": True,
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "queries": {
-                        "type": "array",
-                        "minItems": 3,
-                        "maxItems": 3,
-                        "items": {"type": "string"},
-                    }
-                },
-                "required": ["queries"],
-                "additionalProperties": False,
-            },
-        },
-    }
-
-
-def _owner_declaration_selection_response_format() -> Mapping[str, Any]:
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "workspace_owner_declaration_selection",
-            "strict": True,
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "selections": {
-                        "type": "array",
-                        "minItems": 1,
-                        "maxItems": 2,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "string"},
-                                "reason": {"type": "string"},
-                            },
-                            "required": ["id", "reason"],
-                            "additionalProperties": False,
-                        },
-                    }
-                },
-                "required": ["selections"],
                 "additionalProperties": False,
             },
         },

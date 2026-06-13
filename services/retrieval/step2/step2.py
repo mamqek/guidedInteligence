@@ -92,6 +92,8 @@ def plan_workspace_retrieval_step(
         raw_prompt_evidence=evidence.raw_prompt_evidence,
         prompt_summary=response["prompt_summary"],
         retrieval_terms=tuple(response["retrieval_terms"]),
+        surface_context_terms=tuple(response["surface_context_terms"]),
+        owner_artifact_terms=tuple(response["owner_artifact_terms"]),
         grounded_entities=evidence.grounded_entities,
         confirmed_entities=confirmed_entities,
         grounded_file_hints=evidence.grounded_file_hints,
@@ -100,6 +102,14 @@ def plan_workspace_retrieval_step(
         llm_subqueries=tuple(
             subquery if isinstance(subquery, RoleDirectedSubquery) else RoleDirectedSubquery(**dict(subquery))
             for subquery in response["llm_subqueries"]
+        ),
+        owner_subqueries=tuple(
+            subquery if isinstance(subquery, RoleDirectedSubquery) else RoleDirectedSubquery(**dict(subquery))
+            for subquery in response["owner_subqueries"]
+        ),
+        support_subqueries=tuple(
+            subquery if isinstance(subquery, RoleDirectedSubquery) else RoleDirectedSubquery(**dict(subquery))
+            for subquery in response["support_subqueries"]
         ),
         speculative_entities=tuple(response["speculative_entities"]),
         source_priorities=tuple(SourceCategory(value) for value in response["source_priorities"]) or evidence.source_priorities,
@@ -130,12 +140,16 @@ def existing_evidence_plan(
         raw_prompt_evidence=(),
         prompt_summary="",
         retrieval_terms=(),
+        surface_context_terms=(),
+        owner_artifact_terms=(),
         grounded_entities=(),
         confirmed_entities=(),
         grounded_file_hints=(),
         confirmed_file_hints=(),
         llm_concept_terms=(),
         llm_subqueries=(),
+        owner_subqueries=(),
+        support_subqueries=(),
         speculative_entities=(),
         source_priorities=source_priorities,
         negative_filters=DEFAULT_NEGATIVE_FILTERS,
