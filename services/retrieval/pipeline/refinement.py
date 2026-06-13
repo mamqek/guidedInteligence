@@ -22,7 +22,6 @@ from services.retrieval.pipeline.snippet_level import (
     read_owner_text_file,
 )
 from services.retrieval.tools import OpenFileTool, QdrantHybridSearchTool, ToolObservation, ToolRequest
-from services.retrieval.workspace_llm import select_owner_declarations_with_llm
 
 MAX_ROLE_FILE_DECLARATION_SHORTLIST = 8
 LINE_RANGE_PATTERN = re.compile(r"L(\d+)(?:-L(\d+))?")
@@ -144,18 +143,13 @@ def refine_role_file_group(
     )
 
     refined_candidates: list[RetrievalCandidate] = []
-    refined_candidates.extend(
-        select_owner_declaration_candidates_once(
-            role=role,
-            query=query,
-            helper_queries=helper_queries,
-            path=path,
-            lines=lines,
-            base_candidates=ranked_support,
-            declaration_shortlist=declaration_shortlist,
-            llm_config=llm_config,
-            record=record,
-        )
+    record(
+        "role_file_declaration_llm_skipped",
+        {
+            "role": role,
+            "path": path,
+            "reason": "deterministic_shortlist_and_local_spans_are_primary",
+        },
     )
     refined_candidates.extend(
         deterministic_declaration_candidates(
@@ -315,57 +309,6 @@ def score_declaration_shortlist(
     return tuple(scored[:MAX_ROLE_FILE_DECLARATION_SHORTLIST])
 
 
-def select_owner_declaration_candidates_once(
-    *,
-    role: str,
-    query: str,
-    helper_queries: Sequence[str],
-    path: str,
-    lines: Sequence[str],
-    base_candidates: Sequence[RetrievalCandidate],
-    declaration_shortlist: Sequence[ScoredDeclaration],
-    llm_config: Any,
-    record: Callable[[str, Mapping[str, Any]], None],
-) -> tuple[RetrievalCandidate, ...]:
-    if not declaration_shortlist or not base_candidates:
-        return ()
-    selections = select_owner_declarations_with_llm(
-        role=role,
-        query=query,
-        helper_queries=helper_queries,
-        path=path,
-        declaration_candidates=[dict(item.payload) for item in declaration_shortlist],
-        llm_config=llm_config,
-        log_warning=lambda payload: record("llm_request_warning", payload),
-        log_event=record,
-    )
-    selected_by_id = {str(item.payload.get("id", "")): item for item in declaration_shortlist}
-    best_base = base_candidates[0]
-    refined: list[RetrievalCandidate] = []
-    for selection in selections:
-        selected = selected_by_id.get(selection["id"])
-        if selected is None:
-            continue
-        candidate = candidate_from_local_span(
-            role=role,
-            candidate=best_base,
-            normalized_path=path,
-            lines=lines,
-            line_start=int(selected.payload["start_line"]),
-            line_end=int(selected.payload["end_line"]),
-            score=selected.score + 4.0,
-            event_type="role_candidate_declaration_selected",
-            record=record,
-            extra_payload={
-                "selection_reason": selection.get("reason", ""),
-                "declaration_name": str(selected.payload.get("name", "")),
-            },
-        )
-        if candidate is not None:
-            refined.append(candidate)
-    return tuple(refined)
-
-
 def deterministic_declaration_candidates(
     *,
     role: str,
@@ -486,6 +429,8 @@ def candidate_from_local_span(
     if extra_payload:
         payload.update(dict(extra_payload))
     record(event_type, payload)
+    metadata = dict(candidate.metadata)
+    metadata.pop("file_candidate", None)
     return RetrievalCandidate(
         candidate_id=source_id,
         source_category=SourceCategory.SOURCE_CODE,
@@ -496,7 +441,7 @@ def candidate_from_local_span(
         path=normalized_path,
         line_range=f"L{line_start}-L{line_end}",
         metadata={
-            **dict(candidate.metadata),
+            **metadata,
             "path": normalized_path,
             "coverage_area": role,
             "retrieval_path": "local_in_file_refinement",

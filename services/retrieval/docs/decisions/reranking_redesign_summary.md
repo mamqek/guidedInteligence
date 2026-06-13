@@ -88,3 +88,72 @@ In other words, the expensive LLM stage should rerank a stable grouped shortlist
 - Keep Qdrant as the broad first-stage retrieval layer.
 - Do not pursue more micro-optimizations around repeated owner-declaration selector calls in the current structure.
 - Focus the next retrieval redesign on **grouped role/file reranking** rather than per-candidate reranking.
+
+## New constraint after follow-up owner-routing experiments
+
+A later experiment tried to add a cheap deterministic owner-routing stage before grouped snippet refinement, using only path-level and file-level signals to cut Vue overmatch earlier.
+
+That experiment reduced tokens, but it did not solve the real problem:
+
+- on Vue, it still failed sufficiency even after routing down to one file per role,
+- on the stable TypeScript case, it redirected some roles onto the wrong owner files and regressed a previously strong run.
+
+So the next redesign should not add another path-only owner gate.
+
+If we add a pre-snippet owner stage at all, it needs stronger ownership evidence than filename/path heuristics:
+
+- function or declaration ownership,
+- import/reference convergence,
+- caller/callee support,
+- and conflict checks against nearby helper files.
+
+In short:
+
+- grouped role/file reranking was the right structural change,
+- but Vue-like role overmatch will require a **real owner-resolution stage**, not just a cheaper path scorer.
+
+## Correction: Vue Verification
+
+The earlier Vue owner-overmatch analysis used an invalid verification setup.
+
+The issue did not populate `fixed_by`, but it did include a referenced closing commit in the issue events. The evaluator was therefore building an empty oracle and the runner was using the wrong snapshot for `vuejs-vue-242`.
+
+After fixing CodeRepoQA verification to use the event commit only when timestamp resolution is incoherent:
+
+- Vue issue 242 resolves to the parent of `e422d959452332862a3ea9d70c58bccc475daccb`.
+- The oracle files are:
+  - `src/exp-parser.js`
+  - `test/unit/specs/exp-parser.js`
+- The corrected rerun still fails:
+  - `coverage_status=partial`
+  - `sufficient=False`
+  - `overlap_count=0`
+
+This changes the next-step interpretation:
+
+- do not retry the previous Vue-specific codegen/html-parser owner-routing experiments as-is,
+- focus the next Vue fix on getting `src/exp-parser.js` promoted from expression/parser diagnostics context into final snippet evidence.
+
+## Owner-artifact relationship pass
+
+The next pass tried the more general version of that idea:
+
+- Step 2 now separates visible surface context from deeper owner artifacts.
+- Retrieval can derive owner phrases such as `expression parser` from generic parsing language.
+- JS/TS import and `require(...)` references are used as relationship edges.
+- Accepted line-level synthesis refs can be materialized into final evidence if bucket selection misses them.
+
+Corrected Vue result:
+
+- baseline `run-20260612T221251Z`: `overlap_count=0`, `coverage_status=partial`, `sufficient=False`, `55638` retrieval tokens.
+- owner-artifact run `run-20260613T084723Z`: `overlap_count=1` via `src/exp-parser.js`, `coverage_status=partial`, `sufficient=False`, `71087` retrieval tokens.
+
+TypeScript guard:
+
+- `run-20260613T085108Z`: `coverage_status=partial`, `sufficient=False`, `54862` retrieval tokens.
+
+Conclusion:
+
+- The owner-artifact direction is useful for recall: it can bridge from a surface directive/compiler file to the deeper expression parser owner.
+- It is not yet a complete redesign: the pipeline still keeps too much surface-role noise, and the added recovery raises token cost.
+- The next change should not add more recall. It should suppress or demote surface support files once a deeper owner artifact is found, so final evidence does not keep spending slots and tokens on adjacent but non-owner files.

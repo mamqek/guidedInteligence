@@ -17,3 +17,15 @@
 - If the user asks to rerun the tool, rerun the actual pipeline or serving command first.
 - Do not substitute unit tests, fake servers, or isolated harness checks for a requested tool rerun.
 - Use tests only as secondary verification after the real tool path has been exercised, or when the real tool path is unavailable and that limitation is stated explicitly.
+
+## Retrieval Pipeline Changes
+
+- For non-trivial retrieval pipeline changes, document the implementation framework before or with the change:
+  - intended stage boundary,
+  - expected quality impact,
+  - expected token impact,
+  - known regression risks,
+  - how results will be compared.
+- After changing retrieval behavior, measure real retrieval tokens from actual pipeline runs and compare results against prior runs. Prefer at least two runs for the main benchmark case when runtime allows.
+- Record run IDs, `coverage_status`, `sufficient`, retrieval token totals, and notable quality changes in the retrieval changelog or the relevant decision note.
+- Do not leave a retrieval behavior change in place only because it reduces tokens. If two real-run comparisons show quality regression or unstable sufficiency, revert or disable the behavior and document the failed experiment.

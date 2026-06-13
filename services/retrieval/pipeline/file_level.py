@@ -33,6 +33,8 @@ from services.retrieval.tools.local import file_role as tool_file_role
 
 DECLARATION_PATTERN = re.compile(r"\b(?:class|interface|function|enum|type|namespace|module)\s+([A-Za-z_][A-Za-z0-9_]*)\b")
 TRIPLE_SLASH_REFERENCE_PATTERN = re.compile(r'///\s*<reference\s+path=["\']([^"\']+)["\']\s*/?>', re.IGNORECASE)
+JS_IMPORT_REFERENCE_PATTERN = re.compile(r'\b(?:import|export)\b(?:[^"\']*?\bfrom\s*)?["\']([^"\']+)["\']')
+JS_REQUIRE_REFERENCE_PATTERN = re.compile(r'\brequire\s*\(\s*["\']([^"\']+)["\']\s*\)')
 
 
 def coverage_area_names(plan: WorkspaceRetrievalPlan) -> tuple[str, ...]:
@@ -45,7 +47,11 @@ def coverage_area_names(plan: WorkspaceRetrievalPlan) -> tuple[str, ...]:
 def extract_explicit_reference_paths(text: str) -> tuple[str, ...]:
     if not text.strip():
         return ()
-    return ordered_unique(match.group(1).strip() for match in TRIPLE_SLASH_REFERENCE_PATTERN.finditer(text) if match.group(1).strip())
+    refs: list[str] = []
+    refs.extend(match.group(1).strip() for match in TRIPLE_SLASH_REFERENCE_PATTERN.finditer(text) if match.group(1).strip())
+    refs.extend(match.group(1).strip() for match in JS_IMPORT_REFERENCE_PATTERN.finditer(text) if match.group(1).strip())
+    refs.extend(match.group(1).strip() for match in JS_REQUIRE_REFERENCE_PATTERN.finditer(text) if match.group(1).strip())
+    return ordered_unique(refs)
 
 
 def resolve_explicit_reference_path(candidate_path: str, reference_path: str) -> str | None:
@@ -55,6 +61,26 @@ def resolve_explicit_reference_path(candidate_path: str, reference_path: str) ->
         return None
     if ":" in normalized_reference or normalized_reference.startswith("/"):
         return None
+    if not looks_like_source_file(normalized_reference):
+        candidate_extension = PurePosixPath(normalized_candidate).suffix
+        extension_order = tuple(
+            dict.fromkeys(
+                [
+                    candidate_extension,
+                    ".ts",
+                    ".tsx",
+                    ".js",
+                    ".jsx",
+                    ".json",
+                ]
+            )
+        )
+        for extension in extension_order:
+            if not extension:
+                continue
+            if looks_like_source_file(normalized_reference + extension):
+                normalized_reference += extension
+                break
     if not looks_like_source_file(normalized_reference):
         return None
     base_dir = PurePosixPath(normalized_candidate).parent
@@ -80,8 +106,14 @@ def role_keywords(role: str) -> tuple[str, ...]:
 
 def role_query_package(plan: WorkspaceRetrievalPlan, role: str, query: str) -> tuple[str, ...]:
     queries = [query.strip()]
+    queries.extend(subquery.query for subquery in plan.owner_subqueries if subquery.role == role)
     queries.extend(role_query_hints(role))
     role_term_set = set(role_keywords(role))
+    for term in plan.owner_artifact_terms:
+        normalized = term.strip()
+        if normalized:
+            queries.append(normalized)
+            queries.append(f"{normalized} {role_phrase_from_spec(role, max_terms=2)}".strip())
     for term in plan.retrieval_terms:
         lowered = term.lower()
         if any(keyword in lowered for keyword in role_term_set):
@@ -418,12 +450,42 @@ def role_owner_path_tokens(role: str) -> tuple[str, ...]:
     return role_path_hints(role)
 
 
-def target_matches_reference_owner_vocab(role: str, path: str) -> bool:
-    return role_owner_path_match(role, path)
+def target_matches_reference_owner_vocab(role: str, path: str, owner_terms: Sequence[str] = ()) -> bool:
+    return role_owner_path_match(role, path) or owner_artifact_path_match(path, owner_terms)
 
 
-def is_generic_reference_hub(role: str, path: str) -> bool:
+def owner_artifact_path_match(path: str, owner_terms: Sequence[str]) -> bool:
     normalized_path = path.replace("\\", "/").lower()
+    stem = PurePosixPath(normalized_path).stem
+    compact_path = re.sub(r"[^a-z0-9]+", "", normalized_path)
+    for term in owner_terms:
+        cleaned = clean_query_terms((term,))
+        for value in cleaned:
+            lowered = value.lower()
+            tokens = [token for token in re.split(r"[^a-z0-9]+", lowered) if len(token) >= 3]
+            if not tokens:
+                continue
+            token_variants = [_owner_path_token_variants(token) for token in tokens[:3]]
+            if all(any(variant in compact_path or variant in stem for variant in variants) for variants in token_variants):
+                return True
+            if any(variant in stem for token in tokens if len(token) >= 4 for variant in _owner_path_token_variants(token)):
+                return True
+    return False
+
+
+def _owner_path_token_variants(token: str) -> tuple[str, ...]:
+    variants = [token]
+    if token.endswith("ing") and len(token) > 5:
+        variants.append(f"{token[:-3]}er")
+    if len(token) >= 7:
+        variants.append(token[:3])
+    return ordered_unique(variants)
+
+
+def is_generic_reference_hub(role: str, path: str, owner_terms: Sequence[str] = ()) -> bool:
+    normalized_path = path.replace("\\", "/").lower()
+    if owner_artifact_path_match(path, owner_terms):
+        return False
     if role == "validation_checking":
         return any(token in normalized_path for token in role_support_path_hints(role))
     return False

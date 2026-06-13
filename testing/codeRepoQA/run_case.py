@@ -88,6 +88,7 @@ def run_case(
     run_id: str,
     llm_config: RunLLMConfig,
     origin_repo_dir: str | Path | None = None,
+    resolution: SnapshotResolution | None = None,
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
         issue_json,
@@ -157,6 +158,13 @@ def run_case(
         hidden_case=hidden_case,
         result=result,
         origin_repo_dir=Path(origin_repo_dir) if origin_repo_dir is not None else None,
+        resolution=resolution
+        or SnapshotResolution(
+            repo_pre_commit=repo_pre_commit,
+            strategy="explicit_run_case",
+            confidence="explicit",
+            details={},
+        ),
     )
     return result
 
@@ -220,6 +228,7 @@ def evaluate_case(
         run_id=run_dir.name,
         llm_config=llm_config,
         origin_repo_dir=case_paths.origin_repo_dir,
+        resolution=resolution,
     )
     _write_run_metadata(
         run_dir=run_dir,
@@ -251,12 +260,42 @@ def resolve_repo_pre_snapshot(
             confidence="high",
             details={"fixed_commit": fixed_commit},
         )
+    event_commit = _extract_event_commit(issue_data.get("events"))
 
     if not created_at:
+        if event_commit:
+            parent_commit = _git(repo_dir, "rev-parse", f"{event_commit}^").strip()
+            return SnapshotResolution(
+                repo_pre_commit=parent_commit,
+                strategy="event_commit_parent",
+                confidence="medium",
+                details={"event_commit": event_commit, "reason": "missing_created_at"},
+            )
         raise ValueError("Issue JSON is missing created_at, so repo-pre cannot be resolved.")
 
     repo_pre_commit = _git(repo_dir, "rev-list", "-1", f"--before={created_at}", "HEAD").strip()
+    if repo_pre_commit and event_commit and not _is_ancestor(repo_dir, repo_pre_commit, event_commit):
+        parent_commit = _git(repo_dir, "rev-parse", f"{event_commit}^").strip()
+        return SnapshotResolution(
+            repo_pre_commit=parent_commit,
+            strategy="event_commit_parent",
+            confidence="medium",
+            details={
+                "event_commit": event_commit,
+                "created_at": created_at,
+                "discarded_timestamp_commit": repo_pre_commit,
+                "reason": "timestamp_commit_not_ancestor_of_event_commit",
+            },
+        )
     if not repo_pre_commit:
+        if event_commit:
+            parent_commit = _git(repo_dir, "rev-parse", f"{event_commit}^").strip()
+            return SnapshotResolution(
+                repo_pre_commit=parent_commit,
+                strategy="event_commit_parent",
+                confidence="medium",
+                details={"event_commit": event_commit, "created_at": created_at, "reason": "no_commit_before_created_at"},
+            )
         root_commits = [line.strip() for line in _git(repo_dir, "rev-list", "--max-parents=0", "HEAD").splitlines() if line.strip()]
         if not root_commits:
             raise RuntimeError(f"No commit found before issue created_at {created_at}.")
@@ -435,8 +474,9 @@ def _write_evaluation_artifacts(
     hidden_case: HiddenCodeRepoQACase,
     result: OrchestrationResult,
     origin_repo_dir: Path | None,
+    resolution: SnapshotResolution,
 ) -> None:
-    oracle = _build_evaluator_oracle(hidden_case=hidden_case, origin_repo_dir=origin_repo_dir)
+    oracle = _build_evaluator_oracle(hidden_case=hidden_case, origin_repo_dir=origin_repo_dir, resolution=resolution)
     comparison = _build_evaluator_comparison(
         visible_case=visible_case,
         result=result,
@@ -471,9 +511,15 @@ def _build_evaluator_oracle(
     *,
     hidden_case: HiddenCodeRepoQACase,
     origin_repo_dir: Path | None,
+    resolution: SnapshotResolution,
 ) -> dict[str, object]:
     hidden_fields = hidden_case.hidden_fields
-    fixed_by_files = _oracle_files_from_fixed_by(hidden_fields.get("fixed_by"), origin_repo_dir)
+    fixed_commit = _extract_fixed_commit(hidden_fields.get("fixed_by"))
+    event_commit = ""
+    if not fixed_commit and resolution.strategy == "event_commit_parent":
+        event_commit = _extract_event_commit(hidden_fields.get("events")) or ""
+    oracle_commit = fixed_commit or event_commit
+    fixed_by_files = _oracle_files_from_commit(oracle_commit, origin_repo_dir)
     comment_file_refs, comment_symbol_refs = _hidden_comment_refs(hidden_fields.get("comments_details"))
     oracle_files = tuple(_ordered_unique((*fixed_by_files, *comment_file_refs)))
     return {
@@ -481,6 +527,8 @@ def _build_evaluator_oracle(
         "symbols": list(comment_symbol_refs),
         "source": {
             "fixed_by_changed_files": bool(fixed_by_files),
+            "fixed_by_commit": bool(fixed_commit),
+            "event_commit": bool(event_commit),
             "hidden_comment_file_refs": bool(comment_file_refs),
             "hidden_comment_symbol_refs": bool(comment_symbol_refs),
         },
@@ -511,14 +559,13 @@ def _build_evaluator_comparison(
     }
 
 
-def _oracle_files_from_fixed_by(fixed_by: object, origin_repo_dir: Path | None) -> tuple[str, ...]:
+def _oracle_files_from_commit(commit: str | None, origin_repo_dir: Path | None) -> tuple[str, ...]:
     if origin_repo_dir is None or not origin_repo_dir.exists():
         return ()
-    fixed_commit = _extract_fixed_commit(fixed_by)
-    if not fixed_commit:
+    if not commit:
         return ()
-    parent_commit = _git(origin_repo_dir, "rev-parse", f"{fixed_commit}^").strip()
-    changed = _git(origin_repo_dir, "diff", "--name-only", parent_commit, fixed_commit).splitlines()
+    parent_commit = _git(origin_repo_dir, "rev-parse", f"{commit}^").strip()
+    changed = _git(origin_repo_dir, "diff", "--name-only", parent_commit, commit).splitlines()
     return tuple(_normalize_path(line) for line in changed if line.strip())
 
 
@@ -592,6 +639,30 @@ def _extract_fixed_commit(fixed_by: object) -> str | None:
             if isinstance(value, str) and value:
                 return value
     return None
+
+
+def _extract_event_commit(events: object) -> str | None:
+    if not isinstance(events, list):
+        return None
+    for item in events:
+        if not isinstance(item, Mapping):
+            continue
+        event_type = str(item.get("event", "")).strip().lower()
+        commit_id = str(item.get("commit_id", "")).strip()
+        if event_type in {"referenced", "closed"} and commit_id:
+            return commit_id
+    return None
+
+
+def _is_ancestor(repo_dir: str | Path, ancestor: str, descendant: str) -> bool:
+    completed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        cwd=str(repo_dir),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return completed.returncode == 0
 
 
 def _git(cwd: str | Path, *args: str) -> str:

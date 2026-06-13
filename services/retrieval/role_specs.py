@@ -139,10 +139,6 @@ def role_generic_terms(role: str) -> tuple[str, ...]:
     return tuple(seen)
 
 
-def role_compact_payload(role: str) -> Mapping[str, object]:
-    return role_spec(role).compact_dict()
-
-
 def role_phrase_from_spec(role: str, *, max_terms: int = 4) -> str:
     spec = role_spec(role)
     terms = list(spec.query_hints[:1])
@@ -165,4 +161,3 @@ def path_matches_role(role: str, path: str) -> bool:
 def path_matches_role_support(role: str, path: str) -> bool:
     lowered = path.replace("\\", "/").lower()
     return any(token in lowered for token in role_support_path_hints(role))
-

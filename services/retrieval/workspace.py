@@ -64,10 +64,12 @@ from services.retrieval.pipeline.file_level import (
     matched_anchor_paths as _matched_anchor_paths,
     merge_source_priorities,
     obsidian_source_queries as _obsidian_source_queries,
+    owner_artifact_path_match as _owner_artifact_path_match,
     path_diverse_candidates as _path_diverse_candidates,
     rank_unique_candidates as _rank_unique_candidates,
     recovery_anchor_queries as _recovery_anchor_queries,
     resolve_explicit_reference_path as _resolve_explicit_reference_path,
+    role_query_package as _role_query_package,
     role_owner_context_terms as _role_owner_context_terms,
     role_owner_path_match as _role_owner_path_match,
     role_owner_path_tokens as _role_owner_path_tokens,
@@ -142,7 +144,6 @@ from services.retrieval.tools import (
 from services.retrieval.tools.local import build_repo_sketch, file_role as tool_file_role
 from services.retrieval.workspace_llm import (
     assess_role_buckets_with_llm,
-    generate_role_helper_queries_with_llm,
 )
 
 
@@ -341,6 +342,12 @@ class WorkspaceRetrievalStage:
             )
 
         selected = self._select_evidence_items(required_buckets, supporting_buckets, policy_result.allowed_sources)
+        selected = self._append_accepted_decision_evidence(
+            selected,
+            synthesis_decision=synthesis_decision,
+            buckets=required_buckets + supporting_buckets,
+            source_policy=policy_result.allowed_sources,
+        )
         self._record("deterministic_coverage_gate_completed", deterministic_gate.to_dict())
         for coverage_area in _coverage_area_names(retrieval_plan):
             bucket = next((item for item in required_buckets + supporting_buckets if item.role == coverage_area), None)
@@ -937,6 +944,7 @@ class WorkspaceRetrievalStage:
             role=role,
             candidates=source_candidates,
             open_file_tool=open_file_tool,
+            owner_terms=ordered_unique((prepared_bucket.query, *prepared_bucket.helper_queries)),
             min_votes=min_votes,
         )
         if not converged_targets:
@@ -996,7 +1004,7 @@ class WorkspaceRetrievalStage:
         search_terms: Sequence[str] = (),
     ) -> RetrievalCandidate | None:
         normalized_path = target_path.replace("\\", "/").lstrip("/")
-        if not _role_owner_path_match(role, normalized_path):
+        if not _role_owner_path_match(role, normalized_path) and not _owner_artifact_path_match(normalized_path, search_terms):
             self._record(
                 "responsibility_direct_owner_candidate_rejected",
                 {"role": role, "path": normalized_path, "reason": "owner_vocab_mismatch"},
@@ -1066,6 +1074,53 @@ class WorkspaceRetrievalStage:
             },
         )
 
+    def _span_candidate_from_accepted_file(
+        self,
+        *,
+        role: str,
+        file_candidate: RetrievalCandidate,
+        query: str,
+        search_terms: Sequence[str] = (),
+    ) -> RetrievalCandidate | None:
+        path = (file_candidate.path or file_candidate.metadata.get("path") or "").replace("\\", "/").lstrip("/")
+        if not path:
+            return None
+        root = Path(self.config.workspace_root).resolve()
+        file_path = (root / path).resolve()
+        try:
+            file_path.relative_to(root)
+        except ValueError:
+            return None
+        if not file_path.is_file():
+            return None
+        text = _read_owner_text_file(file_path)
+        if text is None:
+            return None
+        lines = text.splitlines()
+        if not lines:
+            return None
+        line_start, line_end = _best_direct_owner_span(role=role, query=query, lines=lines, search_terms=search_terms)
+        snippet = "\n".join(lines[line_start - 1 : line_end])
+        source_id = f"repo-pre:{path}:L{line_start}-L{line_end}"
+        metadata = dict(file_candidate.metadata)
+        metadata.pop("file_candidate", None)
+        return RetrievalCandidate(
+            candidate_id=source_id,
+            source_category=file_candidate.source_category,
+            retrieval_path="late_accepted_file_span",
+            text=snippet,
+            score=max(file_candidate.score, 7.5),
+            source_id=source_id,
+            path=path,
+            line_range=f"L{line_start}-L{line_end}",
+            metadata={
+                **metadata,
+                "path": path,
+                "coverage_area": role,
+                "retrieval_path": "late_accepted_file_span",
+            },
+        )
+
     def _reference_expansion_source_candidates(
         self,
         *,
@@ -1126,6 +1181,7 @@ class WorkspaceRetrievalStage:
         role: str,
         candidates: Sequence[RetrievalCandidate],
         open_file_tool: OpenFileTool,
+        owner_terms: Sequence[str] = (),
         min_votes: int = 2,
     ) -> tuple[tuple[str, ...], int]:
         votes: dict[str, set[str]] = {}
@@ -1169,13 +1225,13 @@ class WorkspaceRetrievalStage:
                         {"role": role, "source_path": path, "reference_path": reference_path, "resolved_path": resolved_path, "reason": "non_implementation_target"},
                     )
                     continue
-                if not _target_matches_reference_owner_vocab(role, resolved_path):
+                if not _target_matches_reference_owner_vocab(role, resolved_path, owner_terms):
                     self._record(
                         "responsibility_reference_target_rejected",
                         {"role": role, "source_path": path, "reference_path": reference_path, "resolved_path": resolved_path, "reason": "owner_vocab_mismatch"},
                     )
                     continue
-                if _is_generic_reference_hub(role, resolved_path):
+                if _is_generic_reference_hub(role, resolved_path, owner_terms):
                     self._record(
                         "responsibility_reference_target_rejected",
                         {"role": role, "source_path": path, "reference_path": reference_path, "resolved_path": resolved_path, "reason": "generic_hub_blocked"},
@@ -1569,10 +1625,30 @@ class WorkspaceRetrievalStage:
         quality_by_ref = {str(item.get("ref", "")): str(item.get("role", "")).strip().lower() for item in decision.snippet_assessment}
         rejected_refs = set(decision.rejected_anchor_refs)
         follow_up_roles = {str(item.get("role", "")).strip() for item in decision.follow_up_queries if str(item.get("role", "")).strip()}
+        missing_roles = {str(role).strip() for role in decision.missing_areas if str(role).strip()}
         updated: list[RoleRetrievalBucket] = []
         for bucket in buckets:
+            accepted_file_spans: list[RetrievalCandidate] = []
+            existing_non_file_paths = {
+                (candidate.path or "").replace("\\", "/")
+                for candidate in bucket.accepted_candidates
+                if not _is_file_candidate(candidate)
+            }
+            for candidate in bucket.accepted_candidates:
+                if not _is_file_candidate(candidate) or candidate.source_id not in decision.accepted_anchor_refs:
+                    continue
+                if candidate.source_id in rejected_refs or (candidate.path or "").replace("\\", "/") in existing_non_file_paths:
+                    continue
+                span_candidate = self._span_candidate_from_accepted_file(
+                    role=bucket.role,
+                    file_candidate=candidate,
+                    query=bucket.query,
+                    search_terms=ordered_unique((bucket.query, *bucket.helper_queries)),
+                )
+                if span_candidate is not None:
+                    accepted_file_spans.append(span_candidate)
             reranked = sorted(
-                bucket.accepted_candidates,
+                tuple(bucket.accepted_candidates) + tuple(accepted_file_spans),
                 key=lambda candidate: self._final_role_candidate_score(
                     role=bucket.role,
                     candidate=candidate,
@@ -1610,7 +1686,13 @@ class WorkspaceRetrievalStage:
                 saw_core = saw_core or quality == "core"
             role_status = "missing"
             if satisfying_refs:
-                role_status = "strong" if saw_core and bucket.role not in follow_up_roles else "weak"
+                assessor_accepts_role = (
+                    decision.acceptance_satisfied
+                    and bucket.role in required_roles
+                    and bucket.role not in follow_up_roles
+                    and bucket.role not in missing_roles
+                )
+                role_status = "strong" if (saw_core or assessor_accepts_role) and bucket.role not in follow_up_roles else "weak"
             snippet_assessment = tuple(
                 {
                     "ref": candidate.source_id,
@@ -1784,11 +1866,17 @@ class WorkspaceRetrievalStage:
     ) -> tuple[Mapping[str, Any], ...]:
         anchor_queries = tuple(_recovery_anchor_queries(bucket.role, all_buckets))
         fallback_queries = tuple(_role_snippet_queries(bucket.role, query=bucket.query, helper_queries=bucket.helper_queries))
+        owner_search_terms = ordered_unique((bucket.query, *bucket.helper_queries))
         owner_paths = tuple(
             ordered_unique(
                 candidate.path
                 for candidate in bucket.accepted_candidates
-                if candidate.path and _role_owner_path_match(bucket.role, candidate.path)
+                if candidate.path
+                and (
+                    _role_owner_path_match(bucket.role, candidate.path)
+                    or _is_file_candidate(candidate)
+                    or _owner_artifact_path_match(candidate.path, owner_search_terms)
+                )
             )
         )
         specs: list[Mapping[str, Any]] = []
@@ -2306,15 +2394,7 @@ class WorkspaceRetrievalStage:
         narrowed_files: Sequence[str],
         phase: str,
     ) -> tuple[PreparedRoleBucket, int]:
-        generated_helper_queries = generate_role_helper_queries_with_llm(
-            role=role,
-            query=query,
-            retrieval_plan=retrieval_plan,
-            llm_config=self.config.llm_config,
-            log_warning=lambda payload: self._record("llm_request_warning", {"conversation_id": retrieval_plan.conversation_id, **payload}),
-            log_event=lambda event_type, payload: self._record(event_type, {"conversation_id": retrieval_plan.conversation_id, **payload}),
-        )
-        helper_queries = ordered_unique((query.strip(), *generated_helper_queries))[:MAX_ROLE_QUERIES]
+        helper_queries = _role_query_package(retrieval_plan, role, query)
         self._record("role_subquery_started", {"role": role, "query": query, "phase": phase, "helper_queries": list(helper_queries)})
         observations: list[ToolObservation] = []
         raw_candidates: list[RetrievalCandidate] = []
@@ -2360,13 +2440,16 @@ class WorkspaceRetrievalStage:
         seen_candidate_paths = {candidate.path for candidate in raw_candidates if candidate.path}
         for narrowed_path in role_narrowed_files:
             normalized_path = str(narrowed_path).replace("\\", "/").lstrip("/")
-            if normalized_path in seen_candidate_paths or not _role_owner_path_match(role, normalized_path):
+            if normalized_path in seen_candidate_paths:
+                continue
+            search_terms = _in_file_search_terms(retrieval_plan, role, query, helper_queries)
+            if not _role_owner_path_match(role, normalized_path) and not _owner_artifact_path_match(normalized_path, search_terms):
                 continue
             direct_candidate = self._direct_owner_candidate_from_path(
                 role=role,
                 target_path=normalized_path,
                 query=query,
-                search_terms=_in_file_search_terms(retrieval_plan, role, query, helper_queries),
+                search_terms=search_terms,
             )
             if direct_candidate is None:
                 continue
@@ -2808,13 +2891,20 @@ class WorkspaceRetrievalStage:
         retrieval_plan: WorkspaceRetrievalPlan,
         buckets: Sequence[RoleRetrievalBucket],
     ) -> RetrievalSynthesisDecision:
-        required_buckets = [bucket for bucket in buckets if bucket.role in retrieval_plan.required_roles]
+        synthesis_buckets = tuple(
+            replace(
+                bucket,
+                accepted_candidates=_drop_redundant_file_candidates(bucket.accepted_candidates),
+            )
+            for bucket in buckets
+        )
+        required_buckets = [bucket for bucket in synthesis_buckets if bucket.role in retrieval_plan.required_roles]
         missing_roles = _bucket_missing_roles(required_buckets)
-        accepted_candidates = [candidate for bucket in buckets for candidate in bucket.accepted_candidates]
+        accepted_candidates = [candidate for bucket in synthesis_buckets for candidate in bucket.accepted_candidates]
         snippets = _planning_snippets(self._rank_candidates(accepted_candidates))
         response = assess_role_buckets_with_llm(
             intent=retrieval_plan,
-            role_buckets=[bucket.to_dict() for bucket in buckets],
+            role_buckets=[bucket.to_dict() for bucket in synthesis_buckets],
             current_snippets=snippets,
             missing_roles=missing_roles,
             llm_config=self.config.llm_config,
@@ -3059,6 +3149,77 @@ class WorkspaceRetrievalStage:
             if not progressed:
                 break
         return selected
+
+    def _append_accepted_decision_evidence(
+        self,
+        selected: Sequence[EvidenceItem],
+        *,
+        synthesis_decision: RetrievalSynthesisDecision,
+        buckets: Sequence[RoleRetrievalBucket],
+        source_policy: Sequence[SourceCategory],
+    ) -> list[EvidenceItem]:
+        expanded = list(selected)
+        seen_refs = {item.source_id for item in expanded}
+        candidates_by_ref: dict[str, tuple[str, RetrievalCandidate]] = {}
+        for bucket in buckets:
+            for candidate in bucket.accepted_candidates:
+                candidates_by_ref.setdefault(candidate.source_id, (bucket.role, candidate))
+
+        for ref in synthesis_decision.accepted_anchor_refs:
+            if len(expanded) >= MAX_EVIDENCE_ITEMS or ref in seen_refs or ref.endswith(":FILE"):
+                continue
+            role, candidate = candidates_by_ref.get(ref, ("", None))  # type: ignore[assignment]
+            if candidate is not None:
+                if candidate.source_category not in source_policy:
+                    continue
+                evidence = EvidenceItem(
+                    source_category=candidate.source_category,
+                    source_id=candidate.source_id,
+                    snippet=candidate.text,
+                    rank=len(expanded) + 1,
+                    metadata=dict(candidate.metadata),
+                )
+            else:
+                evidence = self._evidence_item_from_source_ref(ref, rank=len(expanded) + 1, role=role)
+                if evidence is None or evidence.source_category not in source_policy:
+                    continue
+            expanded.append(evidence)
+            seen_refs.add(ref)
+        return expanded
+
+    def _evidence_item_from_source_ref(self, ref: str, *, rank: int, role: str = "") -> EvidenceItem | None:
+        match = re.match(r"^repo-pre:(?P<path>.+):L(?P<start>\d+)-L(?P<end>\d+)$", ref)
+        if match is None:
+            return None
+        path = match.group("path").replace("\\", "/").lstrip("/")
+        line_start = max(1, int(match.group("start")))
+        line_end = max(line_start, int(match.group("end")))
+        root = Path(self.config.workspace_root).resolve()
+        file_path = (root / path).resolve()
+        try:
+            file_path.relative_to(root)
+        except ValueError:
+            return None
+        text = _read_owner_text_file(file_path)
+        if text is None:
+            return None
+        lines = text.splitlines()
+        if not lines:
+            return None
+        snippet = "\n".join(lines[line_start - 1 : min(line_end, len(lines))])
+        return EvidenceItem(
+            source_category=SourceCategory.SOURCE_CODE,
+            source_id=ref,
+            snippet=snippet,
+            rank=rank,
+            metadata={
+                "path": path,
+                "coverage_area": role,
+                "file_role": "implementation",
+                "retrieval_path": "accepted_decision_ref",
+                "line_range": f"L{line_start}-L{line_end}",
+            },
+        )
 
     def _record_tool(self, request: ToolRequest, observation: ToolObservation, *, round_index: int) -> None:
         self._record("tool_call_requested", {"round": round_index, **request.to_dict()})
