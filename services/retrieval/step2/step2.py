@@ -50,7 +50,13 @@ def plan_workspace_retrieval_step(
         "existing_evidence": [item.to_dict() for item in state.evidence[:6]],
         "allowed_sources": [category.value for category in policy_result.allowed_sources],
         "connected_sources": [
-            {"source_category": document.source_category.value, "source_id": document.source_id, "title": document.title}
+            {
+                "source_category": document.source_category.value,
+                "source_id": document.source_id,
+                "title": document.title,
+                "snippet": str(getattr(document, "content", ""))[:800],
+                "metadata": dict(getattr(document, "metadata", {}) or {}),
+            }
             for document in connected_documents[:20]
         ],
         "required_roles": list(DEFAULT_REQUIRED_RETRIEVAL_ROLES),

@@ -19,6 +19,7 @@ Write using these rules:
 13. Separate what is confirmed by evidence from what is still uncertain or still needs verification.
 14. Cite evidence only with the exact markdown links provided in the payload. Do not invent new refs or new URLs.
 15. Do not repeat the same snippet in multiple visible forms unless the repetition has a clear explanatory purpose.
+16. If the payload includes `required_evidence`, use it in the explanation unless it is genuinely irrelevant. These items are high-priority anchors such as exact error text, diagnostics, or direct implementation evidence. Keep the narrative beginner-friendly, but do not skip these anchors.
 
 Output requirements:
 

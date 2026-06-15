@@ -130,14 +130,14 @@ def _compact_role_bucket(bucket: Mapping[str, Any]) -> dict[str, Any]:
     compact = {
         "role": str(bucket.get("role", "")),
         "query": str(bucket.get("query", "")),
-        "helper_queries": list(bucket.get("helper_queries", ()))[:4],
-        "accepted_refs": list(bucket.get("accepted_refs", ()))[:8],
-        "rejected_refs": list(bucket.get("rejected_refs", ()))[:8],
+        "helper_queries": list(bucket.get("helper_queries", ()))[:2],
+        "accepted_refs": list(bucket.get("accepted_refs", ()))[:5],
+        "rejected_refs": list(bucket.get("rejected_refs", ()))[:5],
         "missing_reason": str(bucket.get("missing_reason", "")),
         "validation_notes": list(bucket.get("validation_notes", ()))[:6],
         "snippets": [],
     }
-    for snippet in bucket.get("snippets", ())[:4]:
+    for snippet in bucket.get("snippets", ())[:2]:
         if isinstance(snippet, Mapping):
             compact["snippets"].append(
                 {
@@ -145,7 +145,7 @@ def _compact_role_bucket(bucket: Mapping[str, Any]) -> dict[str, Any]:
                     "path": str(snippet.get("path", "")),
                     "line_range": str(snippet.get("line_range", "")),
                     "file_role": str(snippet.get("file_role", "")),
-                    "snippet": str(snippet.get("snippet", ""))[:500],
+                    "snippet": str(snippet.get("snippet", ""))[:320],
                 }
             )
     return compact

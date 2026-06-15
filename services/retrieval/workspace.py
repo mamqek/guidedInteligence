@@ -13,6 +13,7 @@ from core.models import ConversationState, EvidenceItem, PolicyResult, Retrieval
 from core.source_policy import SourceCategory
 from services.retrieval.bm25 import build_index_from_repo, load_index, save_index
 from services.retrieval.config import ConnectedSourceDocument, WorkspaceRetrievalConfig
+from services.retrieval.mcp import MCPConnectedSourceAdapter, MCPConnectedSourceError
 from services.retrieval.obsidian import (
     ObsidianHybridSearchAdapter,
     ObsidianSearchError,
@@ -162,7 +163,6 @@ class WorkspaceRetrievalStage:
         self.config = replace(config, qdrant_config=resolved_qdrant)
 
     def retrieve(self, state: ConversationState, policy_result: PolicyResult) -> RetrievalResult:
-        connected_documents = self._connected_documents()
         if state.evidence:
             retrieval_plan = existing_evidence_plan(
                 conversation_id=state.conversation_id,
@@ -185,6 +185,7 @@ class WorkspaceRetrievalStage:
                 },
             )
 
+        connected_documents = self._connected_documents(state.user_input, policy_result.allowed_sources)
         cgc_tools = self._cgc_tools()
         if self.config.enable_indexing:
             index_observation = cgc_tools["cgc_index_repo"].run(
@@ -275,7 +276,7 @@ class WorkspaceRetrievalStage:
             cgc_tools=cgc_tools,
             starting_tool_call_count=tool_call_count,
         )
-        synthesis_decision = self._synthesize_role_buckets(retrieval_plan, required_buckets)
+        synthesis_decision = self._synthesize_or_accept_deterministic(retrieval_plan, required_buckets)
         required_buckets = self._apply_synthesis_feedback(
             buckets=required_buckets,
             decision=synthesis_decision,
@@ -322,7 +323,7 @@ class WorkspaceRetrievalStage:
                 cgc_tools=cgc_tools,
                 starting_tool_call_count=tool_call_count,
             )
-            synthesis_decision = self._synthesize_role_buckets(retrieval_plan, required_buckets + supporting_buckets)
+            synthesis_decision = self._synthesize_or_accept_deterministic(retrieval_plan, required_buckets + supporting_buckets)
             updated_buckets = self._apply_synthesis_feedback(
                 buckets=required_buckets + supporting_buckets,
                 decision=synthesis_decision,
@@ -346,6 +347,12 @@ class WorkspaceRetrievalStage:
             selected,
             synthesis_decision=synthesis_decision,
             buckets=required_buckets + supporting_buckets,
+            source_policy=policy_result.allowed_sources,
+        )
+        selected = self._append_connected_source_evidence(
+            selected,
+            connected_documents=connected_documents,
+            retrieval_plan=retrieval_plan,
             source_policy=policy_result.allowed_sources,
         )
         self._record("deterministic_coverage_gate_completed", deterministic_gate.to_dict())
@@ -380,6 +387,16 @@ class WorkspaceRetrievalStage:
             "retriever": "workspace",
             "retrieval_plan": retrieval_plan.to_dict(),
             "source_registry": [entry.to_dict() for entry in self.config.source_registry()],
+            "connected_source_count": len(connected_documents),
+            "connected_sources": [
+                {
+                    "source_category": document.source_category.value,
+                    "source_id": document.source_id,
+                    "title": document.title,
+                    "adapter": document.metadata.get("adapter", "connected_documents"),
+                }
+                for document in connected_documents[:20]
+            ],
             "index_rebuilt": True,
             "index_document_count": len(index.documents),
             "selected_count": len(selected),
@@ -1637,7 +1654,7 @@ class WorkspaceRetrievalStage:
             for candidate in bucket.accepted_candidates:
                 if not _is_file_candidate(candidate) or candidate.source_id not in decision.accepted_anchor_refs:
                     continue
-                if candidate.source_id in rejected_refs or (candidate.path or "").replace("\\", "/") in existing_non_file_paths:
+                if (candidate.path or "").replace("\\", "/") in existing_non_file_paths:
                     continue
                 span_candidate = self._span_candidate_from_accepted_file(
                     role=bucket.role,
@@ -1796,7 +1813,7 @@ class WorkspaceRetrievalStage:
         if not changed:
             return tuple(recovered_buckets), total_tool_calls, synthesis_decision
 
-        new_decision = self._synthesize_role_buckets(retrieval_plan, tuple(recovered_buckets))
+        new_decision = self._synthesize_or_accept_deterministic(retrieval_plan, tuple(recovered_buckets))
         updated_buckets = self._apply_synthesis_feedback(
             buckets=tuple(recovered_buckets),
             decision=new_decision,
@@ -2939,11 +2956,108 @@ class WorkspaceRetrievalStage:
         self._record("retrieval_refinement_evaluated", decision.to_dict())
         return decision
 
-    def _connected_documents(self) -> tuple[ConnectedSourceDocument, ...]:
+    def _synthesize_or_accept_deterministic(
+        self,
+        retrieval_plan: WorkspaceRetrievalPlan,
+        buckets: Sequence[RoleRetrievalBucket],
+    ) -> RetrievalSynthesisDecision:
+        decision = self._deterministic_synthesis_decision(retrieval_plan, buckets)
+        if decision is not None:
+            self._record("retrieval_refinement_evaluated", decision.to_dict())
+            self._record(
+                "late_assessor_skipped",
+                {
+                    "reason": "deterministic_coverage_gate_satisfied",
+                    "required_roles": list(retrieval_plan.required_roles),
+                    "accepted_anchor_refs": list(decision.accepted_anchor_refs),
+                },
+            )
+            return decision
+        return self._synthesize_role_buckets(retrieval_plan, buckets)
+
+    def _deterministic_synthesis_decision(
+        self,
+        retrieval_plan: WorkspaceRetrievalPlan,
+        buckets: Sequence[RoleRetrievalBucket],
+    ) -> RetrievalSynthesisDecision | None:
+        required_buckets = tuple(bucket for bucket in buckets if bucket.role in retrieval_plan.required_roles)
+        deterministic_gate = _build_deterministic_coverage_gate(retrieval_plan.required_roles, required_buckets)
+        if not deterministic_gate.satisfied:
+            return None
+
+        accepted_anchor_refs: list[str] = []
+        snippet_assessment: list[Mapping[str, str]] = []
+        for bucket in buckets:
+            satisfying_refs = set(bucket.satisfying_refs or ())
+            candidates = tuple(_drop_redundant_file_candidates(bucket.accepted_candidates))
+            for candidate in candidates:
+                if _is_file_candidate(candidate):
+                    continue
+                quality = "core" if bucket.role in retrieval_plan.required_roles and (
+                    not satisfying_refs or candidate.source_id in satisfying_refs
+                ) else "secondary"
+                if quality == "core":
+                    accepted_anchor_refs.append(candidate.source_id)
+                snippet_assessment.append(
+                    {
+                        "ref": candidate.source_id,
+                        "role": quality,
+                        "reason": "deterministic coverage gate accepted this local evidence without late assessor arbitration.",
+                    }
+                )
+
+        if not accepted_anchor_refs:
+            return None
+        return RetrievalSynthesisDecision(
+            acceptance_satisfied=True,
+            missing_areas=(),
+            accepted_anchor_refs=tuple(ordered_unique(accepted_anchor_refs)),
+            rejected_anchor_refs=(),
+            snippet_assessment=tuple(snippet_assessment),
+            stop_reason="deterministic_coverage_gate_satisfied",
+            follow_up_queries=(),
+        )
+
+    def _connected_documents(
+        self,
+        query: str = "",
+        allowed_sources: Sequence[SourceCategory] = (),
+    ) -> tuple[ConnectedSourceDocument, ...]:
         documents: list[ConnectedSourceDocument] = []
         documents.extend(self.config.issue_tracker_documents)
         documents.extend(self.config.pull_request_documents)
         documents.extend(self.config.notebooklm_documents)
+        if query and self.config.connected_source_adapters.get("mcp", True):
+            for source_config in self.config.mcp_connected_sources:
+                if allowed_sources and source_config.source_category not in allowed_sources:
+                    continue
+                adapter = MCPConnectedSourceAdapter(source_config)
+                try:
+                    source_documents = adapter.search(query)
+                except MCPConnectedSourceError as exc:
+                    self._record(
+                        "mcp_connected_source_failed",
+                        {
+                            "adapter": "mcp",
+                            "source_name": source_config.name,
+                            "source_category": source_config.source_category.value,
+                            "tool_name": source_config.query_tool_name,
+                            "reason": str(exc)[:400],
+                        },
+                    )
+                    continue
+                documents.extend(source_documents)
+                self._record(
+                    "mcp_connected_source_searched",
+                    {
+                        "adapter": "mcp",
+                        "source_name": source_config.name,
+                        "source_category": source_config.source_category.value,
+                        "tool_name": source_config.query_tool_name,
+                        "result_count": len(source_documents),
+                        "source_refs": [document.source_id for document in source_documents],
+                    },
+                )
         for note_path in self.config.local_note_paths:
             path = Path(note_path)
             if not path.exists() or not path.is_file():
@@ -3185,6 +3299,43 @@ class WorkspaceRetrievalStage:
                     continue
             expanded.append(evidence)
             seen_refs.add(ref)
+        return expanded
+
+    def _append_connected_source_evidence(
+        self,
+        selected: Sequence[EvidenceItem],
+        *,
+        connected_documents: Sequence[ConnectedSourceDocument],
+        retrieval_plan: WorkspaceRetrievalPlan,
+        source_policy: Sequence[SourceCategory],
+    ) -> list[EvidenceItem]:
+        expanded = list(selected)
+        seen_refs = {item.source_id for item in expanded}
+        priority_categories = set(retrieval_plan.source_priorities)
+        for document in connected_documents:
+            if len(expanded) >= MAX_EVIDENCE_ITEMS:
+                break
+            if document.source_id in seen_refs or document.source_category not in source_policy:
+                continue
+            if priority_categories and document.source_category not in priority_categories:
+                continue
+            content = document.content.strip()
+            if not content:
+                continue
+            expanded.append(
+                EvidenceItem(
+                    source_category=document.source_category,
+                    source_id=document.source_id,
+                    snippet=content[:1600],
+                    rank=len(expanded) + 1,
+                    metadata={
+                        "title": document.title,
+                        "retrieval_path": "connected_source",
+                        **dict(document.metadata),
+                    },
+                )
+            )
+            seen_refs.add(document.source_id)
         return expanded
 
     def _evidence_item_from_source_ref(self, ref: str, *, rank: int, role: str = "") -> EvidenceItem | None:

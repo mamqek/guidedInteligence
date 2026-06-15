@@ -444,7 +444,7 @@ def planning_snippets(candidates: Sequence[RetrievalCandidate]) -> tuple[dict[st
                 "retrieval_path": candidate.retrieval_path,
                 "file_role": candidate.metadata.get("file_role", ""),
                 "score": candidate.score,
-                "snippet": salient_candidate_excerpt(candidate, limit=900),
+                "snippet": salient_candidate_excerpt(candidate, limit=420),
             }
         )
     return tuple(snippets)
