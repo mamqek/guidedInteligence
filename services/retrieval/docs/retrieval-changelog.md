@@ -1,5 +1,45 @@
 # Retrieval Changelog
 
+## 2026-06-15
+
+### Added: MCP Connected Source Adapter
+
+- Intended stage boundary:
+  - add MCP as a query-time connected-source adapter before Step 2 planning,
+  - normalize MCP tool results into existing `ConnectedSourceDocument` records,
+  - pass bounded connected-source snippets into Step 2 planning,
+  - allow policy-approved, prioritized connected documents to become final evidence with `retrieval_path=connected_source`,
+  - keep source-code/document retrieval on the existing CGC + Qdrant path,
+  - keep MCP sources disabled unless `WorkspaceRetrievalConfig.mcp_connected_sources` is explicitly configured,
+  - map MCP results into existing source categories such as `issue_tracker`, `pull_request`, and `notebooklm` rather than adding a generic evidence category.
+- Expected quality impact:
+  - make issue/PR-like external context visible to the planner through a common connector layer,
+  - preserve existing code retrieval quality when no MCP source is configured,
+  - improve source extensibility for GitHub and future sources without coupling retrieval to one provider.
+- Expected token impact:
+  - no retrieval token change when no MCP source is configured,
+  - small planner prompt increase when MCP documents are returned because connected-source IDs, titles, metadata, and bounded snippets become visible before Step 2,
+  - no Qdrant embedding/token impact because MCP documents are not indexed in this first pass.
+- Known regression risks:
+  - MCP result normalization is schema-flexible but shallow, so provider-specific fields may need adapter-specific mappings later,
+  - query-time MCP calls can add latency or fail independently of local retrieval,
+  - connected documents can now become evidence, but they do not satisfy code-owner coverage gates; this avoids letting external discussion replace required source-code evidence.
+- Comparison method:
+  - focused unit tests use a fake stdio MCP server to verify JSON-RPC tool calls, normalization, source-policy filtering, registry queryability, and trace logging,
+  - broader real pipeline token comparison is not meaningful yet because the adapter is disabled by default and no real GitHub MCP source is configured for the benchmark runs.
+
+### Verification: MCP Connected Source Adapter
+
+- Focused tests:
+  - `python -m unittest tests.test_mcp_connected_sources`
+  - passed with fake stdio MCP source returning an issue-like result.
+- Compile check:
+  - `python -m py_compile services\retrieval\config.py services\retrieval\workspace.py services\retrieval\step2\step2.py services\retrieval\mcp\stdio_client.py services\retrieval\mcp\adapters.py tests\test_mcp_connected_sources.py`
+  - passed.
+- Real retrieval-token measurement:
+  - not run for this slice because no MCP source is configured by default, so existing benchmark pipeline behavior and retrieval token totals should remain unchanged.
+  - when a real GitHub MCP source is configured, the next comparison should record the run ID, `coverage_status`, `sufficient`, retrieval token totals, returned MCP source refs, and any final-evidence changes.
+
 ## Sources Used During This Retrieval Rework
 
 - OrcaLoca: An LLM Agent Framework for Software Issue Localization  
@@ -218,6 +258,122 @@
   - Vue: `71087 -> 25504` retrieval tokens while still returning `src/exp-parser.js`; quality remains `partial / sufficient=False`.
   - TypeScript: `54862 -> 14284` retrieval tokens and improves to `strong / sufficient=True`.
 - The remaining Vue issue is not broad retrieval volume; the owner file is present. The remaining failure is ranking/sufficiency judgment around the exact directive validation and diagnostics evidence.
+
+### Changed: Compact Late Assessor With Deterministic Pre-Gate
+
+- Intended stage boundary:
+  - keep planner LLM unchanged,
+  - allow the existing deterministic coverage gate to synthesize an accepted decision before calling the late assessor when all required roles are already locally strong,
+  - reduce late-assessor payload size when the assessor is still needed,
+  - preserve accepted full-file owner artifacts by allowing them to materialize into local spans even when the assessor also lists the file artifact as rejected.
+- Expected quality impact:
+  - preserve TypeScript `strong / sufficient=True`,
+  - preserve Vue return of `src/exp-parser.js`,
+  - avoid treating contradictory accepted/rejected file-level assessor output as a reason to drop concrete diagnostic spans.
+- Expected token impact:
+  - skip late-assessor calls in cases already proven by deterministic coverage,
+  - reduce every remaining late-assessor prompt by sending fewer helper queries, refs, and shorter snippet previews.
+- Known regression risks:
+  - too-small assessor previews can hide the exact line that lets the assessor accept a role,
+  - accepting file-level artifacts for span expansion can add secondary evidence that the assessor did not fully endorse,
+  - the deterministic pre-gate may not fire often until earlier local role statuses become stronger before late assessment.
+- Comparison method:
+  - reran the real `run-case` pipeline once on Vue issue 242 and TypeScript issue 6 for each slice,
+  - compared coverage, sufficiency, retrieved files, LLM calls, and retrieval tokens from trace usage.
+
+### Verification: Compact Late Assessor With Deterministic Pre-Gate
+
+- Deterministic pre-gate only:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260614T090131Z-det-pre-gate`
+    - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/directive.js`, `src/exp-parser.js`, `src/emitter.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `3 / 16149`
+    - `late_assessor_skipped` did not fire; token reduction came from the run path requiring fewer assessor passes than the previous kept Vue run.
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260614T090347Z-det-pre-gate`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=strong`, `sufficient=True`
+    - retrieval LLM calls/tokens: `3 / 14553`
+    - `late_assessor_skipped` did not fire.
+- Compact assessor payload only:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260614T090855Z-compact-assessor-payload`
+    - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/directive.js`, `src/emitter.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `4 / 20640`
+    - regression: `src/exp-parser.js` was lost from final retrieved files.
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260614T091127Z-compact-assessor-payload`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=strong`, `sufficient=True`
+    - retrieval LLM calls/tokens: `3 / 12115`
+  - conclusion: compact payload alone was not kept without the accepted-file span fix because Vue lost owner diagnostic evidence.
+- Compact assessor payload plus accepted-file span recovery:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260614T091458Z-accepted-file-span-compact`
+    - retrieved files: `src/directives/model.js`, `src/text-parser.js`, `src/exp-parser.js`, `src/emitter.js`, `src/directive.js`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `3 / 13790`
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260614T091654Z-accepted-file-span-compact`
+    - retrieved files: `src/compiler/types.ts`, `src/compiler/scanner.ts`, `src/compiler/checker.ts`, `src/compiler/diagnosticMessages.json`, `src/compiler/emitter.ts`, `src/compiler/parser.ts`
+    - `coverage_status=strong`, `sufficient=True`
+    - retrieval LLM calls/tokens: `3 / 12075`
+
+### Conclusion: Compact Late Assessor With Deterministic Pre-Gate
+
+- Kept compact late-assessor payload plus accepted-file span recovery.
+- Compared to the previous kept assessor-strong-gate slice:
+  - Vue: `25504 -> 13790` retrieval tokens while preserving `src/exp-parser.js`; quality remains `partial / sufficient=False`.
+  - TypeScript: `14284 -> 12075` retrieval tokens while preserving `strong / sufficient=True`.
+- Compared to the high-token 2026-06-13 baseline:
+  - Vue: `71087 -> 13790`.
+  - TypeScript: `54862 -> 12075`.
+- The deterministic pre-gate is present but did not fire in these two benchmark runs; the measured win came from smaller assessor payloads and preserving line-span recovery for accepted file artifacts.
+
+### Changed: Required Evidence Guard For Final Explanations
+
+- Intended stage boundary:
+  - keep retrieval and final explanation generation separate,
+  - identify high-priority final-answer evidence from selected evidence using generic local predicates,
+  - pass those anchors to the explanation generator as `required_evidence`,
+  - validate visible Markdown citation coverage after generation and append a short grounded note only when a required anchor is still not visibly cited.
+- Expected quality impact:
+  - keep the beginner-friendly narrative style of `explanation_markdown_v2`,
+  - prevent exact diagnostic or direct error-path evidence from being retrieved but omitted from the final answer,
+  - avoid redundant repair sections when an overlapping same-file citation already covers the required evidence.
+- Expected token impact:
+  - small response-generation prompt increase from the added `required_evidence` payload,
+  - no intended retrieval token increase.
+- Known regression risks:
+  - if a required anchor is too broad, the visible repair section can make an otherwise smooth answer feel bolted on,
+  - overlapping citation detection handles line ranges, but not semantic equivalence across different files.
+- Comparison method:
+  - reran the real `run-case` pipeline once on Vue issue 242 and TypeScript issue 6,
+  - inspected final `response_payload.content` and `used_evidence_refs`,
+  - confirmed Vue visibly cites `src/exp-parser.js` and TypeScript remains coherent without an unnecessary repair section.
+
+### Verification: Required Evidence Guard For Final Explanations
+
+- First required-evidence response guard:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260614T183314Z-required-evidence-response`
+    - `coverage_status=partial`, `sufficient=False`
+    - final `used_evidence_refs` included `repo-pre:src/exp-parser.js:L73-L152`
+    - final answer mentioned `exp-parser.js`, but visible citation handling still needed tightening.
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260614T183520Z-required-evidence-response`
+    - `coverage_status=strong`, `sufficient=True`
+    - regression: an unnecessary `Evidence Not To Miss` repair section was appended for an overlapping diagnostics range.
+- Visible citation coverage guard:
+  - Vue run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-242\runs\run-20260614T183857Z-visible-required-evidence`
+    - `coverage_status=partial`, `sufficient=False`
+    - retrieval LLM calls/tokens: `3 / 13193`
+    - final `used_evidence_refs`: `repo-pre:src/exp-parser.js:L73-L152`, `repo-pre:src/directive.js:L81-L160`
+    - final answer visibly cites `src/exp-parser.js:L73-L152`, preserving the strongest diagnostic anchor.
+  - TypeScript run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-6\runs\run-20260614T184102Z-visible-required-evidence`
+    - `coverage_status=strong`, `sufficient=True`
+    - retrieval LLM calls/tokens: `3 / 12005`
+    - final answer remains a coherent beginner-friendly overview and no longer appends a redundant repair section.
+
+### Conclusion: Required Evidence Guard For Final Explanations
+
+- Kept the visible required-evidence guard.
+- The Vue answer now uses and visibly cites `src/exp-parser.js:L73-L152`, which contains the reported `Error parsing expression` path.
+- TypeScript remains `strong / sufficient=True` and keeps a normal narrative explanation without a forced addendum.
 
 ## 2026-06-12
 

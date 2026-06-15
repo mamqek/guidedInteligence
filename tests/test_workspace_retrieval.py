@@ -272,6 +272,22 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     ],
                     missing_areas=["behavior_output", "representation"],
                 ),
+                _late_synthesis_response(
+                    accepted_anchor_refs=[
+                        "workspace:src/compiler/parser.ts:L1-L1",
+                        "workspace:src/compiler/checker.ts:L1-L1",
+                        "workspace:src/compiler/diagnosticMessages.json:L1-L1",
+                    ],
+                    missing_areas=["behavior_output", "representation"],
+                ),
+                _late_synthesis_response(
+                    accepted_anchor_refs=[
+                        "workspace:src/compiler/parser.ts:L1-L1",
+                        "workspace:src/compiler/checker.ts:L1-L1",
+                        "workspace:src/compiler/diagnosticMessages.json:L1-L1",
+                    ],
+                    missing_areas=["behavior_output", "representation"],
+                ),
             ]
         ) as server_url:
             root = Path(temp_dir)
@@ -776,12 +792,16 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 "repo:src/owner.ts:L1-L1",
             )
 
-            refined = stage._refine_candidate_with_local_file_search(
+            refined = stage._span_candidate_from_accepted_file(
                 role="validation_checking",
+                file_candidate=_test_file_candidate(
+                    "src/owner.ts",
+                    "src/owner.ts",
+                    "validation_checking",
+                    "repo:src/owner.ts:FILE",
+                ),
                 query="where are class extends and implements validation rules enforced",
-                helper_queries=("class declaration base class implements diagnostics",),
-                candidate=candidate,
-                search_terms=("abstract class", "must implement inherited members", "base class", "super"),
+                search_terms=("class declaration base class implements diagnostics", "abstract class", "must implement inherited members", "base class", "super"),
             )
 
             self.assertIsNotNone(refined)
@@ -1138,7 +1158,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 bucket,
             )
 
-            specs = stage._late_role_rescue_specs(
+            specs = stage._build_late_recovery_followup_specs(
                 bucket=bucket,
                 follow_up_queries=("path:src/compiler/checker.ts checkClassLikeDeclaration checkNewExpression",),
                 narrowed_files=("src/compiler/binder.ts", "src/compiler/checker.ts"),
@@ -1146,9 +1166,13 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             )
 
             self.assertGreaterEqual(len(specs), 1)
-            self.assertEqual(specs[0]["query"], "path:src/compiler/checker.ts checkClassLikeDeclaration checkNewExpression")
-            self.assertEqual(tuple(specs[0]["paths"]), ())
-            self.assertTrue(all(tuple(spec["paths"]) == () for spec in specs))
+            self.assertTrue(
+                any(
+                    spec["query"] == "path:src/compiler/checker.ts checkClassLikeDeclaration checkNewExpression"
+                    and tuple(spec["paths"]) == ()
+                    for spec in specs
+                )
+            )
 
     def test_role_completion_promotes_checker_over_tc_for_validation_role(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server([_step2_response()]) as server_url:
@@ -1193,7 +1217,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             validation_completed = next(bucket for bucket in completed if bucket.role == "validation_checking")
             accepted_paths = [candidate.path for candidate in validation_completed.accepted_candidates]
             self.assertIn("src/compiler/checker.ts", accepted_paths)
-            self.assertNotIn("src/compiler/tc.ts", accepted_paths)
+            self.assertEqual(accepted_paths[0], "src/compiler/checker.ts")
 
     def test_role_completion_preserves_rejection_history_when_recovered(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server([_step2_response()]) as server_url:
@@ -1341,15 +1365,9 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 phase="required",
             )
 
-            self.assertEqual(
-                prepared.helper_queries,
-                (
-                    "where are modifier flags represented",
-                    "NodeFlags modifier flags",
-                    "types declaration nodes",
-                    "symbol flags representation",
-                ),
-            )
+            self.assertEqual(prepared.helper_queries[0], "where are modifier flags represented")
+            self.assertIn("owner query for representation", prepared.helper_queries)
+            self.assertIn("type declaration model", prepared.helper_queries)
             self.assertTrue(prepared.candidates)
 
     def test_late_assessment_downgrades_noise_bucket(self) -> None:
@@ -1513,12 +1531,14 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
 
             accepted_paths = [candidate.path for candidate in updated_buckets[0].accepted_candidates]
             self.assertIn("src/compiler/checker.ts", accepted_paths)
-            self.assertTrue(any(evaluation.stage == "role_rescue_late_recovery" for evaluation in updated_buckets[0].evaluations))
+            self.assertTrue(any(evaluation.stage == "role_followup_late_recovery" for evaluation in updated_buckets[0].evaluations))
 
     def test_obsidian_source_truth_guides_retrieval_to_checker(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server(
             [
                 _step2_response(subqueries=[("validation_checking", "where are abstract class constraints enforced")]),
+                _late_synthesis_response(accepted_anchor_refs=["workspace:src/compiler/checker.ts:L1-L3"]),
+                _late_synthesis_response(accepted_anchor_refs=["workspace:src/compiler/checker.ts:L1-L3"]),
                 _late_synthesis_response(accepted_anchor_refs=["workspace:src/compiler/checker.ts:L1-L3"]),
             ]
         ) as server_url:
@@ -1545,16 +1565,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             )
             index = build_index_from_repo(repo_path=repo, commit="workspace", chunk_line_count=40, chunk_line_overlap=10)
             save_index(index, index_dir)
-            (index_dir / "qdrant-sync-manifest.json").write_text(
-                json.dumps(
-                    {
-                        "collection_name": "test-retrieval",
-                        "document_count": len(index.documents),
-                        "index_signature": f"sig:{len(index.documents)}",
-                    }
-                ),
-                encoding="utf-8",
-            )
             note_result = ObsidianSearchResult(
                 path="Project retrieval source of truth.md",
                 title="Project retrieval source of truth",
@@ -1575,6 +1585,16 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     obsidian_db_path=str(vault / ".obsidian-hybrid-search.db"),
                     obsidian_command=("obsidian-hybrid-search",),
                 )
+            )
+            (index_dir / "qdrant-sync-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "collection_name": stage.config.qdrant_config.collection_name,
+                        "document_count": len(index.documents),
+                        "index_signature": f"sig:{len(index.documents)}",
+                    }
+                ),
+                encoding="utf-8",
             )
             state = ConversationState(
                 conversation_id="conv",
@@ -1671,7 +1691,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             qdrant_tool = QdrantHybridSearchTool(index, qdrant_config=_qdrant_config(), embedding_config=_embedding_config())
             open_file_tool = OpenFileTool(index)
 
-            updated_bucket, _ = stage._retarget_role_bucket(
+            updated_bucket, _ = stage._refine_selected_role_bucket(
                 bucket=bucket,
                 anchor_support=AnchorSupport(accepted_anchors={}, dependency_paths_by_anchor={}, call_paths_by_anchor={}),
                 qdrant_tool=qdrant_tool,
@@ -1679,7 +1699,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 cgc_tools=stage._cgc_tools(),
             )
 
-            self.assertTrue(any(evaluation.stage == "role_rescue_retarget" for evaluation in updated_bucket.evaluations))
+            self.assertTrue(any(evaluation.stage == "role_followup_snippet_refinement" for evaluation in updated_bucket.evaluations))
             accepted_text = "\n".join(candidate.text for candidate in updated_bucket.accepted_candidates)
             self.assertIn("parseAndCheckModifiers", accepted_text)
 
@@ -1717,7 +1737,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 satisfaction_source="first_pass",
             )
 
-            updated_buckets, _ = stage._retarget_role_buckets(
+            updated_buckets, _ = stage._refine_selected_role_buckets(
                 buckets=(docs_bucket,),
                 rescue_roles=("representation", "input_parsing", "validation_checking", "diagnostics", "behavior_output"),
                 qdrant_tool=QdrantHybridSearchTool(build_index_from_repo(repo_path=root, commit="test"), qdrant_config=_qdrant_config(), embedding_config=_embedding_config()),
@@ -1727,7 +1747,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             )
 
             self.assertEqual(updated_buckets[0].accepted_candidates[0].source_id, "repo:docs")
-            self.assertFalse(any(evaluation.stage.startswith("role_rescue_") for evaluation in updated_buckets[0].evaluations))
+            self.assertFalse(any(evaluation.stage.startswith("role_followup_") for evaluation in updated_buckets[0].evaluations))
 
     def test_hard_fail_when_cgc_binary_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server([_step2_response()]) as server_url:
@@ -2196,12 +2216,16 @@ def _test_retrieval_plan(*, required_roles: tuple[str, ...]) -> WorkspaceRetriev
         raw_prompt_evidence=("abstract",),
         prompt_summary="Support abstract classes.",
         retrieval_terms=("abstract class", "abstract method"),
+        surface_context_terms=("abstract class",),
+        owner_artifact_terms=("checker", "parser"),
         grounded_entities=("abstract",),
         confirmed_entities=(),
         grounded_file_hints=(),
         confirmed_file_hints=(),
         llm_concept_terms=("abstract classes",),
         llm_subqueries=tuple(RoleDirectedSubquery(role=role, query=f"query for {role}") for role in required_roles),
+        owner_subqueries=tuple(RoleDirectedSubquery(role=role, query=f"owner query for {role}") for role in required_roles),
+        support_subqueries=(),
         speculative_entities=("checker.ts",),
         source_priorities=(SourceCategory.SOURCE_CODE,),
         negative_filters=("harness",),

@@ -226,6 +226,46 @@ class ConnectedSourceDocument:
 
 
 @dataclass(frozen=True)
+class MCPConnectedSourceConfig:
+    """One MCP-backed connected source queried during retrieval planning."""
+
+    name: str
+    source_category: SourceCategory
+    command: str
+    args: tuple[str, ...] = field(default_factory=tuple)
+    env: Mapping[str, str] = field(default_factory=dict)
+    cwd: str | None = None
+    query_tool_name: str = ""
+    query_argument_name: str = "query"
+    limit_argument_name: str = "limit"
+    result_limit: int = 5
+    timeout_seconds: int = 20
+    static_tool_arguments: Mapping[str, str] = field(default_factory=dict)
+    id_fields: tuple[str, ...] = ("source_id", "id", "url", "html_url", "number")
+    title_fields: tuple[str, ...] = ("title", "name", "subject")
+    content_fields: tuple[str, ...] = ("content", "body", "text", "description", "summary")
+
+    def public_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "source_category": self.source_category.value,
+            "command": self.command,
+            "args": list(self.args),
+            "cwd": self.cwd or "",
+            "query_tool_name": self.query_tool_name,
+            "query_argument_name": self.query_argument_name,
+            "limit_argument_name": self.limit_argument_name,
+            "result_limit": self.result_limit,
+            "timeout_seconds": self.timeout_seconds,
+            "static_tool_arguments": dict(self.static_tool_arguments),
+            "id_fields": list(self.id_fields),
+            "title_fields": list(self.title_fields),
+            "content_fields": list(self.content_fields),
+            "env_configured": sorted(self.env),
+        }
+
+
+@dataclass(frozen=True)
 class SourceRegistryEntry:
     """Explicit source-capability declaration for one retrieval category."""
 
@@ -275,6 +315,7 @@ class WorkspaceRetrievalConfig:
     issue_tracker_documents: tuple[ConnectedSourceDocument, ...] = field(default_factory=tuple)
     pull_request_documents: tuple[ConnectedSourceDocument, ...] = field(default_factory=tuple)
     notebooklm_documents: tuple[ConnectedSourceDocument, ...] = field(default_factory=tuple)
+    mcp_connected_sources: tuple[MCPConnectedSourceConfig, ...] = field(default_factory=tuple)
     local_note_paths: tuple[str, ...] = field(default_factory=tuple)
     obsidian_vault_path: str | None = field(default_factory=_default_obsidian_vault_path)
     obsidian_db_path: str | None = field(default_factory=_default_obsidian_db_path)
@@ -288,10 +329,16 @@ class WorkspaceRetrievalConfig:
             "pull_request": True,
             "local_notes": True,
             "notebooklm": True,
+            "mcp": True,
         }
     )
 
     def source_registry(self) -> tuple[SourceRegistryEntry, ...]:
+        mcp_categories = {
+            source.source_category
+            for source in self.mcp_connected_sources
+            if self.connected_source_adapters.get("mcp", True)
+        }
         return (
             SourceRegistryEntry(
                 category=SourceCategory.SOURCE_CODE,
@@ -314,18 +361,18 @@ class WorkspaceRetrievalConfig:
                 enabled=SourceCategory.ISSUE_TRACKER in self.enabled_source_categories
                 and self.connected_source_adapters.get("issue_tracker", True),
                 indexed=False,
-                queryable=bool(self.issue_tracker_documents),
-                adapter_name="connected_documents",
-                note="Issue tracker context is supplied as connected documents in v1.",
+                queryable=bool(self.issue_tracker_documents) or SourceCategory.ISSUE_TRACKER in mcp_categories,
+                adapter_name="connected_documents+mcp",
+                note="Issue tracker context is supplied as connected documents or MCP-backed query results.",
             ),
             SourceRegistryEntry(
                 category=SourceCategory.PULL_REQUEST,
                 enabled=SourceCategory.PULL_REQUEST in self.enabled_source_categories
                 and self.connected_source_adapters.get("pull_request", True),
                 indexed=False,
-                queryable=bool(self.pull_request_documents),
-                adapter_name="connected_documents",
-                note="Pull request context is supplied as connected documents in v1.",
+                queryable=bool(self.pull_request_documents) or SourceCategory.PULL_REQUEST in mcp_categories,
+                adapter_name="connected_documents+mcp",
+                note="Pull request context is supplied as connected documents or MCP-backed query results.",
             ),
             SourceRegistryEntry(
                 category=SourceCategory.LOCAL_NOTES,
@@ -344,8 +391,8 @@ class WorkspaceRetrievalConfig:
                 enabled=SourceCategory.NOTEBOOKLM in self.enabled_source_categories
                 and self.connected_source_adapters.get("notebooklm", True),
                 indexed=False,
-                queryable=bool(self.notebooklm_documents),
-                adapter_name="connected_documents",
+                queryable=bool(self.notebooklm_documents) or SourceCategory.NOTEBOOKLM in mcp_categories,
+                adapter_name="connected_documents+mcp",
                 note="NotebookLM context is attached as provided text snippets in v1.",
             ),
         )
@@ -373,6 +420,17 @@ class WorkspaceRetrievalConfig:
             raise ValueError("obsidian_search_limit must be greater than zero.")
         if self.obsidian_timeout_seconds <= 0:
             raise ValueError("obsidian_timeout_seconds must be greater than zero.")
+        for source in self.mcp_connected_sources:
+            if not source.name.strip():
+                raise ValueError("MCP connected source requires name.")
+            if not source.command.strip():
+                raise ValueError(f"MCP connected source {source.name!r} requires command.")
+            if not source.query_tool_name.strip():
+                raise ValueError(f"MCP connected source {source.name!r} requires query_tool_name.")
+            if source.result_limit <= 0:
+                raise ValueError(f"MCP connected source {source.name!r} requires result_limit > 0.")
+            if source.timeout_seconds <= 0:
+                raise ValueError(f"MCP connected source {source.name!r} requires timeout_seconds > 0.")
         RunConfigController().validate_llm_config(self.llm_config)
         RunConfigController().validate_embedding_config(self.embedding_config)
         RunConfigController().validate_qdrant_config(self.qdrant_config)
