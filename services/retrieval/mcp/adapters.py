@@ -56,6 +56,7 @@ class MCPConnectedSourceAdapter:
             raw_source_id = _first_field(record, self.config.id_fields) or str(index + 1)
             metadata = {
                 "adapter": "mcp",
+                "source_key": self.config.source_key,
                 "mcp_source": self.config.name,
                 "mcp_tool": self.config.query_tool_name,
             }
@@ -69,6 +70,7 @@ class MCPConnectedSourceAdapter:
                 title=str(title),
                 content=str(content),
                 metadata=metadata,
+                source_key=self.config.source_key,
             )
         if isinstance(record, str) and record.strip():
             return ConnectedSourceDocument(
@@ -78,9 +80,11 @@ class MCPConnectedSourceAdapter:
                 content=record.strip(),
                 metadata={
                     "adapter": "mcp",
+                    "source_key": self.config.source_key,
                     "mcp_source": self.config.name,
                     "mcp_tool": self.config.query_tool_name,
                 },
+                source_key=self.config.source_key,
             )
         return None
 

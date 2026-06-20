@@ -19,7 +19,6 @@ from unittest.mock import patch
 from core.models import ConversationState, EvidenceItem, UserIntent
 from core.policy import PolicyStage
 from core.source_policy import SourceCategory, SourcePolicy
-from core.stages import ResponseStage
 from services.retrieval.bm25 import build_index_from_repo, save_index
 from services.retrieval import workspace_llm
 from services.retrieval.bm25 import BM25SearchResult
@@ -56,6 +55,7 @@ from services.retrieval.workspace import (
     _role_retarget_queries,
     _select_diverse_completion_entries,
 )
+from services.retrieval.pipeline.protocol_graph import discover_protocol_relationship_candidates
 from services.retrieval.obsidian import ObsidianSearchResult
 
 
@@ -175,6 +175,40 @@ class BM25IndexBuildTests(unittest.TestCase):
             self.assertIn("src/compiler/parser.ts", indexed_paths)
             self.assertNotIn("bin/services.js", indexed_paths)
 
+    def test_default_excludes_are_used_when_no_scope_is_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "repo"
+            (root / "src").mkdir(parents=True)
+            (root / ".guided-intelligence").mkdir(parents=True)
+            (root / "src" / "main.ts").write_text("function main() { return 'indexed'; }\n", encoding="utf-8")
+            (root / ".guided-intelligence" / "run.ts").write_text(
+                "function generatedRun() { return 'noise'; }\n",
+                encoding="utf-8",
+            )
+
+            index = build_index_from_repo(repo_path=root, commit="test")
+
+            indexed_paths = {document.chunk.path for document in index.documents}
+            self.assertIn("src/main.ts", indexed_paths)
+            self.assertNotIn(".guided-intelligence/run.ts", indexed_paths)
+
+    def test_explicit_empty_excludes_disable_default_excludes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "repo"
+            (root / "src").mkdir(parents=True)
+            (root / ".guided-intelligence").mkdir(parents=True)
+            (root / "src" / "main.ts").write_text("function main() { return 'indexed'; }\n", encoding="utf-8")
+            (root / ".guided-intelligence" / "run.ts").write_text(
+                "function generatedRun() { return 'included'; }\n",
+                encoding="utf-8",
+            )
+
+            index = build_index_from_repo(repo_path=root, commit="test", exclude_paths=())
+
+            indexed_paths = {document.chunk.path for document in index.documents}
+            self.assertIn("src/main.ts", indexed_paths)
+            self.assertIn(".guided-intelligence/run.ts", indexed_paths)
+
     def test_utf16_source_files_are_indexed(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "repo"
@@ -221,7 +255,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain the parser.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
                 evidence=(
                     EvidenceItem(
@@ -323,7 +356,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain support for abstract classes and where parsing, validation, and diagnostics live.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
@@ -366,7 +398,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain where abstract parsing happens.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
@@ -424,7 +455,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain where abstract parsing and validation are implemented.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
@@ -932,7 +962,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain where abstract classes are parsed and how they are represented.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
@@ -996,7 +1025,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain parsing and validation for abstract classes.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
@@ -1085,7 +1113,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain where abstract class constraints are enforced.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
@@ -1124,7 +1151,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain where abstract parsing is implemented.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
@@ -1599,7 +1625,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain TypeScript abstract class behavior.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
@@ -1749,6 +1774,146 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             self.assertEqual(updated_buckets[0].accepted_candidates[0].source_id, "repo:docs")
             self.assertFalse(any(evaluation.stage.startswith("role_followup_") for evaluation in updated_buckets[0].evaluations))
 
+    def test_protocol_relationship_bridge_promotes_matching_backend_handler(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server([_step2_response()]) as server_url:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            (repo / "ui" / "src").mkdir(parents=True)
+            (repo / "services" / "retrieval").mkdir(parents=True)
+            (repo / "ui" / "src" / "api.ts").write_text(
+                'export const api = {\n  health: () => requestJson<Health>("/health"),\n  indexEstimate: () => requestJson<IndexEstimate>("/index/estimate"),\n};\n',
+                encoding="utf-8",
+            )
+            (repo / "services" / "retrieval" / "server.py").write_text(
+                "\n".join(
+                    [
+                        "def unrelated():",
+                        "    return None",
+                        "",
+                        "@app.post('/index/estimate')",
+                        "def estimate_index():",
+                        "    return runtime_state.index_estimate()",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=str(repo),
+                    index_dir=str(root / "index"),
+                    llm_config=_llm_config(server_url),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                )
+            )
+            frontend = _test_candidate(
+                "ui/src/api.ts",
+                'export const api = {\n  health: () => requestJson<Health>("/health"),\n  indexEstimate: () => requestJson<IndexEstimate>("/index/estimate"),\n};\n',
+                "input_parsing",
+                "repo:ui/src/api.ts:L1-L3",
+            )
+            bucket = _test_bucket(role="input_parsing", accepted=[frontend])
+            bucket = replace(bucket, query="how index estimate route is handled", helper_queries=("index estimate backend route",))
+
+            updated = stage._apply_protocol_relationship_bridge((bucket,))
+
+            self.assertEqual(len(updated), 1)
+            accepted_paths = [candidate.path for candidate in updated[0].accepted_candidates]
+            self.assertIn("services/retrieval/server.py", accepted_paths)
+            server_candidate = next(candidate for candidate in updated[0].accepted_candidates if candidate.path == "services/retrieval/server.py")
+            self.assertEqual(server_candidate.metadata["retrieval_path"], "protocol_route_bridge")
+            self.assertEqual(server_candidate.metadata["protocol_edge"], "frontend_route_literal_to_backend_handler")
+            self.assertEqual(server_candidate.metadata["bridge_route"], "/index/estimate")
+            self.assertIn("estimate_index", server_candidate.text)
+            self.assertIn("repo-pre:services/retrieval/server.py", updated[0].satisfying_refs[0])
+
+    def test_protocol_graph_discovers_ranked_route_relationship_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            (repo / "ui" / "src").mkdir(parents=True)
+            (repo / "backend" / "routes").mkdir(parents=True)
+            (repo / "backend" / "routes" / "index_routes.py").write_text(
+                "\n".join(
+                    [
+                        "def register_routes(app):",
+                        "    app.get('/health')(health)",
+                        "    app.get('/index/estimate')(index_estimate)",
+                        "",
+                        "def index_estimate():",
+                        "    return build_index_estimate()",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            frontend = _test_candidate(
+                "ui/src/api.ts",
+                'export const api = {\n  health: () => requestJson<Health>("/health"),\n  indexEstimate: () => requestJson<IndexEstimate>("/index/estimate"),\n};\n',
+                "input_parsing",
+                "repo:ui/src/api.ts:L1-L3",
+            )
+            bucket = replace(
+                _test_bucket(role="input_parsing", accepted=[frontend]),
+                query="index estimate request handler",
+                helper_queries=("backend index estimate route",),
+            )
+
+            result = discover_protocol_relationship_candidates(
+                workspace_root=repo,
+                buckets=(bucket,),
+                max_candidates=2,
+            )
+
+            self.assertEqual(result.routes[0], "/index/estimate")
+            self.assertEqual(len(result.promotions), 1)
+            self.assertEqual(result.promotions[0].target_bucket_index, 0)
+            candidate = result.promotions[0].candidates[0]
+            self.assertEqual(candidate.path, "backend/routes/index_routes.py")
+            self.assertEqual(candidate.metadata["protocol_edge"], "frontend_route_literal_to_backend_handler")
+            self.assertEqual(candidate.metadata["bridge_route"], "/index/estimate")
+            self.assertIn("index_estimate", candidate.text)
+
+    def test_protocol_graph_discovers_prompt_message_literal_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            (repo / "src").mkdir(parents=True)
+            (repo / "src" / "directive.js").write_text(
+                "\n".join(
+                    [
+                        "Directive.parse = function (str) {",
+                        "    if (!isMethod(str)) {",
+                        "        warn('Directive \"' + str + '\" expects a method.')",
+                        "    }",
+                        "}",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            bucket = replace(
+                _test_bucket(role="diagnostics", accepted=[]),
+                query="directive expects method diagnostic",
+                helper_queries=("expects a method warning",),
+                role_status="missing",
+                satisfying_refs=(),
+            )
+
+            result = discover_protocol_relationship_candidates(
+                workspace_root=repo,
+                buckets=(bucket,),
+                max_candidates=2,
+                seed_texts=('Directive "v-on:click: sortRows({ column: "name" })" expects a method.',),
+            )
+
+            self.assertIn("expects a method", result.message_terms)
+            self.assertEqual(len(result.promotions), 1)
+            self.assertEqual(result.promotions[0].source, "prompt_message_literal_to_code")
+            candidate = result.promotions[0].candidates[0]
+            self.assertEqual(candidate.path, "src/directive.js")
+            self.assertEqual(candidate.metadata["retrieval_path"], "protocol_message_bridge")
+            self.assertEqual(candidate.metadata["protocol_edge"], "prompt_message_literal_to_code")
+            self.assertIn("expects a method", candidate.text)
+
     def test_hard_fail_when_cgc_binary_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server([_step2_response()]) as server_url:
             root = Path(temp_dir)
@@ -1766,7 +1931,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain parseClassDeclaration.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
@@ -1796,7 +1960,6 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain parseClassDeclaration call flow.",
-                current_stage=ResponseStage.EXPLAIN,
                 intent=UserIntent.UNDERSTAND_CODE,
             )
             seen_payloads: list[dict[str, object]] = []

@@ -10,8 +10,6 @@ class PolicyViolationType(str, Enum):
 
     #: User asks the system to solve or complete the work directly.
     DIRECT_SOLUTION_REQUEST = "direct_solution_request"
-    #: Conversation attempts to jump ahead in the explain -> ask -> hint sequence.
-    STAGE_SKIPPING = "stage_skipping"
     #: Response or retrieval attempts to use a source category outside v1 policy.
     UNSUPPORTED_SOURCE_USAGE = "unsupported_source_usage"
     #: Response is not grounded in project-specific evidence.
@@ -26,5 +24,5 @@ class PolicyViolation:
     violation_type: PolicyViolationType
     #: Human-readable explanation of what failed.
     message: str
-    #: Optional structured context, such as source IDs or stage names.
+    #: Optional structured context, such as source IDs or policy names.
     metadata: Mapping[str, str] = field(default_factory=dict)

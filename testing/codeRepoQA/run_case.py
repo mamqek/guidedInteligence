@@ -19,7 +19,6 @@ from core.control_layer import ControlLayer
 from core.models import ConversationState, OrchestrationResult, UserIntent
 from core.policy import PolicyStage
 from core.source_policy import SourceCategory, SourcePolicy
-from core.stages import ResponseStage
 from services.logging.store import JsonlLogger
 from services.retrieval.bm25 import build_index_from_repo, save_index
 from services.retrieval.cases import HiddenCodeRepoQACase, VisibleCodeRepoQACase, load_coderepoqa_case
@@ -35,6 +34,7 @@ from services.retrieval.workspace import WorkspaceRetrievalStage
 
 
 DEFAULT_TEST_ROOT = Path(r"C:\Programming\guidedInteligence_testcases")
+WORKSPACE_STATE_DIR = ".guided-intelligence"
 CODE_PATH_PATTERN = re.compile(r"\b(?:[\w.-]+/)+[\w.-]+\.(?:[A-Za-z0-9]+)\b|\b[\w.-]+\.(?:ts|tsx|js|jsx|py|java|go|rs|cs|cpp|c|h|json|md|txt)\b")
 IDENTIFIER_PATTERN = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`|\b([A-Z][A-Za-z0-9_]{2,})\b")
 
@@ -102,7 +102,6 @@ def run_case(
     state = ConversationState(
         conversation_id=f"{visible_case.case_id}:{run_id}",
         user_input=_user_prompt(visible_case.title, visible_case.initial_body),
-        current_stage=ResponseStage.EXPLAIN,
         intent=UserIntent.UNDERSTAND_CODE,
     )
     workspace_root = Path(repo_pre_path)
@@ -189,7 +188,6 @@ def evaluate_case(
     case_paths.raw_dir.mkdir(parents=True, exist_ok=True)
     case_paths.repo_dir.mkdir(parents=True, exist_ok=True)
     case_paths.snapshots_dir.mkdir(parents=True, exist_ok=True)
-    case_paths.indexes_dir.mkdir(parents=True, exist_ok=True)
     case_paths.runs_dir.mkdir(parents=True, exist_ok=True)
     target_issue_path = case_paths.raw_dir / "issue.json"
     if issue_path.resolve() != target_issue_path.resolve():
@@ -203,7 +201,7 @@ def evaluate_case(
         _materialize_snapshot(case_paths.origin_repo_dir, resolution.repo_pre_commit, snapshot_dir)
 
     _remove_legacy_snapshot_index(snapshot_dir)
-    index_dir = case_paths.indexes_dir / resolution.repo_pre_commit[:12]
+    index_dir = _workspace_index_dir(snapshot_dir)
     if rebuild_index or not (index_dir / "bm25-index.json").exists():
         prepare_index(
             repo_pre_path=snapshot_dir,
@@ -431,6 +429,10 @@ def _remove_legacy_snapshot_index(snapshot_dir: Path) -> None:
     legacy_index_dir = snapshot_dir / "index"
     if (legacy_index_dir / "bm25-index.json").exists():
         shutil.rmtree(legacy_index_dir, ignore_errors=True)
+
+
+def _workspace_index_dir(workspace_root: Path) -> Path:
+    return workspace_root / WORKSPACE_STATE_DIR / "index"
 
 
 def _write_run_metadata(

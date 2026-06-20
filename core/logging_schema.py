@@ -11,8 +11,8 @@ class LogEventType(str, Enum):
 
     #: Orchestration run has started.
     RUN_STARTED = "run_started"
-    #: Policy selected or rejected a response stage.
-    STAGE_DECISION = "stage_decision"
+    #: Policy selected or rejected a guided turn.
+    TURN_DECISION = "turn_decision"
     #: Retrieval decided which source categories to consult and in what order.
     RETRIEVAL_PLAN = "retrieval_plan"
     #: Retrieval or context building selected concrete evidence items.
@@ -25,8 +25,18 @@ class LogEventType(str, Enum):
     RESPONSE_GENERATION_REQUESTED = "response_generation_requested"
     #: Explanation LLM response payload was received.
     RESPONSE_GENERATION_RECEIVED = "response_generation_received"
+    #: Explanation generation request payload was sent to the response model.
+    RESPONSE_GENERATION_REQUEST_PAYLOAD = "response_generation_request_payload"
+    #: Explanation generation response payload was received from the response model.
+    RESPONSE_GENERATION_RESPONSE_PAYLOAD = "response_generation_response_payload"
     #: Explanation LLM generation failed.
     RESPONSE_GENERATION_FAILED = "response_generation_failed"
+    #: Low-level LLM request was sent.
+    LLM_REQUEST_SENT = "llm_request_sent"
+    #: Low-level LLM response was received.
+    LLM_RESPONSE_RECEIVED = "llm_response_received"
+    #: Low-level LLM request failed.
+    LLM_REQUEST_FAILED = "llm_request_failed"
     #: Final structured response payload was produced.
     RESPONSE_PAYLOAD = "response_payload"
     #: Model configuration was used for a model-backed step.
