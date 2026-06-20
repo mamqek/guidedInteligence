@@ -10,7 +10,7 @@ from core.models import (
     PolicyResult,
     ResponsePlan,
     ResponsePayload,
-    ResponseMode,
+    TurnType,
     RetrievalResult,
 )
 from core.policy import PolicyStage
@@ -30,9 +30,9 @@ class ControlLayer:
     response_llm_config: Any | None = None
 
     def run(self, state: ConversationState) -> OrchestrationResult:
-        self._record(LogEventType.RUN_STARTED, state.conversation_id, {"current_stage": state.current_stage.value})
+        self._record(LogEventType.RUN_STARTED, state.conversation_id, {"turn_request": state.user_input})
         policy_result = self.policy_stage.decide(state)
-        self._record(LogEventType.STAGE_DECISION, state.conversation_id, policy_result.to_dict())
+        self._record(LogEventType.TURN_DECISION, state.conversation_id, policy_result.to_dict())
 
         if policy_result.violations:
             self._record(
@@ -80,7 +80,7 @@ class ControlLayer:
             LogEventType.PROMPT_PAYLOAD,
             state.conversation_id,
             {
-                "response_mode": response_plan.mode.value,
+                "turn_type": response_plan.turn_type.value,
                 "required_sections": list(response_plan.required_sections),
                 "must_include_evidence": response_plan.must_include_evidence,
                 "notes": dict(response_plan.notes),
@@ -107,7 +107,7 @@ class ControlLayer:
             response_payload=response_payload,
             run_trace_summary={
                 "allowed": policy_result.allowed,
-                "response_mode": policy_result.response_mode.value,
+                "turn_type": policy_result.turn_type.value,
                 "retrieval_invoked": bool(policy_result.allowed and policy_result.retrieval_required),
                 "coverage_status": retrieval_result.coverage_status if retrieval_result is not None else "not_run",
                 "violation_count": len(policy_result.violations),
@@ -131,34 +131,25 @@ def _build_response_plan(
     policy_result: PolicyResult,
     retrieval_result: RetrievalResult | None,
 ) -> ResponsePlan:
-    if policy_result.response_mode == ResponseMode.BOUNDARY:
+    if policy_result.turn_type == TurnType.BOUNDARY:
         return ResponsePlan(
-            mode=ResponseMode.BOUNDARY,
-            stage=policy_result.active_stage,
-            required_sections=("boundary", "expected_current_stage", "violation_explanation", "choices"),
+            turn_type=TurnType.BOUNDARY,
+            required_sections=("boundary", "violation_explanation", "choices"),
             must_include_evidence=False,
             boundary_message_required=True,
             boundary_choices=policy_result.boundary_choices,
             notes={"reason": policy_result.reason},
         )
 
-    sections_by_mode = {
-        ResponseMode.EXPLANATION: ("generated_explanation",),
-        ResponseMode.REASONING_QUESTION: ("question", "why_this_matters"),
-        ResponseMode.HINT: ("hint", "evidence"),
-    }
-    must_include_evidence = policy_result.response_mode != ResponseMode.REASONING_QUESTION
     notes = {
         "coverage_status": retrieval_result.coverage_status if retrieval_result is not None else "not_run",
         "retrieval_sufficient": retrieval_result.sufficient if retrieval_result is not None else False,
+        "prompt_template_id": prompt_template_id(),
     }
-    if policy_result.response_mode == ResponseMode.EXPLANATION:
-        notes["prompt_template_id"] = prompt_template_id()
     return ResponsePlan(
-        mode=policy_result.response_mode,
-        stage=policy_result.active_stage,
-        required_sections=sections_by_mode[policy_result.response_mode],
-        must_include_evidence=must_include_evidence,
+        turn_type=policy_result.turn_type,
+        required_sections=("generated_explanation", "understanding_checks"),
+        must_include_evidence=True,
         notes=notes,
     )
 

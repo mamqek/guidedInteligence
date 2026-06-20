@@ -5,7 +5,6 @@ from enum import Enum
 from typing import Any, Mapping
 
 from core.source_policy import SourceCategory
-from core.stages import ResponseStage
 from core.violations import PolicyViolation
 
 
@@ -18,12 +17,14 @@ class UserIntent(str, Enum):
     UNKNOWN = "unknown"
 
 
-class ResponseMode(str, Enum):
-    """Allowed top-level response modes owned by the control layer."""
+class TurnType(str, Enum):
+    """Allowed top-level turn types owned by the control layer."""
 
-    EXPLANATION = "explanation"
-    REASONING_QUESTION = "reasoning_question"
-    HINT = "hint"
+    GUIDED_EXPLANATION = "guided_explanation"
+    ANSWER_EVALUATION = "answer_evaluation"
+    REPAIR = "repair"
+    DEEPEN = "deepen"
+    COMPLETION = "completion"
     BOUNDARY = "boundary"
 
 
@@ -33,7 +34,7 @@ class ConversationMessage:
 
     role: str
     content: str
-    stage: ResponseStage | None = None
+    turn_type: TurnType | None = None
 
 
 @dataclass(frozen=True)
@@ -62,24 +63,20 @@ class ConversationState:
 
     conversation_id: str
     user_input: str
-    current_stage: ResponseStage = ResponseStage.EXPLAIN
     intent: UserIntent = UserIntent.UNKNOWN
     history: tuple[ConversationMessage, ...] = field(default_factory=tuple)
     evidence: tuple[EvidenceItem, ...] = field(default_factory=tuple)
-    stage_history: tuple[ResponseStage, ...] = field(default_factory=lambda: (ResponseStage.EXPLAIN,))
 
 
 @dataclass(frozen=True)
 class PolicyResult:
-    """Bounded output of the policy stage."""
+    """Bounded output of the policy gate."""
 
     allowed: bool
-    active_stage: ResponseStage
-    next_stage: ResponseStage
     intent: UserIntent
     retrieval_required: bool
     allowed_sources: tuple[SourceCategory, ...]
-    response_mode: ResponseMode
+    turn_type: TurnType
     reason: str
     source_policy_name: str
     violations: tuple[PolicyViolation, ...] = field(default_factory=tuple)
@@ -88,12 +85,10 @@ class PolicyResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "allowed": self.allowed,
-            "active_stage": self.active_stage.value,
-            "next_stage": self.next_stage.value,
             "intent": self.intent.value,
             "retrieval_required": self.retrieval_required,
             "allowed_sources": [source.value for source in self.allowed_sources],
-            "response_mode": self.response_mode.value,
+            "turn_type": self.turn_type.value,
             "reason": self.reason,
             "source_policy_name": self.source_policy_name,
             "violations": [_violation_to_dict(violation) for violation in self.violations],
@@ -123,10 +118,9 @@ class RetrievalResult:
 
 @dataclass(frozen=True)
 class ResponsePlan:
-    """Response-planning output derived from policy and retrieval stages."""
+    """Response-planning output derived from policy and retrieval results."""
 
-    mode: ResponseMode
-    stage: ResponseStage
+    turn_type: TurnType
     required_sections: tuple[str, ...]
     must_include_evidence: bool
     boundary_message_required: bool = False
@@ -135,8 +129,7 @@ class ResponsePlan:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "mode": self.mode.value,
-            "stage": self.stage.value,
+            "turn_type": self.turn_type.value,
             "required_sections": list(self.required_sections),
             "must_include_evidence": self.must_include_evidence,
             "boundary_message_required": self.boundary_message_required,
@@ -149,8 +142,7 @@ class ResponsePlan:
 class ResponsePayload:
     """Optional rendered response payload produced after response planning."""
 
-    stage: ResponseStage
-    mode: ResponseMode
+    turn_type: TurnType
     content: str
     evidence_refs: tuple[str, ...] = field(default_factory=tuple)
     violations: tuple[PolicyViolation, ...] = field(default_factory=tuple)
@@ -158,8 +150,7 @@ class ResponsePayload:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "stage": self.stage.value,
-            "mode": self.mode.value,
+            "turn_type": self.turn_type.value,
             "content": self.content,
             "evidence_refs": list(self.evidence_refs),
             "violations": [_violation_to_dict(violation) for violation in self.violations],
@@ -179,12 +170,8 @@ class OrchestrationResult:
     run_trace_summary: Mapping[str, Any] = field(default_factory=dict)
 
     @property
-    def active_stage(self) -> ResponseStage:
-        return self.policy_result.active_stage
-
-    @property
-    def next_stage(self) -> ResponseStage:
-        return self.policy_result.next_stage
+    def turn_type(self) -> TurnType:
+        return self.policy_result.turn_type
 
     @property
     def allowed_sources(self) -> tuple[SourceCategory, ...]:

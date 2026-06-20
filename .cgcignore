@@ -11,3 +11,15 @@ __pycache__/
 node_modules/
 dist/
 build/
+# BEGIN guided-intelligence managed excludes
+.git
+.guided-intelligence
+.codegraphcontext
+.venv
+__pycache__/
+node_modules/
+dist/
+build/
+.cache
+coverage/
+# END guided-intelligence managed excludes

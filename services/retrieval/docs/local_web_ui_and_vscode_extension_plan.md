@@ -252,6 +252,17 @@ Output summary:
 
 The UI should keep the user aware that the answer is grounded in selected evidence and source policy.
 
+The first response should use the guided explanation turn model:
+
+- show the grounded explanation,
+- show up to three understanding-check questions in one shared box,
+- put an inline textarea under each question,
+- put a click-to-reveal hint under each textarea,
+- submit all answers together,
+- block another prompt in the same run until the questions are answered.
+
+Question 1 should come from the main retrieved role. Secondary questions should identify whether they came from supporting-role, verification, caller-flow, diagnostic, or test evidence.
+
 ### 4. Evidence Panel
 
 Evidence should be first-class, not hidden behind citations.

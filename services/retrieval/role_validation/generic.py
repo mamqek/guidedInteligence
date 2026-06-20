@@ -25,11 +25,20 @@ class GenericRoleValidator:
     def score(self, context: RoleValidationContext):
         local = query_term_score(context.query, context.helper_queries, path=context.candidate_path, text=context.candidate_text)
         has_keywords = text_contains_any(context.candidate_text, self.keywords)
+        concrete_overlap = _has_concrete_query_overlap(
+            context.query,
+            context.helper_queries,
+            path=context.candidate_path,
+            text=context.candidate_text,
+            generic_terms=(*self.keywords, *self.path_tokens, *self.support_path_tokens),
+        )
         if has_keywords:
-            local += 1.0
+            local += 1.0 if concrete_overlap else 0.2
         role_path = 1.4 if path_contains_any(context.candidate_path, self.path_tokens) else 0.0
         if has_keywords and role_path > 0:
-            local += 0.7
+            local += 0.7 if concrete_overlap else 0.1
+        if role_path > 0 and not concrete_overlap:
+            role_path = min(role_path, 0.4)
         if path_contains_any(context.candidate_path, self.support_path_tokens) and not has_keywords:
             role_path -= 1.0
             local -= 0.5
@@ -51,3 +60,54 @@ class GenericRoleValidator:
             threshold=self.threshold,
             reasons=reasons,
         )
+
+
+_COMMON_QUERY_TERMS = {
+    "about",
+    "after",
+    "already",
+    "also",
+    "before",
+    "code",
+    "context",
+    "does",
+    "file",
+    "find",
+    "from",
+    "have",
+    "implementation",
+    "into",
+    "issue",
+    "logic",
+    "need",
+    "needed",
+    "right",
+    "shows",
+    "system",
+    "that",
+    "there",
+    "this",
+    "through",
+    "where",
+    "whether",
+    "with",
+}
+
+
+def _has_concrete_query_overlap(
+    query: str,
+    helper_queries: tuple[str, ...] | list[str],
+    *,
+    path: str,
+    text: str,
+    generic_terms: tuple[str, ...],
+) -> bool:
+    generic = {term.lower() for term in generic_terms}
+    haystack = f"{path}\n{text}".lower()
+    for raw in " ".join((query, *helper_queries)).replace("_", " ").split():
+        token = raw.strip(" ?!.,:;()[]{}\"'`").lower()
+        if len(token) < 4 or token in generic or token in _COMMON_QUERY_TERMS:
+            continue
+        if token in haystack:
+            return True
+    return False

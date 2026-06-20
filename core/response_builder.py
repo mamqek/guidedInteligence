@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from core.logging_schema import LogEventType
-from core.models import ConversationState, EvidenceItem, PolicyResult, ResponseMode, ResponsePayload, ResponsePlan, RetrievalResult
+from core.models import ConversationState, EvidenceItem, PolicyResult, ResponsePayload, ResponsePlan, RetrievalResult, TurnType
 from services.response_generation.explanation import generate_explanation, prompt_template_id
 
 
@@ -27,12 +27,8 @@ def render_response(
     evidence = tuple(retrieval_result.evidence if retrieval_result is not None else ())
     evidence_refs = tuple(item.source_id for item in evidence)
     metadata: dict[str, object] = dict(response_plan.notes)
-    if response_plan.mode == ResponseMode.BOUNDARY:
-        content = f"Remain in {policy_result.active_stage.value}. {policy_result.reason}"
-    elif response_plan.mode == ResponseMode.REASONING_QUESTION:
-        content = _render_reasoning_question(retrieval_result)
-    elif response_plan.mode == ResponseMode.HINT:
-        content = _render_hint(retrieval_result)
+    if response_plan.turn_type == TurnType.BOUNDARY:
+        content = f"Boundary: {policy_result.reason}"
     else:
         content, evidence_refs, generated_metadata = _render_explanation(
             retrieval_result,
@@ -42,8 +38,7 @@ def render_response(
         )
         metadata.update(generated_metadata)
     return ResponsePayload(
-        stage=response_plan.stage,
-        mode=response_plan.mode,
+        turn_type=response_plan.turn_type,
         content=content,
         evidence_refs=evidence_refs,
         violations=policy_result.violations,
@@ -98,6 +93,7 @@ def _render_explanation(
             state=state,
             retrieval_result=retrieval_result,
             llm_config=llm_config,
+            log_event=_response_generation_log_adapter(log_event),
         )
         if log_event is not None:
             log_event(
@@ -106,6 +102,7 @@ def _render_explanation(
                     "prompt_template_id": generated.prompt_template_id,
                     "used_evidence_refs": list(generated.used_evidence_refs),
                     "render_notes": dict(generated.render_notes),
+                    "understanding_checks": [check.to_dict() for check in generated.understanding_checks],
                 },
             )
         return (
@@ -116,6 +113,7 @@ def _render_explanation(
                 "prompt_template_id": generated.prompt_template_id,
                 "used_evidence_refs": list(generated.used_evidence_refs),
                 "render_notes": dict(generated.render_notes),
+                "understanding_checks": [check.to_dict() for check in generated.understanding_checks],
             },
         )
     except Exception as exc:
@@ -138,6 +136,23 @@ def _render_explanation(
                 "error": str(exc),
             },
         )
+
+
+def _response_generation_log_adapter(
+    log_event: Callable[[LogEventType, Mapping[str, object]], None] | None,
+) -> Callable[[str, Mapping[str, object]], None] | None:
+    if log_event is None:
+        return None
+
+    def emit(event_type: str, payload: Mapping[str, object]) -> None:
+        try:
+            typed_event = LogEventType(event_type)
+        except ValueError:
+            typed_event = LogEventType.PROMPT_PAYLOAD
+            payload = {"event_type": event_type, "payload": dict(payload)}
+        log_event(typed_event, payload)
+
+    return emit
 
 
 def _render_explanation_error(message: str) -> str:

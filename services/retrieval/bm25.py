@@ -19,7 +19,18 @@ DECLARATION_START_PATTERN = re.compile(
 DECLARATION_SYMBOL_PATTERN = re.compile(
     r"\b(?:class|interface|enum|namespace|module|type|function)\s+([A-Za-z_][A-Za-z0-9_]*)\b"
 )
-EXCLUDED_DIRS = {".git", "node_modules", "dist", "build", ".cache", "coverage"}
+DEFAULT_EXCLUDED_PATHS = (
+    ".git",
+    ".guided-intelligence",
+    ".codegraphcontext",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+    "dist",
+    "build",
+    ".cache",
+    "coverage",
+)
 TEXT_EXTENSIONS = {
     ".c",
     ".cc",
@@ -178,6 +189,7 @@ def build_index_from_repo(
     snapshot: str = "pre_resolution",
     visibility: str = "visible_initial",
     origin: str = "repo_index",
+    exclude_paths: tuple[str, ...] | None = None,
 ) -> BM25Index:
     root = Path(repo_path).resolve()
     if not root.exists() or not root.is_dir():
@@ -190,7 +202,7 @@ def build_index_from_repo(
         raise ValueError("chunk_line_overlap must be smaller than chunk_line_count.")
 
     chunks: list[IndexedChunk] = []
-    for file_path in sorted(_iter_source_files(root)):
+    for file_path in sorted(_iter_source_files(root, exclude_paths=exclude_paths)):
         relative_path = file_path.relative_to(root).as_posix()
         text = _read_text_file(file_path)
         if text is None:
@@ -225,6 +237,47 @@ def build_index_from_repo(
     )
 
 
+def estimate_indexing_scope(
+    repo_path: str | Path,
+    *,
+    exclude_paths: tuple[str, ...] | None = None,
+    chunk_line_count: int = 40,
+    chunk_line_overlap: int = 10,
+) -> dict[str, Any]:
+    root = Path(repo_path).resolve()
+    if not root.exists() or not root.is_dir():
+        return {"file_count": 0, "total_bytes": 0, "estimated_chunks": 0, "sample_paths": []}
+    if chunk_line_count <= 0:
+        raise ValueError("chunk_line_count must be greater than zero.")
+    if chunk_line_overlap < 0:
+        raise ValueError("chunk_line_overlap must be zero or greater.")
+    if chunk_line_overlap >= chunk_line_count:
+        raise ValueError("chunk_line_overlap must be smaller than chunk_line_count.")
+    files = tuple(sorted(_iter_source_files(root, exclude_paths=exclude_paths)))
+    total_bytes = 0
+    estimated_chunks = 0
+    for path in files:
+        try:
+            size = path.stat().st_size
+        except OSError:
+            size = 0
+        total_bytes += size
+        text = _read_text_file(path)
+        if text is None:
+            continue
+        estimated_chunks += _estimate_chunk_count_for_text(
+            text,
+            chunk_line_count=chunk_line_count,
+            chunk_line_overlap=chunk_line_overlap,
+        )
+    return {
+        "file_count": len(files),
+        "total_bytes": total_bytes,
+        "estimated_chunks": estimated_chunks,
+        "sample_paths": [path.relative_to(root).as_posix() for path in files[:20]],
+    }
+
+
 def save_index(index: BM25Index, index_dir: str | Path) -> None:
     path = Path(index_dir)
     path.mkdir(parents=True, exist_ok=True)
@@ -246,18 +299,43 @@ def _document_text(chunk: IndexedChunk) -> str:
     return f"{chunk.path}\n{basename}\n{chunk.text}"
 
 
-def _iter_source_files(root: Path) -> Iterable[Path]:
+def _iter_source_files(
+    root: Path,
+    *,
+    exclude_paths: tuple[str, ...] | None = None,
+) -> Iterable[Path]:
+    effective_exclude_paths = DEFAULT_EXCLUDED_PATHS if exclude_paths is None else exclude_paths
+    exclude_prefixes = _normalize_scope_paths(effective_exclude_paths)
     for path in root.rglob("*"):
         if not path.is_file():
             continue
-        if any(part in EXCLUDED_DIRS for part in path.relative_to(root).parts):
+        relative_path = path.relative_to(root).as_posix()
+        if _matches_scope(relative_path, exclude_prefixes):
             continue
         if path.suffix.lower() not in TEXT_EXTENSIONS:
             continue
-        relative_path = path.relative_to(root).as_posix()
         if _should_skip_indexing(relative_path):
             continue
         yield path
+
+
+def _normalize_scope_paths(values: tuple[str, ...]) -> tuple[str, ...]:
+    normalized: list[str] = []
+    for value in values:
+        item = value.strip().replace("\\", "/").strip("/")
+        if not item or item == ".":
+            continue
+        if item not in normalized:
+            normalized.append(item)
+    return tuple(normalized)
+
+
+def _matches_scope(relative_path: str, prefixes: tuple[str, ...]) -> bool:
+    normalized = relative_path.replace("\\", "/").strip("/")
+    for prefix in prefixes:
+        if normalized == prefix or normalized.startswith(prefix.rstrip("/") + "/"):
+            return True
+    return False
 
 
 def _build_chunks_for_file(
@@ -365,6 +443,25 @@ def _subdivide_span(
             )
         )
     return chunks
+
+
+def _estimate_chunk_count_for_text(
+    text: str,
+    *,
+    chunk_line_count: int,
+    chunk_line_overlap: int,
+) -> int:
+    lines = text.splitlines()
+    if not lines:
+        return 0
+    step = max(1, chunk_line_count - chunk_line_overlap)
+    count = 0
+    for start, end in _structure_aware_spans(lines, chunk_line_count=chunk_line_count):
+        for window_start in range(start, end, step):
+            window_end = min(end, window_start + chunk_line_count)
+            if any(line.strip() for line in lines[window_start:window_end]):
+                count += 1
+    return count
 
 
 def _extract_chunk_symbols(lines: Iterable[str]) -> tuple[str, ...]:

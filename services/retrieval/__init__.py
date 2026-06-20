@@ -12,6 +12,7 @@ from typing import Any
 _CONFIG_EXPORTS = {
     "ConnectedSourceDocument",
     "MCPConnectedSourceConfig",
+    "RemoteMCPConnectedSourceConfig",
     "RetrievalEmbeddingConfig",
     "RetrievalQdrantConfig",
     "SourceRegistryEntry",

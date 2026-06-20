@@ -17,6 +17,7 @@ from testing.codeRepoQA.run_case import (
     prepare_index,
     resolve_repo_pre_snapshot,
     run_case,
+    SnapshotResolution,
     _build_evaluator_oracle,
     _hidden_comment_refs,
 )
@@ -142,7 +143,16 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
                 fixed_by=[{"commit": fixed_commit}],
                 comments_details=[{"body": "also mentions src/other.ts"}],
             )
-            oracle = _build_evaluator_oracle(hidden_case=hidden_case, origin_repo_dir=repo)
+            oracle = _build_evaluator_oracle(
+                hidden_case=hidden_case,
+                origin_repo_dir=repo,
+                resolution=SnapshotResolution(
+                    repo_pre_commit=fixed_commit,
+                    strategy="fixed_by_parent",
+                    confidence="test",
+                    details={},
+                ),
+            )
 
             self.assertIn("src/parser.ts", oracle["files"])
             self.assertIn("src/other.ts", oracle["files"])
@@ -186,9 +196,13 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
             )
 
             run_dir = evaluate_case(issue_json=issue_json, test_root=test_root, clone_url=str(source_repo), llm_config=_llm_config())
+            metadata = json.loads((run_dir / "run-metadata.json").read_text(encoding="utf-8"))
             comparison = json.loads((run_dir / "evaluator-comparison.json").read_text(encoding="utf-8"))
             scorecard = json.loads((run_dir / "scorecard.json").read_text(encoding="utf-8"))
 
+            expected_index_dir = Path(metadata["repo_pre_path"]) / ".guided-intelligence" / "index"
+            self.assertEqual(Path(metadata["index_dir"]), expected_index_dir)
+            self.assertTrue((expected_index_dir / "bm25-index.json").exists())
             self.assertIn("src/parser.ts", comparison["retrieved_source_files"])
             self.assertIn("src/parser.ts", comparison["oracle_files"])
             self.assertIn("src/parser.ts", comparison["overlap_files"])

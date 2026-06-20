@@ -11,7 +11,7 @@ from core.source_policy import (
     SourceCategory,
     SourcePolicy,
 )
-from core.stages import ResponseStage
+from core.models import TurnType
 
 
 WORKSPACE_REINDEX_POLICY_ALWAYS = "always"
@@ -214,10 +214,12 @@ class ConnectedSourceDocument:
     title: str
     content: str
     metadata: Mapping[str, str] = field(default_factory=dict)
+    source_key: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
             "source_category": self.source_category.value,
+            "source_key": self.source_key,
             "source_id": self.source_id,
             "title": self.title,
             "content": self.content,
@@ -232,6 +234,7 @@ class MCPConnectedSourceConfig:
     name: str
     source_category: SourceCategory
     command: str
+    source_key: str = ""
     args: tuple[str, ...] = field(default_factory=tuple)
     env: Mapping[str, str] = field(default_factory=dict)
     cwd: str | None = None
@@ -249,6 +252,7 @@ class MCPConnectedSourceConfig:
         return {
             "name": self.name,
             "source_category": self.source_category.value,
+            "source_key": self.source_key,
             "command": self.command,
             "args": list(self.args),
             "cwd": self.cwd or "",
@@ -266,6 +270,74 @@ class MCPConnectedSourceConfig:
 
 
 @dataclass(frozen=True)
+class RemoteMCPConnectedSourceConfig:
+    """One hosted MCP connected source queried over HTTP."""
+
+    name: str
+    provider: str
+    source_category: SourceCategory
+    endpoint_url: str
+    source_key: str = ""
+    enabled: bool = True
+    auth_type: str = "none"
+    bearer_token: str = ""
+    oauth_access_token: str = ""
+    api_key: str = ""
+    api_key_header: str = ""
+    oauth_authorize_url: str = ""
+    headers: Mapping[str, str] = field(default_factory=dict)
+    scope: str = ""
+    features: Mapping[str, bool] = field(default_factory=dict)
+    query_tool_name: str = ""
+    fetch_tool_name: str = ""
+    query_argument_name: str = "query"
+    limit_argument_name: str = "limit"
+    result_limit: int = 5
+    enrich_results: bool = False
+    enrich_limit: int = 3
+    timeout_seconds: int = 20
+    min_score: float = 0.0
+    static_tool_arguments: Mapping[str, str] = field(default_factory=dict)
+    score_fields: tuple[str, ...] = ("score", "relevance", "rank_score", "_score")
+    id_fields: tuple[str, ...] = ("source_id", "id", "url", "html_url", "key", "number")
+    title_fields: tuple[str, ...] = ("title", "name", "summary", "subject")
+    content_fields: tuple[str, ...] = ("content", "body", "text", "description", "summary")
+
+    def public_dict(self) -> dict[str, object]:
+        return {
+            "enabled": self.enabled,
+            "name": self.name,
+            "provider": self.provider,
+            "source_category": self.source_category.value,
+            "source_key": self.source_key,
+            "endpoint_url": self.endpoint_url,
+            "auth_type": self.auth_type,
+            "oauth_authorize_url": self.oauth_authorize_url,
+            "headers": dict(self.headers),
+            "scope": self.scope,
+            "features": dict(self.features),
+            "query_tool_name": self.query_tool_name,
+            "fetch_tool_name": self.fetch_tool_name,
+            "query_argument_name": self.query_argument_name,
+            "limit_argument_name": self.limit_argument_name,
+            "result_limit": self.result_limit,
+            "enrich_results": self.enrich_results,
+            "enrich_limit": self.enrich_limit,
+            "timeout_seconds": self.timeout_seconds,
+            "min_score": self.min_score,
+            "static_tool_arguments": dict(self.static_tool_arguments),
+            "score_fields": list(self.score_fields),
+            "id_fields": list(self.id_fields),
+            "title_fields": list(self.title_fields),
+            "content_fields": list(self.content_fields),
+            "bearer_token_configured": bool(self.bearer_token),
+            "oauth_access_token_configured": bool(self.oauth_access_token),
+            "api_key_configured": bool(self.api_key),
+            "api_key_header": self.api_key_header,
+        }
+
+
+@dataclass(frozen=True)
 class SourceRegistryEntry:
     """Explicit source-capability declaration for one retrieval category."""
 
@@ -275,10 +347,16 @@ class SourceRegistryEntry:
     queryable: bool
     adapter_name: str
     note: str = ""
+    source_key: str = ""
+    provider: str = ""
+    title: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
             "category": self.category.value,
+            "source_key": self.source_key or self.category.value,
+            "provider": self.provider,
+            "title": self.title,
             "enabled": self.enabled,
             "indexed": self.indexed,
             "queryable": self.queryable,
@@ -309,19 +387,23 @@ class WorkspaceRetrievalConfig:
     enable_indexing: bool = True
     cgc_timeout_seconds: int = 60
     cgc_max_files_for_bm25: int = 20
+    index_exclude_paths: tuple[str, ...] | None = None
     enabled_source_categories: tuple[SourceCategory, ...] = DEFAULT_ALLOWED_SOURCE_CATEGORIES
+    enabled_sources: tuple[str, ...] = ()
     reindex_policy: str = WORKSPACE_REINDEX_POLICY_ALWAYS
     retrieval_model_settings: Mapping[str, str] = field(default_factory=dict)
     issue_tracker_documents: tuple[ConnectedSourceDocument, ...] = field(default_factory=tuple)
     pull_request_documents: tuple[ConnectedSourceDocument, ...] = field(default_factory=tuple)
     notebooklm_documents: tuple[ConnectedSourceDocument, ...] = field(default_factory=tuple)
     mcp_connected_sources: tuple[MCPConnectedSourceConfig, ...] = field(default_factory=tuple)
+    remote_mcp_connected_sources: tuple[RemoteMCPConnectedSourceConfig, ...] = field(default_factory=tuple)
     local_note_paths: tuple[str, ...] = field(default_factory=tuple)
     obsidian_vault_path: str | None = field(default_factory=_default_obsidian_vault_path)
     obsidian_db_path: str | None = field(default_factory=_default_obsidian_db_path)
     obsidian_command: tuple[str, ...] = field(default_factory=_default_obsidian_command)
     obsidian_search_mode: str = "fulltext"
     obsidian_search_limit: int = 5
+    obsidian_min_guidance_score: float = 0.01
     obsidian_timeout_seconds: int = 20
     connected_source_adapters: Mapping[str, bool] = field(
         default_factory=lambda: {
@@ -339,7 +421,12 @@ class WorkspaceRetrievalConfig:
             for source in self.mcp_connected_sources
             if self.connected_source_adapters.get("mcp", True)
         }
-        return (
+        remote_mcp_categories = {
+            source.source_category
+            for source in self.remote_mcp_connected_sources
+            if source.enabled and self.connected_source_adapters.get("remote_mcp", True)
+        }
+        entries: list[SourceRegistryEntry] = [
             SourceRegistryEntry(
                 category=SourceCategory.SOURCE_CODE,
                 enabled=SourceCategory.SOURCE_CODE in self.enabled_source_categories,
@@ -347,6 +434,8 @@ class WorkspaceRetrievalConfig:
                 queryable=True,
                 adapter_name="codegraphcontext+qdrant-hybrid",
                 note="CGC narrows files first; Qdrant hybrid retrieval searches dense+sparse vectors inside the filtered file set.",
+                source_key="source_code",
+                title="Source code",
             ),
             SourceRegistryEntry(
                 category=SourceCategory.DOCUMENTATION,
@@ -355,14 +444,18 @@ class WorkspaceRetrievalConfig:
                 queryable=True,
                 adapter_name="codegraphcontext+qdrant-hybrid",
                 note="Workspace docs participate in the same CGC-first Qdrant hybrid retrieval flow.",
+                source_key="repo_docs",
+                title="Repository docs",
             ),
             SourceRegistryEntry(
                 category=SourceCategory.ISSUE_TRACKER,
                 enabled=SourceCategory.ISSUE_TRACKER in self.enabled_source_categories
                 and self.connected_source_adapters.get("issue_tracker", True),
                 indexed=False,
-                queryable=bool(self.issue_tracker_documents) or SourceCategory.ISSUE_TRACKER in mcp_categories,
-                adapter_name="connected_documents+mcp",
+                queryable=bool(self.issue_tracker_documents)
+                or SourceCategory.ISSUE_TRACKER in mcp_categories
+                or SourceCategory.ISSUE_TRACKER in remote_mcp_categories,
+                adapter_name="connected_documents+mcp+remote_mcp",
                 note="Issue tracker context is supplied as connected documents or MCP-backed query results.",
             ),
             SourceRegistryEntry(
@@ -370,8 +463,10 @@ class WorkspaceRetrievalConfig:
                 enabled=SourceCategory.PULL_REQUEST in self.enabled_source_categories
                 and self.connected_source_adapters.get("pull_request", True),
                 indexed=False,
-                queryable=bool(self.pull_request_documents) or SourceCategory.PULL_REQUEST in mcp_categories,
-                adapter_name="connected_documents+mcp",
+                queryable=bool(self.pull_request_documents)
+                or SourceCategory.PULL_REQUEST in mcp_categories
+                or SourceCategory.PULL_REQUEST in remote_mcp_categories,
+                adapter_name="connected_documents+mcp+remote_mcp",
                 note="Pull request context is supplied as connected documents or MCP-backed query results.",
             ),
             SourceRegistryEntry(
@@ -385,17 +480,55 @@ class WorkspaceRetrievalConfig:
                     "Obsidian owns local-note indexing; workspace retrieval consumes matching note results as "
                     "trusted source guidance without adding them to Qdrant."
                 ),
+                source_key="local_notes",
+                title="Local notes",
             ),
             SourceRegistryEntry(
                 category=SourceCategory.NOTEBOOKLM,
                 enabled=SourceCategory.NOTEBOOKLM in self.enabled_source_categories
                 and self.connected_source_adapters.get("notebooklm", True),
                 indexed=False,
-                queryable=bool(self.notebooklm_documents) or SourceCategory.NOTEBOOKLM in mcp_categories,
-                adapter_name="connected_documents+mcp",
-                note="NotebookLM context is attached as provided text snippets in v1.",
+                queryable=bool(self.notebooklm_documents)
+                or SourceCategory.NOTEBOOKLM in mcp_categories
+                or SourceCategory.NOTEBOOKLM in remote_mcp_categories,
+                adapter_name="connected_documents+remote_mcp+mcp",
+                note="NotebookLM context is attached as provided text snippets or remote/local MCP results.",
+                source_key="notebooklm",
+                title="NotebookLM",
             ),
-        )
+        ]
+        for source in self.remote_mcp_connected_sources:
+            if not source.enabled or not self.connected_source_adapters.get("remote_mcp", True):
+                continue
+            entries.append(
+                SourceRegistryEntry(
+                    category=source.source_category,
+                    enabled=(not self.enabled_sources or source.source_key in self.enabled_sources),
+                    indexed=False,
+                    queryable=True,
+                    adapter_name="remote_mcp",
+                    note="Remote MCP provider source queried live during retrieval.",
+                    source_key=source.source_key,
+                    provider=source.provider,
+                    title=source.name,
+                )
+            )
+        for source in self.mcp_connected_sources:
+            if not self.connected_source_adapters.get("mcp", True):
+                continue
+            entries.append(
+                SourceRegistryEntry(
+                    category=source.source_category,
+                    enabled=(not self.enabled_sources or source.source_key in self.enabled_sources),
+                    indexed=False,
+                    queryable=True,
+                    adapter_name="mcp",
+                    note="Local MCP provider source queried live during retrieval.",
+                    source_key=source.source_key,
+                    title=source.name,
+                )
+            )
+        return tuple(entries)
 
     def validate(self) -> None:
         if self.reindex_policy != WORKSPACE_REINDEX_POLICY_ALWAYS:
@@ -412,12 +545,17 @@ class WorkspaceRetrievalConfig:
             raise ValueError("cgc_timeout_seconds must be greater than zero.")
         if self.cgc_max_files_for_bm25 <= 0:
             raise ValueError("cgc_max_files_for_bm25 must be greater than zero.")
+        index_exclude_paths = self.index_exclude_paths or ()
+        if any(Path(path).is_absolute() for path in index_exclude_paths):
+            raise ValueError("Index exclude paths must be workspace-relative.")
         if self.chunk_line_count <= 0:
             raise ValueError("chunk_line_count must be greater than zero.")
         if self.chunk_line_overlap < 0 or self.chunk_line_overlap >= self.chunk_line_count:
             raise ValueError("chunk_line_overlap must be between zero and chunk_line_count - 1.")
         if self.obsidian_search_limit <= 0:
             raise ValueError("obsidian_search_limit must be greater than zero.")
+        if self.obsidian_min_guidance_score < 0:
+            raise ValueError("obsidian_min_guidance_score must be zero or greater.")
         if self.obsidian_timeout_seconds <= 0:
             raise ValueError("obsidian_timeout_seconds must be greater than zero.")
         for source in self.mcp_connected_sources:
@@ -431,6 +569,19 @@ class WorkspaceRetrievalConfig:
                 raise ValueError(f"MCP connected source {source.name!r} requires result_limit > 0.")
             if source.timeout_seconds <= 0:
                 raise ValueError(f"MCP connected source {source.name!r} requires timeout_seconds > 0.")
+        for source in self.remote_mcp_connected_sources:
+            if not source.name.strip():
+                raise ValueError("Remote MCP connected source requires name.")
+            if not source.provider.strip():
+                raise ValueError(f"Remote MCP connected source {source.name!r} requires provider.")
+            if not source.endpoint_url.strip():
+                raise ValueError(f"Remote MCP connected source {source.name!r} requires endpoint_url.")
+            if not source.query_tool_name.strip():
+                raise ValueError(f"Remote MCP connected source {source.name!r} requires query_tool_name.")
+            if source.result_limit <= 0:
+                raise ValueError(f"Remote MCP connected source {source.name!r} requires result_limit > 0.")
+            if source.timeout_seconds <= 0:
+                raise ValueError(f"Remote MCP connected source {source.name!r} requires timeout_seconds > 0.")
         RunConfigController().validate_llm_config(self.llm_config)
         RunConfigController().validate_embedding_config(self.embedding_config)
         RunConfigController().validate_qdrant_config(self.qdrant_config)
@@ -524,7 +675,7 @@ class RunConfig:
 
     run_id: str
     case_id: str
-    stage: ResponseStage
+    turn_type: TurnType
     source_config: RunSourceConfig
     llm_config: RunLLMConfig
     retrieval_config: Mapping[str, str] = field(default_factory=dict)
@@ -613,7 +764,7 @@ def coderepoqa_stage1_run_config(
     return RunConfig(
         run_id=run_id,
         case_id=case_id,
-        stage=ResponseStage.EXPLAIN,
+        turn_type=TurnType.GUIDED_EXPLANATION,
         source_config=RunSourceConfig(
             policy_name=CODEREPOQA_STAGE1_POLICY_NAME,
             allowed_categories=CODEREPOQA_STAGE1_ALLOWED_CATEGORIES,

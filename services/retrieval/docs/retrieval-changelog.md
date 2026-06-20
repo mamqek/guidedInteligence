@@ -1,5 +1,103 @@
 # Retrieval Changelog
 
+## 2026-06-18
+
+### Added: Protocol Relationship Graph Helper
+
+- Intended stage boundary:
+  - run after required-role recovery and before deterministic coverage/evidence selection,
+  - keep relationship discovery in `services/retrieval/pipeline/protocol_graph.py`, separate from `workspace.py`,
+  - extract concrete frontend API literals from accepted frontend candidates such as `requestJson<T>("/index/estimate")`, `fetch("/...")`, and `axios.get("/...")`,
+  - rank extracted route literals against the target bucket query so issue-specific routes are tried before generic endpoints,
+  - scan likely backend route/handler files for matching route string literals,
+  - extract high-signal prompt/message literals such as `Error parsing expression` or `expects a method`,
+  - scan likely diagnostics/parser/validator files for exact message fragments,
+  - promote normal source-code `RetrievalCandidate` records with `retrieval_path=protocol_route_bridge` or `retrieval_path=protocol_message_bridge`.
+- Expected quality impact:
+  - improve UI-to-backend owner discovery when retrieval finds a frontend API wrapper but misses the server handler,
+  - make string/protocol relationships visible even when CGC cannot infer the relationship from dynamic request wrappers or diagnostic string construction,
+  - improve recovery for issue prompts whose exact error/warning text appears in parser, directive, checker, validator, or diagnostic files,
+  - keep promotions explainable through exact literal/fragment matches instead of semantic guesswork.
+- Expected token impact:
+  - no extra LLM prompt tokens directly from the helper because it is deterministic,
+  - possible indirect token increase when promoted relationship candidates give late synthesis/response generation more evidence to assess,
+  - no embedding-token change because this uses local file scans over already-indexed workspace files.
+- Known regression risks:
+  - exact string matching will not resolve template-only routes or routes assembled entirely from variables,
+  - diagnostic messages assembled from several string fragments can still be missed unless one stable fragment appears in the prompt,
+  - broad API wrapper snippets can expose many routes; route ranking mitigates this but may still promote a nearby route group span,
+  - message-literal scans are intentionally limited to diagnostics/parser/validator-like source paths to avoid turning every matching string into owner evidence.
+- Comparison method:
+  - focused unit coverage for typed frontend calls, backend route promotion, and prompt-message literal promotion,
+  - real workspace pipeline runs against this repo with a UI `requestJson<IndexEstimate>("/index/estimate")` prompt,
+  - real CodeRepoQA runs against TypeScript and Vue cases,
+  - compare run IDs, coverage, sufficiency, selected evidence, protocol bridge events, tool calls, and observed OpenAI usage totals from trace `usage` fields.
+
+### Verification: Protocol Relationship Graph Helper
+
+- Focused tests:
+  - `python -m unittest tests.test_workspace_retrieval.WorkspaceRetrievalStageTests.test_protocol_relationship_bridge_promotes_matching_backend_handler tests.test_workspace_retrieval.WorkspaceRetrievalStageTests.test_protocol_graph_discovers_ranked_route_relationship_candidate tests.test_workspace_retrieval.WorkspaceRetrievalStageTests.test_protocol_graph_discovers_prompt_message_literal_candidate`
+  - passed.
+- Compile check:
+  - `python -m py_compile services\retrieval\workspace.py services\retrieval\pipeline\protocol_graph.py tests\test_workspace_retrieval.py`
+  - passed.
+- Broader test note:
+  - `python -m unittest tests.test_workspace_retrieval` still has an unrelated pre-existing failure in `test_role_retarget_queries_add_role_specific_entrypoint_terms`; expected query string contains `parser syntax tokens ...`, current output contains `input parsing request handling ...`.
+- Real run comparison:
+  - Before typed-route support:
+    - run ID: `run-20260618T113308Z-route-bridge`
+    - `coverage_status=partial`, `sufficient=False`
+    - selected refs did not include `services/retrieval/server.py`
+    - selected count: 7, tool calls: 289
+    - observed OpenAI usage from traces: 11,683 prompt + 3,268 completion = 14,951 total tokens
+  - After typed-route extraction, before route ranking:
+    - run ID: `run-20260618T113646Z-route-bridge-v2`
+    - `coverage_status=partial`, `sufficient=False`
+    - promoted `repo-pre:services/retrieval/server.py:L825-L852`
+    - route list started with generic `/health`, while the promoted span still contained `/index/estimate`
+    - selected count: 4, tool calls: 478
+    - observed OpenAI usage from traces: 19,677 prompt + 4,262 completion = 23,939 total tokens
+  - Final route-ranked run:
+    - run ID: `run-20260618T114148Z-route-bridge-v3`
+    - `coverage_status=partial`, `sufficient=False`
+    - bridge event promoted `repo-pre:services/retrieval/server.py:L825-L864`
+    - ranked routes started with `/index/estimate`, then `/index/prepare`
+    - final response evidence included `ui/src/api.ts`, `services/retrieval/server.py`, and `ui/src/App.tsx`
+    - selected count: 5, tool calls: 485
+    - observed OpenAI usage from traces: 17,643 prompt + 4,147 completion = 21,790 total tokens
+  - Final extracted-helper run:
+    - run ID: `run-20260618T172205Z-protocol-graph-final`
+    - `coverage_status=partial`, `sufficient=False`
+    - protocol event promoted `repo-pre:services/retrieval/server.py:L825-L864`
+    - routes started with `/index/estimate`, then `/index/prepare`
+    - selected count: 5, tool calls: 314
+    - observed OpenAI usage from traces: 18,319 prompt + 4,298 completion = 22,617 total tokens
+- TypeScript CodeRepoQA measurement:
+  - run ID: `run-20260618T180628Z-protocol-graph-final`
+  - `coverage_status=partial`, `sufficient=False`
+  - selected refs included `src/compiler/types.ts`, `scanner.ts`, `parser.ts`, `diagnosticMessages.json`, and `emitter.ts`
+  - protocol helper detected abstract-related missing diagnostic terms such as `cannot invoke abstract members through super`, but promoted no refs because those diagnostics do not exist in the pre-fix snapshot
+  - selected count: 10, tool calls: 260
+  - observed OpenAI usage from traces: 17,968 prompt + 4,583 completion = 22,551 total tokens
+- Vue CodeRepoQA measurement:
+  - initial protocol-message run ID: `run-20260618T184200Z-protocol-graph-final`
+    - detected terms including `Error parsing expression` and `expects a method`, but promoted no refs because exact refs were already present or recovered elsewhere by that point,
+    - final refs were weak for the desired parser/diagnostic owner mix in that run.
+  - after allowing message edges to reuse a path already accepted under another role:
+    - run ID: `run-20260618T185039Z-protocol-message-final`
+    - `coverage_status=partial`, `sufficient=False`
+    - final refs included `src/exp-parser.js:L29-L108`, `src/exp-parser.js:L73-L152`, and `src/directive.js:L81-L160`
+    - diagnostics bucket was weak with `src/exp-parser.js:L73-L152` and `src/directive.js:L121-L200`
+    - protocol event still promoted no new refs in this run because normal recovery already had the diagnostic owner refs before the bridge, but the focused unit test proves the message edge can promote the same pattern when missing
+    - selected count: 10, tool calls: 307
+    - observed OpenAI usage from traces: 17,919 prompt + 4,716 completion = 22,635 total tokens
+- Quality notes:
+  - route edges fixed the specific self-repo miss: backend route evidence now survives to final evidence for the UI route prompt,
+  - TypeScript shows the helper does not hallucinate nonexistent abstract diagnostics; this is a useful no-promotion result,
+  - Vue shows the next useful edge family is diagnostic/message ownership and possibly expression grammar/data-shape relationships; the current message edge is safe but did not materially improve the final run when normal recovery already found `exp-parser.js`,
+  - sufficiency stayed false in all measured runs because missing/weak roles remain outside what exact protocol-string edges can solve alone,
+  - this should remain an enrichment/helper stage, not a replacement for CGC/Qdrant/role validation.
+
 ## 2026-06-15
 
 ### Added: MCP Connected Source Adapter

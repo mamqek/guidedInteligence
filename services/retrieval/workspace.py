@@ -11,9 +11,14 @@ from typing import Any, Mapping, Sequence
 
 from core.models import ConversationState, EvidenceItem, PolicyResult, RetrievalResult
 from core.source_policy import SourceCategory
-from services.retrieval.bm25 import build_index_from_repo, load_index, save_index
+from services.retrieval.bm25 import DEFAULT_EXCLUDED_PATHS, build_index_from_repo, load_index, save_index
 from services.retrieval.config import ConnectedSourceDocument, WorkspaceRetrievalConfig
-from services.retrieval.mcp import MCPConnectedSourceAdapter, MCPConnectedSourceError
+from services.retrieval.mcp import (
+    LocalMCPConnectedSourceAdapter,
+    MCPConnectedSourceError,
+    RemoteMCPConnectedSourceAdapter,
+    RemoteMCPConnectedSourceError,
+)
 from services.retrieval.obsidian import (
     ObsidianHybridSearchAdapter,
     ObsidianSearchError,
@@ -90,6 +95,7 @@ from services.retrieval.pipeline.models import (
     RoleRetrievalBucket,
     RoleValidationResult,
 )
+from services.retrieval.pipeline.protocol_graph import discover_protocol_relationship_candidates
 from services.retrieval.pipeline.refinement import refine_role_file_group as _refine_role_file_group
 from services.retrieval.pipeline.snippet_level import (
     best_direct_owner_span as _best_direct_owner_span,
@@ -188,6 +194,13 @@ class WorkspaceRetrievalStage:
         connected_documents = self._connected_documents(state.user_input, policy_result.allowed_sources)
         cgc_tools = self._cgc_tools()
         if self.config.enable_indexing:
+            self._record(
+                "workspace_index_cgc_started",
+                {
+                    "workspace_root": self.config.workspace_root,
+                    "index_dir": self.config.index_dir,
+                },
+            )
             index_observation = cgc_tools["cgc_index_repo"].run(
                 ToolRequest(tool_name="cgc_index_repo", arguments={}, reason="mandatory code graph refresh")
             )
@@ -204,6 +217,13 @@ class WorkspaceRetrievalStage:
             self._record_tool(ToolRequest(tool_name="cgc_index_repo", arguments={}), index_observation, round_index=0)
 
         try:
+            self._record(
+                "workspace_index_bm25_started",
+                {
+                    "workspace_root": self.config.workspace_root,
+                    "index_dir": self.config.index_dir,
+                },
+            )
             index = self._rebuild_index()
         except RuntimeError as exc:
             failed_observation = ToolObservation(
@@ -221,6 +241,22 @@ class WorkspaceRetrievalStage:
         )
         open_file_tool = OpenFileTool(index)
         obsidian_results = self._search_obsidian_notes(state.user_input, policy_result.allowed_sources)
+        if obsidian_results:
+            filtered_obsidian_results = tuple(
+                result for result in obsidian_results if result.score >= self.config.obsidian_min_guidance_score
+            )
+            if len(filtered_obsidian_results) != len(obsidian_results):
+                self._record(
+                    "trusted_local_notes_results_filtered",
+                    {
+                        "adapter": "obsidian-hybrid-search",
+                        "min_score": self.config.obsidian_min_guidance_score,
+                        "kept_count": len(filtered_obsidian_results),
+                        "dropped_count": len(obsidian_results) - len(filtered_obsidian_results),
+                        "scores": [result.score for result in obsidian_results],
+                    },
+                )
+            obsidian_results = filtered_obsidian_results
         if obsidian_results:
             connected_documents = tuple(
                 self._obsidian_result_to_connected_document(result)
@@ -292,6 +328,7 @@ class WorkspaceRetrievalStage:
             narrowed_files=global_narrowed_files,
             starting_tool_call_count=tool_call_count,
         )
+        required_buckets = self._apply_protocol_relationship_bridge(required_buckets, retrieval_plan=retrieval_plan)
         deterministic_gate = _build_deterministic_coverage_gate(retrieval_plan.required_roles, required_buckets)
 
         supporting_buckets: tuple[RoleRetrievalBucket, ...] = ()
@@ -465,8 +502,29 @@ class WorkspaceRetrievalStage:
     def _rebuild_index(self):
         index_dir = Path(self.config.index_dir)
         index_path = index_dir / "bm25-index.json"
-        if index_path.exists():
+        scope_manifest_path = index_dir / "bm25-scope-manifest.json"
+        scope_manifest = _load_sync_manifest(scope_manifest_path)
+        effective_exclude_paths = (
+            DEFAULT_EXCLUDED_PATHS if self.config.index_exclude_paths is None else self.config.index_exclude_paths
+        )
+        scope_signature = {
+            "workspace_root": str(Path(self.config.workspace_root).resolve()),
+            "exclude_paths": list(effective_exclude_paths),
+            "chunk_line_count": self.config.chunk_line_count,
+            "chunk_line_overlap": self.config.chunk_line_overlap,
+        }
+        default_scope = self.config.index_exclude_paths is None
+        legacy_default_scope = index_path.exists() and not scope_manifest and default_scope
+        if index_path.exists() and (_sync_manifest_scope_matches(scope_manifest, scope_signature) or legacy_default_scope):
             index = load_index(index_dir)
+            self._record(
+                "workspace_bm25_index_reused",
+                {
+                    "workspace_root": self.config.workspace_root,
+                    "index_dir": self.config.index_dir,
+                    "document_count": len(index.documents),
+                },
+            )
         else:
             if not self.config.enable_indexing:
                 raise RuntimeError(f"Missing BM25 index while RETRIEVAL_ENABLE_INDEXING=false: {index_path}")
@@ -478,8 +536,18 @@ class WorkspaceRetrievalStage:
                 snapshot="workspace_current",
                 visibility="workspace_visible",
                 origin="workspace_index",
+                exclude_paths=self.config.index_exclude_paths,
             )
             save_index(index, index_dir)
+            _save_sync_manifest(scope_manifest_path, scope_signature)
+            self._record(
+                "workspace_bm25_index_rebuilt",
+                {
+                    "workspace_root": self.config.workspace_root,
+                    "index_dir": self.config.index_dir,
+                    "document_count": len(index.documents),
+                },
+            )
         qdrant_tool = QdrantHybridSearchTool(
             index,
             qdrant_config=self.config.qdrant_config,
@@ -1570,6 +1638,99 @@ class WorkspaceRetrievalStage:
             total_tool_calls += bucket_tool_calls
         return tuple(refined_buckets), total_tool_calls
 
+    def _apply_protocol_relationship_bridge(
+        self,
+        buckets: Sequence[RoleRetrievalBucket],
+        *,
+        retrieval_plan: WorkspaceRetrievalPlan | None = None,
+    ) -> tuple[RoleRetrievalBucket, ...]:
+        result = discover_protocol_relationship_candidates(
+            workspace_root=self.config.workspace_root,
+            buckets=buckets,
+            max_candidates=MAX_ROLE_BUCKET_CANDIDATES,
+            seed_texts=_protocol_relationship_seed_texts(retrieval_plan),
+        )
+        if not result.promotions:
+            if result.routes or result.message_terms:
+                self._record(
+                    "protocol_relationship_bridge_completed",
+                    {"routes": list(result.routes), "message_terms": list(result.message_terms), "promoted_refs": []},
+                )
+            return tuple(buckets)
+
+        updated = list(buckets)
+        promoted_refs: list[str] = []
+        promotion_sources: list[str] = []
+        for promotion in result.promotions:
+            if promotion.target_bucket_index is None:
+                continue
+            target_bucket = updated[promotion.target_bucket_index]
+            updated[promotion.target_bucket_index] = self._bucket_with_route_bridge_candidates(target_bucket, promotion.candidates)
+            promoted_refs.extend(candidate.source_id for candidate in promotion.candidates)
+            promotion_sources.append(promotion.source)
+        self._record(
+            "protocol_relationship_bridge_completed",
+            {
+                "routes": list(result.routes),
+                "message_terms": list(result.message_terms),
+                "promotion_sources": promotion_sources,
+                "promoted_refs": promoted_refs,
+            },
+        )
+        return tuple(updated)
+
+    def _bucket_with_route_bridge_candidates(
+        self,
+        bucket: RoleRetrievalBucket,
+        candidates: Sequence[RetrievalCandidate],
+    ) -> RoleRetrievalBucket:
+        evaluations = list(bucket.evaluations)
+        for candidate in candidates:
+            evaluations.append(
+                RoleCandidateEvaluation(
+                    candidate=candidate,
+                    validation=RoleValidationResult(
+                        accepted=True,
+                        reason="protocol_relationship_candidate_promoted",
+                        local_intent_score=5.0,
+                        role_path_score=2.0,
+                        dependency_support_score=0.0,
+                        anchor_proximity_score=2.0,
+                        call_flow_score=0.0,
+                        total_score=9.0,
+                        threshold=3.0,
+                        acceptance_source="protocol_relationship_bridge",
+                        symbol=None,
+                        dependency_paths=(),
+                        call_paths=(),
+                        anchor_paths=(),
+                    ),
+                    stage="protocol_relationship_bridge",
+                    source_role=bucket.role,
+                )
+            )
+        merged = _merge_retrieved_candidates(bucket.retrieved_candidates, tuple(candidates))
+        accepted = tuple(_rank_unique_candidates(tuple(candidates) + tuple(bucket.accepted_candidates)))[:MAX_ROLE_BUCKET_CANDIDATES]
+        satisfying = tuple(candidate for candidate in accepted if not _is_file_candidate(candidate))
+        return RoleRetrievalBucket(
+            role=bucket.role,
+            query=bucket.query,
+            helper_queries=bucket.helper_queries,
+            observations=bucket.observations,
+            retrieved_candidates=merged,
+            evaluations=tuple(evaluations),
+            accepted_candidates=accepted,
+            rejected_refs=tuple(ref for ref in bucket.rejected_refs if ref not in {candidate.source_id for candidate in candidates}),
+            validation_notes=tuple((*bucket.validation_notes, *("protocol_relationship_bridge_promoted",) * len(candidates))),
+            missing_reason="" if satisfying else bucket.missing_reason,
+            role_status="strong" if satisfying else bucket.role_status,
+            satisfying_refs=tuple(candidate.source_id for candidate in satisfying),
+            snippet_assessment=tuple(
+                (*bucket.snippet_assessment, *({"ref": candidate.source_id, "role": "core", "reason": "matched frontend route literal"} for candidate in candidates))
+            ),
+            satisfaction_source="protocol_relationship_bridge",
+        )
+
     def _owner_focus_roles(
         self,
         *,
@@ -1701,6 +1862,7 @@ class WorkspaceRetrievalStage:
                     continue
                 satisfying_refs.append(candidate.source_id)
                 saw_core = saw_core or quality == "core"
+            usable_candidates = tuple(candidate for candidate in reranked if candidate.source_id not in set(noise_refs))
             role_status = "missing"
             if satisfying_refs:
                 assessor_accepts_role = (
@@ -1739,7 +1901,7 @@ class WorkspaceRetrievalStage:
                     observations=bucket.observations,
                     retrieved_candidates=bucket.retrieved_candidates,
                     evaluations=bucket.evaluations,
-                    accepted_candidates=tuple(reranked),
+                    accepted_candidates=usable_candidates,
                     rejected_refs=bucket.rejected_refs,
                     validation_notes=bucket.validation_notes,
                     missing_reason=missing_reason,
@@ -3024,14 +3186,57 @@ class WorkspaceRetrievalStage:
         allowed_sources: Sequence[SourceCategory] = (),
     ) -> tuple[ConnectedSourceDocument, ...]:
         documents: list[ConnectedSourceDocument] = []
-        documents.extend(self.config.issue_tracker_documents)
-        documents.extend(self.config.pull_request_documents)
-        documents.extend(self.config.notebooklm_documents)
+        enabled_source_keys = set(self.config.enabled_sources)
+        if not enabled_source_keys or "issue_tracker" in enabled_source_keys:
+            documents.extend(self.config.issue_tracker_documents)
+        if not enabled_source_keys or "pull_request" in enabled_source_keys:
+            documents.extend(self.config.pull_request_documents)
+        if not enabled_source_keys or "notebooklm" in enabled_source_keys:
+            documents.extend(self.config.notebooklm_documents)
+        if query and self.config.connected_source_adapters.get("remote_mcp", True):
+            for source_config in self.config.remote_mcp_connected_sources:
+                if not source_config.enabled:
+                    continue
+                if enabled_source_keys and source_config.source_key not in enabled_source_keys:
+                    continue
+                adapter = RemoteMCPConnectedSourceAdapter(source_config)
+                try:
+                    source_documents = adapter.search(query)
+                except RemoteMCPConnectedSourceError as exc:
+                    self._record(
+                        "remote_mcp_connected_source_failed",
+                        {
+                            "adapter": "remote_mcp",
+                            "provider": source_config.provider,
+                            "source_name": source_config.name,
+                            "source_key": source_config.source_key,
+                            "source_category": source_config.source_category.value,
+                            "endpoint_url": source_config.endpoint_url,
+                            "tool_name": source_config.query_tool_name,
+                            "reason": str(exc)[:400],
+                        },
+                    )
+                    continue
+                documents.extend(source_documents)
+                self._record(
+                    "remote_mcp_connected_source_searched",
+                    {
+                        "adapter": "remote_mcp",
+                        "provider": source_config.provider,
+                        "source_name": source_config.name,
+                        "source_key": source_config.source_key,
+                        "source_category": source_config.source_category.value,
+                        "endpoint_url": source_config.endpoint_url,
+                        "tool_name": source_config.query_tool_name,
+                        "result_count": len(source_documents),
+                        "source_refs": [document.source_id for document in source_documents],
+                    },
+                )
         if query and self.config.connected_source_adapters.get("mcp", True):
             for source_config in self.config.mcp_connected_sources:
-                if allowed_sources and source_config.source_category not in allowed_sources:
+                if enabled_source_keys and source_config.source_key not in enabled_source_keys:
                     continue
-                adapter = MCPConnectedSourceAdapter(source_config)
+                adapter = LocalMCPConnectedSourceAdapter(source_config)
                 try:
                     source_documents = adapter.search(query)
                 except MCPConnectedSourceError as exc:
@@ -3040,6 +3245,7 @@ class WorkspaceRetrievalStage:
                         {
                             "adapter": "mcp",
                             "source_name": source_config.name,
+                            "source_key": source_config.source_key,
                             "source_category": source_config.source_category.value,
                             "tool_name": source_config.query_tool_name,
                             "reason": str(exc)[:400],
@@ -3052,6 +3258,7 @@ class WorkspaceRetrievalStage:
                     {
                         "adapter": "mcp",
                         "source_name": source_config.name,
+                        "source_key": source_config.source_key,
                         "source_category": source_config.source_category.value,
                         "tool_name": source_config.query_tool_name,
                         "result_count": len(source_documents),
@@ -3059,6 +3266,8 @@ class WorkspaceRetrievalStage:
                     },
                 )
         for note_path in self.config.local_note_paths:
+            if enabled_source_keys and "local_notes" not in enabled_source_keys:
+                break
             path = Path(note_path)
             if not path.exists() or not path.is_file():
                 continue
@@ -3072,7 +3281,8 @@ class WorkspaceRetrievalStage:
                     source_id=path.as_posix(),
                     title=path.name,
                     content=content,
-                    metadata={"path": path.as_posix()},
+                    metadata={"path": path.as_posix(), "source_key": "local_notes"},
+                    source_key="local_notes",
                 )
             )
         return tuple(documents)
@@ -3082,6 +3292,8 @@ class WorkspaceRetrievalStage:
         query: str,
         allowed_sources: Sequence[SourceCategory],
     ) -> tuple[ObsidianSearchResult, ...]:
+        if self.config.enabled_sources and "local_notes" not in self.config.enabled_sources:
+            return ()
         if SourceCategory.LOCAL_NOTES not in allowed_sources:
             return ()
         if not self.config.connected_source_adapters.get("local_notes", True):
@@ -3139,8 +3351,10 @@ class WorkspaceRetrievalStage:
                 "path": result.path,
                 "vault_path": str(self.config.obsidian_vault_path or ""),
                 "score": f"{result.score:.6f}",
+                "source_key": "local_notes",
                 **dict(result.metadata or {}),
             },
+            source_key="local_notes",
         )
 
     def _apply_obsidian_guidance(
@@ -3153,9 +3367,21 @@ class WorkspaceRetrievalStage:
             return retrieval_plan, ()
         indexed_paths = {document.chunk.path for document in index.documents}
         workspace_root = Path(self.config.workspace_root)
+        guidance_results = tuple(result for result in results if result.score >= self.config.obsidian_min_guidance_score)
+        if not guidance_results:
+            self._record(
+                "trusted_local_notes_guidance_skipped",
+                {
+                    "adapter": "obsidian-hybrid-search",
+                    "reason": "below_min_guidance_score",
+                    "min_score": self.config.obsidian_min_guidance_score,
+                    "scores": [result.score for result in results],
+                },
+            )
+            return retrieval_plan, ()
         trusted_hints = tuple(
             path
-            for path in trusted_file_hints_from_obsidian_results(results)
+            for path in trusted_file_hints_from_obsidian_results(guidance_results)
             if path in indexed_paths or (workspace_root / path).is_file()
         )
         if not trusted_hints:
@@ -3184,7 +3410,7 @@ class WorkspaceRetrievalStage:
             {
                 "adapter": "obsidian-hybrid-search",
                 "file_hints": list(trusted_hints),
-                "note_refs": [f"obsidian:{result.path}" for result in results],
+                "note_refs": [f"obsidian:{result.path}" for result in guidance_results],
             },
         )
         return updated_plan, trusted_hints
@@ -3231,9 +3457,18 @@ class WorkspaceRetrievalStage:
         buckets = list(required_buckets) + list(supporting_buckets)
         candidates_by_role = {}
         for bucket in buckets:
+            noise_refs = {
+                str(item.get("ref", ""))
+                for item in bucket.snippet_assessment
+                if str(item.get("role", "")).strip().lower() == "noise"
+            }
             satisfying = set(bucket.satisfying_refs or tuple(candidate.source_id for candidate in bucket.accepted_candidates))
             candidates_by_role[bucket.role] = list(_drop_redundant_file_candidates(
-                [candidate for candidate in bucket.accepted_candidates if candidate.source_id in satisfying]
+                [
+                    candidate
+                    for candidate in bucket.accepted_candidates
+                    if candidate.source_id in satisfying and candidate.source_id not in noise_refs
+                ]
             ))
         role_order = [bucket.role for bucket in required_buckets if bucket.satisfying_refs]
         role_order.extend(bucket.role for bucket in supporting_buckets if bucket.satisfying_refs and bucket.role not in role_order)
@@ -3274,13 +3509,24 @@ class WorkspaceRetrievalStage:
     ) -> list[EvidenceItem]:
         expanded = list(selected)
         seen_refs = {item.source_id for item in expanded}
+        noise_refs = {
+            str(item.get("ref", ""))
+            for item in synthesis_decision.snippet_assessment
+            if str(item.get("role", "")).strip().lower() == "noise"
+        }
         candidates_by_ref: dict[str, tuple[str, RetrievalCandidate]] = {}
         for bucket in buckets:
             for candidate in bucket.accepted_candidates:
+                if any(
+                    str(item.get("ref", "")) == candidate.source_id
+                    and str(item.get("role", "")).strip().lower() == "noise"
+                    for item in bucket.snippet_assessment
+                ):
+                    continue
                 candidates_by_ref.setdefault(candidate.source_id, (bucket.role, candidate))
 
         for ref in synthesis_decision.accepted_anchor_refs:
-            if len(expanded) >= MAX_EVIDENCE_ITEMS or ref in seen_refs or ref.endswith(":FILE"):
+            if len(expanded) >= MAX_EVIDENCE_ITEMS or ref in seen_refs or ref.endswith(":FILE") or ref in noise_refs:
                 continue
             role, candidate = candidates_by_ref.get(ref, ("", None))  # type: ignore[assignment]
             if candidate is not None:
@@ -3444,6 +3690,25 @@ def _cypher_string(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
+def _protocol_relationship_seed_texts(retrieval_plan: WorkspaceRetrievalPlan | None) -> tuple[str, ...]:
+    if retrieval_plan is None:
+        return ()
+    values: list[str] = [
+        retrieval_plan.raw_prompt,
+        retrieval_plan.prompt_summary,
+        *retrieval_plan.raw_prompt_evidence,
+        *retrieval_plan.retrieval_terms,
+        *retrieval_plan.surface_context_terms,
+        *retrieval_plan.owner_artifact_terms,
+        *retrieval_plan.llm_concept_terms,
+        *retrieval_plan.speculative_entities,
+    ]
+    values.extend(subquery.query for subquery in retrieval_plan.llm_subqueries)
+    values.extend(subquery.query for subquery in retrieval_plan.owner_subqueries)
+    values.extend(subquery.query for subquery in retrieval_plan.support_subqueries)
+    return ordered_unique(value for value in values if value and value.strip())
+
+
 def _role_retarget_queries(
     role: str,
     *,
@@ -3501,6 +3766,12 @@ def _load_sync_manifest(path: Path) -> Mapping[str, Any]:
     return payload if isinstance(payload, Mapping) else {}
 
 
+def _sync_manifest_scope_matches(manifest: Mapping[str, Any], expected_scope: Mapping[str, Any]) -> bool:
+    return {key: manifest.get(key) for key in expected_scope} == dict(expected_scope)
+
+
 def _save_sync_manifest(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(dict(payload), indent=2, sort_keys=True), encoding="utf-8")
+    output = dict(payload)
+    output["updated_at"] = datetime.now(timezone.utc).isoformat()
+    path.write_text(json.dumps(output, indent=2, sort_keys=True), encoding="utf-8")

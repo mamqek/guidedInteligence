@@ -27,9 +27,9 @@ from services.retrieval.workspace_llm import complete_json, message_to_dict
 
 
 INLINE_CODE_PATTERN = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
-QUOTED_TOKEN_PATTERN = re.compile(r"\"([^\n\"]{1,120})\"|'([^\n']{1,120})'")
+QUOTED_TOKEN_PATTERN = re.compile(r"\"([^\n\"]{1,120})\"|(?<![A-Za-z0-9])'([^\n']{1,120})'(?![A-Za-z0-9])")
 ERROR_TEXT_PATTERN = re.compile(r"(?im)^(?:error|exception|warning|traceback|failed|cannot|unsupported)\b.*$")
-FLAG_PATTERN = re.compile(r"--[A-Za-z0-9_-]+|\b[A-Za-z0-9_.-]+\.[A-Za-z0-9_.-]+\b")
+FLAG_PATTERN = re.compile(r"--[A-Za-z0-9_-]+|(?<!['’])\b[A-Za-z0-9_][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_][A-Za-z0-9_-]*)+\b")
 
 
 def plan_workspace_retrieval_step(
@@ -185,7 +185,43 @@ def _extract_raw_prompt_evidence(state: Any) -> tuple[str, ...]:
     exact_terms.extend(PATH_PATTERN.findall(combined))
     exact_terms.extend(match.group(0).strip() for match in ERROR_TEXT_PATTERN.finditer(combined))
     exact_terms.extend(match.group(0).strip() for match in FLAG_PATTERN.finditer(combined))
-    return ordered_unique(exact_terms)[:MAX_RAW_PROMPT_TERMS]
+    exact = ordered_unique(exact_terms)
+    if exact:
+        return exact[:MAX_RAW_PROMPT_TERMS]
+    return _extract_salient_prompt_terms(combined)[:MAX_RAW_PROMPT_TERMS]
+
+
+def _extract_salient_prompt_terms(text: str) -> tuple[str, ...]:
+    tokens = [
+        token.lower()
+        for token in IDENTIFIER_PATTERN.findall(text)
+        if len(token) >= 4 and is_query_token(token) and token.lower() not in _RAW_PROMPT_STOPWORDS
+    ]
+    terms: list[str] = []
+    terms.extend(tokens)
+    terms.extend(_salient_domain_expansions(tokens))
+    for left, right in zip(tokens, tokens[1:]):
+        if left == right:
+            continue
+        terms.append(f"{left} {right}")
+    return ordered_unique(terms)
+
+
+def _salient_domain_expansions(tokens: Sequence[str]) -> tuple[str, ...]:
+    token_set = set(tokens)
+    expansions: list[str] = []
+    if {"indexing", "alert"} <= token_set or ({"indexing", "completion"} <= token_set):
+        expansions.extend(
+            [
+                "index_ready",
+                "index_status",
+                "index_estimate",
+                "index prepare",
+                "prepare index",
+                "index readiness",
+            ]
+        )
+    return tuple(expansions)
 
 
 def _extract_grounded_entities(prompt: str) -> tuple[str, ...]:
@@ -223,3 +259,41 @@ def _source_priorities_for_prompt(prompt: str, allowed_sources: Sequence[SourceC
         ordered.append(SourceCategory.NOTEBOOKLM)
     ordered.extend(category for category in allowed_sources if category not in ordered)
     return tuple(ordered)
+
+
+_RAW_PROMPT_STOPWORDS = {
+    "about",
+    "after",
+    "already",
+    "before",
+    "could",
+    "does",
+    "from",
+    "have",
+    "here",
+    "into",
+    "like",
+    "look",
+    "made",
+    "more",
+    "need",
+    "reason",
+    "repo",
+    "right",
+    "shows",
+    "some",
+    "something",
+    "still",
+    "that",
+    "these",
+    "this",
+    "tool",
+    "part",
+    "wasn",
+    "when",
+    "where",
+    "whether",
+    "while",
+    "with",
+    "would",
+}
