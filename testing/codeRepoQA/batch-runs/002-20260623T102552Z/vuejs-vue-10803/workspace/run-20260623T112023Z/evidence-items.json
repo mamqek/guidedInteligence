@@ -1,0 +1,156 @@
+[
+  {
+    "metadata": {
+      "commit": "workspace",
+      "coverage_area": "representation",
+      "file_role": "implementation",
+      "path": "src/platforms/web/compiler/directives/model.js",
+      "retrieval_path": "local_in_file_refinement",
+      "snapshot": "workspace_current",
+      "visibility": "workspace_visible"
+    },
+    "rank": 1,
+    "snippet": "/* @flow */\n\nimport config from 'core/config'\nimport { addHandler, addProp, getBindingAttr } from 'compiler/helpers'\nimport { genComponentModel, genAssignmentCode } from 'compiler/directives/model'\n\nlet warn\n\n// in some cases, the event used has to be determined at runtime\n// so we used some reserved tokens during compile.\nexport const RANGE_TOKEN = '__r'\nexport const CHECKBOX_RADIO_TOKEN = '__c'\n\nexport default function model (\n  el: ASTElement,\n  dir: ASTDirective,\n  _warn: Function\n): ?boolean {\n  warn = _warn\n  const value = dir.value\n  const modifiers = dir.modifiers\n  const tag = el.tag\n  const type = el.attrsMap.type\n\n  if (process.env.NODE_ENV !== 'production') {\n    // inputs with type=\"file\" are read only and setting the input's\n    // value will throw an error.\n    if (tag === 'input' && type === 'file') {\n      warn(\n        `<${el.tag} v-model=\"${value}\" type=\"file\">:\\n` +\n        `File inputs are read only. Use a v-on:change listener instead.`,\n        el.rawAttrsMap['v-model']\n      )\n    }\n  }\n\n  if (el.component) {\n    genComponentModel(el, value, modifiers)\n    // component v-model doesn't need extra runtime\n    return false\n  } else if (tag === 'select') {\n    genSelect(el, value, modifiers)\n  } else if (tag === 'input' && type === 'checkbox') {\n    genCheckboxModel(el, value, modifiers)\n  } else if (tag === 'input' && type === 'radio') {\n    genRadioModel(el, value, modifiers)\n  } else if (tag === 'input' || tag === 'textarea') {\n    genDefaultModel(el, value, modifiers)\n  } else if (!config.isReservedTag(tag)) {\n    genComponentModel(el, value, modifiers)\n    // component v-model doesn't need extra runtime\n    return false\n  } else if (process.env.NODE_ENV !== 'production') {\n    warn(\n      `<${el.tag} v-model=\"${value}\">: ` +\n      `v-model is not supported on this element type. ` +\n      'If you are working with contenteditable, it\\'s recommended to ' +\n      'wrap a library dedicated for that purpose inside a custom component.',\n      el.rawAttrsMap['v-model']\n    )\n  }\n\n  // ensure runtime directive metadata\n  return true\n}\n\nfunction genCheckboxModel (\n  el: ASTElement,\n  value: string,\n  modifiers: ?ASTModifiers\n) {\n  const number = modifiers && modifiers.number\n  const valueBinding = getBindingAttr(el, 'value') || 'null'\n  const trueValueBinding = getBindingAttr(el, 'true-value') || 'true'\n  const falseValueBinding = getBindingAttr(el, 'false-value') || 'false'\n  addProp(el, 'checked',\n    `Array.isArray(${value})` +\n    `?_i(${value},${valueBinding})>-1` + (\n      trueValueBinding === 'true'\n        ? `:(${value})`",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80"
+  },
+  {
+    "metadata": {
+      "commit": "workspace",
+      "coverage_area": "input_parsing",
+      "file_role": "implementation",
+      "path": "src/platforms/web/server/modules/dom-props.js",
+      "retrieval_path": "local_in_file_refinement",
+      "snapshot": "workspace_current",
+      "visibility": "workspace_visible"
+    },
+    "rank": 2,
+    "snippet": "/* @flow */\n\nimport VNode from 'core/vdom/vnode'\nimport { renderAttr } from './attrs'\nimport { isDef, isUndef, extend } from 'shared/util'\nimport { propsToAttrMap, isRenderableAttr } from '../util'\n\nexport default function renderDOMProps (node: VNodeWithData): string {\n  let props = node.data.domProps\n  let res = ''\n\n  let parent = node.parent\n  while (isDef(parent)) {\n    if (parent.data && parent.data.domProps) {\n      props = extend(extend({}, props), parent.data.domProps)\n    }\n    parent = parent.parent\n  }\n\n  if (isUndef(props)) {\n    return res\n  }\n\n  const attrs = node.data.attrs\n  for (const key in props) {\n    if (key === 'innerHTML') {\n      setText(node, props[key], true)\n    } else if (key === 'textContent') {\n      setText(node, props[key], false)\n    } else if (key === 'value' && node.tag === 'textarea') {\n      setText(node, props[key], false)\n    } else {\n      // $flow-disable-line (WTF?)\n      const attr = propsToAttrMap[key] || key.toLowerCase()\n      if (isRenderableAttr(attr) &&\n        // avoid rendering double-bound props/attrs twice\n        !(isDef(attrs) && isDef(attrs[attr]))\n      ) {\n        res += renderAttr(attr, props[key])\n      }\n    }\n  }\n  return res\n}\n\nfunction setText (node, text, raw) {\n  const child = new VNode(undefined, undefined, undefined, text)\n  child.raw = raw\n  node.children = [child]\n}",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50"
+  },
+  {
+    "metadata": {
+      "commit": "workspace",
+      "coverage_area": "validation_checking",
+      "file_role": "implementation",
+      "path": "src/platforms/web/runtime/modules/dom-props.js",
+      "retrieval_path": "local_in_file_refinement",
+      "snapshot": "workspace_current",
+      "visibility": "workspace_visible"
+    },
+    "rank": 3,
+    "snippet": "function updateDOMProps (oldVnode: VNodeWithData, vnode: VNodeWithData) {\n  if (isUndef(oldVnode.data.domProps) && isUndef(vnode.data.domProps)) {\n    return\n  }\n  let key, cur\n  const elm: any = vnode.elm\n  const oldProps = oldVnode.data.domProps || {}\n  let props = vnode.data.domProps || {}\n  // clone observed objects, as the user probably wants to mutate it\n  if (isDef(props.__ob__)) {\n    props = vnode.data.domProps = extend({}, props)\n  }\n\n  for (key in oldProps) {\n    if (!(key in props)) {\n      elm[key] = ''\n    }\n  }\n\n  for (key in props) {\n    cur = props[key]\n    // ignore children if the node has textContent or innerHTML,\n    // as these will throw away existing DOM nodes and cause removal errors\n    // on subsequent patches (#3360)\n    if (key === 'textContent' || key === 'innerHTML') {\n      if (vnode.children) vnode.children.length = 0\n      if (cur === oldProps[key]) continue\n      // #6601 work around Chrome version <= 55 bug where single textNode\n      // replaced by innerHTML/textContent retains its parentNode property\n      if (elm.childNodes.length === 1) {\n        elm.removeChild(elm.childNodes[0])\n      }\n    }\n\n    if (key === 'value' && elm.tagName !== 'PROGRESS') {\n      // store value as _value as well since\n      // non-string values will be stringified\n      elm._value = cur\n      // avoid resetting cursor position when value is the same\n      const strCur = isUndef(cur) ? '' : String(cur)\n      if (shouldUpdateValue(elm, strCur)) {\n        elm.value = strCur\n      }\n    } else if (key === 'innerHTML' && isSVG(elm.tagName) && isUndef(elm.innerHTML)) {\n      // IE doesn't support innerHTML for SVG elements\n      svgContainer = svgContainer || document.createElement('div')\n      svgContainer.innerHTML = `<svg>${cur}</svg>`\n      const svg = svgContainer.firstChild\n      while (elm.firstChild) {\n        elm.removeChild(elm.firstChild)\n      }\n      while (svg.firstChild) {\n        elm.appendChild(svg.firstChild)\n      }\n    } else if (\n      // skip the update if old and new VDOM state is the same.\n      // `value` is handled separately because the DOM value may be temporarily\n      // out of sync with VDOM state due to focus, composition and modifiers.\n      // This  #4521 by skipping the unnecesarry `checked` update.\n      cur !== oldProps[key]\n    ) {\n      // some property updates can throw\n      // e.g. `value` on <progress> w/ non-finite value\n      try {\n        elm[key] = cur\n      } catch (e) {}\n    }\n  }\n}\n\n// check platforms/web/util/attrs.js acceptValue",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78"
+  },
+  {
+    "metadata": {
+      "chunk_line_ranges": "[\"L73-L83\", \"L1-L8\", \"L58-L72\"]",
+      "chunk_refs": "[\"repo-pre:src/core/util/error.js:L73-L83\", \"repo-pre:src/core/util/error.js:L1-L8\", \"repo-pre:src/core/util/error.js:L58-L72\"]",
+      "commit": "workspace",
+      "coverage_area": "diagnostics",
+      "file_role": "implementation",
+      "path": "src/core/util/error.js",
+      "retrieval_path": "late_accepted_file_span",
+      "snapshot": "workspace_current",
+      "visibility": "workspace_visible"
+    },
+    "rank": 4,
+    "snippet": "/* @flow */\n\nimport config from '../config'\nimport { warn } from './debug'\nimport { inBrowser, inWeex } from './env'\nimport { isPromise } from 'shared/util'\nimport { pushTarget, popTarget } from '../observer/dep'\n\nexport function handleError (err: Error, vm: any, info: string) {\n  // Deactivate deps tracking while processing error handler to avoid possible infinite rendering.\n  // See: https://github.com/vuejs/vuex/issues/1505\n  pushTarget()\n  try {\n    if (vm) {\n      let cur = vm\n      while ((cur = cur.$parent)) {\n        const hooks = cur.$options.errorCaptured\n        if (hooks) {\n          for (let i = 0; i < hooks.length; i++) {\n            try {\n              const capture = hooks[i].call(cur, err, vm, info) === false\n              if (capture) return\n            } catch (e) {\n              globalHandleError(e, cur, 'errorCaptured hook')\n            }\n          }\n        }\n      }\n    }\n    globalHandleError(err, vm, info)\n  } finally {\n    popTarget()\n  }\n}\n\nexport function invokeWithErrorHandling (\n  handler: Function,\n  context: any,\n  args: null | any[],\n  vm: any,\n  info: string\n) {\n  let res\n  try {\n    res = args ? handler.apply(context, args) : handler.call(context)\n    if (res && !res._isVue && isPromise(res) && !res._handled) {\n      res.catch(e => handleError(e, vm, info + ` (Promise/async)`))\n      // issue #9511\n      // avoid catch triggering multiple times when nested calls\n      res._handled = true\n    }\n  } catch (e) {\n    handleError(e, vm, info)\n  }\n  return res\n}\n\nfunction globalHandleError (err, vm, info) {\n  if (config.errorHandler) {\n    try {\n      return config.errorHandler.call(null, err, vm, info)\n    } catch (e) {\n      // if the user intentionally throws the original error in the handler,\n      // do not log it twice\n      if (e !== err) {\n        logError(e, null, 'config.errorHandler')\n      }\n    }\n  }\n  logError(err, vm, info)\n}\n\nfunction logError (err, vm, info) {\n  if (process.env.NODE_ENV !== 'production') {\n    warn(`Error in ${info}: \"${err.toString()}\"`, vm)\n  }\n  /* istanbul ignore else */\n  if ((inBrowser || inWeex) && typeof console !== 'undefined') {\n    console.error(err)\n  } else {",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/core/util/error.js:L1-L80"
+  },
+  {
+    "metadata": {
+      "commit": "workspace",
+      "coverage_area": "behavior_output",
+      "file_role": "implementation",
+      "path": "src/server/optimizing-compiler/optimizer.js",
+      "retrieval_path": "local_in_file_refinement",
+      "snapshot": "workspace_current",
+      "visibility": "workspace_visible"
+    },
+    "rank": 5,
+    "snippet": "/* @flow */\n\n/**\n * In SSR, the vdom tree is generated only once and never patched, so\n * we can optimize most element / trees into plain string render functions.\n * The SSR optimizer walks the AST tree to detect optimizable elements and trees.\n *\n * The criteria for SSR optimizability is quite a bit looser than static tree\n * detection (which is designed for client re-render). In SSR we bail only for\n * components/slots/custom directives.\n */\n\nimport { no, makeMap, isBuiltInTag } from 'shared/util'\n\n// optimizability constants\nexport const optimizability = {\n  FALSE: 0,    // whole sub tree un-optimizable\n  FULL: 1,     // whole sub tree optimizable\n  SELF: 2,     // self optimizable but has some un-optimizable children\n  CHILDREN: 3, // self un-optimizable but have fully optimizable children\n  PARTIAL: 4   // self un-optimizable with some un-optimizable children\n}\n\nlet isPlatformReservedTag\n\nexport function optimize (root: ?ASTElement, options: CompilerOptions) {\n  if (!root) return\n  isPlatformReservedTag = options.isReservedTag || no\n  walk(root, true)\n}\n\nfunction walk (node: ASTNode, isRoot?: boolean) {\n  if (isUnOptimizableTree(node)) {\n    node.ssrOptimizability = optimizability.FALSE\n    return\n  }\n  // root node or nodes with custom directives should always be a VNode\n  const selfUnoptimizable = isRoot || hasCustomDirective(node)\n  const check = child => {\n    if (child.ssrOptimizability !== optimizability.FULL) {\n      node.ssrOptimizability = selfUnoptimizable\n        ? optimizability.PARTIAL\n        : optimizability.SELF\n    }\n  }\n  if (selfUnoptimizable) {\n    node.ssrOptimizability = optimizability.CHILDREN\n  }\n  if (node.type === 1) {\n    for (let i = 0, l = node.children.length; i < l; i++) {\n      const child = node.children[i]\n      walk(child)\n      check(child)\n    }\n    if (node.ifConditions) {\n      for (let i = 1, l = node.ifConditions.length; i < l; i++) {\n        const block = node.ifConditions[i].block\n        walk(block, isRoot)\n        check(block)\n      }\n    }\n    if (node.ssrOptimizability == null ||\n      (!isRoot && (node.attrsMap['v-html'] || node.attrsMap['v-text']))\n    ) {\n      node.ssrOptimizability = optimizability.FULL\n    } else {\n      node.children = optimizeSiblings(node)\n    }\n  } else {\n    node.ssrOptimizability = optimizability.FULL\n  }\n}\n\nfunction optimizeSiblings (el) {\n  const children = el.children\n  const optimizedChildren = []\n\n  let currentOptimizableGroup = []\n  const pushGroup = () => {\n    if (currentOptimizableGroup.length) {",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80"
+  },
+  {
+    "metadata": {
+      "commit": "workspace",
+      "coverage_area": "representation",
+      "file_role": "implementation",
+      "path": "src/platforms/web/compiler/directives/model.js",
+      "retrieval_path": "local_in_file_refinement",
+      "snapshot": "workspace_current",
+      "visibility": "workspace_visible"
+    },
+    "rank": 6,
+    "snippet": "export default function model (\n  el: ASTElement,\n  dir: ASTDirective,\n  _warn: Function\n): ?boolean {\n  warn = _warn\n  const value = dir.value\n  const modifiers = dir.modifiers\n  const tag = el.tag\n  const type = el.attrsMap.type\n\n  if (process.env.NODE_ENV !== 'production') {\n    // inputs with type=\"file\" are read only and setting the input's\n    // value will throw an error.\n    if (tag === 'input' && type === 'file') {\n      warn(\n        `<${el.tag} v-model=\"${value}\" type=\"file\">:\\n` +\n        `File inputs are read only. Use a v-on:change listener instead.`,\n        el.rawAttrsMap['v-model']\n      )\n    }\n  }\n\n  if (el.component) {\n    genComponentModel(el, value, modifiers)\n    // component v-model doesn't need extra runtime\n    return false\n  } else if (tag === 'select') {\n    genSelect(el, value, modifiers)\n  } else if (tag === 'input' && type === 'checkbox') {\n    genCheckboxModel(el, value, modifiers)\n  } else if (tag === 'input' && type === 'radio') {\n    genRadioModel(el, value, modifiers)\n  } else if (tag === 'input' || tag === 'textarea') {\n    genDefaultModel(el, value, modifiers)\n  } else if (!config.isReservedTag(tag)) {\n    genComponentModel(el, value, modifiers)\n    // component v-model doesn't need extra runtime\n    return false\n  } else if (process.env.NODE_ENV !== 'production') {\n    warn(\n      `<${el.tag} v-model=\"${value}\">: ` +\n      `v-model is not supported on this element type. ` +\n      'If you are working with contenteditable, it\\'s recommended to ' +\n      'wrap a library dedicated for that purpose inside a custom component.',\n      el.rawAttrsMap['v-model']\n    )\n  }\n\n  // ensure runtime directive metadata\n  return true\n}\n",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66"
+  },
+  {
+    "metadata": {
+      "commit": "workspace",
+      "coverage_area": "input_parsing",
+      "file_role": "implementation",
+      "path": "src/platforms/web/server/modules/dom-props.js",
+      "retrieval_path": "local_in_file_refinement",
+      "snapshot": "workspace_current",
+      "visibility": "workspace_visible"
+    },
+    "rank": 7,
+    "snippet": "export default function renderDOMProps (node: VNodeWithData): string {\n  let props = node.data.domProps\n  let res = ''\n\n  let parent = node.parent\n  while (isDef(parent)) {\n    if (parent.data && parent.data.domProps) {\n      props = extend(extend({}, props), parent.data.domProps)\n    }\n    parent = parent.parent\n  }\n\n  if (isUndef(props)) {\n    return res\n  }\n\n  const attrs = node.data.attrs\n  for (const key in props) {\n    if (key === 'innerHTML') {\n      setText(node, props[key], true)\n    } else if (key === 'textContent') {\n      setText(node, props[key], false)\n    } else if (key === 'value' && node.tag === 'textarea') {\n      setText(node, props[key], false)\n    } else {\n      // $flow-disable-line (WTF?)\n      const attr = propsToAttrMap[key] || key.toLowerCase()\n      if (isRenderableAttr(attr) &&\n        // avoid rendering double-bound props/attrs twice\n        !(isDef(attrs) && isDef(attrs[attr]))\n      ) {\n        res += renderAttr(attr, props[key])\n      }\n    }\n  }\n  return res\n}\n",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45"
+  },
+  {
+    "metadata": {
+      "commit": "workspace",
+      "coverage_area": "validation_checking",
+      "file_role": "implementation",
+      "path": "src/platforms/web/runtime/modules/dom-props.js",
+      "retrieval_path": "qdrant_hybrid_search",
+      "snapshot": "workspace_current",
+      "visibility": "workspace_visible"
+    },
+    "rank": 8,
+    "snippet": "elm.removeChild(elm.childNodes[0])\n      }\n    }\n\n    if (key === 'value' && elm.tagName !== 'PROGRESS') {\n      // store value as _value as well since\n      // non-string values will be stringified\n      elm._value = cur\n      // avoid resetting cursor position when value is the same\n      const strCur = isUndef(cur) ? '' : String(cur)\n      if (shouldUpdateValue(elm, strCur)) {\n        elm.value = strCur\n      }\n    } else if (key === 'innerHTML' && isSVG(elm.tagName) && isUndef(elm.innerHTML)) {\n      // IE doesn't support innerHTML for SVG elements\n      svgContainer = svgContainer || document.createElement('div')\n      svgContainer.innerHTML = `<svg>${cur}</svg>`\n      const svg = svgContainer.firstChild\n      while (elm.firstChild) {\n        elm.removeChild(elm.firstChild)\n      }\n      while (svg.firstChild) {\n        elm.appendChild(svg.firstChild)\n      }\n    } else if (\n      // skip the update if old and new VDOM state is the same.\n      // `value` is handled separately because the DOM value may be temporarily\n      // out of sync with VDOM state due to focus, composition and modifiers.\n      // This  #4521 by skipping the unnecesarry `checked` update.\n      cur !== oldProps[key]\n    ) {\n      // some property updates can throw\n      // e.g. `value` on <progress> w/ non-finite value\n      try {\n        elm[key] = cur\n      } catch (e) {}\n    }\n  }\n}\n\nfunction updateDOMProps (oldVnode: VNodeWithData, vnode: VNodeWithData) {\n  if (isUndef(oldVnode.data.domProps) && isUndef(vnode.data.domProps)) {\n    return\n  }\n  let key, cur\n  const elm: any = vnode.elm\n  const oldProps = oldVnode.data.domProps || {}\n  let props = vnode.data.domProps || {}\n  // clone observed objects, as the user probably wants to mutate it\n  if (isDef(props.__ob__)) {\n    props = vnode.data.domProps = extend({}, props)\n  }\n\n  for (key in oldProps) {\n    if (!(key in props)) {\n      elm[key] = ''\n    }\n  }\n\n  for (key in props) {\n    cur = props[key]\n    // ignore children if the node has textContent or innerHTML,\n    // as these will throw away existing DOM nodes and cause removal errors\n    // on subsequent patches (#3360)\n    if (key === 'textContent' || key === 'innerHTML') {\n      if (vnode.children) vnode.children.length = 0\n      if (cur === oldProps[key]) continue\n      // #6601 work around Chrome version <= 55 bug where single textNode\n      // replaced by innerHTML/textContent retains its parentNode property\n      if (elm.childNodes.length === 1) {\n        elm.removeChild(elm.childNodes[0])\n      }\n    }\n\n    if (key === 'value' && elm.tagName !== 'PROGRESS') {\n      // store value as _value as well since\n      // non-string values will be stringified\n      elm._value = cur\n      // avoid resetting cursor position when value is the same\n      const strCur = isUndef(cur) ? '' : String(cur)\n        elm.removeChild(elm.childNodes[0])\n      }\n    }\n\n    if (key === 'value' && elm.tagName !== 'PROGRESS') {\n      // store value as _value as well since\n      // non-s",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77"
+  },
+  {
+    "metadata": {
+      "chunk_line_ranges": "[\"L72-L78\", \"L30-L58\", \"L95-L116\"]",
+      "chunk_refs": "[\"repo-pre:src/compiler/error-detector.js:L72-L78\", \"repo-pre:src/compiler/error-detector.js:L30-L58\", \"repo-pre:src/compiler/error-detector.js:L95-L116\"]",
+      "commit": "workspace",
+      "coverage_area": "diagnostics",
+      "file_role": "implementation",
+      "path": "src/compiler/error-detector.js",
+      "retrieval_path": "late_accepted_file_span",
+      "snapshot": "workspace_current",
+      "visibility": "workspace_visible"
+    },
+    "rank": 9,
+    "snippet": "/* @flow */\n\nimport { dirRE, onRE } from './parser/index'\n\ntype Range = { start?: number, end?: number };\n\n// these keywords should not appear inside expressions, but operators like\n// typeof, instanceof and in are allowed\nconst prohibitedKeywordRE = new RegExp('\\\\b' + (\n  'do,if,for,let,new,try,var,case,else,with,await,break,catch,class,const,' +\n  'super,throw,while,yield,delete,export,import,return,switch,default,' +\n  'extends,finally,continue,debugger,function,arguments'\n).split(',').join('\\\\b|\\\\b') + '\\\\b')\n\n// these unary operators should not be used as property/method names\nconst unaryOperatorsRE = new RegExp('\\\\b' + (\n  'delete,typeof,void'\n).split(',').join('\\\\s*\\\\([^\\\\)]*\\\\)|\\\\b') + '\\\\s*\\\\([^\\\\)]*\\\\)')\n\n// strip strings in expressions\nconst stripStringRE = /'(?:[^'\\\\]|\\\\.)*'|\"(?:[^\"\\\\]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*\\$\\{|\\}(?:[^`\\\\]|\\\\.)*`|`(?:[^`\\\\]|\\\\.)*`/g\n\n// detect problematic expressions in a template\nexport function detectErrors (ast: ?ASTNode, warn: Function) {\n  if (ast) {\n    checkNode(ast, warn)\n  }\n}\n\nfunction checkNode (node: ASTNode, warn: Function) {\n  if (node.type === 1) {\n    for (const name in node.attrsMap) {\n      if (dirRE.test(name)) {\n        const value = node.attrsMap[name]\n        if (value) {\n          const range = node.rawAttrsMap[name]\n          if (name === 'v-for') {\n            checkFor(node, `v-for=\"${value}\"`, warn, range)\n          } else if (name === 'v-slot' || name[0] === '#') {\n            checkFunctionParameterExpression(value, `${name}=\"${value}\"`, warn, range)\n          } else if (onRE.test(name)) {\n            checkEvent(value, `${name}=\"${value}\"`, warn, range)\n          } else {\n            checkExpression(value, `${name}=\"${value}\"`, warn, range)\n          }\n        }\n      }\n    }\n    if (node.children) {\n      for (let i = 0; i < node.children.length; i++) {\n        checkNode(node.children[i], warn)\n      }\n    }\n  } else if (node.type === 2) {\n    checkExpression(node.expression, node.text, warn, node)\n  }\n}\n\nfunction checkEvent (exp: string, text: string, warn: Function, range?: Range) {\n  const stripped = exp.replace(stripStringRE, '')\n  const keywordMatch: any = stripped.match(unaryOperatorsRE)\n  if (keywordMatch && stripped.charAt(keywordMatch.index - 1) !== '$') {\n    warn(\n      `avoid using JavaScript unary operator as property name: ` +\n      `\"${keywordMatch[0]}\" in expression ${text.trim()}`,\n      range\n    )\n  }\n  checkExpression(exp, text, warn, range)\n}\n\nfunction checkFor (node: ASTElement, text: string, warn: Function, range?: Range) {\n  checkExpression(node.for || '', text, warn, range)\n  checkIdentifier(node.alias, 'v-for alias', text, warn, range)\n  checkIdentifier(node.iterator1, 'v-for iterator', text, warn, range)\n  checkIdentifier(node.iterator2, 'v-for iterator', text, warn, range)\n}\n\nfunction checkIdentifier (\n  ident: ?string,",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/compiler/error-detector.js:L1-L80"
+  },
+  {
+    "metadata": {
+      "commit": "workspace",
+      "coverage_area": "behavior_output",
+      "file_role": "implementation",
+      "path": "src/server/optimizing-compiler/optimizer.js",
+      "retrieval_path": "qdrant_hybrid_search",
+      "snapshot": "workspace_current",
+      "visibility": "workspace_visible"
+    },
+    "rank": 10,
+    "snippet": "/* @flow */\n\n/**\n * In SSR, the vdom tree is generated only once and never patched, so\n * we can optimize most element / trees into plain string render functions.\n * The SSR optimizer walks the AST tree to detect optimizable elements and trees.\n *\n * The criteria for SSR optimizability is quite a bit looser than static tree\n * detection (which is designed for client re-render). In SSR we bail only for\n * components/slots/custom directives.\n */\n\nimport { no, makeMap, isBuiltInTag } from 'shared/util'\n\n// optimizability constants\nexport const optimizability = {\n  FALSE: 0,    // whole sub tree un-optimizable\n  FULL: 1,     // whole sub tree optimizable\n  SELF: 2,     // self optimizable but has some un-optimizable children\n  CHILDREN: 3, // self un-optimizable but have fully optimizable children\n  PARTIAL: 4   // self un-optimizable with some un-optimizable children\n}\n\nlet isPlatformReservedTag\n\n/* @flow */\n\n/**\n * In SSR, the vdom tree is generated only once and never patched, so\n * we can optimize most element / trees into plain string render functions.\n * The SSR optimizer walks the AST tree to detect optimizable elements and trees.\n *\n * The criteria for SSR optimizability is quite a bit looser than static tree\n * detection (which is designed for client re-render). In SSR we bail only for\n * components/slots/custom directives.\n */\n\nimport { no, makeMap, isBuiltInTag } from 'shared/util'\n\n// optimizability constants\nexport const optimizability = {\n  FALSE: 0,    // whole sub tree un-optimizable\n  FULL: 1,     // whole sub tree optimizable\n  SELF: 2,     // self optimizable but has some un-optimizable children\n  CHILDREN: 3, // self un-optimizable but have fully optimizable children\n  PARTIAL: 4   // self un-optimizable with some un-optimizable children\n}\n\nlet isPlatformReservedTag\n\nexport function optimize (root: ?ASTElement, options: CompilerOptions) {\n  if (!root) return\n  isPlatformReservedTag = options.isReservedTag || no\n  walk(root, true)\n}\n\nfunction walk (node: ASTNode, isRoot?: boolean) {\n  if (isUnOptimizableTree(node)) {\n    node.ssrOptimizability = optimizability.FALSE\n    return\n  }\n  // root node or nodes with custom directives should always be a VNode\n  const selfUnoptimizable = isRoot || hasCustomDirective(node)\n  const check = child => {\n    if (child.ssrOptimizability !== optimizability.FULL) {\n      node.ssrOptimizability = selfUnoptimizable\n        ? optimizability.PARTIAL\n        : optimizability.SELF\n    }\n  }\n  if (selfUnoptimizable) {\n    node.ssrOptimizability = optimizability.CHILDREN\n  }\n  if (node.type === 1) {\n    for (let i = 0, l = node.children.length; i < l; i++) {\n      const child = node.children[i]\n      walk(child)\n      check(child)\n    }\n    if (node.ifConditions) {\n      for (let i = 1, l = node.ifConditions.length; i < l; i++) {\n        const block = node.ifConditions[i].block\n        walk(block, isRoot)\n        check(block)\n      }\n    }\n    if (node.ssrOptimizability == null ||\n      (!isRoot && (node.at",
+    "source_category": "source_code",
+    "source_id": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25"
+  }
+]

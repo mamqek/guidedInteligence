@@ -16,13 +16,6 @@ They should not be copied into the repository Qdrant index. The Obsidian vault o
 note indexing, and the workspace retriever consumes matching notes as trusted
 local-note guidance.
 
-## Abstract class issue guidance
-
-For the TypeScript abstract class issue, the most important implementation owner is:
-
-canonical_file: `src/compiler/checker.ts`
-
-The parser can recognize syntax, but the checker owns the semantic rule that an
-abstract class cannot be instantiated and that subclasses must implement abstract
-members. When a query asks for the code context behind abstract class behavior,
-prefer `src/compiler/checker.ts` before parser-only matches.
+This note describes how the vault participates in retrieval. It intentionally does
+not identify implementation files or provide feature-specific guidance; project
+context belongs in separate human-readable notes.

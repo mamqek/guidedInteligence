@@ -1,0 +1,183 @@
+{
+  "type": "object",
+  "properties": {
+    "issue_analysis": {
+      "type": "object",
+      "properties": {
+        "issue_type": {
+          "type": "string",
+          "enum": [
+            "bug",
+            "feature_request",
+            "behavior_question",
+            "performance",
+            "compatibility",
+            "refactor",
+            "unknown"
+          ]
+        },
+        "requested_behavior": {
+          "type": "string"
+        },
+        "named_terms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 12
+        },
+        "responsibility_chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8
+        }
+      },
+      "required": [
+        "issue_type",
+        "requested_behavior",
+        "named_terms",
+        "responsibility_chain"
+      ],
+      "additionalProperties": false
+    },
+    "prompt_summary": {
+      "type": "string"
+    },
+    "relevant_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 8
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "line_start": {
+            "type": "integer"
+          },
+          "line_end": {
+            "type": "integer"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "file_role": {
+            "type": "string",
+            "enum": [
+              "implementation_owner",
+              "supporting_implementation",
+              "symptom_surface",
+              "test_or_validation"
+            ]
+          },
+          "relevance": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "supporting"
+            ]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "claim_supported": {
+            "type": "string"
+          },
+          "why_relevant": {
+            "type": "string"
+          },
+          "coverage_area": {
+            "type": "string",
+            "enum": [
+              "entry_or_parsing",
+              "state_or_representation",
+              "implementation_owner",
+              "validation_or_checking",
+              "diagnostic_or_error",
+              "output_or_emission",
+              "test_or_expected_behavior",
+              "supporting_context"
+            ]
+          }
+        },
+        "required": [
+          "file",
+          "line_start",
+          "line_end",
+          "symbol",
+          "file_role",
+          "relevance",
+          "confidence",
+          "claim_supported",
+          "why_relevant",
+          "coverage_area"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "coverage_gaps": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "properties": {
+          "coverage_area": {
+            "type": "string",
+            "enum": [
+              "entry_or_parsing",
+              "state_or_representation",
+              "implementation_owner",
+              "validation_or_checking",
+              "diagnostic_or_error",
+              "output_or_emission",
+              "test_or_expected_behavior",
+              "supporting_context"
+            ]
+          },
+          "search_attempted": {
+            "type": "string"
+          },
+          "reason_missing": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "coverage_area",
+          "search_attempted",
+          "reason_missing"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "uncertainties": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 6
+    }
+  },
+  "required": [
+    "issue_analysis",
+    "prompt_summary",
+    "relevant_files",
+    "evidence",
+    "coverage_gaps",
+    "uncertainties"
+  ],
+  "additionalProperties": false
+}

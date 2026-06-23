@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-46770",
+  "primary_group": "compatibility_versioning",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 46770,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/46770",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/46770.json",
+  "title": "Cannot import some packages when tsconfig.json specifies \"module\": \"nodenext\"",
+  "labels": [
+    "Bug",
+    "Fix Available"
+  ],
+  "state": "closed",
+  "created_at": "2021-11-11T06:49:59Z",
+  "closed_at": "2022-02-14T22:13:21Z",
+  "selection_rationale": "TypeScript NodeNext module-resolution compatibility case.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      47893
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "d294dcfff9c27db92ae8f0b3bda8e93b6b981aad",
+      "19b84cf97553237025d15007267cf02d88edb92a",
+      "3264fc4f6c2f1896fa7888a46e2d7291918aa8a3",
+      "de0ab59582d5654ea406546c3ccd120c48cf140f",
+      "6958a249385b977d803701f2eae29eea32758e3f",
+      "14ccd84cdf2ecf98fb9cbd172a8639f5fa1129df",
+      "19836d9abf371cb9635952623a6cfca580f8dfd4",
+      "51784d0305fda6695af9e325fd14edbabae4c5f4",
+      "25368240d3bbcdb40da702e3065de920de20f73f",
+      "2b9a0f8b0cb7dd38d1b54466acdc347220754f03",
+      "c6bf8c0f571aad7a5917f43860c8c3d74a9b429b",
+      "46ef8512edac758069ed4d519f7517bafbace4a9",
+      "605de78d2cd7303bf25d9e2146e2b707dbf63d4f"
+    ],
+    "cite": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "46373",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "46396",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "47893",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "46373",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "46334",
+        "is_own_repo": true
+      },
+      {
+        "owner": "DefinitelyTyped",
+        "repo_name": "DefinitelyTyped",
+        "number": "57854",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "57854",
+        "is_own_repo": true
+      },
+      {
+        "owner": "marvinhagemeister",
+        "repo_name": "kolorist",
+        "number": "14",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "14",
+        "is_own_repo": true
+      },
+      {
+        "owner": "arcanis",
+        "repo_name": "typanion",
+        "number": "30",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "30",
+        "is_own_repo": true
+      },
+      {
+        "owner": "arcanis",
+        "repo_name": "clipanion",
+        "number": "113",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "113",
+        "is_own_repo": true
+      },
+      {
+        "owner": "socketio",
+        "repo_name": "socket.io-client",
+        "number": "1522",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "1522",
+        "is_own_repo": true
+      },
+      {
+        "owner": "socketio",
+        "repo_name": "socket.io",
+        "number": "4228",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "4228",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "47893",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 47893,
+        "title": "Allow extensionless `main`s for cjs mode packages even from an esm import",
+        "url": "https://github.com/microsoft/TypeScript/pull/47893",
+        "merged": true,
+        "merge_commit_sha": "e32281cc02e8d6fd6afdc5df2f3c5b915a1b8d95",
+        "head_sha": "201ba553e5844579dca5a9ca907d3a4d814c4759",
+        "base_sha": "7e57c81802b41a9a0a9b720dd7a20bb503448d48",
+        "changed_files": 5,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/compiler/moduleNameResolver.ts",
+            "additions": 11,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.js",
+            "additions": 42,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.symbols",
+            "additions": 35,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.types",
+            "additions": 37,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/cases/compiler/nodeNextEsmImportsOfPackagesWithExtensionlessMains.ts",
+            "additions": 36,
+            "deletions": 0,
+            "change_type": "ADDED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/compiler/moduleNameResolver.ts"
+    ],
+    "test_or_validation_files": [
+      "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.js",
+      "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.symbols",
+      "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.types",
+      "tests/cases/compiler/nodeNextEsmImportsOfPackagesWithExtensionlessMains.ts"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "compiler/build pipeline",
+    "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #47893: Allow extensionless `main`s for cjs mode packages even from an esm import",
+    "issue_body_file_refs": [
+      "tsconfig.json",
+      "package.json",
+      "lib/ip.js",
+      "index.ts"
+    ],
+    "thread_file_refs": [
+      "package.json",
+      "d.ts",
+      "index.js",
+      "Users/jordan/source/git-ext/packages/git/src/cli-helpers.ts",
+      "users/jordan/source/git-ext/packages/git/src/package.json",
+      "users/jordan/source/git-ext/packages/git/package.json",
+      "Users/jordan/source/git-ext/packages/git/node_modules/get-stream/package.json",
+      "github.com/microsoft/TypeScript/blob/1cee9731d22c7a1f97ac957cb89d8664cadc4717/src/compiler/moduleNameResolver.ts"
+    ],
+    "resolution_comment_excerpts": [
+      "I'm not certain, but I think I found the issue. https://github.com/microsoft/TypeScript/blob/1cee9731d22c7a1f97ac957cb89d8664cadc4717/src/compiler/moduleNameResolver.ts#L1675-L1676 This check (which is used in a few places) is causing `get-stream` to be treated as a ESM package in places (`state.features & NodeResolutionFeatures.EsmMode` is truthy). As a result no attempt to complete the path `.../node_modules/get-stream/index` is made. For the purpose of debugging, I added ` || candidate.search(/get-stream/g)` to the ESM checks to bypass guard just for `get-stream`. When attempting to compile",
+      "> I'm not certain what the purpose of `state.features` is... This is directly controlled by the set `moduleResolution`, so the intent is to carry forward what Node resolution features are in use. Given this, its looking like those `state.features & NodeResolutionFeatures.EsmMode` checks are making a bad assumption about the package being imported when the requested path lacks a file extension in at least once place. With some more tracing I've isolated the branch causing the issue. https://github.com/microsoft/TypeScript/blob/1cee9731d22c7a1f97ac957cb89d8664cadc4717/src/compiler/moduleNameReso",
+      "I don't propose this as a \"solution\" (excuse the comments everywhere, I didn't clean up before committing) but this does fix the resolution issues for me. https://github.com/Silic0nS0ldier/TypeScript/commit/dd8d8d902dafe4e8a5b76dd9c6cf2cef1bce78dd",
+      "`nullthrows` types are wrong. Well, incomplete. They say it's a cjs module which exports a `default` member which is a function, which is correct, it does, but it _also_ exports that same function as the module itself. It's types should look something more like ```ts declare function nullthrows(x: whatever): whatever; declare namespace nullthrows { export {nullthrows as default}; } export = nullthrows; ``` or something else to that effect. As for `@types/ip`, yeah, that's an issue. We shouldn't be requiring extensions in `main` (of cjs packages); we're just applying our esm resolution logic at"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

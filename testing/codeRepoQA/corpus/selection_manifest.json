@@ -1,0 +1,385 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-20T22:24:54.787Z",
+  "groups": [
+    "bug_regression",
+    "feature_enhancement",
+    "performance_memory",
+    "compatibility_versioning",
+    "api_behavior_design",
+    "testing_build_tooling",
+    "maintenance_refactor",
+    "question_usage"
+  ],
+  "cases": [
+    {
+      "case_id": "vuejs-vue-10803",
+      "group": "bug_regression",
+      "repository": "vuejs/vue",
+      "issue_number": 10803,
+      "title": "SSR: textarea domProps keeps falsy values",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/10803.json",
+      "case_dir": "cases/vuejs-vue-10803",
+      "labels": [
+        "bug",
+        "contribution welcome",
+        "has PR",
+        "feat:ssr"
+      ],
+      "selection_rationale": "Vue SSR bug with falsy DOM props; good framework/runtime rendering case.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-2953",
+      "group": "bug_regression",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 2953,
+      "title": "`DataView` and other interfaces missing from lib.d.ts",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/2953.json",
+      "case_dir": "cases/microsoft-TypeScript-2953",
+      "labels": [
+        "Bug",
+        "Fixed"
+      ],
+      "selection_rationale": "TypeScript standard library bug; expected retrieval should find lib declaration files.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-10068",
+      "group": "bug_regression",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 10068,
+      "title": "BUG/API: Series arithmetic ops inconsistently hold names",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/10068.json",
+      "case_dir": "cases/pandas-dev-pandas-10068",
+      "labels": [
+        "Bug"
+      ],
+      "selection_rationale": "pandas Series arithmetic metadata bug; compact fix with production and test files.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "vuejs-vue-6301",
+      "group": "feature_enhancement",
+      "repository": "vuejs/vue",
+      "issue_number": 6301,
+      "title": "Provide a Typescript declaration file for `vue-server-renderer/client-plugin`",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/6301.json",
+      "case_dir": "cases/vuejs-vue-6301",
+      "labels": [
+        "contribution welcome",
+        "improvement"
+      ],
+      "selection_rationale": "Vue TypeScript declaration enhancement for server renderer plugin.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-45713",
+      "group": "feature_enhancement",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 45713,
+      "title": "[CLI DX] Improve the 'x errors' message in the CLI",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/45713.json",
+      "case_dir": "cases/microsoft-TypeScript-45713",
+      "labels": [
+        "Help Wanted",
+        "Good First Issue",
+        "Experience Enhancement",
+        "Effort: Casual"
+      ],
+      "selection_rationale": "TypeScript CLI developer-experience enhancement with localized message path.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-4542",
+      "group": "feature_enhancement",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 4542,
+      "title": "ENH: Adding XlsxWriter as an ExcelWriter() option",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/4542.json",
+      "case_dir": "cases/pandas-dev-pandas-4542",
+      "labels": [
+        "Enhancement",
+        "IO Data",
+        "IO Excel"
+      ],
+      "selection_rationale": "pandas Excel writer capability enhancement involving IO subsystem.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-14942",
+      "group": "performance_memory",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 14942,
+      "title": "groupby with category column and two additional columns eats up all main memory",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/14942.json",
+      "case_dir": "cases/pandas-dev-pandas-14942",
+      "labels": [
+        "Bug",
+        "Groupby"
+      ],
+      "selection_rationale": "pandas groupby categorical memory blow-up; clear performance/memory objective.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-16764",
+      "group": "performance_memory",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 16764,
+      "title": "PERF: pandas' import time",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/16764.json",
+      "case_dir": "cases/pandas-dev-pandas-16764",
+      "labels": [
+        "Performance"
+      ],
+      "selection_rationale": "pandas import-time performance issue; broad startup responsibility rather than operation-specific speed.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-52695",
+      "group": "performance_memory",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 52695,
+      "title": "Reduce number of fs.stat call for files under node modules",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/52695.json",
+      "case_dir": "cases/microsoft-TypeScript-52695",
+      "labels": [
+        "Suggestion",
+        "Experience Enhancement",
+        "Domain: Performance",
+        "Fix Available"
+      ],
+      "selection_rationale": "TypeScript filesystem-stat performance issue under node_modules; good service/compiler IO case.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "vuejs-vue-9042",
+      "group": "compatibility_versioning",
+      "repository": "vuejs/vue",
+      "issue_number": 9042,
+      "title": "First character or paste is not accepted for watch when assigning placeholder to \"\" in <textarea> tag with IE11",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/9042.json",
+      "case_dir": "cases/vuejs-vue-9042",
+      "labels": [
+        "browser quirks"
+      ],
+      "selection_rationale": "Vue browser compatibility issue with IE11 textarea placeholder/watch behavior.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-22698",
+      "group": "compatibility_versioning",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 22698,
+      "title": "Handle FutureWarning from NumPy in Series Construction",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/22698.json",
+      "case_dir": "cases/pandas-dev-pandas-22698",
+      "labels": [
+        "Compat",
+        "Blocker"
+      ],
+      "selection_rationale": "pandas compatibility with NumPy FutureWarning in Series construction.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-46770",
+      "group": "compatibility_versioning",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 46770,
+      "title": "Cannot import some packages when tsconfig.json specifies \"module\": \"nodenext\"",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/46770.json",
+      "case_dir": "cases/microsoft-TypeScript-46770",
+      "labels": [
+        "Bug",
+        "Fix Available"
+      ],
+      "selection_rationale": "TypeScript NodeNext module-resolution compatibility case.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "vuejs-vue-5884",
+      "group": "api_behavior_design",
+      "repository": "vuejs/vue",
+      "issue_number": 5884,
+      "title": "Vue.set Api strange behavior if path is a numerical string",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/5884.json",
+      "case_dir": "cases/vuejs-vue-5884",
+      "labels": [
+        "improvement"
+      ],
+      "selection_rationale": "Vue.set API behavior with numeric string path; expected explanation should distinguish API semantics from bug surface.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-24625",
+      "group": "api_behavior_design",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 24625,
+      "title": "TypeScript 2.9 Watch API change breaking watch support in ts-loader?",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/24625.json",
+      "case_dir": "cases/microsoft-TypeScript-24625",
+      "labels": [
+        "Bug",
+        "Fixed",
+        "API"
+      ],
+      "selection_rationale": "TypeScript watch API behavior change breaking consumers; explicit API responsibility.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-25183",
+      "group": "api_behavior_design",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 25183,
+      "title": "DataFrame.merge with empty frame and Int64 column gives object dtype",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/25183.json",
+      "case_dir": "cases/pandas-dev-pandas-25183",
+      "labels": [
+        "Reshaping",
+        "Dtype Conversions",
+        "ExtensionArray"
+      ],
+      "selection_rationale": "pandas merge dtype behavior with nullable integer arrays; API consistency case.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-16499",
+      "group": "testing_build_tooling",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 16499,
+      "title": "TST: ujson tests are not being run",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/16499.json",
+      "case_dir": "cases/pandas-dev-pandas-16499",
+      "labels": [
+        "Testing"
+      ],
+      "selection_rationale": "pandas test discovery gap where ujson tests were not run.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-32289",
+      "group": "testing_build_tooling",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 32289,
+      "title": "CI Failing - Linux py37_np_dev - test_constructor_list_frames",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/32289.json",
+      "case_dir": "cases/pandas-dev-pandas-32289",
+      "labels": [
+        "CI",
+        "Unreliable Test",
+        "Blocker",
+        "Linux"
+      ],
+      "selection_rationale": "pandas CI failure case; retrieval should explain construction/test failure context, not product behavior.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-35468",
+      "group": "testing_build_tooling",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 35468,
+      "title": "TS does not recompile correctly when using a combination of project references, wildcard re-exports and watch mode",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/35468.json",
+      "case_dir": "cases/microsoft-TypeScript-35468",
+      "labels": [
+        "Bug",
+        "Fix Available"
+      ],
+      "selection_rationale": "TypeScript watch/project-reference recompilation case; build tooling behavior.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-35925",
+      "group": "maintenance_refactor",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 35925,
+      "title": "CLN remove unnecessary trailing commas to get ready for new version of black",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/35925.json",
+      "case_dir": "cases/pandas-dev-pandas-35925",
+      "labels": [
+        "Clean",
+        "good first issue"
+      ],
+      "selection_rationale": "pandas cleanup for Black formatting readiness; pure maintenance/cleanup signal.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-22872",
+      "group": "maintenance_refactor",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 22872,
+      "title": "Replace bare excepts by explicit excepts in pandas/tests/",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/22872.json",
+      "case_dir": "cases/pandas-dev-pandas-22872",
+      "labels": [
+        "CI",
+        "good first issue"
+      ],
+      "selection_rationale": "pandas tests maintenance cleanup replacing bare excepts.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-36617",
+      "group": "maintenance_refactor",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 36617,
+      "title": "DOC: Replace single with double backticks in RST files",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/36617.json",
+      "case_dir": "cases/pandas-dev-pandas-36617",
+      "labels": [
+        "Docs",
+        "Clean",
+        "good first issue"
+      ],
+      "selection_rationale": "pandas documentation cleanup case; distinct RST/docstring maintenance.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-6307",
+      "group": "question_usage",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 6307,
+      "title": "Exported variable <variable name> has or is using private name <private name>",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/6307.json",
+      "case_dir": "cases/microsoft-TypeScript-6307",
+      "labels": [
+        "Question",
+        "Canonical",
+        "Docs"
+      ],
+      "selection_rationale": "TypeScript canonical question/docs explanation about private-name export errors.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-8305",
+      "group": "question_usage",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 8305,
+      "title": "Recommendation for exposing multiple TypeScript modules from single NPM package",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/8305.json",
+      "case_dir": "cases/microsoft-TypeScript-8305",
+      "labels": [
+        "Question",
+        "Docs",
+        "@types"
+      ],
+      "selection_rationale": "TypeScript question/docs case about package module exposure; explanation-based oracle.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-9219",
+      "group": "question_usage",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 9219,
+      "title": "DataFrame.to_hdf fails in Python 3.4",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/9219.json",
+      "case_dir": "cases/pandas-dev-pandas-9219",
+      "labels": [
+        "Usage Question",
+        "IO HDF5"
+      ],
+      "selection_rationale": "pandas Usage Question around HDF storage; useful for comparing explanation to maintainer guidance.",
+      "resolution_status": "has_local_resolution_artifact"
+    }
+  ]
+}

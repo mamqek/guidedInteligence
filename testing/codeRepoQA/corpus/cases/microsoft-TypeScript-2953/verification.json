@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-2953",
+  "primary_group": "bug_regression",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 2953,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/2953",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/2953.json",
+  "title": "`DataView` and other interfaces missing from lib.d.ts",
+  "labels": [
+    "Bug",
+    "Fixed"
+  ],
+  "state": "closed",
+  "created_at": "2015-04-29T05:23:20Z",
+  "closed_at": "2015-04-29T21:57:11Z",
+  "selection_rationale": "TypeScript standard library bug; expected retrieval should find lib declaration files.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      2960
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "31fe7c4a66604092d479d927dc9a476889b12385",
+      "40aaefd5afca6aa42279f720f15b059c34c4709c",
+      "10b83cab00b505a09121665897df06e46b64e35b",
+      "3ca94df18d99820609b7cbad8adaae5f2522563e",
+      "0e822b40fca2f29a88efccc4521d02860d0ed954"
+    ],
+    "cite": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "2739",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "2698",
+        "is_own_repo": true
+      },
+      {
+        "owner": "borisyankov",
+        "repo_name": "DefinitelyTyped",
+        "number": "4101",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "3211",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "3215",
+        "is_own_repo": true
+      },
+      {
+        "owner": "Microsoft",
+        "repo_name": "TypeScript",
+        "number": "3211",
+        "is_own_repo": false
+      },
+      {
+        "owner": "Microsoft",
+        "repo_name": "TypeScript",
+        "number": "3238",
+        "is_own_repo": false
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "2960",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "2029",
+        "is_own_repo": true
+      },
+      {
+        "owner": "DefinitelyTyped",
+        "repo_name": "DefinitelyTyped",
+        "number": "4101",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "4101",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "2998",
+        "is_own_repo": true
+      },
+      {
+        "owner": "enlight",
+        "repo_name": "dbgmits",
+        "number": "21",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "3211",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "3238",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "3445",
+        "is_own_repo": true
+      },
+      {
+        "owner": "jvilk",
+        "repo_name": "BrowserFS",
+        "number": "107",
+        "is_own_repo": false
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 2960,
+        "title": "Fix #2953: Put DataView definition back into lib.d.ts",
+        "url": "https://github.com/microsoft/TypeScript/pull/2960",
+        "merged": true,
+        "merge_commit_sha": "58c584a169f75e2dfc3afc343af509016fa0e511",
+        "head_sha": "31fe7c4a66604092d479d927dc9a476889b12385",
+        "base_sha": "0d2e50b1679400e5e7ac97756fcd50bc12f2cbba",
+        "changed_files": 1,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/lib/extensions.d.ts",
+            "additions": 133,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/lib/extensions.d.ts"
+    ],
+    "test_or_validation_files": [],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "standard library declarations",
+    "responsibility_summary": "Relevant code is responsible for standard library declarations behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #2960: Fix #2953: Put DataView definition back into lib.d.ts",
+    "issue_body_file_refs": [
+      "github.com/Microsoft/TypeScript/commits/master/bin/lib.d.ts",
+      "github.com/Microsoft/TypeScript/blob/6f1feffe6710a3201fb46a0b01e16051bfc18a29/bin/lib.d.ts",
+      "github.com/Microsoft/TypeScript/blob/b8ebf561f94ea27ecfc6af3c2b20661e6fcd79ed/bin/lib.d.ts"
+    ],
+    "thread_file_refs": [
+      "extenstions.d.ts",
+      "es6.d.ts",
+      "lib.es6.d.ts",
+      "lib.d.ts",
+      "github.com/Microsoft/TypeScript/blob/release-1.4/bin/lib.d.ts",
+      "lib.core.es6.d.ts",
+      "github.com/cmichaelgraham/aurelia-typescript-atom/blob/master/skel-nav-ts/typings/lib.dom.d.ts",
+      "d.ts",
+      "github.com/Microsoft/TypeScript/blob/master/bin/lib.d.ts",
+      "node.d.ts",
+      "dom.generated.d.ts",
+      "webaudioapi/waa.d.ts",
+      "touch-events/touch-events.d.ts",
+      "lib.es5.d.ts",
+      "Node.js",
+      "store/node.js",
+      "lib/es6.d.ts",
+      "github.com/Microsoft/TypeScript/blob/master/src/lib/es6.d.ts",
+      "github.com/Microsoft/TypeScript/blob/master/bin/lib.es6.d.ts"
+    ],
+    "resolution_comment_excerpts": [
+      "So where is the new flag or when should it be expected? I'm getting compile issues for DataView, Map, Set, and WeakMap from the node.d.ts TSD typings file. What is the workaround?",
+      "@wholroyd > I'm getting compile issues for DataView, Map, Set, and WeakMap from the node.d.ts TSD typings file. What is the workaround? Put a copy of `lib.es6.d.ts` in your project, that has the missing types.",
+      "I don't see a `lib.es6.d.ts` anywhere, but I do see a `lib/es6.d.ts` [here](https://github.com/Microsoft/TypeScript/blob/master/src/lib/es6.d.ts). Is that the same file?",
+      "@wholroyd https://github.com/Microsoft/TypeScript/blob/master/bin/lib.es6.d.ts Or you can grab the one that was shipped with the TypeScript version you use from a source zip on the [releases page](https://github.com/Microsoft/TypeScript/releases)."
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

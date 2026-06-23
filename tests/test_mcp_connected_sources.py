@@ -21,12 +21,17 @@ from services.retrieval.config import (
     RunLLMConfig,
     WorkspaceRetrievalConfig,
 )
-from services.retrieval.mcp import MCPConnectedSourceAdapter, RemoteMCPConnectedSourceAdapter
+from services.retrieval.workspace.connected_context import ConnectedSourceContextResult
+from services.retrieval.workspace.mcp import MCPConnectedSourceAdapter, RemoteMCPConnectedSourceAdapter
+from services.retrieval.workspace.mcp.adapters import _extract_records
 from services.retrieval.server import RuntimeState
 from services.retrieval.workspace import WorkspaceRetrievalStage
 
 
 class MCPConnectedSourceTests(unittest.TestCase):
+    def test_empty_search_envelope_does_not_become_document_record(self) -> None:
+        self.assertEqual((), _extract_records({"total_count": 0, "incomplete_results": False}))
+
     def test_adapter_normalizes_stdio_mcp_tool_results(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             server = _write_fake_mcp_server(Path(temp_dir))
@@ -454,6 +459,44 @@ class MCPConnectedSourceTests(unittest.TestCase):
         finally:
             server.close()
 
+    def test_connected_context_routes_handles_by_source_key_without_category_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=str(root / "repo"),
+                    index_dir=str(root / "index"),
+                    llm_config=_llm_config(),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                    enabled_sources=("shortcut",),
+                    remote_mcp_connected_sources=(
+                        RemoteMCPConnectedSourceConfig(
+                            enabled=True,
+                            name="shortcut-stories",
+                            provider="shortcut",
+                            source_category=SourceCategory.ISSUE_TRACKER,
+                            source_key="shortcut",
+                            endpoint_url="https://example.invalid/mcp",
+                            query_tool_name="search_stories",
+                        ),
+                        RemoteMCPConnectedSourceConfig(
+                            enabled=True,
+                            name="jira-issues",
+                            provider="atlassian",
+                            source_category=SourceCategory.ISSUE_TRACKER,
+                            source_key="jira",
+                            endpoint_url="https://example.invalid/mcp",
+                            query_tool_name="search_issues",
+                        ),
+                    ),
+                )
+            )
+
+            handles = stage._connected_source_handles((SourceCategory.SOURCE_CODE,))
+
+            self.assertEqual([handle.source_key for handle in handles], ["shortcut"])
+
     def test_workspace_can_promote_connected_documents_to_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -476,8 +519,11 @@ class MCPConnectedSourceTests(unittest.TestCase):
 
             evidence = stage._append_connected_source_evidence(
                 [],
-                connected_documents=(document,),
-                retrieval_plan=SimpleNamespace(source_priorities=(SourceCategory.ISSUE_TRACKER,)),
+                connected_context=ConnectedSourceContextResult(
+                    documents=(document,),
+                    selected_context_ids=(document.source_id,),
+                    selected_evidence_ids=(document.source_id,),
+                ),
                 source_policy=(SourceCategory.ISSUE_TRACKER,),
             )
 
@@ -898,3 +944,4 @@ def _qdrant_config() -> RetrievalQdrantConfig:
 
 if __name__ == "__main__":
     unittest.main()
+

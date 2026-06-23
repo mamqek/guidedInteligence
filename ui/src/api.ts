@@ -110,6 +110,12 @@ export type AppConfig = {
     enable_indexing: boolean;
     exclude_paths: string[];
   };
+  retrieval: {
+    mode: "workspace" | "codex";
+    codex_command: string[];
+    codex_model: string;
+    codex_timeout_seconds: number;
+  };
   connections: {
     remote_mcp_sources?: RemoteMcpSource[];
     mcp_sources: McpSource[];
@@ -155,6 +161,14 @@ export type IndexEstimate = {
   estimated_chunks: number;
   estimated_seconds_min?: number;
   estimated_seconds_max?: number;
+  cgc_estimated_seconds_min?: number;
+  cgc_estimated_seconds_max?: number;
+  cgc_full_estimated_seconds_min?: number;
+  cgc_full_estimated_seconds_max?: number;
+  cgc_skip_external_estimated_seconds_min?: number;
+  cgc_skip_external_estimated_seconds_max?: number;
+  cgc_timeout_risk?: boolean;
+  index_estimate_notes?: string[];
   sample_paths: string[];
   exclude_paths: string[];
   enable_indexing: boolean;

@@ -1,0 +1,138 @@
+{
+  "conversation_id": "microsoft-TypeScript-24625:run-20260623T003720Z",
+  "policy_result": {
+    "allowed": true,
+    "allowed_sources": [
+      "local_notes",
+      "source_code"
+    ],
+    "boundary_choices": [],
+    "intent": "understand_code",
+    "reason": "Guided explanation turn selected.",
+    "retrieval_required": true,
+    "source_policy_name": "coderepoqa_workspace_initial",
+    "turn_type": "guided_explanation",
+    "violations": []
+  },
+  "response_payload": {
+    "content": "**Error**\nExplanation generation failed: Explanation generation returned no valid understanding checks.",
+    "evidence_refs": [],
+    "metadata": {
+      "coverage_status": "failed",
+      "error": "Explanation generation returned no valid understanding checks.",
+      "generator": "llm_explanation",
+      "prompt_template_id": "explanation_markdown_v2",
+      "render_notes": {},
+      "retrieval_sufficient": false,
+      "used_evidence_refs": []
+    },
+    "turn_type": "guided_explanation",
+    "violations": []
+  },
+  "response_plan": {
+    "boundary_choices": [],
+    "boundary_message_required": false,
+    "must_include_evidence": true,
+    "notes": {
+      "coverage_status": "failed",
+      "prompt_template_id": "explanation_markdown_v2",
+      "retrieval_sufficient": false
+    },
+    "required_sections": [
+      "generated_explanation",
+      "understanding_checks"
+    ],
+    "turn_type": "guided_explanation"
+  },
+  "retrieval_result": {
+    "coverage_status": "failed",
+    "evidence": [],
+    "failures_or_fallbacks": [
+      "cgc_index_failed"
+    ],
+    "retrieval_summary": {
+      "cgc_command_prefix": [
+        "C:\\Programming\\guidedInteligence\\.venv\\Scripts\\cgc.exe"
+      ],
+      "failure": "cgc_index_failed",
+      "failure_reason": "cgc_index_timeout:Command '['C:\\\\Programming\\\\guidedInteligence\\\\.venv\\\\Scripts\\\\cgc.exe', 'index', 'C:\\\\Programming\\\\guidedInteligence_testcases\\\\microsoft-TypeScript-24625\\\\s\\\\34e68efdae72']' timed out after 600 seconds. CGC did not complete within 600s; narrow index_exclude_paths or prepare the structural index outside the interactive retrieval path.",
+      "retriever": "workspace",
+      "source_registry": [
+        {
+          "adapter_name": "codegraphcontext+qdrant-hybrid",
+          "category": "source_code",
+          "enabled": true,
+          "indexed": true,
+          "note": "CGC narrows files first; Qdrant hybrid retrieval searches dense+sparse vectors inside the filtered file set.",
+          "provider": "",
+          "queryable": true,
+          "source_key": "source_code",
+          "title": "Source code"
+        },
+        {
+          "adapter_name": "codegraphcontext+qdrant-hybrid",
+          "category": "documentation",
+          "enabled": false,
+          "indexed": true,
+          "note": "Workspace docs participate in the same CGC-first Qdrant hybrid retrieval flow.",
+          "provider": "",
+          "queryable": true,
+          "source_key": "repo_docs",
+          "title": "Repository docs"
+        },
+        {
+          "adapter_name": "connected_documents+mcp+remote_mcp",
+          "category": "issue_tracker",
+          "enabled": false,
+          "indexed": false,
+          "note": "Issue tracker context is supplied as connected documents or MCP-backed query results.",
+          "provider": "",
+          "queryable": false,
+          "source_key": "issue_tracker",
+          "title": ""
+        },
+        {
+          "adapter_name": "connected_documents+mcp+remote_mcp",
+          "category": "pull_request",
+          "enabled": false,
+          "indexed": false,
+          "note": "Pull request context is supplied as connected documents or MCP-backed query results.",
+          "provider": "",
+          "queryable": false,
+          "source_key": "pull_request",
+          "title": ""
+        },
+        {
+          "adapter_name": "obsidian-hybrid-search+local_note_files",
+          "category": "local_notes",
+          "enabled": true,
+          "indexed": false,
+          "note": "Obsidian owns local-note indexing; workspace retrieval consumes matching note results as trusted source guidance without adding them to Qdrant.",
+          "provider": "",
+          "queryable": true,
+          "source_key": "local_notes",
+          "title": "Local notes"
+        },
+        {
+          "adapter_name": "connected_documents+remote_mcp+mcp",
+          "category": "notebooklm",
+          "enabled": false,
+          "indexed": false,
+          "note": "NotebookLM context is attached as provided text snippets or remote/local MCP results.",
+          "provider": "",
+          "queryable": false,
+          "source_key": "notebooklm",
+          "title": "NotebookLM"
+        }
+      ]
+    },
+    "sufficient": false
+  },
+  "run_trace_summary": {
+    "allowed": true,
+    "coverage_status": "failed",
+    "retrieval_invoked": true,
+    "turn_type": "guided_explanation",
+    "violation_count": 0
+  }
+}

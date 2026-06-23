@@ -22,3 +22,8 @@ node_modules/
 
 # Generated Obsidian Hybrid Search index
 docs/obsidian/.obsidian-hybrid-search.db*
+
+# Local CodeRepoQA issue corpora
+/vue/
+/TypeScript/
+/pandas/

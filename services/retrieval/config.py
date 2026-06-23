@@ -15,6 +15,11 @@ from core.models import TurnType
 
 
 WORKSPACE_REINDEX_POLICY_ALWAYS = "always"
+RETRIEVAL_MODE_WORKSPACE = "workspace"
+RETRIEVAL_MODE_CODEX = "codex"
+SUPPORTED_RETRIEVAL_MODES = (RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX)
+DEFAULT_CODEX_PROMPT_PROFILE = "efficient"
+SUPPORTED_CODEX_PROMPT_PROFILES = (DEFAULT_CODEX_PROMPT_PROFILE, "responsibility-complete")
 SUPPORTED_RETRIEVAL_LLM_API_STYLES = ("openai_chat_completions",)
 SUPPORTED_RETRIEVAL_EMBEDDING_API_STYLES = ("openai_embeddings",)
 
@@ -374,6 +379,11 @@ class WorkspaceRetrievalConfig:
     llm_config: "RunLLMConfig"
     embedding_config: "RetrievalEmbeddingConfig"
     qdrant_config: "RetrievalQdrantConfig"
+    retrieval_mode: str = RETRIEVAL_MODE_WORKSPACE
+    codex_command: tuple[str, ...] = ("codex",)
+    codex_model: str = "gpt-5.4-mini"
+    codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE
+    codex_timeout_seconds: int = 900
     run_dir: str | None = None
     chunk_line_count: int = 40
     chunk_line_overlap: int = 10
@@ -387,6 +397,7 @@ class WorkspaceRetrievalConfig:
     enable_indexing: bool = True
     cgc_timeout_seconds: int = 60
     cgc_max_files_for_bm25: int = 20
+    qdrant_index_timeout_seconds: int = 600
     index_exclude_paths: tuple[str, ...] | None = None
     enabled_source_categories: tuple[SourceCategory, ...] = DEFAULT_ALLOWED_SOURCE_CATEGORIES
     enabled_sources: tuple[str, ...] = ()
@@ -403,8 +414,18 @@ class WorkspaceRetrievalConfig:
     obsidian_command: tuple[str, ...] = field(default_factory=_default_obsidian_command)
     obsidian_search_mode: str = "fulltext"
     obsidian_search_limit: int = 5
-    obsidian_min_guidance_score: float = 0.01
+    obsidian_min_guidance_score: float = 0.0
     obsidian_timeout_seconds: int = 20
+    connected_context_enabled: bool = True
+    connected_context_max_sources: int = 8
+    connected_context_max_calls: int = 8
+    connected_context_max_candidates_per_source: int = 5
+    connected_context_max_candidates_total: int = 20
+    connected_context_max_candidate_chars: int = 2400
+    connected_context_max_candidate_chars_total: int = 24000
+    connected_context_max_selected_context: int = 4
+    connected_context_max_selected_evidence: int = 2
+    connected_context_timeout_seconds: int = 45
     connected_source_adapters: Mapping[str, bool] = field(
         default_factory=lambda: {
             "issue_tracker": True,
@@ -531,6 +552,25 @@ class WorkspaceRetrievalConfig:
         return tuple(entries)
 
     def validate(self) -> None:
+        if self.retrieval_mode not in SUPPORTED_RETRIEVAL_MODES:
+            raise ValueError(
+                f"Unsupported retrieval_mode: {self.retrieval_mode}. "
+                f"Supported values: {', '.join(SUPPORTED_RETRIEVAL_MODES)}."
+            )
+        if self.retrieval_mode == RETRIEVAL_MODE_CODEX:
+            if not self.codex_command:
+                raise ValueError("Codex retrieval mode requires a non-empty codex_command.")
+            if not self.codex_model.strip():
+                raise ValueError("Codex retrieval mode requires codex_model.")
+            if self.codex_prompt_profile not in SUPPORTED_CODEX_PROMPT_PROFILES:
+                raise ValueError(
+                    f"Unsupported Codex prompt profile: {self.codex_prompt_profile}. "
+                    f"Supported profiles: {', '.join(SUPPORTED_CODEX_PROMPT_PROFILES)}."
+                )
+            if self.codex_timeout_seconds <= 0:
+                raise ValueError("Codex retrieval mode requires codex_timeout_seconds > 0.")
+            RunConfigController().validate_llm_config(self.llm_config)
+            return
         if self.reindex_policy != WORKSPACE_REINDEX_POLICY_ALWAYS:
             raise ValueError("Workspace retrieval currently supports only reindex_policy='always'.")
         if self.max_exploration_rounds <= 0:
@@ -541,10 +581,12 @@ class WorkspaceRetrievalConfig:
             raise ValueError("Workspace retrieval requires cgc_enabled=True.")
         if not self.cgc_command:
             raise ValueError("Workspace retrieval requires a non-empty cgc_command.")
-        if self.cgc_timeout_seconds <= 0:
-            raise ValueError("cgc_timeout_seconds must be greater than zero.")
+        if self.cgc_timeout_seconds < 0:
+            raise ValueError("cgc_timeout_seconds must be zero or greater.")
         if self.cgc_max_files_for_bm25 <= 0:
             raise ValueError("cgc_max_files_for_bm25 must be greater than zero.")
+        if self.qdrant_index_timeout_seconds <= 0:
+            raise ValueError("qdrant_index_timeout_seconds must be greater than zero.")
         index_exclude_paths = self.index_exclude_paths or ()
         if any(Path(path).is_absolute() for path in index_exclude_paths):
             raise ValueError("Index exclude paths must be workspace-relative.")
@@ -558,6 +600,24 @@ class WorkspaceRetrievalConfig:
             raise ValueError("obsidian_min_guidance_score must be zero or greater.")
         if self.obsidian_timeout_seconds <= 0:
             raise ValueError("obsidian_timeout_seconds must be greater than zero.")
+        if self.connected_context_max_sources <= 0:
+            raise ValueError("connected_context_max_sources must be greater than zero.")
+        if self.connected_context_max_calls <= 0:
+            raise ValueError("connected_context_max_calls must be greater than zero.")
+        if self.connected_context_max_candidates_per_source <= 0:
+            raise ValueError("connected_context_max_candidates_per_source must be greater than zero.")
+        if self.connected_context_max_candidates_total <= 0:
+            raise ValueError("connected_context_max_candidates_total must be greater than zero.")
+        if self.connected_context_max_candidate_chars <= 0:
+            raise ValueError("connected_context_max_candidate_chars must be greater than zero.")
+        if self.connected_context_max_candidate_chars_total <= 0:
+            raise ValueError("connected_context_max_candidate_chars_total must be greater than zero.")
+        if self.connected_context_max_selected_context <= 0:
+            raise ValueError("connected_context_max_selected_context must be greater than zero.")
+        if self.connected_context_max_selected_evidence <= 0:
+            raise ValueError("connected_context_max_selected_evidence must be greater than zero.")
+        if self.connected_context_timeout_seconds <= 0:
+            raise ValueError("connected_context_timeout_seconds must be greater than zero.")
         for source in self.mcp_connected_sources:
             if not source.name.strip():
                 raise ValueError("MCP connected source requires name.")

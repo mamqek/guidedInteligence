@@ -1,0 +1,520 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-35925",
+  "primary_group": "maintenance_refactor",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 35925,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/35925",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/35925.json",
+  "title": "CLN remove unnecessary trailing commas to get ready for new version of black",
+  "labels": [
+    "Clean",
+    "good first issue"
+  ],
+  "state": "closed",
+  "created_at": "2020-08-27T15:52:10Z",
+  "closed_at": "2020-09-22T13:37:59Z",
+  "selection_rationale": "pandas cleanup for Black formatting readiness; pure maintenance/cleanup signal.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      36493
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "e288b2b0518200cacb4a1aa6244aa43da24f6c0e",
+      "329e1c7d3333931222dc84241d8b2bc84ff8a6c8",
+      "1fc244f89108347804ea33c7e912f933c2aa63da",
+      "faae2f0c8e4aab3086d690bab248d1a2ab44fcff",
+      "ab11b92cc2c2007117bfc54ecd12a1f8541d1511",
+      "b1969e3905d0e3c639fb313aeebd0b760496c291",
+      "54a2ad2de7ad2c103c912953a774c0c9446eee30",
+      "694f25c71fd967d6eac172c9db07817bade999a1"
+    ],
+    "cite": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35930",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35949",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35950",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35956",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35959",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35996",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35926",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35927",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35930",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35949",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35950",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35956",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35959",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35970",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35971",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "35996",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36023",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36029",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36052",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36057",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36059",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36073",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36101",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36193",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36222",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36295",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36388",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36399",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36441",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36446",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36493",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 36493,
+        "title": "CI: Update version of 'black'",
+        "url": "https://github.com/pandas-dev/pandas/pull/36493",
+        "merged": true,
+        "merge_commit_sha": "9b6d66e4a93f0fb67fee9f7a1fa80a046aed1eb3",
+        "head_sha": "5fd78c06d2685633c84dabd73c3660e8f382f6f7",
+        "base_sha": "a0d6d061de42c54b8071d28a4bf60cd69853c388",
+        "changed_files": 25,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": ".pre-commit-config.yaml",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "asv_bench/benchmarks/arithmetic.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/make.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/conf.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/development/contributing.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "environment.yml",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/_vendored/typing_extensions.py",
+            "additions": 1,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/aggregation.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/algorithms.py",
+            "additions": 4,
+            "deletions": 5,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/array_algos/replace.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/frame.py",
+            "additions": 4,
+            "deletions": 6,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/series.py",
+            "additions": 3,
+            "deletions": 7,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/sorting.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/util/numba_.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/io/formats/format.py",
+            "additions": 0,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/io/formats/latex.py",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/arrays/sparse/test_array.py",
+            "additions": 5,
+            "deletions": 11,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/frame/test_analytics.py",
+            "additions": 8,
+            "deletions": 8,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/io/test_gcs.py",
+            "additions": 1,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/io/test_parquet.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/scalar/timestamp/test_constructors.py",
+            "additions": 13,
+            "deletions": 10,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/series/test_operators.py",
+            "additions": 1,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "requirements-dev.txt",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "scripts/tests/test_validate_docstrings.py",
+            "additions": 1,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "versioneer.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      ".pre-commit-config.yaml",
+      "environment.yml",
+      "pandas/_vendored/typing_extensions.py",
+      "pandas/core/aggregation.py",
+      "pandas/core/algorithms.py",
+      "pandas/core/array_algos/replace.py",
+      "pandas/core/frame.py",
+      "pandas/core/series.py",
+      "pandas/core/sorting.py",
+      "pandas/core/util/numba_.py",
+      "pandas/io/formats/format.py",
+      "pandas/io/formats/latex.py",
+      "versioneer.py"
+    ],
+    "test_or_validation_files": [
+      "asv_bench/benchmarks/arithmetic.py",
+      "pandas/tests/arrays/sparse/test_array.py",
+      "pandas/tests/frame/test_analytics.py",
+      "pandas/tests/io/test_gcs.py",
+      "pandas/tests/io/test_parquet.py",
+      "pandas/tests/scalar/timestamp/test_constructors.py",
+      "pandas/tests/series/test_operators.py",
+      "scripts/tests/test_validate_docstrings.py"
+    ],
+    "documentation_files": [
+      "doc/make.py",
+      "doc/source/conf.py",
+      "doc/source/development/contributing.rst",
+      "requirements-dev.txt"
+    ],
+    "symbols_or_apis": [],
+    "subsystem": "Series operations",
+    "responsibility_summary": "Relevant code is responsible for Series operations behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #36493: CI: Update version of 'black'",
+    "issue_body_file_refs": [
+      "pandas/core/aggregation.py",
+      "asv_bench/benchmarks/arithmetic.py",
+      "pandas/core/array_algos/replace.py",
+      "doc/make.py",
+      "doc/source/conf.py",
+      "pandas/core/algorithms.py",
+      "pandas/_vendored/typing_extensions.py",
+      "pandas/core/util/numba_.py",
+      "pandas/core/sorting.py",
+      "pandas/io/formats/latex.py",
+      "pandas/core/series.py",
+      "pandas/io/formats/format.py",
+      "pandas/core/frame.py",
+      "pandas/tests/arrays/sparse/test_array.py",
+      "pandas/tests/frame/test_analytics.py",
+      "pandas/tests/indexes/base_class/test_indexing.py",
+      "pandas/tests/indexes/test_common.py",
+      "pandas/tests/indexes/test_numeric.py",
+      "pandas/tests/io/test_gcs.py",
+      "pandas/tests/io/test_parquet.py",
+      "pandas/tests/scalar/timestamp/test_constructors.py",
+      "pandas/tests/series/test_operators.py",
+      "scripts/tests/test_validate_docstrings.py"
+    ],
+    "thread_file_refs": [
+      "pandas/core/internals/concat.py",
+      "pandas/core/internals/managers.py",
+      "pandas/core/internals/ops.py",
+      "pandas/core/nanops.py",
+      "pandas/core/ops/docstrings.py",
+      "pandas/core/reshape/concat.py",
+      "pandas/core/reshape/pivot.py",
+      "pandas/core/reshape/reshape.py",
+      "pandas/core/series.py",
+      "pandas/core/window/ewm.py",
+      "pandas/core/window/indexers.py",
+      "pandas/core/window/numba_.py",
+      "pandas/core/window/rolling.py",
+      "pandas/io/formats/css.py",
+      "pandas/io/formats/format.py",
+      "pandas/io/orc.py",
+      "pandas/tests/test_multilevel.py",
+      "pandas/tests/test_nanops.py",
+      "pandas/tests/window/moments/test_moments_consistency_rolling.py",
+      "pandas/tests/window/moments/test_moments_ewm.py",
+      "pandas/tests/window/moments/test_moments_rolling.py",
+      "pandas/tests/window/test_base_indexer.py",
+      "pandas/tests/window/test_pairwise.py",
+      "pandas/tests/window/test_rolling.py",
+      "pandas/tseries/frequencies.py",
+      "pandas/util/_test_decorators.py",
+      "pandas/io/sas/sas_xport.py",
+      "pandas/io/stata.py",
+      "pandas/tests/arithmetic/test_interval.py",
+      "pandas/tests/arithmetic/test_numeric.py"
+    ],
+    "resolution_comment_excerpts": [
+      "Working On: pandas/tests/series/methods/test_interpolate.py pandas/tests/series/methods/test_unstack.py pandas/tests/series/test_cumulative.py pandas/tests/test_algos.py",
+      "Working On: pandas/tests/scalar/test_na_scalar.py pandas/tests/scalar/timestamp/test_arithmetic.py pandas/tests/scalar/timestamp/test_constructors.py",
+      "working on: - pandas/tests/groupby/transform/test_numba.py",
+      "working on: - /pandas/tests/indexes/base_class/test_indexing.py - /pandas/tests/indexes/test_common.py - /pandas/tests/indexes/test_numeric.py"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

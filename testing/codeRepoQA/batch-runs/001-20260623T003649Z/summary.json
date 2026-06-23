@@ -1,0 +1,53 @@
+{
+  "cases": [
+    "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-24625\\issue.json",
+    "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-2953\\issue.json"
+  ],
+  "codex_run_config": "configs/testing/codex.json",
+  "created_at": "2026-06-23T01:04:04.748805+00:00",
+  "error_count": 0,
+  "result_count": 4,
+  "results": [
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\001-20260623T003649Z\\microsoft-TypeScript-24625\\workspace\\run-20260623T003720Z",
+      "case_id": "microsoft-TypeScript-24625",
+      "elapsed_seconds": 645.256159,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-24625\\issue.json",
+      "retrieval_mode": "workspace",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-24625\\runs\\run-20260623T003720Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\001-20260623T003649Z\\microsoft-TypeScript-24625\\codex\\run-20260623T004735Z",
+      "case_id": "microsoft-TypeScript-24625",
+      "elapsed_seconds": 120.466888,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-24625\\issue.json",
+      "retrieval_mode": "codex",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-24625\\runs\\run-20260623T004735Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\001-20260623T003649Z\\microsoft-TypeScript-2953\\workspace\\run-20260623T004953Z",
+      "case_id": "microsoft-TypeScript-2953",
+      "elapsed_seconds": 619.70972,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-2953\\issue.json",
+      "retrieval_mode": "workspace",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-2953\\runs\\run-20260623T004953Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\001-20260623T003649Z\\microsoft-TypeScript-2953\\codex\\run-20260623T005955Z",
+      "case_id": "microsoft-TypeScript-2953",
+      "elapsed_seconds": 249.476071,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-2953\\issue.json",
+      "retrieval_mode": "codex",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-2953\\runs\\run-20260623T005955Z",
+      "status": "ok"
+    }
+  ],
+  "workspace_run_config": "configs/testing/workspace.json"
+}

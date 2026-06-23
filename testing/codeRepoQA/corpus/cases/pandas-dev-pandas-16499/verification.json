@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-16499",
+  "primary_group": "testing_build_tooling",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 16499,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/16499",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/16499.json",
+  "title": "TST: ujson tests are not being run",
+  "labels": [
+    "Testing"
+  ],
+  "state": "closed",
+  "created_at": "2017-05-25T18:10:10Z",
+  "closed_at": "2017-05-26T19:11:56Z",
+  "selection_rationale": "pandas test discovery gap where ujson tests were not run.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      16500
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "66491574df3d223a15f2fd229793ccdbfd8a0fa3",
+      "baf8b151bfbfa705bfdfcefa21db3d68433f2cc0",
+      "3a0e92f48645384cc38a390356723d6934b589ae",
+      "840de2fffad125c07bf787f8d917f115545e5a46",
+      "07eea22839554fdf8dd1e3d78d21db53d272a0cb"
+    ],
+    "cite": [],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "16500",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 16500,
+        "title": "TST: ujson tests are not being run (#16499)",
+        "url": "https://github.com/pandas-dev/pandas/pull/16500",
+        "merged": true,
+        "merge_commit_sha": "66491574df3d223a15f2fd229793ccdbfd8a0fa3",
+        "head_sha": "a74afa14fabb69be287e8237ef304fbdbb40f453",
+        "base_sha": "e81f3cc30725443a1d36ec27279f3fec4eed60ec",
+        "changed_files": 1,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "pandas/tests/io/json/test_ujson.py",
+            "additions": 22,
+            "deletions": 22,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [],
+    "test_or_validation_files": [
+      "pandas/tests/io/json/test_ujson.py"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "IO subsystem",
+    "responsibility_summary": "Relevant code is responsible for IO subsystem behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #16500: TST: ujson tests are not being run (#16499)",
+    "issue_body_file_refs": [
+      "pandas/tests/io/json/test_ujson.py"
+    ],
+    "thread_file_refs": [
+      "pandas/io/tests/json/test_ujson.py",
+      "pandas/io/tests/test_gbq.py",
+      "pandas/io/tests/test_excel.py",
+      "pandas/io/tests/test_sql.py",
+      "pandas/io/tests/test_pytables.py",
+      "pandas/stats/tests/common.py",
+      "pandas/tests/test_base.py",
+      "pandas/tests/test_window.py",
+      "pandas/tools/tests/test_concat.py",
+      "pandas/tseries/tests/test_offsets.py"
+    ],
+    "resolution_comment_excerpts": [
+      "Thanks... Do you have a chance to submit a fix?",
+      "I'll update with a fix.",
+      "This is from this regex `class [^T|t].*TestCase\\):` on 0.19.2 ``` pandas/io/tests/json/test_ujson.py:38:class UltraJSONTests(TestCase): pandas/io/tests/json/test_ujson.py:919:class NumpyJSONTests(TestCase): pandas/io/tests/json/test_ujson.py:1195:class PandasJSONTests(TestCase): pandas/io/tests/test_gbq.py:358:class GBQUnitTests(tm.TestCase): pandas/io/tests/test_excel.py:938:class XlsReaderTests(XlrdTests, tm.TestCase): pandas/io/tests/test_excel.py:944:class XlsxReaderTests(XlrdTests, tm.TestCase): pandas/io/tests/test_excel.py:950:class XlsmReaderTests(XlrdTests, tm.TestCase): pandas/io/tes"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "not_applicable_no_implementation_files",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "validation_or_documentation_files"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

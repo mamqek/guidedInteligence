@@ -1,0 +1,248 @@
+{
+  "conversation_id": "microsoft-TypeScript-46770:run-20260623T105125Z",
+  "policy_result": {
+    "allowed": true,
+    "allowed_sources": [
+      "local_notes",
+      "source_code"
+    ],
+    "boundary_choices": [],
+    "intent": "understand_code",
+    "reason": "Guided explanation turn selected.",
+    "retrieval_required": true,
+    "source_policy_name": "coderepoqa_workspace_initial",
+    "turn_type": "guided_explanation",
+    "violations": []
+  },
+  "response_payload": {
+    "content": "### Bottom line\n\nThe issue with importing packages when using `\"module\": \"nodenext\"` in tsconfig.json relates to how TypeScript parses and interprets module kinds and module resolution strategies, especially under Node.js ESM modes. The relevant code paths involve parsing the `module` option in the compiler configuration, inferring the module format for files based on extensions and package.json contents, and applying Node.js-specific module resolution conditions that affect how packages with different `main` or `exports` fields are resolved. Understanding these flows is crucial before debugging or modifying how TypeScript resolves modules under `nodenext` or `node12` module kinds.\n\n### System flow\n\n`commandLineParser.ts` (option parsing) -> `program.ts` (module format inference) -> `moduleNameResolver.ts` (module resolution with NodeNext/Node12 conditions)\n\nThis flow starts with parsing the `module` option from tsconfig.json, which sets the module kind to `NodeNext` or `Node12`. Then, when resolving modules, TypeScript infers the module format of files based on their extensions and package.json `type` fields. Finally, the module name resolver uses this information along with resolution conditions (like `import` vs `require`) to resolve package entry points, considering fields like `main` and `exports` in package.json.\n\n### tsconfig option parsing for module and moduleResolution (src/compiler/commandLineParser.ts)\n\nThis file maps string values from tsconfig.json's `module` option to internal `ModuleKind` enums. The snippet shows entries like:\n\n```ts\nes6: ModuleKind.ES2015,\nes2015: ModuleKind.ES2015,\nes2020: ModuleKind.ES2020,\nes2022: ModuleKind.ES2022,\nesnext: ModuleKind.ESNext,\nnode12: ModuleKind.Node12,\nnodenext: ModuleKind.NodeNext,\n```\n\nThis mapping is fundamental because it determines how the compiler treats module syntax and resolution. Setting `\"module\": \"nodenext\"` causes the compiler to use the `NodeNext` module kind, which triggers specialized resolution logic later. Understanding this mapping is the first step to grasping why the compiler behaves differently with `nodenext`.\n\nNext inspection: How this module kind affects resolution and format inference.\n\n### Node format inference from package.json (src/compiler/program.ts)\n\nThis function `getImpliedNodeFormatForFile` uses the module kind and file extension to infer whether a file should be treated as ESM or CommonJS. For `Node12` and `NodeNext` module kinds, it checks extensions like `.mts`, `.mjs` for ESM and `.cts`, `.cjs` for CommonJS. For other extensions, it looks up the package.json `type` field to decide.\n\nExcerpt:\n\n```ts\nswitch (getEmitModuleResolutionKind(options)) {\ncase ModuleResolutionKind.Node12:\ncase ModuleResolutionKind.NodeNext:\nreturn fileExtensionIsOneOf(fileName, [Extension.Dmts, Extension.Mts, Extension.Mjs]) ? ModuleKind.ESNext :\nfileExtensionIsOneOf(fileName, [Extension.Dcts, Extension.Cts, Extension.Cjs]) ? ModuleKind.CommonJS :\nfileExtensionIsOneOf(fileName, [Extension.Dts, Extension.Ts, Extension.Tsx, Extension.Js, Extension.Jsx]) ? lookupFromPackageJson() :\nundefined;\ndefault:\nreturn undefined;\n}\n```\n\nThis logic is critical because it influences how TypeScript interprets the module format of files, which in turn affects module resolution and type checking. For example, if a package's `package.json` has `\"type\": \"module\"`, files with `.js` extension are treated as ESM, which changes how imports are resolved.\n\nNext inspection: How this inferred format affects module resolution conditions.\n\n### Module resolution conditions for NodeNext/Node12 (src/compiler/moduleNameResolver.ts)\n\nWhen resolving modules under `NodeNext` or `Node12`, TypeScript uses a set of conditions to select the correct entry points from package exports. The snippet shows that the conditions depend on whether the resolver is in ESM mode:\n\n```ts\nconst state: ModuleResolutionState = {\ncompilerOptions,\nhost,\ntraceEnabled,\nfailedLookupLocations,\npackageJsonInfoCache: cache,\nfeatures,\nconditions: features & NodeResolutionFeatures.EsmMode ? [\"node\", \"import\", \"types\"] : [\"node\", \"require\", \"types\"]\n};\n```\n\nThese conditions influence how the resolver interprets the `exports` field in package.json and which files it considers valid entry points. This is directly related to the user's issue where changing `\"main\": \"lib/ip\"` to `\"main\": \"lib/ip.js\"` or adding `\"type\": \"module\"` affects resolution and type errors.\n\nUnderstanding this conditional resolution mechanism is key to diagnosing why some packages fail to resolve or have incorrect typings under `nodenext`.\n\nNext inspection: How package.json fields like `main` and `exports` are read and used during resolution.\n\n### Package.json path-field parsing (src/compiler/moduleNameResolver.ts)\n\nThis responsibility involves reading fields like `main`, `types`, or `typings` from package.json to determine module entry points. The snippet shows a function that reads these fields and handles falsy values with tracing:\n\n```ts\nfunction readPackageJsonPathField<K extends \"typings\" | \"types\" | \"main\" | \"tsconfig\">(...) {\nconst fileName = readPackageJsonField(jsonContent, fieldName, \"string\", state);\nif (fileName === undefined) {\nreturn;\n}\nif (!fileName) {\nif (state.traceEnabled) {\ntrace(state.host, Diagnostics.package_json_had_a_falsy_0_field, fieldName);\n}\nreturn;\n}\n// ...\n}\n```\n\nThis parsing is important because the presence or absence of these fields, and their exact values (e.g., including file extensions), affect how modules are resolved and how their types are found. The user's observation that changing `\"main\": \"lib/ip\"` to `\"main\": \"lib/ip.js\"` fixes the issue aligns with this parsing logic.\n\n### Implementation / investigation path\n\nTo address or understand the user's issue, one should:\n\n1. Start at the tsconfig option parsing to confirm that `\"module\": \"nodenext\"` sets the module kind correctly.\n2. Follow how the compiler infers the module format of files based on extensions and package.json `type` fields.\n3. Examine the module resolution conditions used for NodeNext/Node12 to see how they affect package exports and entry point selection.\n4. Inspect how package.json fields like `main` and `exports` are parsed and used to resolve modules.\n\nThis path will clarify why certain packages fail to resolve or have incorrect typings under `nodenext` and guide fixes or improvements.\n\n### What still needs verification\n\nThe retrieved evidence does not explicitly show the full resolution logic for packages like `ip` or `nullthrows` under `nodenext`, nor the exact diagnostic generation for the errors reported. Further inspection of the module resolution fallback logic and diagnostics emission would be useful.\n\n---\n\n### Used evidence refs\n\n- workspace:src/compiler/commandLineParser.ts:L419-L425\n- workspace:src/compiler/program.ts:L803-L816\n- workspace:src/compiler/moduleNameResolver.ts:L1284-L1294\n- workspace:src/compiler/moduleNameResolver.ts:L150-L179\n\n## Evidence Not To Miss\n\n- This retrieved snippet is a high-priority anchor for the explanation. It was retrieved for the `tsconfig option parsing for module and moduleResolution` part of the question. See [src/compiler/commandLineParser.ts:L419-L425](src/compiler/commandLineParser.ts#L419-L425).\n- This retrieved snippet is a high-priority anchor for the explanation. It was retrieved for the `Node format inference from package.json` part of the question. See [src/compiler/program.ts:L803-L816](src/compiler/program.ts#L803-L816).\n- This retrieved snippet is a high-priority anchor for the explanation. It was retrieved for the `module resolution conditions for NodeNext/Node12` part of the question. See [src/compiler/moduleNameResolver.ts:L1284-L1294](src/compiler/moduleNameResolver.ts#L1284-L1294).",
+    "evidence_refs": [
+      "workspace:src/compiler/commandLineParser.ts:L419-L425",
+      "workspace:src/compiler/program.ts:L803-L816",
+      "workspace:src/compiler/moduleNameResolver.ts:L1284-L1294",
+      "workspace:src/compiler/moduleNameResolver.ts:L150-L179"
+    ],
+    "metadata": {
+      "coverage_status": "strong",
+      "generator": "llm_explanation",
+      "prompt_template_id": "explanation_markdown_v2",
+      "render_notes": {
+        "summary": "Explains how TypeScript parses the 'module' option, infers module formats from file extensions and package.json, and applies NodeNext-specific resolution conditions, which together affect module import resolution and typing errors.",
+        "title": "Implementation Context for \"module\": \"nodenext\" Import Issues"
+      },
+      "retrieval_sufficient": true,
+      "understanding_checks": [
+        {
+          "evidence_refs": [
+            "workspace:src/compiler/commandLineParser.ts:L419-L425"
+          ],
+          "expected_answer_points": [
+            "It maps tsconfig.json 'module' option strings like 'nodenext' to internal ModuleKind enums such as ModuleKind.NodeNext.",
+            "This mapping determines how the compiler treats module syntax and resolution strategies.",
+            "Setting 'module' to 'nodenext' triggers specialized resolution logic for Node.js ESM modules later in the compiler."
+          ],
+          "hint": "Look at how the 'module' option strings correspond to ModuleKind enums and consider how this influences resolution.",
+          "id": "q1",
+          "origin": "selected evidence coverage area",
+          "question": "What does the mapping from string values to ModuleKind enums in the tsconfig option parsing code do, and how does it affect later module resolution behavior?",
+          "question_type": "primary",
+          "role": "tsconfig option parsing for module and moduleResolution"
+        },
+        {
+          "evidence_refs": [
+            "workspace:src/compiler/program.ts:L803-L816"
+          ],
+          "expected_answer_points": [
+            "It checks if the file extension is one of the ESM extensions (.mts, .mjs, .dmts) and returns ModuleKind.ESNext.",
+            "If the extension is one of the CommonJS extensions (.cts, .cjs, .dcts), it returns ModuleKind.CommonJS.",
+            "For other extensions like .ts, .js, it looks up the package.json 'type' field to decide the module format.",
+            "This inference affects how the compiler interprets the file's module system, impacting resolution and type checking."
+          ],
+          "hint": "Focus on the switch statement and how extensions map to module kinds or package.json lookup.",
+          "id": "q2",
+          "origin": "additional selected evidence",
+          "question": "How does the function getImpliedNodeFormatForFile use file extensions and package.json information to infer the module format for a file under NodeNext or Node12 module kinds?",
+          "question_type": "secondary",
+          "role": "Node format inference from package.json"
+        },
+        {
+          "evidence_refs": [
+            "workspace:src/compiler/moduleNameResolver.ts:L1284-L1294"
+          ],
+          "expected_answer_points": [
+            "The conditions are a set of strings like ['node', 'import', 'types'] when in ESM mode.",
+            "When not in ESM mode, the conditions are ['node', 'require', 'types'].",
+            "These conditions influence how the resolver selects package exports and entry points.",
+            "The priority is determined by insertion order, but the conditions themselves form a set used during resolution."
+          ],
+          "hint": "Look at the 'conditions' field in the ModuleResolutionState and how it depends on ESM mode.",
+          "id": "q3",
+          "origin": "additional selected evidence",
+          "question": "What are the module resolution conditions used by the NodeNext/Node12 resolver, and how do they differ based on ESM mode?",
+          "question_type": "secondary",
+          "role": "module resolution conditions for NodeNext/Node12"
+        }
+      ],
+      "used_evidence_refs": [
+        "workspace:src/compiler/commandLineParser.ts:L419-L425",
+        "workspace:src/compiler/program.ts:L803-L816",
+        "workspace:src/compiler/moduleNameResolver.ts:L1284-L1294",
+        "workspace:src/compiler/moduleNameResolver.ts:L150-L179"
+      ]
+    },
+    "turn_type": "guided_explanation",
+    "violations": []
+  },
+  "response_plan": {
+    "boundary_choices": [],
+    "boundary_message_required": false,
+    "must_include_evidence": true,
+    "notes": {
+      "coverage_status": "strong",
+      "prompt_template_id": "explanation_markdown_v2",
+      "retrieval_sufficient": true
+    },
+    "required_sections": [
+      "generated_explanation",
+      "understanding_checks"
+    ],
+    "turn_type": "guided_explanation"
+  },
+  "retrieval_result": {
+    "coverage_status": "strong",
+    "evidence": [
+      {
+        "metadata": {
+          "claim_supported": "The compiler explicitly accepts `module: nodenext`/`node12` and `moduleResolution: nodenext`/`node12` as legal settings.",
+          "coverage_area": "tsconfig option parsing for module and moduleResolution",
+          "file_role": "implementation",
+          "line_range": "L419-L425",
+          "path": "src/compiler/commandLineParser.ts",
+          "retrieval_path": "codex",
+          "why_relevant": "This places the issue on the intended NodeNext/Node12 code path rather than an unsupported configuration."
+        },
+        "rank": 1,
+        "snippet": "                es6: ModuleKind.ES2015,\n                es2015: ModuleKind.ES2015,\n                es2020: ModuleKind.ES2020,\n                es2022: ModuleKind.ES2022,\n                esnext: ModuleKind.ESNext,\n                node12: ModuleKind.Node12,\n                nodenext: ModuleKind.NodeNext,",
+        "source_category": "source_code",
+        "source_id": "workspace:src/compiler/commandLineParser.ts:L419-L425"
+      },
+      {
+        "metadata": {
+          "claim_supported": "Under `node12`/`nodenext`, the emitted module format for `.ts/.js` files is inferred from the nearest `package.json` `type` field, with `type: \"module\"` mapping to ESNext and other cases defaulting to CommonJS.",
+          "coverage_area": "Node format inference from package.json",
+          "file_role": "implementation",
+          "line_range": "L803-L816",
+          "path": "src/compiler/program.ts",
+          "retrieval_path": "codex",
+          "why_relevant": "This matches the report that adding `type: \"module\"` changes whether a package can be imported."
+        },
+        "rank": 2,
+        "snippet": "    export function getImpliedNodeFormatForFile(fileName: Path, packageJsonInfoCache: PackageJsonInfoCache | undefined, host: ModuleResolutionHost, options: CompilerOptions): ModuleKind.ESNext | ModuleKind.CommonJS | undefined {\n        switch (getEmitModuleResolutionKind(options)) {\n            case ModuleResolutionKind.Node12:\n            case ModuleResolutionKind.NodeNext:\n                return fileExtensionIsOneOf(fileName, [Extension.Dmts, Extension.Mts, Extension.Mjs]) ? ModuleKind.ESNext :\n                    fileExtensionIsOneOf(fileName, [Extension.Dcts, Extension.Cts, Extension.Cjs]) ? ModuleKind.CommonJS :\n                    fileExtensionIsOneOf(fileName, [Extension.Dts, Extension.Ts, Extension.Tsx, Extension.Js, Extension.Jsx]) ? lookupFromPackageJson() :\n                    undefined; // other extensions, like `json` or `tsbuildinfo`, are set as `undefined` here but they should never be fed through the transformer pipeline\n            default:\n                return undefined;\n        }\n        function lookupFromPackageJson(): ModuleKind.ESNext | ModuleKind.CommonJS {\n            const scope = getPackageScopeForPath(fileName, packageJsonInfoCache, host, options);\n            return scope?.packageJsonContent.type === \"module\" ? ModuleKind.ESNext : ModuleKind.CommonJS;",
+        "source_category": "source_code",
+        "source_id": "workspace:src/compiler/program.ts:L803-L816"
+      },
+      {
+        "metadata": {
+          "claim_supported": "NodeNext/Node12 resolution uses different condition sets for ESM versus CJS, specifically `['node','import','types']` versus `['node','require','types']`.",
+          "coverage_area": "module resolution conditions for NodeNext/Node12",
+          "file_role": "implementation",
+          "line_range": "L1284-L1294",
+          "path": "src/compiler/moduleNameResolver.ts",
+          "retrieval_path": "codex",
+          "why_relevant": "This shows why package exports can resolve differently depending on whether the importing file is treated as ESM."
+        },
+        "rank": 3,
+        "snippet": "        // conditions are only used by the node12/nodenext resolver - there's no priority order in the list,\n        //it's essentially a set (priority is determined by object insertion order in the object we look at).\n        const state: ModuleResolutionState = {\n            compilerOptions,\n            host,\n            traceEnabled,\n            failedLookupLocations,\n            packageJsonInfoCache: cache,\n            features,\n            conditions: features & NodeResolutionFeatures.EsmMode ? [\"node\", \"import\", \"types\"] : [\"node\", \"require\", \"types\"]\n        };",
+        "source_category": "source_code",
+        "source_id": "workspace:src/compiler/moduleNameResolver.ts:L1284-L1294"
+      },
+      {
+        "metadata": {
+          "claim_supported": "Package.json `typings`, `types`, `main`, and `tsconfig` fields are normalized and read as path entries during module resolution.",
+          "coverage_area": "package.json path-field parsing",
+          "file_role": "implementation",
+          "line_range": "L150-L179",
+          "path": "src/compiler/moduleNameResolver.ts",
+          "retrieval_path": "codex",
+          "why_relevant": "This is the code that turns package metadata into candidate module entrypoints and declaration files."
+        },
+        "rank": 4,
+        "snippet": "    function readPackageJsonPathField<K extends \"typings\" | \"types\" | \"main\" | \"tsconfig\">(jsonContent: PackageJson, fieldName: K, baseDirectory: string, state: ModuleResolutionState): PackageJson[K] | undefined {\n        const fileName = readPackageJsonField(jsonContent, fieldName, \"string\", state);\n        if (fileName === undefined) {\n            return;\n        }\n        if (!fileName) {\n            if (state.traceEnabled) {\n                trace(state.host, Diagnostics.package_json_had_a_falsy_0_field, fieldName);\n            }\n            return;\n        }\n        const path = normalizePath(combinePaths(baseDirectory, fileName));\n        if (state.traceEnabled) {\n            trace(state.host, Diagnostics.package_json_has_0_field_1_that_references_2, fieldName, fileName, path);\n        }\n        return path;\n    }\n\n    function readPackageJsonTypesFields(jsonContent: PackageJson, baseDirectory: string, state: ModuleResolutionState) {\n        return readPackageJsonPathField(jsonContent, \"typings\", baseDirectory, state)\n            || readPackageJsonPathField(jsonContent, \"types\", baseDirectory, state);\n    }\n\n    function readPackageJsonTSConfigField(jsonContent: PackageJson, baseDirectory: string, state: ModuleResolutionState) {\n        return readPackageJsonPathField(jsonContent, \"tsconfig\", baseDirectory, state);\n    }\n\n    function readPackageJsonMainField(jsonContent: PackageJson, baseDirectory: string, state: ModuleResolutionState) {\n        return readPackageJsonPathField(jsonContent, \"main\", baseDirectory, state);\n    }",
+        "source_category": "source_code",
+        "source_id": "workspace:src/compiler/moduleNameResolver.ts:L150-L179"
+      },
+      {
+        "metadata": {
+          "claim_supported": "For package resolution, JavaScript/TypeScript/DTS lookups consult different package.json fields: JS uses `main`, TypeScript uses `types`/`typings` first then `main`, and DTS-only lookups use `types`/`typings`.",
+          "coverage_area": "entrypoint selection by file kind",
+          "file_role": "implementation",
+          "line_range": "L1784-L1798",
+          "path": "src/compiler/moduleNameResolver.ts",
+          "retrieval_path": "codex",
+          "why_relevant": "This directly relates to a package that ships declarations versus one that relies on `@types`, and to why the declared main file matters."
+        },
+        "rank": 5,
+        "snippet": "    function loadNodeModuleFromDirectoryWorker(extensions: Extensions, candidate: string, onlyRecordFailures: boolean, state: ModuleResolutionState, jsonContent: PackageJsonPathFields | undefined, versionPaths: VersionPaths | undefined): PathAndExtension | undefined {\n        let packageFile: string | undefined;\n        if (jsonContent) {\n            switch (extensions) {\n                case Extensions.JavaScript:\n                case Extensions.Json:\n                    packageFile = readPackageJsonMainField(jsonContent, candidate, state);\n                    break;\n                case Extensions.TypeScript:\n                    // When resolving typescript modules, try resolving using main field as well\n                    packageFile = readPackageJsonTypesFields(jsonContent, candidate, state) || readPackageJsonMainField(jsonContent, candidate, state);\n                    break;\n                case Extensions.DtsOnly:\n                    packageFile = readPackageJsonTypesFields(jsonContent, candidate, state);\n                    break;",
+        "source_category": "source_code",
+        "source_id": "workspace:src/compiler/moduleNameResolver.ts:L1784-L1798"
+      },
+      {
+        "metadata": {
+          "claim_supported": "In package resolution, `exports` has priority over file/directory lookup in NodeNext/Node12, and ESM mode otherwise falls back to `index.js` only when `main` and `exports` are absent.",
+          "coverage_area": "package entrypoint lookup and ESM fallback",
+          "file_role": "implementation",
+          "line_range": "L2183-L2205",
+          "path": "src/compiler/moduleNameResolver.ts",
+          "retrieval_path": "codex",
+          "why_relevant": "This is the control flow most likely to make a package import succeed or fail based on package metadata such as `exports`, `main`, or file extensions."
+        },
+        "rank": 6,
+        "snippet": "            // package exports are higher priority than file/directory lookups (and, if there's exports present, blocks them)\n            if (packageInfo && packageInfo.packageJsonContent.exports && state.features & NodeResolutionFeatures.Exports) {\n                return loadModuleFromExports(packageInfo, extensions, combinePaths(\".\", rest), state, cache, redirectedReference)?.value;\n            }\n            let pathAndExtension =\n                loadModuleFromFile(extensions, candidate, onlyRecordFailures, state) ||\n                loadNodeModuleFromDirectoryWorker(\n                    extensions,\n                    candidate,\n                    onlyRecordFailures,\n                    state,\n                    packageInfo && packageInfo.packageJsonContent,\n                    packageInfo && packageInfo.versionPaths\n                );\n            if (\n                !pathAndExtension && packageInfo\n                && packageInfo.packageJsonContent.exports === undefined\n                && packageInfo.packageJsonContent.main === undefined\n                && state.features & NodeResolutionFeatures.EsmMode\n            ) {\n                // EsmMode disables index lookup in `loadNodeModuleFromDirectoryWorker` generally, however non-relative package resolutions still assume\n                // a default `index.js` entrypoint if no `main` or `exports` are present\n                pathAndExtension = loadModuleFromFile(extensions, combinePaths(candidate, \"index.js\"), onlyRecordFailures, state);",
+        "source_category": "source_code",
+        "source_id": "workspace:src/compiler/moduleNameResolver.ts:L2183-L2205"
+      }
+    ],
+    "failures_or_fallbacks": [],
+    "retrieval_summary": {
+      "command": [
+        "C:\\Users\\mukha\\.codex\\.sandbox-bin\\codex.exe"
+      ],
+      "completed_at": "2026-06-23T10:54:38.180827+00:00",
+      "model": "gpt-5.4-mini",
+      "prompt_summary": "The repository contains the NodeNext/Node12 module-resolution implementation. The key context is that these modes change module format inference from `package.json type`, alter resolver conditions for `import` versus `require`, and use package metadata (`types`, `main`, `exports`) to choose entrypoints and declaration files.",
+      "raw_output_path": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-46770\\runs\\run-20260623T105125Z\\codex-evidence.json",
+      "relevant_files": [
+        "src/compiler/commandLineParser.ts",
+        "src/compiler/program.ts",
+        "src/compiler/moduleNameResolver.ts"
+      ],
+      "retriever": "codex",
+      "selected_count": 6,
+      "started_at": "2026-06-23T10:51:25.356612+00:00",
+      "stderr_path": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-46770\\runs\\run-20260623T105125Z\\codex-stderr.txt",
+      "stdout_path": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-46770\\runs\\run-20260623T105125Z\\codex-stdout.txt",
+      "stop_reason": "codex_evidence_selected",
+      "uncertainties": [
+        "I did not inspect tests or generated artifacts, so I cannot point to a repo-local reproduction for `ip` or `nullthrows` beyond the resolver code itself.",
+        "The snapshot shows the relevant resolution paths, but it does not prove which specific branch is responsible for the reported `ip` versus `nullthrows` failure without the external demo package metadata."
+      ],
+      "usage": {
+        "cached_input_tokens": 1369600,
+        "input_plus_output_tokens": 1463271,
+        "input_tokens": 1454180,
+        "output_tokens": 9091,
+        "reasoning_output_tokens": 4577,
+        "uncached_input_plus_output_tokens": 93671,
+        "uncached_input_tokens": 84580
+      }
+    },
+    "sufficient": true
+  },
+  "run_trace_summary": {
+    "allowed": true,
+    "coverage_status": "strong",
+    "retrieval_invoked": true,
+    "turn_type": "guided_explanation",
+    "violation_count": 0
+  }
+}

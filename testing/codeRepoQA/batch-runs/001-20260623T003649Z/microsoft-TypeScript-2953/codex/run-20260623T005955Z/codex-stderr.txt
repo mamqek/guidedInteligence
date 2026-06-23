@@ -1,0 +1,7 @@
+Reading additional input from stdin...
+2026-06-23T00:59:55.838405Z  WARN codex_core::shell_snapshot: Failed to create shell snapshot for powershell: Shell snapshot not supported yet for PowerShell
+2026-06-23T01:00:17.716038Z ERROR codex_core::exec: exec error: windows sandbox: runner error: missing field `policy_json_or_preset` at line 1 column 9076
+2026-06-23T01:00:17.716277Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: runner error: missing field `policy_json_or_preset` at line 1 column 9076" })
+2026-06-23T01:00:21.613702Z ERROR codex_core::exec: exec error: windows sandbox: runner error: missing field `policy_json_or_preset` at line 1 column 9059
+2026-06-23T01:00:21.613938Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: runner error: missing field `policy_json_or_preset` at line 1 column 9059" })
+2026-06-23T01:03:35.828978Z  WARN codex_mcp::rmcp_client: failed to initialize MCP client during shutdown: MCP startup failed: handshaking with MCP server failed: connection closed: initialize response

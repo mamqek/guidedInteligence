@@ -1,0 +1,66 @@
+{
+  "case_id": "microsoft-TypeScript-46770",
+  "implementation_overlap_files": [
+    "src/compiler/moduleNameResolver.ts"
+  ],
+  "oracle_documentation_files": [],
+  "oracle_files": [
+    "src/compiler/moduleNameResolver.ts",
+    "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.js",
+    "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.symbols",
+    "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.types",
+    "tests/cases/compiler/nodeNextEsmImportsOfPackagesWithExtensionlessMains.ts"
+  ],
+  "oracle_implementation_files": [
+    "src/compiler/moduleNameResolver.ts"
+  ],
+  "oracle_only_files": [
+    "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.js",
+    "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.symbols",
+    "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.types",
+    "tests/cases/compiler/nodeNextEsmImportsOfPackagesWithExtensionlessMains.ts"
+  ],
+  "oracle_source": {
+    "hidden_resolution_summary": "PR #47893: Allow extensionless `main`s for cjs mode packages even from an esm import",
+    "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+    "subsystem": "compiler/build pipeline",
+    "thread_file_refs": true,
+    "verification_case_id": "microsoft-TypeScript-46770",
+    "verification_group": "compatibility_versioning",
+    "verification_json": true
+  },
+  "oracle_symbols": [],
+  "oracle_test_or_validation_files": [
+    "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.js",
+    "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.symbols",
+    "tests/baselines/reference/nodeNextEsmImportsOfPackagesWithExtensionlessMains.types",
+    "tests/cases/compiler/nodeNextEsmImportsOfPackagesWithExtensionlessMains.ts"
+  ],
+  "overlap_files": [
+    "src/compiler/moduleNameResolver.ts"
+  ],
+  "prompt_title": "Cannot import some packages when tsconfig.json specifies \"module\": \"nodenext\"",
+  "retrieved_only_files": [
+    "src/compiler/commandLineParser.ts",
+    "src/compiler/program.ts"
+  ],
+  "retrieved_source_files": [
+    "src/compiler/commandLineParser.ts",
+    "src/compiler/program.ts",
+    "src/compiler/moduleNameResolver.ts"
+  ],
+  "top_k": {
+    "found_positions": {
+      "src/compiler/moduleNameResolver.ts": 3
+    },
+    "found_within_10": true,
+    "found_within_20": true,
+    "found_within_5": true,
+    "k_values": [
+      5,
+      10,
+      20
+    ]
+  },
+  "verification_case_id": "microsoft-TypeScript-46770"
+}

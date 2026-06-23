@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-24625",
+  "primary_group": "api_behavior_design",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 24625,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/24625",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/24625.json",
+  "title": "TypeScript 2.9 Watch API change breaking watch support in ts-loader?",
+  "labels": [
+    "Bug",
+    "Fixed",
+    "API"
+  ],
+  "state": "closed",
+  "created_at": "2018-06-02T18:09:14Z",
+  "closed_at": "2018-06-04T20:35:41Z",
+  "selection_rationale": "TypeScript watch API behavior change breaking consumers; explicit API responsibility.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      24664,
+      24665
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "e88305173ddf53ba25dc1b8bb43df735de6dd02e",
+      "42a1164f9bb055c522fa59ea92c4cbdbc606c4ab"
+    ],
+    "cite": [
+      {
+        "owner": "Microsoft",
+        "repo_name": "TypeScript-wiki",
+        "number": "169",
+        "is_own_repo": false
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "24664",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "24665",
+        "is_own_repo": true
+      },
+      {
+        "owner": "TypeStrong",
+        "repo_name": "ts-loader",
+        "number": "787",
+        "is_own_repo": false
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 24664,
+        "title": "Fix the issue with createSemanticDiagnosticsBuilderProgram, createEmitAndSemanticDiagnosticsBuilderProgram and createAbstractBuilder not assignable to CreateProgram<T>",
+        "url": "https://github.com/microsoft/TypeScript/pull/24664",
+        "merged": true,
+        "merge_commit_sha": "c3dcc83d4f3171efa778bfb22e37c90b75225ef3",
+        "head_sha": "e88305173ddf53ba25dc1b8bb43df735de6dd02e",
+        "base_sha": "34e68efdae72aa9857964cc19d8c8b02df0d1ba9",
+        "changed_files": 9,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/compiler/builder.ts",
+            "additions": 6,
+            "deletions": 6,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/APISample_Watch.js",
+            "additions": 133,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/APISample_WatchWithDefaults.js",
+            "additions": 90,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/APISample_WatchWithOwnWatchHost.js",
+            "additions": 102,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/api/tsserverlibrary.d.ts",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/api/typescript.d.ts",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/compiler/APISample_Watch.ts",
+            "additions": 80,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/cases/compiler/APISample_WatchWithDefaults.ts",
+            "additions": 53,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/cases/compiler/APISample_WatchWithOwnWatchHost.ts",
+            "additions": 60,
+            "deletions": 0,
+            "change_type": "ADDED"
+          }
+        ]
+      },
+      {
+        "number": 24665,
+        "title": "[release-2.9] Fix the issue with createSemanticDiagnosticsBuilderProgram, createEmitAndSemanticDiagnosticsBuilderProgram and createAbstractBuilder not assignable to CreateProgram<T>",
+        "url": "https://github.com/microsoft/TypeScript/pull/24665",
+        "merged": true,
+        "merge_commit_sha": "c52fb0e92f21108c169db13c57394a06c4367f37",
+        "head_sha": "42a1164f9bb055c522fa59ea92c4cbdbc606c4ab",
+        "base_sha": "3bf21bea5e816fa81ce967f7de13fb5541e68058",
+        "changed_files": 9,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/compiler/builder.ts",
+            "additions": 6,
+            "deletions": 6,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/APISample_Watch.js",
+            "additions": 133,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/APISample_WatchWithDefaults.js",
+            "additions": 90,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/APISample_WatchWithOwnWatchHost.js",
+            "additions": 102,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/api/tsserverlibrary.d.ts",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/api/typescript.d.ts",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/compiler/APISample_Watch.ts",
+            "additions": 80,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/cases/compiler/APISample_WatchWithDefaults.ts",
+            "additions": 53,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/cases/compiler/APISample_WatchWithOwnWatchHost.ts",
+            "additions": 60,
+            "deletions": 0,
+            "change_type": "ADDED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/compiler/builder.ts"
+    ],
+    "test_or_validation_files": [
+      "tests/baselines/reference/APISample_Watch.js",
+      "tests/baselines/reference/APISample_WatchWithDefaults.js",
+      "tests/baselines/reference/APISample_WatchWithOwnWatchHost.js",
+      "tests/baselines/reference/api/tsserverlibrary.d.ts",
+      "tests/baselines/reference/api/typescript.d.ts",
+      "tests/cases/compiler/APISample_Watch.ts",
+      "tests/cases/compiler/APISample_WatchWithDefaults.ts",
+      "tests/cases/compiler/APISample_WatchWithOwnWatchHost.ts"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "compiler/build pipeline",
+    "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #24664: Fix the issue with createSemanticDiagnosticsBuilderProgram, createEmitAndSemanticDiagnosticsBuilderProgram and createAbstractBuilder not assignable to CreateProgram<T> | PR #24665: [release-2.9] Fix the issue with createSemanticDiagnosticsBuilderProgram, createEmitAndSemanticDiagnosticsBuilderProgram and createAbstractBuilder not assignable to CreateProgram<T>",
+    "issue_body_file_refs": [
+      "src/servicesHost.ts",
+      "github.com/Microsoft/TypeScript/blob/master/src/compiler/builder.ts",
+      "github.com/Microsoft/TypeScript/blob/master/src/compiler/watch.ts",
+      "github.com/TypeStrong/ts-loader/blob/master/src/servicesHost.ts",
+      "builder.ts",
+      "github.com/Microsoft/TypeScript/commits/master/src/compiler/builder.ts"
+    ],
+    "thread_file_refs": [
+      "github.com/Microsoft/TypeScript-wiki/blob/master/Using-the-Compiler-API.md",
+      "tsconfig.json",
+      "github.com/Microsoft/TypeScript/blob/master/src/compiler/diagnosticMessages.json",
+      "github.com/Microsoft/TypeScript/blob/v2.8.3/src/compiler/diagnosticMessages.json"
+    ],
+    "resolution_comment_excerpts": [
+      "Ok, I ended up changing my code around `reportWatchStatusChanged` to the following: ```typescript const formatDiagnostic = (diag: ts.Diagnostic) => { return ts.formatDiagnostic(diag, formatHost).trimRight() } const ignoreDiagnostic = (diag: ts.Diagnostic) => { return [6031, 6032].indexOf(diag.code) !== -1 } const reportDiagnostic = (diag: ts.Diagnostic) => { if (!ignoreDiagnostic(diag)) { console.error(formatDiagnostic(diag)) } } let firstCompilationDone = false const isCompilationDone = (diag: ts.Diagnostic) => { return diag.code === 6194 && diag.messageText === 'Found 0 errors. Watching for ",
+      "@felixrabe you want to look for diagnostics code: ```6193``` and ```6194``` since those are the replacement for Watching for file changes message.",
+      "Well done! 🌻",
+      "fix should be in `typescript@next` later tonight, and in `typescript@2.9.2` in a week."
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

@@ -1,0 +1,235 @@
+{
+  "conversation_id": "pandas-dev-pandas-10068:run-20260623T110544Z",
+  "policy_result": {
+    "allowed": true,
+    "allowed_sources": [
+      "local_notes",
+      "source_code"
+    ],
+    "boundary_choices": [],
+    "intent": "understand_code",
+    "reason": "Guided explanation turn selected.",
+    "retrieval_required": true,
+    "source_policy_name": "coderepoqa_workspace_initial",
+    "turn_type": "guided_explanation",
+    "violations": []
+  },
+  "response_payload": {
+    "content": "### Bottom line\n\nThe behavior of Series arithmetic operations regarding the preservation or resetting of the `name` attribute is governed by the binary operation implementation in `Series` and the wrappers that handle arithmetic operations. The key code paths involve the generic binary operation method `_binop` in `Series` and the arithmetic wrappers in `pandas/core/ops.py`. The difference in behavior between the operator `+` and the `.add()` method arises because the operator uses a special arithmetic wrapper that resets the name when the Series names differ, while `.add()` uses a flexible arithmetic wrapper that preserves the name. Understanding these wrappers and the `_binop` method is essential to address the inconsistency.\n\n### System flow\n\n`Series arithmetic wrapper (_arith_method_SERIES) -> Series flex arithmetic wrapper (flex_wrapper) -> Series._binop -> result with name handling`\n\nWhen a Series arithmetic operation is invoked, it first goes through a wrapper function that handles special cases and evaluation. The flexible wrapper (`flex_wrapper`) then calls the `_binop` method on the Series, which performs the actual binary operation, including handling fill values and alignment. The name of the resulting Series is determined during or after this operation, influenced by whether the names of the operands match.\n\n### Series special arithmetic wrapper (pandas/core/ops.py:L460-L527)\n\nThis wrapper function `_arith_method_SERIES` is designed to avoid code duplication for Series arithmetic operations. It attempts to evaluate the operation using an expression evaluator and handles errors gracefully. This wrapper is used for operator overloads like `+`.\n\n```python\ndef _arith_method_SERIES(op, name, str_rep, fill_zeros=None,\ndefault_axis=None, **eval_kwargs):\n\"\"\"\nWrapper function for Series arithmetic operations, to avoid\ncode duplication.\n\"\"\"\ndef na_op(x, y):\ntry:\nresult = expressions.evaluate(op, str_rep, x, y,\nraise_on_error=True, **eval_kwargs)\n```\n\nThis matters because the operator `+` uses this wrapper, which leads to the behavior where the resulting Series name is reset to `None` if the operand names differ.\n\n### Series flex arithmetic wrapper (pandas/core/ops.py:L755-L768)\n\nThe `flex_wrapper` method is a more flexible arithmetic wrapper used by methods like `.add()`. It validates the axis, checks the type and length of the other operand, and then calls the `_binop` method on the Series.\n\n```python\ndef flex_wrapper(self, other, level=None, fill_value=None, axis=0):\n# validate axis\nself._get_axis_number(axis)\nif isinstance(other, pd.Series):\nreturn self._binop(other, op, level=level, fill_value=fill_value)\nelif isinstance(other, (np.ndarray, pd.Series, list, tuple)):\nif len(other) != len(self):\nraise ValueError('Lengths must be equal')\nreturn self._binop(self._constructor(other, self.index), op,\n```\n\nThis wrapper preserves the name of the Series when performing arithmetic, which explains why `s1.add(s2).name` returns `'a'`.\n\n### Series binary-op implementation (pandas/core/series.py:L1466-L1511)\n\nThe `_binop` method performs the generic binary operation between two Series, with optional fill values. It handles alignment, fill value substitution, and applies the binary function.\n\n```python\ndef _binop(self, other, func, level=None, fill_value=None):\n\"\"\"\nPerform generic binary operation with optional fill value\nParameters\n----------\nother : Series\nfunc : binary operator\nfill_value : float or object\nValue to substitute for NA/null values. If both Series are NA in a\nlocation, the result will be NA regardless of the passed fill value\n```\n\nThis method is the core of how arithmetic operations are executed on Series. The handling of the `name` attribute after the operation is crucial here but not explicitly shown in the snippet. The difference in name preservation likely stems from how the wrappers invoke `_binop` and handle the result's metadata.\n\n### Series method registration (pandas/core/series.py:L2735-L2737)\n\nThe arithmetic methods are registered on the Series class using:\n\n```python\n# Add arithmetic!\nops.add_flex_arithmetic_methods(Series, **ops.series_flex_funcs)\nops.add_special_arithmetic_methods(Series, **ops.series_special_funcs)\n```\n\nThis shows that there are two sets of arithmetic methods: flex methods (like `.add()`) and special methods (like `+`). They use different wrappers, explaining the difference in behavior.\n\n### Name-resolution helper (pandas/core/common.py:L3324-L3331)\n\nThe helper `_maybe_match_name` checks if two objects have the same `name` attribute and returns it if they match, otherwise returns `None`.\n\n```python\ndef _maybe_match_name(a, b):\na_has = hasattr(a, 'name')\nb_has = hasattr(b, 'name')\nif a_has and b_has:\nif a.name == b.name:\nreturn a.name\nelse:\nreturn None\n```\n\nThis helper is likely used in the process of deciding the resulting Series name after an operation, supporting the logic that if names differ, the result's name should be reset.\n\n### Summary\n\nThe inconsistency in Series arithmetic name handling arises because operator overloads (`+`) use a special arithmetic wrapper that resets the name when operand names differ, while the `.add()` method uses a flexible wrapper that preserves the name. The `_binop` method is the core binary operation executor, and the `_maybe_match_name` helper supports name resolution logic. To fix or unify this behavior, one would need to align how these wrappers handle the `name` attribute post-operation.\n\n### Next steps\n\n- Inspect the `_binop` method in more detail to see how the `name` attribute is set on the result.\n- Compare how the special arithmetic wrapper and flex arithmetic wrapper handle the result's metadata, especially the `name`.\n- Consider modifying the special arithmetic wrapper to use `_maybe_match_name` logic to reset the name when operand names differ, matching the behavior of the operator `+`.\n\n---\n\nUsed evidence refs:\n- workspace:pandas/core/ops.py:L460-L527\n- workspace:pandas/core/ops.py:L755-L768\n- workspace:pandas/core/series.py:L1466-L1511\n- workspace:pandas/core/series.py:L2735-L2737\n- workspace:pandas/core/common.py:L3324-L3331\n\n## Evidence Not To Miss\n\n- This retrieved snippet is a high-priority anchor for the explanation. It was retrieved for the `Series special arithmetic wrapper` part of the question. See [pandas/core/ops.py:L460-L527](pandas/core/ops.py#L460-L527).\n- This retrieved snippet is a high-priority anchor for the explanation. It was retrieved for the `Series flex arithmetic wrapper` part of the question. See [pandas/core/ops.py:L755-L768](pandas/core/ops.py#L755-L768).\n- This retrieved snippet is a high-priority anchor for the explanation. It was retrieved for the `Series binary-op implementation` part of the question. See [pandas/core/series.py:L1466-L1511](pandas/core/series.py#L1466-L1511).",
+    "evidence_refs": [
+      "workspace:pandas/core/ops.py:L460-L527",
+      "workspace:pandas/core/ops.py:L755-L768",
+      "workspace:pandas/core/series.py:L1466-L1511",
+      "workspace:pandas/core/series.py:L2735-L2737",
+      "workspace:pandas/core/common.py:L3324-L3331"
+    ],
+    "metadata": {
+      "coverage_status": "strong",
+      "generator": "llm_explanation",
+      "prompt_template_id": "explanation_markdown_v2",
+      "render_notes": {
+        "summary": "The difference in Series name preservation between operator `+` and `.add()` arises from different arithmetic wrappers and how they handle the result's name attribute. The core binary operation method `_binop` and the helper `_maybe_match_name` are key to understanding and potentially fixing this behavior.",
+        "title": "Implementation context for Series arithmetic ops name handling inconsistency"
+      },
+      "retrieval_sufficient": true,
+      "understanding_checks": [
+        {
+          "evidence_refs": [
+            "workspace:pandas/core/common.py:L3324-L3331"
+          ],
+          "expected_answer_points": [
+            "It checks if both objects have a `name` attribute.",
+            "If both have the same `name`, it returns that name.",
+            "If the names differ, it returns None.",
+            "This logic can be used to decide whether to preserve or reset the name of the result after an operation."
+          ],
+          "hint": "Look at how `_maybe_match_name` compares the `name` attributes of two objects and returns either the matching name or None.",
+          "id": "q1",
+          "origin": "selected evidence coverage area",
+          "question": "What does the function `_maybe_match_name` do when given two objects with `name` attributes, and how might this affect the resulting Series name after an arithmetic operation?",
+          "question_type": "primary",
+          "role": "name-resolution helper used by arithmetic/comparison code"
+        },
+        {
+          "evidence_refs": [
+            "workspace:pandas/core/ops.py:L755-L768"
+          ],
+          "expected_answer_points": [
+            "It is a flexible arithmetic wrapper used by methods like `.add()`.",
+            "It validates the axis and operand types.",
+            "It calls the `_binop` method to perform the operation.",
+            "It preserves the name of the Series during arithmetic operations, unlike the special wrapper used by `+`."
+          ],
+          "hint": "Look at how `flex_wrapper` handles the other operand and calls `_binop`, and its effect on the Series name.",
+          "id": "q3",
+          "origin": "additional selected evidence",
+          "question": "What is the purpose of the `flex_wrapper` method in Series arithmetic, and how does it affect the preservation of the Series name in operations like `.add()`?",
+          "question_type": "secondary",
+          "role": "Series flex arithmetic wrapper"
+        }
+      ],
+      "used_evidence_refs": [
+        "workspace:pandas/core/ops.py:L460-L527",
+        "workspace:pandas/core/ops.py:L755-L768",
+        "workspace:pandas/core/series.py:L1466-L1511",
+        "workspace:pandas/core/series.py:L2735-L2737",
+        "workspace:pandas/core/common.py:L3324-L3331"
+      ]
+    },
+    "turn_type": "guided_explanation",
+    "violations": []
+  },
+  "response_plan": {
+    "boundary_choices": [],
+    "boundary_message_required": false,
+    "must_include_evidence": true,
+    "notes": {
+      "coverage_status": "strong",
+      "prompt_template_id": "explanation_markdown_v2",
+      "retrieval_sufficient": true
+    },
+    "required_sections": [
+      "generated_explanation",
+      "understanding_checks"
+    ],
+    "turn_type": "guided_explanation"
+  },
+  "retrieval_result": {
+    "coverage_status": "strong",
+    "evidence": [
+      {
+        "metadata": {
+          "claim_supported": "`_maybe_match_name` returns `None` when both operands have names and the names differ.",
+          "coverage_area": "name-resolution helper used by arithmetic/comparison code",
+          "file_role": "implementation",
+          "line_range": "L3324-L3331",
+          "path": "pandas/core/common.py",
+          "retrieval_path": "codex",
+          "why_relevant": "This is the helper that decides whether a binary op result should keep a name or drop it when names disagree."
+        },
+        "rank": 1,
+        "snippet": "def _maybe_match_name(a, b):\n    a_has = hasattr(a, 'name')\n    b_has = hasattr(b, 'name')\n    if a_has and b_has:\n        if a.name == b.name:\n            return a.name\n        else:\n            return None",
+        "source_category": "source_code",
+        "source_id": "workspace:pandas/core/common.py:L3324-L3331"
+      },
+      {
+        "metadata": {
+          "claim_supported": "The Series special-arithmetic wrapper (`__add__`, `__sub__`, etc.) resolves result names through `_maybe_match_name` and passes that name into the constructor.",
+          "coverage_area": "Series special arithmetic wrapper",
+          "file_role": "implementation",
+          "line_range": "L460-L527",
+          "path": "pandas/core/ops.py",
+          "retrieval_path": "codex",
+          "why_relevant": "This is the code path behind `s1 + s2`, and it explicitly uses name matching when both operands are Series."
+        },
+        "rank": 2,
+        "snippet": "def _arith_method_SERIES(op, name, str_rep, fill_zeros=None,\n                         default_axis=None, **eval_kwargs):\n    \"\"\"\n    Wrapper function for Series arithmetic operations, to avoid\n    code duplication.\n    \"\"\"\n    def na_op(x, y):\n        try:\n            result = expressions.evaluate(op, str_rep, x, y,\n                                          raise_on_error=True, **eval_kwargs)\n        except TypeError:\n            if isinstance(y, (np.ndarray, pd.Series, pd.Index)):\n                dtype = np.find_common_type([x.dtype, y.dtype], [])\n                result = np.empty(x.size, dtype=dtype)\n                mask = notnull(x) & notnull(y)\n                result[mask] = op(x[mask], _values_from_object(y[mask]))\n            elif isinstance(x, np.ndarray):\n                result = np.empty(len(x), dtype=x.dtype)\n                mask = notnull(x)\n                result[mask] = op(x[mask], y)\n            else:\n                raise TypeError(\"{typ} cannot perform the operation {op}\".format(typ=type(x).__name__,op=str_rep))\n\n            result, changed = com._maybe_upcast_putmask(result, ~mask, np.nan)\n\n        result = com._fill_zeros(result, x, y, name, fill_zeros)\n        return result\n\n    def wrapper(left, right, name=name):\n\n        if isinstance(right, pd.DataFrame):\n            return NotImplemented\n\n        time_converted = _TimeOp.maybe_convert_for_time_op(left, right, name)\n\n        if time_converted is None:\n            lvalues, rvalues = left, right\n            dtype = None\n            wrap_results = lambda x: x\n        elif time_converted == NotImplemented:\n            return NotImplemented\n        else:\n            left, right = time_converted.left, time_converted.right\n            lvalues, rvalues = time_converted.lvalues, time_converted.rvalues\n            dtype = time_converted.dtype\n            wrap_results = time_converted.wrap_results\n\n        if isinstance(rvalues, pd.Series):\n            rindex = getattr(rvalues,'index',rvalues)\n            name = _maybe_match_name(left, rvalues)\n            lvalues = getattr(lvalues, 'values', lvalues)\n            rvalues = getattr(rvalues, 'values', rvalues)\n            if left.index.equals(rindex):\n                index = left.index\n            else:\n                index, lidx, ridx = left.index.join(rindex, how='outer',\n                                                       return_indexers=True)\n\n                if lidx is not None:\n                    lvalues = com.take_1d(lvalues, lidx)\n\n                if ridx is not None:\n                    rvalues = com.take_1d(rvalues, ridx)\n\n            arr = na_op(lvalues, rvalues)\n\n            return left._constructor(wrap_results(arr), index=index,\n                                     name=name, dtype=dtype)",
+        "source_category": "source_code",
+        "source_id": "workspace:pandas/core/ops.py:L460-L527"
+      },
+      {
+        "metadata": {
+          "claim_supported": "The Series flex-arithmetic wrapper (`add`, `sub`, etc.) routes Series operands into `self._binop(...)`.",
+          "coverage_area": "Series flex arithmetic wrapper",
+          "file_role": "implementation",
+          "line_range": "L755-L768",
+          "path": "pandas/core/ops.py",
+          "retrieval_path": "codex",
+          "why_relevant": "This is the code path behind `s1.add(s2)` and shows it delegates to Series._binop rather than using the special-arithmetic wrapper."
+        },
+        "rank": 3,
+        "snippet": "    @Appender(doc)\n    def flex_wrapper(self, other, level=None, fill_value=None, axis=0):\n        # validate axis\n        self._get_axis_number(axis)\n        if isinstance(other, pd.Series):\n            return self._binop(other, op, level=level, fill_value=fill_value)\n        elif isinstance(other, (np.ndarray, pd.Series, list, tuple)):\n            if len(other) != len(self):\n                raise ValueError('Lengths must be equal')\n            return self._binop(self._constructor(other, self.index), op,\n                               level=level, fill_value=fill_value)\n        else:\n            return self._constructor(op(self.values, other),\n                                     self.index).__finalize__(self)",
+        "source_category": "source_code",
+        "source_id": "workspace:pandas/core/ops.py:L755-L768"
+      },
+      {
+        "metadata": {
+          "claim_supported": "`Series._binop` computes `name = _maybe_match_name(self, other)` but does not pass that `name` into the returned Series; it finalizes the result from `self` instead.",
+          "coverage_area": "Series binary-op implementation",
+          "file_role": "implementation",
+          "line_range": "L1466-L1511",
+          "path": "pandas/core/series.py",
+          "retrieval_path": "codex",
+          "why_relevant": "This is the key implementation detail behind the inconsistent name retention for flex arithmetic."
+        },
+        "rank": 4,
+        "snippet": "    def _binop(self, other, func, level=None, fill_value=None):\n        \"\"\"\n        Perform generic binary operation with optional fill value\n\n        Parameters\n        ----------\n        other : Series\n        func : binary operator\n        fill_value : float or object\n            Value to substitute for NA/null values. If both Series are NA in a\n            location, the result will be NA regardless of the passed fill value\n        level : int or level name, default None\n            Broadcast across a level, matching Index values on the\n            passed MultiIndex level\n\n        Returns\n        -------\n        combined : Series\n        \"\"\"\n        if not isinstance(other, Series):\n            raise AssertionError('Other operand must be Series')\n\n        new_index = self.index\n        this = self\n\n        if not self.index.equals(other.index):\n            this, other = self.align(other, level=level, join='outer', copy=False)\n            new_index = this.index\n\n        this_vals = this.values\n        other_vals = other.values\n\n        if fill_value is not None:\n            this_mask = isnull(this_vals)\n            other_mask = isnull(other_vals)\n            this_vals = this_vals.copy()\n            other_vals = other_vals.copy()\n\n            # one but not both\n            mask = this_mask ^ other_mask\n            this_vals[this_mask & mask] = fill_value\n            other_vals[other_mask & mask] = fill_value\n\n        result = func(this_vals, other_vals)\n        name = _maybe_match_name(self, other)\n        return self._constructor(result, index=new_index).__finalize__(self)",
+        "source_category": "source_code",
+        "source_id": "workspace:pandas/core/series.py:L1466-L1511"
+      },
+      {
+        "metadata": {
+          "claim_supported": "Series is wired up with both flex and special arithmetic method families.",
+          "coverage_area": "Series method registration",
+          "file_role": "implementation",
+          "line_range": "L2735-L2737",
+          "path": "pandas/core/series.py",
+          "retrieval_path": "codex",
+          "why_relevant": "This shows that both arithmetic entry points are installed on Series from different wrapper families."
+        },
+        "rank": 5,
+        "snippet": "# Add arithmetic!\nops.add_flex_arithmetic_methods(Series, **ops.series_flex_funcs)\nops.add_special_arithmetic_methods(Series, **ops.series_special_funcs)",
+        "source_category": "source_code",
+        "source_id": "workspace:pandas/core/series.py:L2735-L2737"
+      },
+      {
+        "metadata": {
+          "claim_supported": "Index addition is implemented separately as direct union/new-Index construction.",
+          "coverage_area": "Index arithmetic context",
+          "file_role": "implementation",
+          "line_range": "L1325-L1331",
+          "path": "pandas/core/index.py",
+          "retrieval_path": "codex",
+          "why_relevant": "This provides the requested Index-side context for comparison with Series arithmetic behavior."
+        },
+        "rank": 6,
+        "snippet": "    def __add__(self, other):\n        if com.is_list_like(other):\n            warnings.warn(\"using '+' to provide set union with Indexes is deprecated, \"\n                          \"use '|' or .union()\", FutureWarning)\n        if isinstance(other, Index):\n            return self.union(other)\n        return Index(np.array(self) + other)",
+        "source_category": "source_code",
+        "source_id": "workspace:pandas/core/index.py:L1325-L1331"
+      }
+    ],
+    "failures_or_fallbacks": [],
+    "retrieval_summary": {
+      "command": [
+        "C:\\Users\\mukha\\.codex\\.sandbox-bin\\codex.exe"
+      ],
+      "completed_at": "2026-06-23T11:09:44.974156+00:00",
+      "model": "gpt-5.4-mini",
+      "prompt_summary": "The relevant code context is that Series arithmetic is split across two implementations: special arithmetic (`+`) uses `_arith_method_SERIES`, which applies `_maybe_match_name` and constructs the result with that name, while flex arithmetic (`add`) goes through `_flex_method_SERIES` and then `Series._binop`, where a matched name is computed but not used in the returned Series. `_maybe_match_name` itself drops the name when both operands have names that differ. Index arithmetic is implemented separately and does not follow the same wrapper structure.",
+      "raw_output_path": "C:\\Programming\\guidedInteligence_testcases\\pandas-dev-pandas-10068\\runs\\run-20260623T110544Z\\codex-evidence.json",
+      "relevant_files": [
+        "pandas/core/common.py",
+        "pandas/core/ops.py",
+        "pandas/core/series.py",
+        "pandas/core/index.py"
+      ],
+      "retriever": "codex",
+      "selected_count": 6,
+      "started_at": "2026-06-23T11:05:44.260506+00:00",
+      "stderr_path": "C:\\Programming\\guidedInteligence_testcases\\pandas-dev-pandas-10068\\runs\\run-20260623T110544Z\\codex-stderr.txt",
+      "stdout_path": "C:\\Programming\\guidedInteligence_testcases\\pandas-dev-pandas-10068\\runs\\run-20260623T110544Z\\codex-stdout.txt",
+      "stop_reason": "codex_evidence_selected",
+      "uncertainties": [
+        "I did not inspect tests or later commits, so I cannot confirm whether this exact mismatch is the intended bug fix target or just surrounding context.",
+        "The Index comparison is contextual: `Index.__add__` is separate, but I did not trace every Index arithmetic edge case beyond the direct implementation shown here."
+      ],
+      "usage": {
+        "cached_input_tokens": 1780224,
+        "input_plus_output_tokens": 1863528,
+        "input_tokens": 1853415,
+        "output_tokens": 10113,
+        "reasoning_output_tokens": 4272,
+        "uncached_input_plus_output_tokens": 83304,
+        "uncached_input_tokens": 73191
+      }
+    },
+    "sufficient": true
+  },
+  "run_trace_summary": {
+    "allowed": true,
+    "coverage_status": "strong",
+    "retrieval_invoked": true,
+    "turn_type": "guided_explanation",
+    "violation_count": 0
+  }
+}

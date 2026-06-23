@@ -1,0 +1,35 @@
+{
+  "case_id": "microsoft-TypeScript-46770",
+  "implementation_overlap_count": 1,
+  "oracle_file_count": 5,
+  "oracle_source": {
+    "hidden_resolution_summary": "PR #47893: Allow extensionless `main`s for cjs mode packages even from an esm import",
+    "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+    "subsystem": "compiler/build pipeline",
+    "thread_file_refs": true,
+    "verification_case_id": "microsoft-TypeScript-46770",
+    "verification_group": "compatibility_versioning",
+    "verification_json": true
+  },
+  "overlap_count": 1,
+  "retrieved_source_file_count": 3,
+  "top_k": {
+    "found_positions": {
+      "src/compiler/moduleNameResolver.ts": 3
+    },
+    "found_within_10": true,
+    "found_within_20": true,
+    "found_within_5": true,
+    "k_values": [
+      5,
+      10,
+      20
+    ]
+  },
+  "top_retrieved_files": [
+    "src/compiler/commandLineParser.ts",
+    "src/compiler/program.ts",
+    "src/compiler/moduleNameResolver.ts"
+  ],
+  "verification_json_used": true
+}

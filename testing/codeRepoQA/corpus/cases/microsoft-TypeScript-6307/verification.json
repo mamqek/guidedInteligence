@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-6307",
+  "primary_group": "question_usage",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 6307,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/6307",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/6307.json",
+  "title": "Exported variable <variable name> has or is using private name <private name>",
+  "labels": [
+    "Question",
+    "Canonical",
+    "Docs"
+  ],
+  "state": "closed",
+  "created_at": "2015-12-31T20:11:48Z",
+  "closed_at": "2016-01-01T01:37:32Z",
+  "selection_rationale": "TypeScript canonical question/docs explanation about private-name export errors.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [],
+    "referenced_commit_shas_from_issue_events": [
+      "724516e950b57a682b477ac6f5739d84b62825e9",
+      "ca3bf7f06d894d2bdc3e89a4eccaf463dfe68815"
+    ],
+    "cite": [
+      {
+        "owner": "DefinitelyTyped",
+        "repo_name": "DefinitelyTyped",
+        "number": "7439",
+        "is_own_repo": false
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "8089",
+        "is_own_repo": true
+      },
+      {
+        "owner": "IgniteUI",
+        "repo_name": "igniteui-angular",
+        "number": "77",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "77",
+        "is_own_repo": true
+      },
+      {
+        "owner": "appvision-gmbh",
+        "repo_name": "json2typescript",
+        "number": "1",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "13894",
+        "is_own_repo": true
+      },
+      {
+        "owner": "loopbackio",
+        "repo_name": "loopback-next",
+        "number": "62",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "62",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "15947",
+        "is_own_repo": true
+      },
+      {
+        "owner": "ktsn",
+        "repo_name": "vuetype",
+        "number": "12",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "12",
+        "is_own_repo": true
+      },
+      {
+        "owner": "Kitt-AI",
+        "repo_name": "snowboy",
+        "number": "206",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "206",
+        "is_own_repo": true
+      },
+      {
+        "owner": "DefinitelyTyped",
+        "repo_name": "DefinitelyTyped",
+        "number": "24986",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "24986",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact"
+  },
+  "oracle": {
+    "implementation_files": [],
+    "test_or_validation_files": [],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "declaration emit and public API visibility",
+    "responsibility_summary": "The declaration emitter must only expose declaration signatures that can name the exported API types; private/unexported types used by exported values create errors or require public names.",
+    "hidden_resolution_summary": "The thread explains that exported declarations cannot safely reference private names. The correct explanation is about declaration generation and public API surface, not a runtime bug. Workarounds involve exporting/naming the referenced types or restructuring exports.",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [
+      "MyFile.ts",
+      "MyFile.d.ts",
+      "d.ts",
+      "src/index.ts",
+      "pluggable-parsers.ts",
+      "pluggable-parsers.d.ts",
+      "pluggable-parsers.js",
+      "a.ts",
+      "a.d.ts"
+    ],
+    "resolution_comment_excerpts": [
+      "Why can't `Test` be put in the d.ts file, but not exported? E.g. ``` class Test { constructor(public someting: any); } export let t: Test; ``` This behaviour surprised me when generating declaration files for react classes - it requires you to export the `State` interface, which should be an implementation detail, not in the public interface of the module.",
+      "I'm curious why every interface must be exported if referenced by any other exported object as well. With large react-redux projects it leads to an enormous proliferation of exported interfaces, each of which must have their own unique names.",
+      "Came here to point that you might get this error because of **in correct order in export statement**. I was getting ` error for following code: `error TS4025: Exported variable 'Error' has or is using private name 'ErrorProps'.` ``` const Error = (props: ErrorProps): JSX.Element => { return ( <div> <img src={props.icon} /> <span>{props.errorCode}</span> </div> ); }; export { Error, ErrorProps }; ``` **Solution** Need to change the export order ``` export { ErrorProps, Error }; ```",
+      "Should this issue be reopened? It seems that it affects many people and the workaround impacts public interfaces of modules which is not ideal. On the other hand, apparently, fixing this shouldn't require major changes to the emitted declarations. The referenced unexported symbols do already get declared. Minimal reproduction: ``` # a.ts interface A { m: string; } export function f(a: A): string { return a.m; } ``` ``` $ tsc -d a.ts a.ts(5,22): error TS4078: Parameter 'a' of exported function has or is using private name 'A'. ``` Expected: ``` # a.d.ts interface A { m: string; } export functio"
+    ],
+    "notes": "Question/usage case: score explanation agreement and citation/leakage first; implementation-file overlap is secondary or not applicable."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "not_primary_for_question_usage",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "optional_context_files_only"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

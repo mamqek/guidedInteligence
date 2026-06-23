@@ -1,0 +1,77 @@
+[
+  {
+    "metadata": {
+      "claim_supported": "The SSR renderer applies a module pipeline to every element start tag, and `domProps` is one of the registered server modules.",
+      "coverage_area": "SSR module registration and application",
+      "file_role": "implementation",
+      "line_range": "L1-L10",
+      "path": "src/platforms/web/server/modules/index.js",
+      "retrieval_path": "codex",
+      "why_relevant": "This shows `domProps` participates in server-side HTML generation for element tags."
+    },
+    "rank": 1,
+    "snippet": "import attrs from './attrs'\nimport domProps from './dom-props'\nimport klass from './class'\nimport style from './style'\n\nexport default [\n  attrs,\n  domProps,\n  klass,\n  style",
+    "source_category": "source_code",
+    "source_id": "workspace:src/platforms/web/server/modules/index.js:L1-L10"
+  },
+  {
+    "metadata": {
+      "claim_supported": "The SSR tag renderer iterates the module list when building the opening tag, so the registered `domProps` module is executed during SSR output generation.",
+      "coverage_area": "SSR element rendering pipeline",
+      "file_role": "implementation",
+      "line_range": "L347-L383",
+      "path": "src/server/render.js",
+      "retrieval_path": "codex",
+      "why_relevant": "This shows where the server renderer invokes each module while serializing an element's start tag."
+    },
+    "rank": 2,
+    "snippet": "function renderStartingTag (node: VNode, context) {\n  let markup = `<${node.tag}`\n  const { directives, modules } = context\n\n  // construct synthetic data for module processing\n  // because modules like style also produce code by parent VNode data\n  if (isUndef(node.data) && hasAncestorData(node)) {\n    node.data = {}\n  }\n  if (isDef(node.data)) {\n    // check directives\n    const dirs = node.data.directives\n    if (dirs) {\n      for (let i = 0; i < dirs.length; i++) {\n        const name = dirs[i].name\n        if (name !== 'show') {\n          const dirRenderer = resolveAsset(context, 'directives', name)\n          if (dirRenderer) {\n            // directives mutate the node's data\n            // which then gets rendered by modules\n            dirRenderer(node, dirs[i])\n          }\n        }\n      }\n    }\n\n    // v-show directive needs to be merged from parent to child\n    const vshowDirectiveInfo = getVShowDirectiveInfo(node)\n    if (vshowDirectiveInfo) {\n      directives.show(node, vshowDirectiveInfo)\n    }\n\n    // apply other modules\n    for (let i = 0; i < modules.length; i++) {\n      const res = modules[i](node)\n      if (res) {\n        markup += res",
+    "source_category": "source_code",
+    "source_id": "workspace:src/server/render.js:L347-L383"
+  },
+  {
+    "metadata": {
+      "claim_supported": "The SSR `domProps` module special-cases `textarea` `value` and turns it into a text child without filtering out falsy values such as `null`.",
+      "coverage_area": "SSR textarea domProps handling",
+      "file_role": "implementation",
+      "line_range": "L24-L49",
+      "path": "src/platforms/web/server/modules/dom-props.js",
+      "retrieval_path": "codex",
+      "why_relevant": "This is the code path that can place `null` into a textarea's rendered content."
+    },
+    "rank": 3,
+    "snippet": "  const attrs = node.data.attrs\n  for (const key in props) {\n    if (key === 'innerHTML') {\n      setText(node, props[key], true)\n    } else if (key === 'textContent') {\n      setText(node, props[key], false)\n    } else if (key === 'value' && node.tag === 'textarea') {\n      setText(node, props[key], false)\n    } else {\n      // $flow-disable-line (WTF?)\n      const attr = propsToAttrMap[key] || key.toLowerCase()\n      if (isRenderableAttr(attr) &&\n        // avoid rendering double-bound props/attrs twice\n        !(isDef(attrs) && isDef(attrs[attr]))\n      ) {\n        res += renderAttr(attr, props[key])\n      }\n    }\n  }\n  return res\n}\n\nfunction setText (node, text, raw) {\n  const child = new VNode(undefined, undefined, undefined, text)\n  child.raw = raw\n  node.children = [child]",
+    "source_category": "source_code",
+    "source_id": "workspace:src/platforms/web/server/modules/dom-props.js:L24-L49"
+  },
+  {
+    "metadata": {
+      "claim_supported": "Server-side rendering of string nodes converts non-raw text with `escape(String(node.text))`, so a `null` text child becomes the literal string `null`.",
+      "coverage_area": "SSR string node serialization",
+      "file_role": "implementation",
+      "line_range": "L88-L92",
+      "path": "src/server/render.js",
+      "retrieval_path": "codex",
+      "why_relevant": "This explains why a textarea text child created from `null` is emitted as `null` in HTML."
+    },
+    "rank": 4,
+    "snippet": "  } else {\n    context.write(\n      node.raw ? node.text : escape(String(node.text)),\n      context.next\n    )",
+    "source_category": "source_code",
+    "source_id": "workspace:src/server/render.js:L88-L92"
+  },
+  {
+    "metadata": {
+      "claim_supported": "Normal SSR attribute rendering suppresses falsy values, which contrasts with the textarea `domProps.value` path.",
+      "coverage_area": "SSR attribute serialization context",
+      "file_role": "implementation",
+      "line_range": "L52-L60",
+      "path": "src/platforms/web/server/modules/attrs.js",
+      "retrieval_path": "codex",
+      "why_relevant": "This provides surrounding behavior for ordinary attributes and helps isolate the textarea-specific `domProps` path."
+    },
+    "rank": 5,
+    "snippet": "export function renderAttr (key: string, value: string): string {\n  if (isBooleanAttr(key)) {\n    if (!isFalsyAttrValue(value)) {\n      return ` ${key}=\"${key}\"`\n    }\n  } else if (isEnumeratedAttr(key)) {\n    return ` ${key}=\"${escape(convertEnumeratedValue(key, value))}\"`\n  } else if (!isFalsyAttrValue(value)) {\n    return ` ${key}=\"${escape(String(value))}\"`",
+    "source_category": "source_code",
+    "source_id": "workspace:src/platforms/web/server/modules/attrs.js:L52-L60"
+  }
+]

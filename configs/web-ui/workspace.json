@@ -1,0 +1,58 @@
+{
+  "enabled_source_categories": [
+    "source_code",
+    "documentation",
+    "issue_tracker",
+    "pull_request",
+    "local_notes",
+    "notebooklm"
+  ],
+  "enabled_sources": [
+    "source_code",
+    "repo_docs",
+    "github-issues",
+    "github-prs",
+    "notion-pages",
+    "shortcut-stories",
+    "local_notes",
+    "notebooklm"
+  ],
+  "indexing": {
+    "enable_indexing": true,
+    "exclude_paths": [
+      ".git",
+      ".guided-intelligence",
+      ".codegraphcontext",
+      ".venv",
+      "__pycache__",
+      "node_modules",
+      "dist",
+      "build",
+      ".cache",
+      "coverage"
+    ]
+  },
+  "retrieval": {
+    "mode": "workspace",
+    "codex_command": [
+      "codex"
+    ],
+    "codex_model": "gpt-5.4-mini",
+    "codex_timeout_seconds": 900
+  },
+  "connected_context": {
+    "enabled": true,
+    "max_sources": 8,
+    "max_calls": 8,
+    "max_candidates_per_source": 5,
+    "max_candidates_total": 20,
+    "max_candidate_chars": 2400,
+    "max_candidate_chars_total": 24000,
+    "max_selected_context": 4,
+    "max_selected_evidence": 2,
+    "timeout_seconds": 45
+  },
+  "ui": {
+    "default_prompt": "Explain where abstract class parsing and validation happen."
+  }
+}

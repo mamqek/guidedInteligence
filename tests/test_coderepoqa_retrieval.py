@@ -11,7 +11,7 @@ from unittest.mock import patch
 from core.models import EvidenceItem, RetrievalResult
 from core.source_policy import SourceCategory
 from services.retrieval.config import RunLLMConfig
-from services.retrieval.bm25 import load_index
+from services.retrieval.workspace.bm25 import load_index
 from testing.codeRepoQA.run_case import (
     evaluate_case,
     prepare_index,
@@ -373,3 +373,4 @@ def _llm_config() -> RunLLMConfig:
 
 if __name__ == "__main__":
     unittest.main()
+

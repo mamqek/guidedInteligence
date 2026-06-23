@@ -1,5 +1,426 @@
 # Retrieval Changelog
 
+## 2026-06-23
+
+### Changed: Named Codex Prompt Profiles And Efficient Default
+
+- Intended stage boundary:
+  - move each Codex retrieval prompt and strict output schema out of Python into one self-contained profile directory under `services/retrieval/codex/profiles/`,
+  - select the contract with `codex_prompt_profile` while keeping `codex` as one retrieval mode and leaving downstream explanation generation shared,
+  - preserve schema-specific top-level and evidence fields generically so `services/retrieval/codex/provider.py` does not name or encode either profile's optional structure,
+  - restore the original cheaper contract as the `efficient` default and retain the 2026-06-23 experiment as the opt-in `responsibility-complete` profile.
+- Expected quality impact:
+  - default Codex runs return to the previously measured compact evidence behavior,
+  - the responsibility-complete owner/coverage metadata remains available for explicit quality experiments,
+  - prompt experiments can now be compared without editing provider orchestration code.
+- Expected token impact:
+  - `efficient` matches the pre-experiment prompt and schema exactly and therefore restores the lower measured baseline behavior,
+  - `responsibility-complete` retains the measured 100%-166% gross-token increase and 86%-126% retrieval-latency increase from the two-case experiment,
+  - profile loading itself adds no model tokens.
+- Known regression risks:
+  - selecting the wrong profile in a centralized config can make benchmark results incomparable,
+  - deleting or corrupting a profile file now fails Codex retrieval explicitly,
+  - the efficient schema does not expose role, confidence, symbol, issue-analysis, or coverage-gap fields.
+- Comparison and verification:
+  - `efficient/prompt.md` reproduces the batch-002 `microsoft-TypeScript-45713` prompt after inserting the same issue packet,
+  - `efficient/evidence.schema.json` is JSON-equivalent to that run's saved schema,
+  - `responsibility-complete` preserves the exact prompt/schema contract used by `run-20260623T115317Z` and `run-20260623T115958Z`,
+  - `.venv\Scripts\python.exe -m unittest tests.test_codex_provider tests.test_coderepoqa_retrieval tests.test_retrieval_server` passed 43 tests,
+  - all profile and centralized config JSON files parsed successfully.
+- Real efficient-profile verification:
+  - `microsoft-TypeScript-45713` run `run-20260623T163652Z` loaded `efficient` from the new profile directory and recorded that name in run metadata and both Codex trace events,
+  - retrieval completed in `164.836s`; full orchestration completed in `192.4s`,
+  - `coverage_status=strong`, `sufficient=true`, with 5 evidence items across 3 files and 3 implementation-oracle overlaps at ranks 1-3,
+  - gross tokens were `1,849,125` and uncached input plus output was `192,805`, illustrating normal Codex run-to-run cache variance even with the same prompt/schema contract.
+- Usage:
+  - existing `config:web:codex` and `coderepoqa:evaluate:codex` commands select `efficient`,
+  - explicit `:efficient` and `:responsibility-complete` npm commands are available for web UI and testcase runs,
+  - testcase run metadata and Codex retrieval traces now record `codex_prompt_profile`.
+
+### Experiment: Responsibility-Complete Codex Evidence Prompt
+
+- Intended stage boundary:
+  - change only the Codex evidence-discovery prompt, its strict output schema, and direct schema-to-`EvidenceItem` metadata preservation,
+  - leave workspace retrieval, orchestration, response generation, and understanding-check generation unchanged,
+  - continue excluding verification data, oracle files, and post-resolution information from the Codex workspace and prompt.
+- Expected quality impact:
+  - rank likely implementation owners ahead of symptom surfaces and generic architectural files,
+  - require a compact responsibility chain and make uncovered responsibilities explicit,
+  - preserve symbol, role, relevance, and confidence metadata for downstream explanation generation and run inspection.
+- Expected token impact:
+  - the larger instructions and schema add a small fixed prompt/output cost,
+  - the 2-6 evidence-item limit and anti-duplication rule should reduce broad file reading and repeated evidence,
+  - success requires improved or stable oracle overlap without materially increasing gross or uncached Codex usage.
+- Known regression risks:
+  - responsibility-chain instructions may encourage unnecessary subsystem breadth,
+  - strict role enums may force ambiguous evidence into an imperfect category,
+  - implementation-owner bias may under-select tests that contain the only concrete reproduction,
+  - prompt changes remain nondeterministic and require real-run comparison before broader adoption.
+- Comparison plan:
+  - rerun Codex mode for retrieval-grounded cases `microsoft-TypeScript-45713` and `microsoft-TypeScript-46770`,
+  - compare against batch 002 Codex baselines using implementation overlap, top-k position, selected evidence count, elapsed time, gross tokens, and uncached tokens,
+  - disable or revise the experiment if both cases regress in implementation overlap or if sufficiency becomes unstable.
+- Real-run results:
+  - `microsoft-TypeScript-45713` baseline `run-20260623T103650Z`: retrieval `203.619s`, full orchestration `228.129s`, `strong/sufficient=true`, 3 evidence items across 2 files, 2 implementation-oracle overlaps at ranks 1 and 2, gross tokens `1,537,434`, uncached tokens `79,258`.
+  - `microsoft-TypeScript-45713` experiment `run-20260623T115317Z`: retrieval `378.561s`, full orchestration `401.190s`, `strong/sufficient=true`, 5 evidence items across 4 files, 3 implementation-oracle overlaps at ranks 1, 2, and 4, gross tokens `3,078,628`, uncached tokens `121,316`.
+  - `microsoft-TypeScript-46770` baseline `run-20260623T105125Z`: retrieval `192.833s`, full orchestration `221.209s`, `strong/sufficient=true`, 6 evidence items across 3 files, one implementation-oracle overlap (`moduleNameResolver.ts`) at rank 3, gross tokens `1,463,271`, uncached tokens `93,671`.
+  - `microsoft-TypeScript-46770` experiment `run-20260623T115958Z`: retrieval `435.558s`, full orchestration `473.295s`, `strong/sufficient=true`, 6 evidence items across 3 files, one implementation-oracle overlap (`moduleNameResolver.ts`) improved to rank 2, gross tokens `3,892,185`, uncached tokens `253,401`.
+- Quality conclusion:
+  - `45713` preserved the two core owner files and added the oracle watch-helper test path; its explicit coverage gaps correctly identified missing per-file aggregation state and a missing non-watch summary fixture.
+  - `46770` moved beyond generic NodeNext architecture to the exact `loadModuleFromFile` branch that disables implicit extension lookup in ESM mode and added the closest repo-local test fixture.
+  - retrieval quality therefore improved modestly without sufficiency regression, but retrieval latency increased by 86% and 126%, gross tokens increased by 100% and 166%, and uncached tokens increased by 53% and 171% respectively.
+  - retain the prompt/schema as an experimental quality-oriented variant for now; it is not suitable as the default efficiency profile without a bounded-search follow-up.
+- Verification:
+  - `python -m py_compile services/retrieval/codex/provider.py tests/test_codex_provider.py`
+  - `python -m unittest tests.test_codex_provider`
+  - `.venv\Scripts\python.exe -m unittest tests.test_codex_provider tests.test_coderepoqa_retrieval` passed 11 tests.
+  - both strict schemas were accepted by real `codex exec --output-schema` runs.
+
+## 2026-06-22
+
+### Added: Codex Evidence Provider Retrieval Mode
+
+- Intended stage boundary:
+  - add a workspace config switch, `retrieval.mode`, with `workspace` preserving the existing
+    CGC/BM25/Qdrant path and `codex` delegating evidence discovery to `codex exec`,
+  - keep Codex as an evidence provider only; response generation still consumes normal
+    `EvidenceItem` records through the existing explanation framework,
+  - run Codex in the currently selected workspace with read-only sandboxing and schema-constrained
+    output.
+- Expected quality impact:
+  - avoids spending implementation effort on another code retrieval stack when Codex can already
+    navigate the selected repository,
+  - lets experiments focus on explanation structure, evidence transformation, and supportive data.
+- Expected token impact:
+  - local retrieval tokens from Step 2 and refinement are replaced by Codex usage,
+  - Qdrant embedding/indexing work is skipped in `codex` mode,
+  - total cost depends on the active Codex authentication path and selected model
+    (`gpt-5.4-mini` by default).
+- Known regression risks:
+  - Codex evidence selection is less deterministic than the local retriever,
+  - model availability depends on the active Codex/API entitlement,
+  - broad prompts can make Codex inspect unrelated files or post-resolution corpus data,
+  - line ranges returned by Codex can be stale if the workspace changes during a run.
+- Comparison plan:
+  - run the same CodeRepoQA prompt once with `retrieval.mode=workspace` and once with
+    `retrieval.mode=codex`,
+  - compare selected files, evidence line ranges, `coverage_status`, `sufficient`, response quality,
+    and token/cost metadata,
+  - record run IDs after the first real Codex-backed run.
+- Verification so far:
+  - `python -m py_compile services\retrieval\codex\provider.py services\retrieval\server.py services\retrieval\config.py`
+  - `npm run web:build`
+  - backend smoke check confirmed `codex` mode reports `index_status=codex_mode` and uses
+    placeholder Qdrant/embedding config instead of local indexing.
+- Measured Codex CLI run:
+  - case: `microsoft-TypeScript-6307`,
+  - model/auth: `gpt-5.4-mini` through the connected Codex subscription,
+  - broad workspace attempt timed out before `turn.completed`, so no token total was recorded,
+  - constrained run selected `issue.json` and `verification.json`; observed Codex usage from
+    `turn.completed`: `90,193` input tokens, `59,392` cached input tokens, `3,606` output tokens,
+    and `2,585` reasoning output tokens,
+  - durable rerun that read the full issue JSON including comments recorded `182,189` input tokens,
+    `153,088` cached input tokens, `2,675` output tokens, and `1,432` reasoning output tokens,
+  - compared with the existing TypeScript 35468 workspace baseline average of `11,461` retrieval
+    tokens, Codex agent retrieval is materially more token-expensive unless inputs are pre-filtered
+    before handoff.
+
+### Changed: CodeRepoQA Codex Retrieval Uses Sanitized Issue Packet
+
+- Intended stage boundary:
+  - keep CodeRepoQA prompt construction shared across retrieval modes via the visible-only
+    `_user_prompt(title, initial_body)` packet,
+  - select `workspace` or `codex` retrieval mode in the testcase runner config/CLI,
+  - keep `verification.json`, oracle fields, raw `issue.json`, QA data, and run artifacts out of
+    the Codex retrieval prompt and tell Codex not to inspect them,
+  - keep Codex output schema-compatible with the existing `EvidenceItem` transformation.
+- Expected quality impact:
+  - Codex should behave more like the VS Code/codebase workflow: issue text plus source workspace,
+    rather than raw corpus-file summarization,
+  - evidence can plug into the existing explanation transformation without changing response
+    generation.
+- Expected token impact:
+  - removes the raw issue JSON/comment metadata cost from Codex mode,
+  - Codex still spends agent tokens on source search and file-window outputs,
+  - targeted search/read rules should reduce generated/localization/baseline output volume.
+- Known regression risks:
+  - Codex may still run broad searches or read large files despite instructions,
+  - source-only retrieval can miss verification-only test fixtures unless tests are explicitly
+    needed and searched,
+  - Codex usage numbers include full agent transcript/tool output and are not directly comparable
+    to local retrieval LLM prompt totals; for pipeline-efficiency comparisons, use gross
+    `input_tokens + output_tokens`, while cached/uncached splits are only billing or marginal-cost
+    context.
+- Real run comparison:
+  - case: `microsoft-TypeScript-35468`, using the sanitized visible issue packet plus the selected
+    TypeScript workspace; these are existing trace measurements, not a fresh rerun during this
+    changelog edit,
+  - `run-20260622T-codex-sanitized-02`: `coverage_status=strong`, `sufficient=true`, selected
+    `watch.ts`, `program.ts`, `builderState.ts`, and `declarations.ts`; oracle overlap `1`
+    implementation file (`builderState.ts`); usage `2,617,132` input, `2,523,648` cached input,
+    `12,796` output, `6,720` reasoning output, `2,629,928` gross input plus output, and
+    `106,280` uncached input plus output.
+    Retrieval-stage elapsed time was `217.509s` (`3m38s`); full orchestration elapsed time was
+    `240.151s` (`4m00s`).
+  - `run-20260622T-codex-sanitized-03`: after adding explicit targeted-search/read and generated
+    directory guards, `coverage_status=strong`, `sufficient=true`, selected `declarations.ts`,
+    `builderState.ts`, `builder.ts`, `program.ts`, and `tsbuildPublic.ts`; oracle overlap `2`
+    implementation files (`builderState.ts`, `builder.ts`); usage `1,210,174` input, `1,140,224`
+    cached input, `11,630` output, `6,333` reasoning output, uncached input plus output
+    `81,580`; gross input plus output for the direct retrieval-token comparison is `1,221,804`.
+    Retrieval-stage elapsed time was `198.406s` (`3m18s`); full orchestration elapsed time was
+    `225.423s` (`3m45s`).
+- Quality notes:
+  - the third run found the key builder files and produced an explanation with evidence refs and
+    understanding checks,
+  - the evidence is conceptually strong for the subsystem but still broader than the local retriever,
+    which previously kept `builder.ts` at rank 5 while using far fewer retrieval tokens.
+- Time notes:
+  - Codex mode has no separate local index-build phase, but pays agent search/read time on each
+    retrieval run,
+  - use the exact per-run records above instead of comparing only the `3m18s-3m38s` span.
+
+### Benchmark: Same-Case Workspace vs Codex Retrieval Records
+
+- `microsoft-TypeScript-35468`:
+  - Codex mode has no local index build.
+  - Codex `run-20260622T-codex-sanitized-02`: retrieval/evidence discovery `217.509s`
+    (`3m38s`), full orchestration `240.151s` (`4m00s`), gross input plus output `2,629,928`,
+    uncached input plus output `106,280`.
+  - Codex `run-20260622T-codex-sanitized-03`: retrieval/evidence discovery `198.406s`
+    (`3m18s`), full orchestration `225.423s` (`3m45s`), gross input plus output `1,221,804`,
+    uncached input plus output `81,580`.
+  - Workspace `run-20260622T124352Z` with the existing index directory present: retrieval trace
+    `149.854s` (`2m30s`), full orchestration `183.412s` (`3m03s`), retrieval LLM tokens `13,542`;
+    trace events show CGC skipped the existing structural index, BM25 was reused, and workspace
+    index reuse completed after `8.037s`.
+  - Workspace first-run index prep for the same case remains separate: observed normal CGC indexing
+    `1871.59s` (`31m12s`) and `SKIP_EXTERNAL_RESOLUTION=true` indexing `1070.79s` (`17m51s`);
+    estimator output for the measured `207` graph-indexable file snapshot is normal `23m-42m` and
+    skip-external `13m-24m`.
+  - Short quality comparison: Codex run 03 had stronger oracle overlap (`2` implementation files)
+    and `strong/sufficient=true`; the fresh workspace reuse run still found `builder.ts` in the top
+    five but ended `partial/sufficient=false`, while prior workspace baselines were
+    `strong/sufficient=true` with an average of `11,461` retrieval tokens.
+- `microsoft-TypeScript-6307`:
+  - Codex mode has no local index build.
+  - Codex `run-20260622T130116Z`: retrieval/evidence discovery `90.071s` (`1m30s`), full
+    orchestration `112.736s` (`1m53s`), gross input plus output `259,281`, uncached input plus
+    output `28,369`.
+  - Workspace first run `run-20260622T124840Z`: retrieval trace `548.390s` (`9m08s`), full
+    orchestration `567.795s` (`9m28s`), retrieval LLM tokens `12,088`; observed index prep
+    completed at `439.425s` (`7m19s`) from retrieval start.
+  - Workspace prepared-index run `run-20260622T125817Z`: retrieval trace `127.620s` (`2m08s`), full
+    orchestration `155.308s` (`2m35s`), retrieval LLM tokens `12,281`; trace events show index reuse
+    completed after `2.740s`.
+  - Short quality comparison: file overlap is not measurable for this question/usage case because
+    its verification oracle intentionally lists no implementation, test, or documentation files;
+    therefore both runs necessarily report `0` overlap. The workspace prepared run and Codex run
+    both reported `strong/sufficient=true` based on their retrieved evidence, while quality should
+    be judged here by agreement with the declaration-emit/public-API responsibility and hidden
+    resolution rather than by file overlap.
+- `microsoft-TypeScript-6`:
+  - Codex mode has no local index build.
+  - Codex `run-20260622T225727Z`: retrieval/evidence discovery `230.523s` (`3m51s`), full
+    orchestration `270.608s` (`4m31s`), gross input plus output `1,784,170`, uncached input plus
+    output `117,610`.
+  - Workspace `run-20260622T230942Z`: retrieval trace `243.217s` (`4m03s`), full orchestration
+    `276.302s` (`4m36s`), retrieval-stage LLM tokens `12,170` (`10,219` prompt, `1,951`
+    completion, `2,304` cached prompt tokens). This comparison became valid only after fixing two
+    local workspace regressions encountered during the rerun: the synthesis decision rename
+    (`missing_areas` vs `missing_roles`) and a stale `_coverage_status(...)` call signature.
+  - Short quality comparison: both runs ended `coverage_status=strong` and `sufficient=true`, and
+    both reached implementation overlap `5`. Codex found a better pre-feature architecture path
+    (`scanner.ts`, `utilities.ts`, `parser.ts`, `types.ts`, `checker.ts`), while workspace aligned
+    more directly with the landed implementation oracle by surfacing `diagnosticMessages.json` and
+    `declarationEmitter.ts` in the top five.
+- Runner note:
+  - `microsoft-TypeScript-6307` exposed a snapshot-resolution edge case where JSON null
+    `commit_id` values became the string `"None"` and a missing historical event commit aborted the
+    run; the runner now ignores null or locally unavailable event commits and falls back to the
+    timestamp-based snapshot path.
+
+### Changed: CGC 0.5.1 Upgrade And Complete-Index Guard
+
+- Intended stage boundary:
+  - keep CGC as the production structural backend after removing the experimental SCIP spike,
+  - require a completed CGC marker before treating a repo-local Kuzu DB as reusable,
+  - clean `cgc-kuzu`, `cgc-kuzu.wal`, and the completion marker when CodeRepoQA rebuilds indexes or CGC indexing fails.
+- Expected quality impact:
+  - avoids silently reusing timeout-created partial CGC databases,
+  - makes failed structural indexing loud instead of letting later retrieval behave unpredictably.
+- Expected token impact:
+  - no retrieval-token increase on prepared indexes,
+  - failed or missing CGC indexes now stop before expensive downstream retrieval instead of producing partial evidence from stale graph state.
+- Known regression risks:
+  - existing CGC databases created before this marker change must be rebuilt once,
+  - clean full CGC indexing can still exceed the interactive timeout on moderately sized TypeScript snapshots.
+- Measurement:
+  - upgraded `codegraphcontext` from `0.4.11` to `0.5.1`,
+  - active TypeScript snapshot with narrowed excludes still timed out after `600s` on clean CGC indexing:
+    `run-20260622T000846Z`,
+  - `SKIP_EXTERNAL_RESOLUTION=true` also timed out after `600s` with a clean Kuzu DB:
+    `run-20260622T002314Z`,
+  - a reuse run after a timeout-created partial DB completed but was not acceptable as a deterministic success:
+    `run-20260622T003406Z`, `coverage_status=partial`, `sufficient=false`, oracle
+    `src/compiler/builder.ts` at rank `5`.
+- No-timeout follow-up measurement:
+  - normal CGC completed indexing in `1871.59s` on the `microsoft-TypeScript-35468` snapshot after
+    narrowed excludes:
+    `run-20260622T012442Z`, retrieval `coverage_status=strong`, `sufficient=true`,
+    oracle `src/compiler/builder.ts` at rank `5`, but explanation generation failed after retrieval
+    because the model returned no valid understanding checks,
+  - `SKIP_EXTERNAL_RESOLUTION=true` completed indexing in `1070.79s`:
+    `run-20260622T020134Z`, retrieval `coverage_status=strong`, `sufficient=true`,
+    oracle `src/compiler/builder.ts` at rank `5`, response generation succeeded,
+  - this makes `SKIP_EXTERNAL_RESOLUTION` useful for elapsed time on this case, but still too slow
+    for interactive indexing at about `18m`.
+- Retrieval elapsed-time note:
+  - the full CodeRepoQA retrieval trace for `run-20260622T012442Z` lasted `2099.987s`
+    (`35m00s`) because it includes normal CGC indexing plus retrieval,
+  - the full CodeRepoQA retrieval trace for `run-20260622T020134Z` lasted `1252.904s`
+    (`20m53s`) because it includes `SKIP_EXTERNAL_RESOLUTION=true` CGC indexing plus retrieval,
+  - these timings should not be compared as steady-state retrieval latency after an index is
+    already prepared; they are first-run/index-build timings.
+- Follow-up behavior:
+  - index readiness now reports the CGC structural index as missing/stale unless `cgc-kuzu.complete.json` exists,
+  - index estimates now include separate CGC structural time/risk fields in addition to BM25/Qdrant chunk estimates,
+  - the CGC estimate is calibrated from the no-timeout TypeScript 35468 measurements and reports both
+    normal CGC and `SKIP_EXTERNAL_RESOLUTION=true` ranges; for the measured `207` graph-indexable
+    file snapshot it estimates normal `23m-42m` and skip-external `13m-24m`, covering the observed
+    `31m` and `18m` runs.
+- Workspace retrieval indexing estimate:
+  - keep index preparation separate from retrieval-token comparisons: normal CGC indexing is
+    estimated at `23m-42m` for the `microsoft-TypeScript-35468` snapshot after exclusions (`207`
+    graph-indexable files), while `SKIP_EXTERNAL_RESOLUTION=true` is estimated at `13m-24m`,
+  - observed index-build times were `1871.59s` (`31m12s`) and `1070.79s` (`17m51s`) respectively,
+  - after the index exists, workspace retrieval should be measured separately from this upfront
+    structural indexing cost.
+
+## 2026-06-21
+
+### Changed: CGC Ignore Handling For CodeRepoQA
+
+- Intended stage boundary:
+  - keep CodeRepoQA exclusions flowing through the same `.cgcignore` path used by normal workspace indexing,
+  - apply repo-specific excludes before CGC graph indexing, BM25, and Qdrant indexing.
+- Expected quality impact:
+  - less noise from TypeScript fixture and generated-test folders,
+  - more trustworthy CodeRepoQA runs because the test harness and UI use the same exclusion mechanism after config is passed in.
+- Expected token impact:
+  - lower indexing and retrieval token pressure for large repos by removing irrelevant candidate files before indexing.
+- Known regression risks:
+  - over-broad repo-specific excludes can hide useful test-only evidence,
+  - the local CGC package patch is inside `.venv` and must be reapplied if the environment is rebuilt from scratch.
+- Comparison method:
+  - verify CGC discovery excludes configured subfolders on the active TypeScript snapshot,
+  - verify an isolated CGC CLI index does not persist symbols from an ignored path.
+
+### Verification: CGC Ignore Handling For CodeRepoQA
+
+- Removed stale CGC DB directories/files from the main workspace, global CGC context, and testcase indexes.
+- Confirmed only one `codegraphcontext` install is active: `.venv`, version `0.4.11`; no global Python import was found.
+- Patched local CGC parser to strip a UTF-8 BOM before parsing `.cgcignore` patterns.
+- Isolated CGC CLI proof:
+  - `src/keep.ts` remained searchable,
+  - `tests/cases/drop.ts` was not searchable after `.cgcignore` contained `tests/cases/`.
+- Active TypeScript CodeRepoQA snapshot discovery:
+  - first pass graph-indexable files: `537`,
+  - final narrowed graph-indexable files: `207`,
+  - final BM25/Qdrant document count: `13,378`,
+  - `tests`, `lib`, `loc`, `scripts`, `src/testRunner`, `src/harness`, `src/lib`, and `src/loc`
+    absent from CGC discovery.
+- Clean rebuild attempts:
+  - `run-20260621T152947Z`: failed on CGC timeout after `180s`,
+  - `run-20260621T153424Z`: failed on CGC timeout after `600s`,
+  - `run-20260621T154611Z`: failed on CGC timeout after `600s` with the narrowed exclude set.
+- CGC timeout caveat:
+  - despite the timeout, the produced repo-local Kuzu DB was queryable and found
+    `createBuilderProgram` in `src/compiler/builder.ts`,
+  - follow-up reuse run `run-20260621T155705Z` skipped the existing CGC DB, rebuilt BM25 and Qdrant,
+    and completed retrieval with `coverage_status=strong`, `sufficient=true`.
+- Successful reuse-run scorecard:
+  - retrieved source files: `6`,
+  - oracle overlap: `src/compiler/builder.ts` at rank `5`,
+  - Qdrant collection:
+    `guided_intelligence_retrieval_role_scoped__microsoft_typescript_35468__a27de1ce`,
+  - Qdrant points: `13,378`.
+- Automated tests:
+  - `python -m py_compile services/retrieval/cgcignore.py services/retrieval/tools/cgc.py services/retrieval/server.py services/retrieval/workspace.py testing/codeRepoQA/run_case.py`
+  - `python -m unittest tests.test_retrieval_server tests.test_workspace_retrieval`
+  - 97 tests passed.
+  - Later `python -m py_compile testing/codeRepoQA/run_case.py` passed after tightening TypeScript
+    excludes and raising the CodeRepoQA CGC timeout to `600s`.
+
+## 2026-06-20
+
+### Added: Bounded LangGraph Connected-Source Context Stage
+
+- Intended stage boundary:
+  - run after deterministic prompt evidence and before Step 2 repository-context construction,
+  - use enabled provider/source-key connector handles rather than source-category grouping,
+  - let selected connected context refine code terms, files, symbols, and subqueries,
+  - require explicit selected document IDs before connected text can become final evidence.
+- Expected quality impact:
+  - improve code retrieval for product-language prompts by translating live issue, PR, note, and
+    management-tool context into compact code-retrieval signals,
+  - reject irrelevant or stale provider text before it can steer code retrieval,
+  - preserve code evidence as the authority for code-behavior claims.
+- Expected token impact:
+  - no added tokens when no connected source is selected,
+  - approximately 2,000-2,600 graph tokens when live sources are queried in the measured TypeScript
+    case,
+  - selected connected excerpts can increase later Step 2 input in addition to graph tokens.
+- Known regression risks:
+  - broad provider searches can add latency and tokens even when all results are rejected,
+  - provider AND-search behavior can miss relevant human text whose title has little prompt overlap,
+  - stale or terminology-only text can misdirect code retrieval unless relevance, contribution,
+    currentness, and confidence gates all hold,
+  - graph LLM timeouts fail the stage explicitly rather than silently changing behavior.
+- Comparison method:
+  - two real no-source baselines,
+  - irrelevant, helpful single-source, stale/conflicting, and combined-source TypeScript runs,
+  - natural conversational fixtures in Obsidian, a GitHub issue, and a GitHub pull request,
+  - compare run IDs, `coverage_status`, `sufficient`, retrieval tokens, graph tokens, connected IDs,
+    and final code paths.
+
+### Verification: Bounded LangGraph Connected-Source Context Stage
+
+- Automated tests:
+  - `python -m unittest tests.test_connected_context tests.test_mcp_connected_sources tests.test_retrieval_server tests.test_workspace_retrieval tests.test_coderepoqa_retrieval`
+  - 129 tests passed.
+- UI regression build:
+  - `npm run web:build`
+  - passed; this change has no new UI surface.
+- No-source baselines:
+  - `run-20260620T194600Z-87c934b6`: `strong`, `sufficient=true`, 11,452 retrieval tokens,
+  - `run-20260620T195057Z-0c1b15b4`: `strong`, `sufficient=true`, 11,470 retrieval tokens,
+  - no connected graph LLM calls or connected events in either run.
+- Rejection checks:
+  - `run-20260620T195721Z-8ad9b1a0`: irrelevant sources selected nothing; `strong`,
+    `sufficient=true`, 14,011 retrieval tokens, 2,151 graph tokens,
+  - `run-20260620T204228Z-b6abc84f`: stale/conflicting sources selected nothing; `strong`,
+    `sufficient=true`, 13,995 retrieval tokens, 2,510 graph tokens.
+- Helpful-source checks:
+  - Obsidian `run-20260620T200036Z-2b26f442`: selected one note; 14,538 retrieval tokens,
+  - GitHub issue `run-20260620T201944Z-aedc6d1e`: selected one issue; 14,533 retrieval tokens,
+  - GitHub PR `run-20260620T202607Z-7e793a03`: selected one PR; 14,848 retrieval tokens,
+  - combined final `run-20260620T205158Z-4d193726`: all three documents informed context, while
+    the two-evidence cap retained the issue and PR; 15,439 retrieval tokens and 2,600 graph tokens.
+- Failed experiments retained for diagnosis:
+  - `run-20260620T195407Z-6ee8d055` exposed terminology-only over-selection and caused the
+    contribution/code-signal gate,
+  - `run-20260620T200440Z-0c8a63bc` failed explicitly on graph LLM timeout; retry succeeded,
+  - `run-20260620T202931Z-607b47f1` exposed stale-context over-selection and caused the
+    currentness/confidence gate.
+- Quality conclusion:
+  - all successful runs remained `coverage_status=strong` and `sufficient=true`,
+  - all kept the same five final code paths: checker, diagnostics, emitter, parser, and types,
+  - useful context improved query-plan specificity but not code-file recall for this explicit prompt,
+  - a single useful source cost about 27% more retrieval tokens than baseline; combined sources cost
+    about 35% more,
+  - retain the bounded stage, but add an adaptive pre-query need gate before broadening evaluation.
+
 ## 2026-06-18
 
 ### Added: Protocol Relationship Graph Helper

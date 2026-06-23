@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "case_id": "vuejs-vue-6301",
+  "primary_group": "feature_enhancement",
+  "repository": "vuejs/vue",
+  "issue_number": 6301,
+  "issue_url": "https://github.com/vuejs/vue/issues/6301",
+  "original_issue_path": "vue/cloudide/workspace/QA_data/vue/6301.json",
+  "title": "Provide a Typescript declaration file for `vue-server-renderer/client-plugin`",
+  "labels": [
+    "contribution welcome",
+    "improvement"
+  ],
+  "state": "closed",
+  "created_at": "2017-08-05T11:55:03Z",
+  "closed_at": "2017-09-05T19:57:06Z",
+  "selection_rationale": "Vue TypeScript declaration enhancement for server renderer plugin.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      6325
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "a67b795b3661f6f223420339f3eeb07a913207de",
+      "e5299a5c02b41258e1eb6d948a48e2c1b48ba1c2",
+      "864387085b4fa79680c5836d35a1e0aa9c3dd21c",
+      "8e7abec2575aff75d62f00ef65095bea5c9f2460"
+    ],
+    "cite": [],
+    "cited_by": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "6325",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 6325,
+        "title": "feat(vue-server-renderer): add TypeScript declarations of webpack plugins (fix #6301)",
+        "url": "https://github.com/vuejs/vue/pull/6325",
+        "merged": true,
+        "merge_commit_sha": "a67b795b3661f6f223420339f3eeb07a913207de",
+        "head_sha": "3f0c6d891b4eeff312a610d83adda5d11fa69a48",
+        "base_sha": "1b96ba7019077235bc3ad0888b00ab9285789edb",
+        "changed_files": 11,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "build/release-weex.sh",
+            "additions": 0,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "packages/vue-server-renderer/client-plugin.d.ts",
+            "additions": 3,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "packages/vue-server-renderer/package.json",
+            "additions": 4,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "packages/vue-server-renderer/server-plugin.d.ts",
+            "additions": 3,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "packages/vue-server-renderer/types/plugin.d.ts",
+            "additions": 9,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "packages/vue-server-renderer/types/test.ts",
+            "additions": 15,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "packages/weex-template-compiler/build.js",
+            "additions": 928,
+            "deletions": 218,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "packages/weex-template-compiler/package.json",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "packages/weex-vue-framework/factory.js",
+            "additions": 506,
+            "deletions": 186,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "packages/weex-vue-framework/index.js",
+            "additions": 174,
+            "deletions": 113,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "packages/weex-vue-framework/package.json",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "build/release-weex.sh",
+      "packages/vue-server-renderer/client-plugin.d.ts",
+      "packages/vue-server-renderer/package.json",
+      "packages/vue-server-renderer/server-plugin.d.ts",
+      "packages/vue-server-renderer/types/plugin.d.ts",
+      "packages/vue-server-renderer/types/test.ts",
+      "packages/weex-template-compiler/build.js",
+      "packages/weex-template-compiler/package.json",
+      "packages/weex-vue-framework/factory.js",
+      "packages/weex-vue-framework/index.js",
+      "packages/weex-vue-framework/package.json"
+    ],
+    "test_or_validation_files": [],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "compiler/build pipeline",
+    "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #6325: feat(vue-server-renderer): add TypeScript declarations of webpack plugins (fix #6301)",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [
+      "index.d.ts",
+      "webpack.js"
+    ],
+    "resolution_comment_excerpts": [
+      "Hi @foisonocean Would you mind provide more information? As far as I know client-plugin is for webpack. And I don't think many users use TS for webpack setup. Plus, client-plugin contains almost nothing other than a `new` signature). Also, it seems adding `declare module 'vue-server-render'` does not work in our vue-server-render's `index.d.ts`.",
+      "Yes, I am using Typescript to write webpack config.",
+      "woo",
+      "Oh, I didn't know that webpack officially supports a config file written in TypeScript 😮 https://webpack.js.org/configuration/configuration-languages/#typescript I'll create the declaration of `client-plugin` (and of `server-plugin`)"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

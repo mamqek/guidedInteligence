@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-8305",
+  "primary_group": "question_usage",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 8305,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/8305",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/8305.json",
+  "title": "Recommendation for exposing multiple TypeScript modules from single NPM package",
+  "labels": [
+    "Question",
+    "Docs",
+    "@types"
+  ],
+  "state": "closed",
+  "created_at": "2016-04-26T12:58:06Z",
+  "closed_at": "2016-07-22T00:12:34Z",
+  "selection_rationale": "TypeScript question/docs case about package module exposure; explanation-based oracle.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [],
+    "referenced_commit_shas_from_issue_events": [
+      "e36ed79930492ef5e259cfaf67413485350f09e3",
+      "458d04251659735e649eacf9b11daa970a605b43",
+      "35a1a41844f3dd56320751e0b7feccf5c84f44e9",
+      "8cc1849cdaca6464778bfdb2a17210b2a29c91b6",
+      "c31dd31f45d4eae235dd7c43b8618b6811d7a8e9",
+      "204ad2ea26efaf62e492e482dff5db88cadc752b"
+    ],
+    "cite": [],
+    "cited_by": [],
+    "resolution_status": "has_local_resolution_artifact"
+  },
+  "oracle": {
+    "implementation_files": [],
+    "test_or_validation_files": [],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "package/module declaration resolution",
+    "responsibility_summary": "TypeScript resolves package entry points and declaration files according to package layout and package.json typing metadata; submodule exposure requires matching JS and .d.ts structure or supported package metadata.",
+    "hidden_resolution_summary": "The thread centers on how to expose multiple typed submodules from one npm package. The correct explanation should discuss package layout, index/submodule declaration files, and TypeScript module resolution guidance rather than a single implementation fix.",
+    "issue_body_file_refs": [
+      "package.json",
+      "lib/index.js",
+      "lib/index.d.ts",
+      "index.js",
+      "index.d.ts",
+      "submodule.js",
+      "submodule.d.ts"
+    ],
+    "thread_file_refs": [
+      "d.ts",
+      "package.json",
+      "foo.js",
+      "foo.d.ts",
+      "bar/package.json",
+      "bar/foo.d.ts",
+      "index.js",
+      "index.d.ts",
+      "20files/Introduction.md",
+      "dist/typings/index.d.ts",
+      "dist/typings/foo/index.d.ts",
+      "index.ts",
+      "built/index.js",
+      "Node.js",
+      "dist/types/index.d.ts",
+      "github.com/ReactiveX/rxjs/blob/a4b4e998d6bd86c8099fb626b9f5d26e8a8137fc/package.json",
+      "github.com/ReactiveX/rxjs/blob/master/src/index.ts",
+      "dist/index.js",
+      "github.com/fabricjs/fabric.js",
+      "tsconfig.json"
+    ],
+    "resolution_comment_excerpts": [
+      "Thanks to @chriskrycho for the very clear description of the situation and workaround in his article linked from https://github.com/microsoft/TypeScript/issues/8305#issuecomment-391929338 The fact that the TS compiler cannot resolve submodule definitions that were generated and positioned within the package structure by the TS compiler itself is pretty remarkable. As a case of the TS compiler not being able to consume its own output, it could be viewed as an internal inconsistency. My use case is providing a submodule with interfaces intended to be augmented (merged) via ambient declaration. T",
+      "I'm having same problem while using one package for both npm publication and for using as submodule package as my other typescript project. specifying main should point index.ts file and tsc or yarn/npm should somehow automatically link to dist/index.js or perhaps this should be another thread fro npm & package.json? This is a huge pain since we share a lot of project as submodule & for both npm in more thatn 100+ repos - [grida](https://github.com/gridaco) - [reflect-ui](https://github.com/reflect-ui) - [bridged](http://github.com/bridgedxyz)",
+      "https://github.com/microsoft/TypeScript/issues/33079 seems to be fixed, but I still can't find a great working example of a library with submodules hierarchy set up. Anyone has good references?",
+      "I have spent hours trying to configure a repo to work with submodule types. The repo has a build tool, rollup, and a folder structure that doesn't reflect the submodule importing scheme. https://github.com/microsoft/TypeScript/issues/8305#issuecomment-793715471 has pointed out rxjs so I looked at the config they've done since they manage to expose typed submodules with a build tool and w/o mirroring the submodule importing scheme as suggested in the [official guide](https://www.typescriptlang.org/docs/handbook/declaration-files/templates/module-d-ts.html#library-file-layout). Related: #17945 #"
+    ],
+    "notes": "Question/usage case: score explanation agreement and citation/leakage first; implementation-file overlap is secondary or not applicable."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "not_primary_for_question_usage",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "optional_context_files_only"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-25183",
+  "primary_group": "api_behavior_design",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 25183,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/25183",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/25183.json",
+  "title": "DataFrame.merge with empty frame and Int64 column gives object dtype",
+  "labels": [
+    "Reshaping",
+    "Dtype Conversions",
+    "ExtensionArray"
+  ],
+  "state": "closed",
+  "created_at": "2019-02-06T03:38:05Z",
+  "closed_at": "2019-02-24T03:47:24Z",
+  "selection_rationale": "pandas merge dtype behavior with nullable integer arrays; API consistency case.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      25289,
+      25289
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "67cf9774cc7d348834ed82108ca59e7d3d0274dc",
+      "85572de5e7bb188cfecc575ee56786406e79dc79",
+      "90b2daaf0327de672067f20ea84ad5ae16be3476",
+      "2d62018b4d83c2c3eebfb61ae786e9cdd41172d0",
+      "b7858293dc35d25d41fff658ebe7b221238c9ed1",
+      "4cbed72d7f83ef8e53d080b1326955d29685daa8",
+      "dcf7137ccc81986091b6c76624855bb5c32185f7"
+    ],
+    "cite": [],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "25289",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "25426",
+        "is_own_repo": true
+      },
+      {
+        "owner": "teto",
+        "repo_name": "pymptcpanalyzer",
+        "number": "14",
+        "is_own_repo": false
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 25289,
+        "title": "BUG: fixed merging with empty frame containing an Int64 column (#25183)",
+        "url": "https://github.com/pandas-dev/pandas/pull/25289",
+        "merged": true,
+        "merge_commit_sha": "85572de5e7bb188cfecc575ee56786406e79dc79",
+        "head_sha": "5d3e6912a15a83a39d5e854fa2a67da14e7ea8af",
+        "base_sha": "f74aba614554d1de4d7986fef6296a4eda951ac9",
+        "changed_files": 3,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "doc/source/whatsnew/v0.24.2.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/internals/concat.py",
+            "additions": 2,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/reshape/merge/test_merge.py",
+            "additions": 78,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          }
+        ]
+      },
+      {
+        "number": 25289,
+        "title": "BUG: fixed merging with empty frame containing an Int64 column (#25183)",
+        "url": "https://github.com/pandas-dev/pandas/pull/25289",
+        "merged": true,
+        "merge_commit_sha": "85572de5e7bb188cfecc575ee56786406e79dc79",
+        "head_sha": "5d3e6912a15a83a39d5e854fa2a67da14e7ea8af",
+        "base_sha": "f74aba614554d1de4d7986fef6296a4eda951ac9",
+        "changed_files": 3,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "doc/source/whatsnew/v0.24.2.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/internals/concat.py",
+            "additions": 2,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/reshape/merge/test_merge.py",
+            "additions": 78,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "pandas/core/internals/concat.py"
+    ],
+    "test_or_validation_files": [
+      "pandas/tests/reshape/merge/test_merge.py"
+    ],
+    "documentation_files": [
+      "doc/source/whatsnew/v0.24.2.rst"
+    ],
+    "symbols_or_apis": [],
+    "subsystem": "test/CI infrastructure",
+    "responsibility_summary": "Relevant code is responsible for test/CI infrastructure behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #25289: BUG: fixed merging with empty frame containing an Int64 column (#25183) | PR #25289: BUG: fixed merging with empty frame containing an Int64 column (#25183)",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [
+      "scratch.py",
+      "python/lib/python3.6/site-packages/pandas/core/frame.py",
+      "python/lib/python3.6/site-packages/pandas/core/reshape/merge.py",
+      "python/lib/python3.6/site-packages/pandas/core/internals/managers.py",
+      "python/lib/python3.6/site-packages/pandas/core/internals/concat.py",
+      "a/pandas/core/internals/concat.py",
+      "b/pandas/core/internals/concat.py"
+    ],
+    "resolution_comment_excerpts": [
+      "@josham : Given that you have a `NaN` in `value_y`, it would be impossible to have `Int64` (would be a floating dtype actually). That being said, uncertain as to why you're getting `object` though... cc @jreback",
+      "I agree that this should be able to return Int types here; this was just put in place in 0.24 so may not be well handled for empty types",
+      "@jreback I came across another merge issue with Int64. I can add to this issue or create another, let me know what you prefer. ```python x = pd.DataFrame({ 'date': [pd.Timestamp('2018-01-01')], 'value': pd.Series([np.nan], dtype='Int64') }) y = pd.DataFrame({ 'date': [pd.Timestamp('2018-01-01')], 'value': pd.Series([4], dtype='Int64') }) z = x.merge(y, on=['date']) ``` ```python Traceback (most recent call last): File \"scratch.py\", line 23, in <module> z = x.merge(y, on=['date']) File \"/python/lib/python3.6/site-packages/pandas/core/frame.py\", line 6868, in merge copy=copy, indicator=indicator",
+      "@jreback, @TomAugspurger the following seems to fix both issues. Does this seem correct to you? ``` --- a/pandas/core/internals/concat.py +++ b/pandas/core/internals/concat.py @@ -190,6 +190,8 @@ class JoinUnit(object): pass elif getattr(self.block, 'is_sparse', False): pass + elif getattr(self.block, 'is_extension', False): + pass else: missing_arr = np.empty(self.shape, dtype=empty_dtype) missing_arr.fill(fill_value) ```"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}
