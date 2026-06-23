@@ -1,0 +1,396 @@
+{
+  "confirmed_entities": [],
+  "confirmed_file_hints": [],
+  "conversation_id": "vuejs-vue-10803:run-20260623T112023Z",
+  "grounded_entities": [
+    "SSR",
+    "domProps",
+    "renderVmWithOptions",
+    "toContain",
+    "VTextarea",
+    "L86",
+    "L92",
+    "VTextField",
+    "L357",
+    "L361",
+    "NOT",
+    "REMOVE"
+  ],
+  "grounded_file_hints": [
+    "vue/test/ssr/ssr-string.spec.js",
+    "github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextarea/VTextarea.ts",
+    "github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextField/VTextField.ts"
+  ],
+  "llm_concept_terms": [
+    "SSR",
+    "domProps",
+    "textarea value",
+    "falsy value handling",
+    "VNode",
+    "renderVmWithOptions",
+    "Vuetify VTextarea",
+    "Vuetify VTextField"
+  ],
+  "llm_subqueries": [
+    {
+      "query": "Where does the code represent domProps value for textarea elements in the VNode or component structure?",
+      "role": "representation"
+    },
+    {
+      "query": "Where does the parser or render function handle attaching domProps with value null to textarea elements?",
+      "role": "input_parsing"
+    },
+    {
+      "query": "Where does the code check or filter falsy domProps values like null for textarea to avoid rendering inner text?",
+      "role": "validation_checking"
+    },
+    {
+      "query": "Where are SSR rendering errors or warnings about falsy domProps values reported or logged?",
+      "role": "diagnostics"
+    },
+    {
+      "query": "Where is the SSR output string generated for textarea elements with domProps value, especially handling null or falsy values?",
+      "role": "behavior_output"
+    },
+    {
+      "query": "Where is the test 'falsy domProps value' in vue/test/ssr/ssr-string.spec.js implemented?",
+      "role": "tests"
+    },
+    {
+      "query": "Where is the documentation about SSR rendering of domProps for textarea elements?",
+      "role": "docs"
+    },
+    {
+      "query": "Are there any config options affecting SSR rendering of domProps values for textarea?",
+      "role": "config"
+    }
+  ],
+  "metadata": {
+    "planner": "llm_workspace_grounded_v2",
+    "repo_context": {
+      "confirmed_anchor_examples": [],
+      "confirmed_entities": [],
+      "confirmed_file_hints": [],
+      "connected_context": {
+        "conflicts": [],
+        "facts": [],
+        "file_hints": [],
+        "retrieval_terms": [],
+        "selected_context_ids": [],
+        "suggested_subqueries": [],
+        "symbol_hints": []
+      },
+      "repo_sketch": {
+        "file_index": [
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "codeframe",
+              "generateCodeFrame",
+              "repeat"
+            ],
+            "path": "src/compiler/codeframe.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "codegen",
+              "events",
+              "genHandlers",
+              "genWeexHandler",
+              "genHandler",
+              "genKeyFilter"
+            ],
+            "path": "src/compiler/codegen/events.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "codegen",
+              "index",
+              "TransformFunction",
+              "DataGenFunction",
+              "DirectiveFunction",
+              "CodegenState"
+            ],
+            "path": "src/compiler/codegen/index.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "create",
+              "createCompilerCreator",
+              "createCompiler",
+              "compile"
+            ],
+            "path": "src/compiler/create-compiler.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "directives",
+              "bind"
+            ],
+            "path": "src/compiler/directives/bind.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "directives",
+              "index"
+            ],
+            "path": "src/compiler/directives/index.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "directives",
+              "model",
+              "genComponentModel",
+              "genAssignmentCode",
+              "ModelParseResult",
+              "parseModel"
+            ],
+            "path": "src/compiler/directives/model.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "directives"
+            ],
+            "path": "src/compiler/directives/on.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "error",
+              "detector",
+              "Range",
+              "detectErrors",
+              "checkNode",
+              "checkEvent"
+            ],
+            "path": "src/compiler/error-detector.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "helpers",
+              "Range",
+              "baseWarn",
+              "pluckModuleFunction",
+              "addProp",
+              "addAttr"
+            ],
+            "path": "src/compiler/helpers.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "index",
+              "baseCompile"
+            ],
+            "path": "src/compiler/index.js",
+            "role": "implementation"
+          },
+          {
+            "identifiers": [
+              "src",
+              "compiler",
+              "optimizer",
+              "optimize",
+              "genStaticKeys",
+              "markStatic",
+              "markStaticRoots",
+              "isStatic"
+            ],
+            "path": "src/compiler/optimizer.js",
+            "role": "implementation"
+          }
+        ],
+        "file_roles": {
+          "documentation": 7,
+          "implementation": 194,
+          "other": 13,
+          "test": 8
+        },
+        "representative_files": [
+          ".babelrc.js",
+          ".github/CODE_OF_CONDUCT.md",
+          "src/compiler/codeframe.js",
+          "types/test/augmentation-test.ts",
+          ".circleci/config.yml",
+          ".eslintrc.js",
+          ".github/COMMIT_CONVENTION.md",
+          ".github/CONTRIBUTING.md",
+          ".github/FUNDING.yml",
+          ".github/ISSUE_TEMPLATE.md",
+          ".github/PULL_REQUEST_TEMPLATE.md",
+          "BACKERS.md"
+        ],
+        "top_directories": [
+          {
+            "file_count": 91,
+            "path": "src/platforms"
+          },
+          {
+            "file_count": 60,
+            "path": "src/core"
+          },
+          {
+            "file_count": 22,
+            "path": "src/server"
+          },
+          {
+            "file_count": 18,
+            "path": "src/compiler"
+          },
+          {
+            "file_count": 8,
+            "path": "types/test"
+          },
+          {
+            "file_count": 2,
+            "path": "src/shared"
+          },
+          {
+            "file_count": 1,
+            "path": ".babelrc.js"
+          },
+          {
+            "file_count": 1,
+            "path": ".circleci/config.yml"
+          }
+        ]
+      }
+    }
+  },
+  "negative_filters": [
+    "harness",
+    "fixture",
+    "baseline",
+    "generated"
+  ],
+  "owner_artifact_terms": [
+    "domProps",
+    "textarea value representation",
+    "SSR rendering",
+    "VNode data domProps",
+    "SSR stringification",
+    "VNode patching",
+    "component VTextarea",
+    "component VTextField"
+  ],
+  "owner_subqueries": [
+    {
+      "query": "How is domProps value represented in the VNode or component data structure for textarea in SSR?",
+      "role": "representation"
+    },
+    {
+      "query": "How does the render function or component code assign domProps value null to textarea elements?",
+      "role": "input_parsing"
+    },
+    {
+      "query": "Where does the SSR renderer or patcher filter or transform falsy domProps values for textarea to avoid incorrect inner text?",
+      "role": "validation_checking"
+    },
+    {
+      "query": "Where does the SSR renderer emit diagnostics or handle errors related to domProps falsy values?",
+      "role": "diagnostics"
+    },
+    {
+      "query": "Where does the SSR stringifier generate the textarea element output, and how does it handle domProps value null?",
+      "role": "behavior_output"
+    }
+  ],
+  "prompt_summary": "Issue about SSR rendering of textarea with falsy domProps value 'null' causing incorrect inner text in SSR output. Expected empty textarea but got 'null' text. Repro in vue/test/ssr/ssr-string.spec.js with renderVmWithOptions. Relevant Vuetify components VTextarea and VTextField source lines given. Version 2.6.10. Need to understand representation of domProps value, parsing of textarea domProps, validation or filtering of falsy values, diagnostics if any, and SSR output behavior for textarea value.",
+  "raw_prompt": "Explain the code context needed for this issue.\n\nTitle: SSR: textarea domProps keeps falsy values\n\n### Version\r\n2.6.10\r\n\r\n### Reproduction link\r\n[https://codesandbox.io/s/codesandbox-nuxt-vdcv8](https://codesandbox.io/s/codesandbox-nuxt-vdcv8)\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n### Steps to reproduce\r\nView page source\r\n\r\n### What is expected?\r\n```html\r\n<textarea id=\"input-62\" rows=\"5\"></textarea>\r\n```\r\n\r\n### What is actually happening?\r\n```html\r\n<textarea id=\"input-62\" rows=\"5\">null</textarea>\r\n```\r\n\r\n---\r\nSimilar to #9231\r\n\r\nRepro in `vue/test/ssr/ssr-string.spec.js`:\r\n```js\r\n  it('falsy domProps value', done => {\r\n    renderVmWithOptions({\r\n      render (h) {\r\n        return h('div', [\r\n          h('textarea', {\r\n            domProps: {\r\n              value: null\r\n            }\r\n          })\r\n        ])\r\n      }\r\n    }, result => {\r\n      expect(result).toContain(\r\n        '<div data-server-rendered=\"true\"><textarea></textarea></div>'\r\n      )\r\n      done()\r\n    })\r\n  })\r\n```\r\n\r\nRelevant vuetify code:\r\nhttps://github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextarea/VTextarea.ts#L86-L92\r\nhttps://github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextField/VTextField.ts#L357-L361\r\n\r\n<!-- generated by vue-issues. DO NOT REMOVE -->",
+  "raw_prompt_evidence": [
+    "vue/test/ssr/ssr-string.spec.js",
+    "input-62",
+    "5",
+    "falsy domProps value",
+    "div",
+    "textarea",
+    "<div data-server-rendered=\"true\"><textarea></textarea></div>",
+    "github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextarea/VTextarea.ts",
+    "github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextField/VTextField.ts",
+    "2.6.10",
+    "codesandbox.io",
+    "---"
+  ],
+  "required_roles": [
+    "representation",
+    "input_parsing",
+    "validation_checking",
+    "diagnostics",
+    "behavior_output"
+  ],
+  "retrieval_terms": [
+    "SSR textarea domProps falsy value",
+    "textarea domProps value null",
+    "renderVmWithOptions",
+    "vue/test/ssr/ssr-string.spec.js",
+    "VTextarea.ts L86-L92",
+    "VTextField.ts L357-L361",
+    "falsy domProps value",
+    "textarea SSR output"
+  ],
+  "source_priorities": [
+    "source_code",
+    "local_notes"
+  ],
+  "speculative_entities": [
+    "VNode",
+    "VNodeData",
+    "SSR renderer",
+    "render function",
+    "Vuetify component VTextarea",
+    "Vuetify component VTextField",
+    "SSR stringification",
+    "domProps filtering"
+  ],
+  "support_subqueries": [
+    {
+      "query": "Show the test case for 'falsy domProps value' in vue/test/ssr/ssr-string.spec.js",
+      "role": "tests"
+    },
+    {
+      "query": "How does renderVmWithOptions produce SSR output for textarea with domProps value null?",
+      "role": "behavior_output"
+    }
+  ],
+  "supporting_roles": [
+    "tests",
+    "docs",
+    "config"
+  ],
+  "surface_context_terms": [
+    "SSR",
+    "textarea",
+    "domProps",
+    "renderVmWithOptions",
+    "vue/test/ssr/ssr-string.spec.js"
+  ]
+}

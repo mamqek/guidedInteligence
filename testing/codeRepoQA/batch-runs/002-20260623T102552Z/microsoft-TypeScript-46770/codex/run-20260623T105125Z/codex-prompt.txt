@@ -1,0 +1,78 @@
+You are acting only as a codebase evidence retriever.
+Inspect the current working repository snapshot and return implementation evidence for the user question.
+The user question below is the complete sanitized issue packet. It contains only visible pre-resolution issue fields.
+Do not inspect CodeRepoQA raw issue JSON, verification JSON, oracle files, QA_data folders, run artifacts, or post-resolution external information.
+Do not produce a final explanation. Do not edit files.
+Return only JSON matching the provided schema.
+
+Evidence requirements:
+- Prefer source-code implementation files over tests unless tests are essential.
+- Prefer targeted `rg -n` searches and small line-window reads over whole-file reads.
+- Avoid generated/localization/baseline output and vendored directories unless the issue directly names them.
+- Do not search `.guided-intelligence`, `lib`, `loc`, `src/loc`, `tests/baselines`, or `node_modules`.
+- Use repository-relative file paths.
+- Use concrete line ranges that support each claim.
+- Each claim_supported must be directly grounded in the file and line range.
+- Select the smallest evidence set that can support later explanation generation.
+- Put uncertainty in uncertainties instead of guessing.
+
+Sanitized issue packet:
+Explain the code context needed for this issue.
+
+Title: Cannot import some packages when tsconfig.json specifies "module": "nodenext"
+
+# Bug Report
+
+When a TypeScript project specifies `"module": "nodenext"` (or "node12") in tsconfig.json, tsc emits errors saying it can't find imported modules or that the exports aren't the right types.
+
+I've put together a demo that shows this with the "ip" and "nullthrows" packages. "ip" doesn't ship with TypeScript declarations and needs "@types/ip", while "nullthrows" comes with declarations. The precise errors are included below but in summary, tsc can't find "ip" and it thinks "nullthrows" is not callable despite the default export being a function.
+
+Playing around, when I add `"type": "module"` to nullthrows's package.json, its error goes away. When I change ip's package.json from `"main": "lib/ip"` to `"main": "lib/ip.js"`, its issue goes away. Writing this out, these are likely two different issues with the shared symptom of an ESM package not being able to import either of them.
+
+### 🔎 Search Terms
+
+esm module nodenext
+
+### 🕗 Version & Regression Information
+
+typescript@4.6.0-dev.20211110
+
+- This is the behavior in every version I tried, and I reviewed the FAQ for entries about modules. The issue is present in the 4.5.0 betas as well, though I understand that ESM support via nodenext/node12 is being deferred.
+
+### ⏯ Playground Link
+
+Minimal repo: https://github.com/ide/typescript-esm-demo. Dependencies are needed to show the effect.
+
+### 💻 Code
+
+```ts
+import * as ip from 'ip';
+import nullthrows from 'nullthrows';
+
+export function getAddress(): string {
+  return nullthrows(ip.address());
+}
+```
+
+### 🙁 Actual behavior
+
+tsc outputs:
+```
+index.ts:1:21 - error TS2307: Cannot find module 'ip' or its corresponding type declarations.
+
+1 import * as ip from 'ip';
+                      ~~~~
+
+index.ts:5:10 - error TS2349: This expression is not callable.
+  Type 'typeof import("/private/tmp/typescript-esm-demo/node_modules/nullthrows/nullthrows")' has no call signatures.
+
+5   return nullthrows(ip.address());
+           ~~~~~~~~~~
+
+
+Found 2 errors.
+```
+
+### 🙂 Expected behavior
+
+tsc should compile without errors.

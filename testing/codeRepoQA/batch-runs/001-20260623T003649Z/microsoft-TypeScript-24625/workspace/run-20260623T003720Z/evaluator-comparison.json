@@ -1,0 +1,66 @@
+{
+  "case_id": "microsoft-TypeScript-24625",
+  "implementation_overlap_files": [],
+  "oracle_documentation_files": [],
+  "oracle_files": [
+    "src/compiler/builder.ts",
+    "tests/baselines/reference/APISample_Watch.js",
+    "tests/baselines/reference/APISample_WatchWithDefaults.js",
+    "tests/baselines/reference/APISample_WatchWithOwnWatchHost.js",
+    "tests/baselines/reference/api/tsserverlibrary.d.ts",
+    "tests/baselines/reference/api/typescript.d.ts",
+    "tests/cases/compiler/APISample_Watch.ts",
+    "tests/cases/compiler/APISample_WatchWithDefaults.ts",
+    "tests/cases/compiler/APISample_WatchWithOwnWatchHost.ts"
+  ],
+  "oracle_implementation_files": [
+    "src/compiler/builder.ts"
+  ],
+  "oracle_only_files": [
+    "src/compiler/builder.ts",
+    "tests/baselines/reference/APISample_Watch.js",
+    "tests/baselines/reference/APISample_WatchWithDefaults.js",
+    "tests/baselines/reference/APISample_WatchWithOwnWatchHost.js",
+    "tests/baselines/reference/api/tsserverlibrary.d.ts",
+    "tests/baselines/reference/api/typescript.d.ts",
+    "tests/cases/compiler/APISample_Watch.ts",
+    "tests/cases/compiler/APISample_WatchWithDefaults.ts",
+    "tests/cases/compiler/APISample_WatchWithOwnWatchHost.ts"
+  ],
+  "oracle_source": {
+    "hidden_resolution_summary": "PR #24664: Fix the issue with createSemanticDiagnosticsBuilderProgram, createEmitAndSemanticDiagnosticsBuilderProgram and createAbstractBuilder not assignable to CreateProgram<T> | PR #24665: [release-2.9] Fix the issue with createSemanticDiagnosticsBuilderProgram, createEmitAndSemanticDiagnosticsBuilderProgram and createAbstractBuilder not assignable to CreateProgram<T>",
+    "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+    "subsystem": "compiler/build pipeline",
+    "thread_file_refs": true,
+    "verification_case_id": "microsoft-TypeScript-24625",
+    "verification_group": "api_behavior_design",
+    "verification_json": true
+  },
+  "oracle_symbols": [],
+  "oracle_test_or_validation_files": [
+    "tests/baselines/reference/APISample_Watch.js",
+    "tests/baselines/reference/APISample_WatchWithDefaults.js",
+    "tests/baselines/reference/APISample_WatchWithOwnWatchHost.js",
+    "tests/baselines/reference/api/tsserverlibrary.d.ts",
+    "tests/baselines/reference/api/typescript.d.ts",
+    "tests/cases/compiler/APISample_Watch.ts",
+    "tests/cases/compiler/APISample_WatchWithDefaults.ts",
+    "tests/cases/compiler/APISample_WatchWithOwnWatchHost.ts"
+  ],
+  "overlap_files": [],
+  "prompt_title": "TypeScript 2.9 Watch API change breaking watch support in ts-loader?",
+  "retrieved_only_files": [],
+  "retrieved_source_files": [],
+  "top_k": {
+    "found_positions": {},
+    "found_within_10": false,
+    "found_within_20": false,
+    "found_within_5": false,
+    "k_values": [
+      5,
+      10,
+      20
+    ]
+  },
+  "verification_case_id": "microsoft-TypeScript-24625"
+}

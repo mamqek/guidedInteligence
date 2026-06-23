@@ -1,0 +1,73 @@
+You are acting only as a codebase evidence retriever.
+Inspect the current working repository snapshot and return implementation evidence for the user question.
+The user question below is the complete sanitized issue packet. It contains only visible pre-resolution issue fields.
+Do not inspect CodeRepoQA raw issue JSON, verification JSON, oracle files, QA_data folders, run artifacts, or post-resolution external information.
+Do not produce a final explanation. Do not edit files.
+Return only JSON matching the provided schema.
+
+Evidence requirements:
+- Prefer source-code implementation files over tests unless tests are essential.
+- Prefer targeted `rg -n` searches and small line-window reads over whole-file reads.
+- Avoid generated/localization/baseline output and vendored directories unless the issue directly names them.
+- Do not search `.guided-intelligence`, `lib`, `loc`, `src/loc`, `tests/baselines`, or `node_modules`.
+- Use repository-relative file paths.
+- Use concrete line ranges that support each claim.
+- Each claim_supported must be directly grounded in the file and line range.
+- Select the smallest evidence set that can support later explanation generation.
+- Put uncertainty in uncertainties instead of guessing.
+
+Sanitized issue packet:
+Explain the code context needed for this issue.
+
+Title: [CLI DX] Improve the 'x errors' message in the CLI
+
+# Suggestion
+
+As of 4.4, a run of `tsc` looks like:
+
+```sh
+$ /Users/ortatherox/dev/typescript/repros/compilerSamples/node_modules/.bin/tsc
+                                                                               
+// ...                                                                         
+                                                                               
+Found 4 errors.                                                                
+```
+
+I propose instead we change this message in two key ways, depending on the number of files are raised with errors:
+
+#### Single file
+
+```
+$ /Users/ortatherox/dev/typescript/repros/compilerSamples/node_modules/.bin/tsc
+                                                                               
+// ...                                                                         
+                                                                               
+Found 1 error in index.ts:4                                                    
+``` 
+
+#### Multi file
+
+
+```
+$ /Users/ortatherox/dev/typescript/repros/compilerSamples/node_modules/.bin/tsc
+                                                                               
+// ...                                                                         
+
+Found 4 errors in 3 files.           
+                                     
+Errors  Files                        
+                                     
+     2  index.ts:2                   
+     1  other.ts:4                   
+     1  third.ts:8
+``` 
+
+## Reasoning
+
+For single files, it's a nice quick small dx improvement which lets you click directly to the file. For multi-files, it's a way to understand the entire scope of your compiler errors. Today to understand what files and where the general amount of errors come from you need to scan the entire text, and if that has scrolled off the terminal - then this is hard to do. 
+
+In both cases we only link to the file and line, having the character on the file isn't that useful at this point.
+
+## Exceptions
+
+A PR should _not_ include these changes in watch mode. We think there are third-party apps which rely on the text in watch mode, and we want to make sure we've found those and made sure they can handle the changes to the output. So, to not block PRs we request keeping the watch mode as the same output.

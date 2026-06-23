@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-14942",
+  "primary_group": "performance_memory",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 14942,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/14942",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/14942.json",
+  "title": "groupby with category column and two additional columns eats up all main memory",
+  "labels": [
+    "Bug",
+    "Groupby"
+  ],
+  "state": "closed",
+  "created_at": "2016-12-21T15:14:01Z",
+  "closed_at": "2018-05-01T15:09:10Z",
+  "selection_rationale": "pandas groupby categorical memory blow-up; clear performance/memory objective.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      20583
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "42828241546ad125ed3a0528a6cabb6ff70112ed",
+      "b8d86e2fd5170a5b82a0519587b489ee05e89ccc",
+      "5220a20bcbcdb68f564801d0c104eba00c5e06dc",
+      "69c5cf306e713b3d169cdd7080e6d4db78353b98",
+      "df3533ac1a89ddb00e8a22eb38ceb97d63fb553c",
+      "422a6bede01ee7d74d6557fdd9aaf18581391666",
+      "c61318d588cdf27ac897cda1f23d702f246bff47",
+      "ce9a917dcb7f68a3200d65d37f4c26ffabec556f",
+      "de8ca3fc3bed2b841363899f28f1597cbc9c32bd",
+      "d34d365860f8b9a9ef182cc6c314b3aabafbbec9",
+      "fa532b69fb41c82fa430242d6f6a2eb27a52f424",
+      "b020891dbd3c53028cdfef4ce990dced7283dc3b"
+    ],
+    "cite": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "13204",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "10484",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "15217",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "15234",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "15265",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "20583",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "8559",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "44001",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 20583,
+        "title": "API: categorical grouping will no longer return the cartesian product",
+        "url": "https://github.com/pandas-dev/pandas/pull/20583",
+        "merged": true,
+        "merge_commit_sha": "b020891dbd3c53028cdfef4ce990dced7283dc3b",
+        "head_sha": "bdf7525812ca670f9406ab8df333030d36d30947",
+        "base_sha": "28edd06498987972953b5c8e1c98b7f55d24b8d2",
+        "changed_files": 15,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "doc/source/groupby.rst",
+            "additions": 51,
+            "deletions": 23,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.23.0.txt",
+            "additions": 52,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/conftest.py",
+            "additions": 11,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/arrays/categorical.py",
+            "additions": 29,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/generic.py",
+            "additions": 9,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/groupby/groupby.py",
+            "additions": 76,
+            "deletions": 23,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/indexes/category.py",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/reshape/pivot.py",
+            "additions": 23,
+            "deletions": 11,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/frame/test_sorting.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/groupby/aggregate/test_cython.py",
+            "additions": 17,
+            "deletions": 6,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/groupby/aggregate/test_other.py",
+            "additions": 4,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/groupby/test_categorical.py",
+            "additions": 413,
+            "deletions": 292,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/groupby/test_function.py",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/groupby/test_grouping.py",
+            "additions": 17,
+            "deletions": 8,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/reshape/test_pivot.py",
+            "additions": 40,
+            "deletions": 44,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "pandas/conftest.py",
+      "pandas/core/arrays/categorical.py",
+      "pandas/core/generic.py",
+      "pandas/core/groupby/groupby.py",
+      "pandas/core/indexes/category.py",
+      "pandas/core/reshape/pivot.py"
+    ],
+    "test_or_validation_files": [
+      "pandas/tests/frame/test_sorting.py",
+      "pandas/tests/groupby/aggregate/test_cython.py",
+      "pandas/tests/groupby/aggregate/test_other.py",
+      "pandas/tests/groupby/test_categorical.py",
+      "pandas/tests/groupby/test_function.py",
+      "pandas/tests/groupby/test_grouping.py",
+      "pandas/tests/reshape/test_pivot.py"
+    ],
+    "documentation_files": [
+      "doc/source/groupby.rst",
+      "doc/source/whatsnew/v0.23.0.txt"
+    ],
+    "symbols_or_apis": [],
+    "subsystem": "groupby operations",
+    "responsibility_summary": "Relevant code is responsible for groupby operations behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #20583: API: categorical grouping will no longer return the cartesian product",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [
+      "github.com/pandas-dev/pandas/blob/master/pandas/core/groupby.py",
+      "test_categorical.py",
+      "github.com/pandas-dev/pandas/blob/master/pandas/tests/groupby/test_categorical.py"
+    ],
+    "resolution_comment_excerpts": [
+      "Here is where the test is expecting it: [test_categorical.py:L316-L325](https://github.com/pandas-dev/pandas/blob/master/pandas/tests/groupby/test_categorical.py#L316-L325) some level of reindexing seems needed,(#13204), but perhaps something more like [this fix](https://github.com/pandas-dev/pandas/blob/master/pandas/core/groupby.py#L3843-L3868)",
+      "yeah this seems that we should simply reindex each level as needed (if needed). give it a try.",
+      "xref: #10484 and [groupby docs:NaN handling](http://pandas.pydata.org/pandas-docs/stable/groupby.html#na-and-nat-group-handling)",
+      "sorry, no idea :-/"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

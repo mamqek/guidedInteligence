@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "case_id": "vuejs-vue-5884",
+  "primary_group": "api_behavior_design",
+  "repository": "vuejs/vue",
+  "issue_number": 5884,
+  "issue_url": "https://github.com/vuejs/vue/issues/5884",
+  "original_issue_path": "vue/cloudide/workspace/QA_data/vue/5884.json",
+  "title": "Vue.set Api strange behavior if path is a numerical string",
+  "labels": [
+    "improvement"
+  ],
+  "state": "closed",
+  "created_at": "2017-06-14T12:59:43Z",
+  "closed_at": "2017-06-16T02:59:16Z",
+  "selection_rationale": "Vue.set API behavior with numeric string path; expected explanation should distinguish API semantics from bug surface.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      5889,
+      5889
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "990c361e6ef7abebb42edee01928c533d6f42348",
+      "eea0920f14d0ea63d1b94c648eeb36ac7dfb4b05"
+    ],
+    "cite": [],
+    "cited_by": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "5889",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "5973",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 5889,
+        "title": "Be able to use string type index in array, fix #5884",
+        "url": "https://github.com/vuejs/vue/pull/5889",
+        "merged": true,
+        "merge_commit_sha": "8a2c5147ad9ac9444c0f7c30b5f4a3c4e15c033b",
+        "head_sha": "0231b68e250a6e080bb32cc04ca6711e907d8dcc",
+        "base_sha": "080c387d49cd5cc43726d73ab886650dedd244db",
+        "changed_files": 2,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/core/observer/index.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "test/unit/features/global-api/set-delete.spec.js",
+            "additions": 18,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          }
+        ]
+      },
+      {
+        "number": 5889,
+        "title": "Be able to use string type index in array, fix #5884",
+        "url": "https://github.com/vuejs/vue/pull/5889",
+        "merged": true,
+        "merge_commit_sha": "8a2c5147ad9ac9444c0f7c30b5f4a3c4e15c033b",
+        "head_sha": "0231b68e250a6e080bb32cc04ca6711e907d8dcc",
+        "base_sha": "080c387d49cd5cc43726d73ab886650dedd244db",
+        "changed_files": 2,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/core/observer/index.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "test/unit/features/global-api/set-delete.spec.js",
+            "additions": 18,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/core/observer/index.js"
+    ],
+    "test_or_validation_files": [
+      "test/unit/features/global-api/set-delete.spec.js"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "language service/server",
+    "responsibility_summary": "Relevant code is responsible for language service/server behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #5889: Be able to use string type index in array, fix #5884 | PR #5889: Be able to use string type index in array, fix #5884",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [
+      "github.com/vuejs/vue/blob/1648adb6c7bcc8a3a8dd887640858051ce4dc58d/src/core/observer/index.js"
+    ],
+    "resolution_comment_excerpts": [
+      "I think maybe there should be an improvement, as we could access and assign array item via string type index. In fact, `a[1]` is equal to `a['1']`. Refer http://www.ecma-international.org/ecma-262/5.1/#sec-15.4 We could check the key, and try to convert it to a number type. https://github.com/vuejs/vue/blob/1648adb6c7bcc8a3a8dd887640858051ce4dc58d/src/core/observer/index.js#L192",
+      "Probably just check if the string is an integer because it has to be an index.",
+      "Thanks @Peter-WF"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

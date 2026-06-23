@@ -1,0 +1,85 @@
+{
+  "case_id": "pandas-dev-pandas-14942",
+  "implementation_overlap_files": [],
+  "oracle_documentation_files": [
+    "doc/source/groupby.rst",
+    "doc/source/whatsnew/v0.23.0.txt"
+  ],
+  "oracle_files": [
+    "pandas/conftest.py",
+    "pandas/core/arrays/categorical.py",
+    "pandas/core/generic.py",
+    "pandas/core/groupby/groupby.py",
+    "pandas/core/indexes/category.py",
+    "pandas/core/reshape/pivot.py",
+    "pandas/tests/frame/test_sorting.py",
+    "pandas/tests/groupby/aggregate/test_cython.py",
+    "pandas/tests/groupby/aggregate/test_other.py",
+    "pandas/tests/groupby/test_categorical.py",
+    "pandas/tests/groupby/test_function.py",
+    "pandas/tests/groupby/test_grouping.py",
+    "pandas/tests/reshape/test_pivot.py",
+    "doc/source/groupby.rst",
+    "doc/source/whatsnew/v0.23.0.txt"
+  ],
+  "oracle_implementation_files": [
+    "pandas/conftest.py",
+    "pandas/core/arrays/categorical.py",
+    "pandas/core/generic.py",
+    "pandas/core/groupby/groupby.py",
+    "pandas/core/indexes/category.py",
+    "pandas/core/reshape/pivot.py"
+  ],
+  "oracle_only_files": [
+    "pandas/conftest.py",
+    "pandas/core/arrays/categorical.py",
+    "pandas/core/generic.py",
+    "pandas/core/groupby/groupby.py",
+    "pandas/core/indexes/category.py",
+    "pandas/core/reshape/pivot.py",
+    "pandas/tests/frame/test_sorting.py",
+    "pandas/tests/groupby/aggregate/test_cython.py",
+    "pandas/tests/groupby/aggregate/test_other.py",
+    "pandas/tests/groupby/test_categorical.py",
+    "pandas/tests/groupby/test_function.py",
+    "pandas/tests/groupby/test_grouping.py",
+    "pandas/tests/reshape/test_pivot.py",
+    "doc/source/groupby.rst",
+    "doc/source/whatsnew/v0.23.0.txt"
+  ],
+  "oracle_source": {
+    "hidden_resolution_summary": "PR #20583: API: categorical grouping will no longer return the cartesian product",
+    "responsibility_summary": "Relevant code is responsible for groupby operations behavior described by the issue and fixed by the selected PR.",
+    "subsystem": "groupby operations",
+    "thread_file_refs": true,
+    "verification_case_id": "pandas-dev-pandas-14942",
+    "verification_group": "performance_memory",
+    "verification_json": true
+  },
+  "oracle_symbols": [],
+  "oracle_test_or_validation_files": [
+    "pandas/tests/frame/test_sorting.py",
+    "pandas/tests/groupby/aggregate/test_cython.py",
+    "pandas/tests/groupby/aggregate/test_other.py",
+    "pandas/tests/groupby/test_categorical.py",
+    "pandas/tests/groupby/test_function.py",
+    "pandas/tests/groupby/test_grouping.py",
+    "pandas/tests/reshape/test_pivot.py"
+  ],
+  "overlap_files": [],
+  "prompt_title": "groupby with category column and two additional columns eats up all main memory",
+  "retrieved_only_files": [],
+  "retrieved_source_files": [],
+  "top_k": {
+    "found_positions": {},
+    "found_within_10": false,
+    "found_within_20": false,
+    "found_within_5": false,
+    "k_values": [
+      5,
+      10,
+      20
+    ]
+  },
+  "verification_case_id": "pandas-dev-pandas-14942"
+}

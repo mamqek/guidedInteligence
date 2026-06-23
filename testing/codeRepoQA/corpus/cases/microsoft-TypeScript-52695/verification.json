@@ -1,0 +1,438 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-52695",
+  "primary_group": "performance_memory",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 52695,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/52695",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/52695.json",
+  "title": "Reduce number of fs.stat call for files under node modules",
+  "labels": [
+    "Suggestion",
+    "Experience Enhancement",
+    "Domain: Performance",
+    "Fix Available"
+  ],
+  "state": "closed",
+  "created_at": "2023-02-09T01:13:09Z",
+  "closed_at": "2023-05-11T15:16:19Z",
+  "selection_rationale": "TypeScript filesystem-stat performance issue under node_modules; good service/compiler IO case.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      52809
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "5f96e29ce9eddeb092ee7d2b10443274d0298c5c"
+    ],
+    "cite": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "35749",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "52702",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "52704",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "52705",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "52707",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "52809",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "53031",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 52809,
+        "title": "Skip resolving files directly inside node_modules",
+        "url": "https://github.com/microsoft/TypeScript/pull/52809",
+        "merged": true,
+        "merge_commit_sha": "72037a9796b1e36914b3f9725c5aa8285462630c",
+        "head_sha": "11faca6282e67f5ef91aaf02c2d1b2022967e1a4",
+        "base_sha": "2291afc187359593f9926195f3b2d683ccd0e675",
+        "changed_files": 41,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/compiler/diagnosticMessages.json",
+            "additions": 4,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/compiler/moduleNameResolver.ts",
+            "additions": 7,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/testRunner/unittests/tsserver/configuredProjects.ts",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/cachedModuleResolution1.js",
+            "additions": 2,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/cachedModuleResolution5.js",
+            "additions": 2,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeColonModuleResolution.js",
+            "additions": 31,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeColonModuleResolution.symbols",
+            "additions": 60,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeColonModuleResolution.trace.json",
+            "additions": 73,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeColonModuleResolution.types",
+            "additions": 61,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeColonModuleResolution2.js",
+            "additions": 26,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeColonModuleResolution2.symbols",
+            "additions": 51,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeColonModuleResolution2.trace.json",
+            "additions": 95,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeColonModuleResolution2.types",
+            "additions": 52,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextModuleResolution1.errors.txt",
+            "additions": 18,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextModuleResolution1.js",
+            "additions": 19,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextModuleResolution1.symbols",
+            "additions": 9,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextModuleResolution1.trace.json",
+            "additions": 103,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextModuleResolution1.types",
+            "additions": 9,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextModuleResolution2.js",
+            "additions": 20,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextModuleResolution2.symbols",
+            "additions": 8,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextModuleResolution2.trace.json",
+            "additions": 102,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeNextModuleResolution2.types",
+            "additions": 8,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/nodeResolution2.js",
+            "additions": 2,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/pathMappingBasedModuleResolution5_node.js",
+            "additions": 2,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/pathMappingBasedModuleResolution_rootImport_aliasWithRoot_differentRootTypes.trace.json",
+            "additions": 4,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/requireOfJsonFileNonRelative.js",
+            "additions": 2,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/requireOfJsonFileNonRelative.symbols",
+            "additions": 1,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/requireOfJsonFileNonRelative.types",
+            "additions": 1,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/requireOfJsonFileNonRelativeWithoutExtensionResolvesToTs.js",
+            "additions": 2,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/requireOfJsonFileNonRelativeWithoutExtensionResolvesToTs.symbols",
+            "additions": 1,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/requireOfJsonFileNonRelativeWithoutExtensionResolvesToTs.types",
+            "additions": 1,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/compiler/cachedModuleResolution1.ts",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/compiler/cachedModuleResolution5.ts",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/compiler/nodeColonModuleResolution.ts",
+            "additions": 26,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/cases/compiler/nodeColonModuleResolution2.ts",
+            "additions": 29,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/cases/compiler/nodeNextModuleResolution1.ts",
+            "additions": 15,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/cases/compiler/nodeNextModuleResolution2.ts",
+            "additions": 16,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/cases/compiler/nodeResolution2.ts",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/compiler/pathMappingBasedModuleResolution5_node.ts",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/compiler/requireOfJsonFileNonRelative.ts",
+            "additions": 26,
+            "deletions": 26,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/compiler/requireOfJsonFileNonRelativeWithoutExtensionResolvesToTs.ts",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/compiler/diagnosticMessages.json",
+      "src/compiler/moduleNameResolver.ts",
+      "src/testRunner/unittests/tsserver/configuredProjects.ts"
+    ],
+    "test_or_validation_files": [
+      "tests/baselines/reference/cachedModuleResolution1.js",
+      "tests/baselines/reference/cachedModuleResolution5.js",
+      "tests/baselines/reference/nodeColonModuleResolution.js",
+      "tests/baselines/reference/nodeColonModuleResolution.symbols",
+      "tests/baselines/reference/nodeColonModuleResolution.trace.json",
+      "tests/baselines/reference/nodeColonModuleResolution.types",
+      "tests/baselines/reference/nodeColonModuleResolution2.js",
+      "tests/baselines/reference/nodeColonModuleResolution2.symbols",
+      "tests/baselines/reference/nodeColonModuleResolution2.trace.json",
+      "tests/baselines/reference/nodeColonModuleResolution2.types",
+      "tests/baselines/reference/nodeNextModuleResolution1.errors.txt",
+      "tests/baselines/reference/nodeNextModuleResolution1.js",
+      "tests/baselines/reference/nodeNextModuleResolution1.symbols",
+      "tests/baselines/reference/nodeNextModuleResolution1.trace.json",
+      "tests/baselines/reference/nodeNextModuleResolution1.types",
+      "tests/baselines/reference/nodeNextModuleResolution2.js",
+      "tests/baselines/reference/nodeNextModuleResolution2.symbols",
+      "tests/baselines/reference/nodeNextModuleResolution2.trace.json",
+      "tests/baselines/reference/nodeNextModuleResolution2.types",
+      "tests/baselines/reference/nodeResolution2.js",
+      "tests/baselines/reference/pathMappingBasedModuleResolution5_node.js",
+      "tests/baselines/reference/pathMappingBasedModuleResolution_rootImport_aliasWithRoot_differentRootTypes.trace.json",
+      "tests/baselines/reference/requireOfJsonFileNonRelative.js",
+      "tests/baselines/reference/requireOfJsonFileNonRelative.symbols",
+      "tests/baselines/reference/requireOfJsonFileNonRelative.types",
+      "tests/baselines/reference/requireOfJsonFileNonRelativeWithoutExtensionResolvesToTs.js",
+      "tests/baselines/reference/requireOfJsonFileNonRelativeWithoutExtensionResolvesToTs.symbols",
+      "tests/baselines/reference/requireOfJsonFileNonRelativeWithoutExtensionResolvesToTs.types",
+      "tests/cases/compiler/cachedModuleResolution1.ts",
+      "tests/cases/compiler/cachedModuleResolution5.ts",
+      "tests/cases/compiler/nodeColonModuleResolution.ts",
+      "tests/cases/compiler/nodeColonModuleResolution2.ts",
+      "tests/cases/compiler/nodeNextModuleResolution1.ts",
+      "tests/cases/compiler/nodeNextModuleResolution2.ts",
+      "tests/cases/compiler/nodeResolution2.ts",
+      "tests/cases/compiler/pathMappingBasedModuleResolution5_node.ts",
+      "tests/cases/compiler/requireOfJsonFileNonRelative.ts",
+      "tests/cases/compiler/requireOfJsonFileNonRelativeWithoutExtensionResolvesToTs.ts"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "compiler/build pipeline",
+    "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #52809: Skip resolving files directly inside node_modules",
+    "issue_body_file_refs": [
+      "mkdirp.ts",
+      "mkdirp.tsx",
+      "mkdirp.d.ts",
+      "Users/matb/Library/Caches/typescript/4.9/node_modules/mkdirp.ts",
+      "Users/matb/Library/Caches/typescript/4.9/node_modules/mkdirp.tsx",
+      "Users/matb/Library/Caches/typescript/4.9/node_modules/mkdirp.d.ts"
+    ],
+    "thread_file_refs": [
+      "perf_hooks.ts",
+      "perf_hooks.tsx",
+      "perf_hooks.d.ts"
+    ],
+    "resolution_comment_excerpts": [
+      "I noticed this in September and asked @andrewbranch about this: > So Node's CJS resolution algorithm actually does look there, but its ESM one doesn't IIRC > And I *think* our ESM one incorrectly does, so it can be removed from ESM mode and type reference directives, but I don't want to change our CJS one, I think > Unless it could be shown to make a huge perf difference, then I think we'd consider it.",
+      "I thought about this more and decided having these files would be such an antipattern that I’m fine to deviate from Node’s CJS algorithm here. I pitched it to the team and nobody had objections. Just forgot to follow through. So yes, we can almost certainly avoid making these calls.",
+      "Similar case: when there's an import such as `node:perf_hooks` in your project, we end up stating these files: ``` stat /Users/matb/projects/vscode/node_modules/node:perf_hooks stat /Users/matb/projects/vscode/node_modules/node:perf_hooks.ts stat /Users/matb/projects/vscode/node_modules/node:perf_hooks.tsx stat /Users/matb/projects/vscode/node_modules/node:perf_hooks.d.ts stat /Users/matb/projects/vscode/node_modules/@types/node:perf_hooks stat /Users/matb/projects/vscode/node_modules/@types/node:perf_hooks.d.ts ``` Can we skip these checks for `node:___` package names?",
+      "Yeah, I think so. We probably shouldn’t do directory searches for anything that looks like an absolute URI (https://github.com/microsoft/TypeScript/issues/35749)"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "case_id": "vuejs-vue-10803",
+  "primary_group": "bug_regression",
+  "repository": "vuejs/vue",
+  "issue_number": 10803,
+  "issue_url": "https://github.com/vuejs/vue/issues/10803",
+  "original_issue_path": "vue/cloudide/workspace/QA_data/vue/10803.json",
+  "title": "SSR: textarea domProps keeps falsy values",
+  "labels": [
+    "bug",
+    "contribution welcome",
+    "has PR",
+    "feat:ssr"
+  ],
+  "state": "closed",
+  "created_at": "2019-11-06T14:59:35Z",
+  "closed_at": "2020-09-21T14:04:59Z",
+  "selection_rationale": "Vue SSR bug with falsy DOM props; good framework/runtime rendering case.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      11121
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "288c67115db28e4bdcc1dd9293cead7a4b43e92a"
+    ],
+    "cite": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "9231",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "vuetifyjs",
+        "repo_name": "vuetify",
+        "number": "9559",
+        "is_own_repo": false
+      },
+      {
+        "owner": "nuxt",
+        "repo_name": "nuxt",
+        "number": "6639",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "11121",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 11121,
+        "title": "fix(ssr): textarea keeps undefined/null values",
+        "url": "https://github.com/vuejs/vue/pull/11121",
+        "merged": true,
+        "merge_commit_sha": "b8bd149d8aa3f175a1a656d62f7b6ec60c31a364",
+        "head_sha": "ec792389b6f1d577c205448736a2231c3aa90471",
+        "base_sha": "6390f70c2e4ec7e51cce1d2a4ba35e2d0d328205",
+        "changed_files": 2,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/platforms/web/server/modules/dom-props.js",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "test/ssr/ssr-string.spec.js",
+            "additions": 19,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/platforms/web/server/modules/dom-props.js"
+    ],
+    "test_or_validation_files": [
+      "test/ssr/ssr-string.spec.js"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "language service/server",
+    "responsibility_summary": "Relevant code is responsible for language service/server behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #11121: fix(ssr): textarea keeps undefined/null values",
+    "issue_body_file_refs": [
+      "vue/test/ssr/ssr-string.spec.js",
+      "github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextarea/VTextarea.ts",
+      "github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextField/VTextField.ts"
+    ],
+    "thread_file_refs": [
+      "a/test/ssr/ssr-string.spec.js",
+      "b/test/ssr/ssr-string.spec.js",
+      "test/ssr/jasmine.js",
+      "scripts/build.js",
+      "dist/vue.runtime.common.dev.js",
+      "dist/vue.runtime.common.prod.js",
+      "packages/vue-server-renderer/build.dev.js",
+      "packages/vue-server-renderer/build.prod.js",
+      "packages/vue-server-renderer/basic.js",
+      "packages/vue-server-renderer/server-plugin.js",
+      "packages/vue-server-renderer/client-plugin.js",
+      "home/kael/Documents/vuejs/vue/test/ssr/ssr-string.spec.js",
+      "home/kael/Documents/vuejs/vue/packages/vue-server-renderer/build.dev.js"
+    ],
+    "resolution_comment_excerpts": [
+      "Are you sure this comes from vue or that it hasn't been fixed already but not released? I added your test to the test suite and it passes",
+      "Yep Could it be a node version thing (seems unlikely)? I'm on 12.5.0 ``` ~/Documents/vuejs/vue dev* ❯ git rev-parse HEAD 4821149b8bbd4650b1d9c9c3cfbb539ac1e24589 ~/Documents/vuejs/vue dev* ❯ git --no-pager diff diff --git a/test/ssr/ssr-string.spec.js b/test/ssr/ssr-string.spec.js index e18ca2ae..7dbb1ffb 100644 --- a/test/ssr/ssr-string.spec.js +++ b/test/ssr/ssr-string.spec.js @@ -4,6 +4,25 @@ import { createRenderer } from '../../packages/vue-server-renderer' const { renderToString } = createRenderer() describe('SSR: renderToString', () => { + it('falsy domProps value', done => { + renderVm",
+      "I was running the unit test suite, I forgot we have different script for that 🤦‍♂️",
+      "@posva Hi! I sent a pull request for this issue. Could you review it for me? Please, feel free to assign it to anybody else if you want to. Thanks!"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

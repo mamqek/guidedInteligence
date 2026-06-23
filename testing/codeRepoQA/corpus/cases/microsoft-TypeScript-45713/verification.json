@@ -1,0 +1,521 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-45713",
+  "primary_group": "feature_enhancement",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 45713,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/45713",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/45713.json",
+  "title": "[CLI DX] Improve the 'x errors' message in the CLI",
+  "labels": [
+    "Help Wanted",
+    "Good First Issue",
+    "Experience Enhancement",
+    "Effort: Casual"
+  ],
+  "state": "closed",
+  "created_at": "2021-09-03T19:26:54Z",
+  "closed_at": "2021-12-07T10:50:44Z",
+  "selection_rationale": "TypeScript CLI developer-experience enhancement with localized message path.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      45742
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "46c054fffe1e28986a82a997f634ef77a7aa03f7",
+      "2dfa5cf7262af8e86ebbd37f677d0143d047ac20",
+      "6249d8c5ec7d2f2be1acd250fc75e4300f5b79b0",
+      "0638417eb17d464f41c2c3f4d560262ad31fea70",
+      "08906dd069b626e372070dc3655bc42d5c7dc487",
+      "1af84d2978f2a976368f4d66487f0d599a4abbc3",
+      "7a12909ae3f03b1feed19df2082aa84e5c7a5081",
+      "5199b39a6f293c28610fabc32a22a2eefb8c3446"
+    ],
+    "cite": [],
+    "cited_by": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "45742",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 45742,
+        "title": "fix(45713) Improve error report summaries",
+        "url": "https://github.com/microsoft/TypeScript/pull/45742",
+        "merged": true,
+        "merge_commit_sha": "7a12909ae3f03b1feed19df2082aa84e5c7a5081",
+        "head_sha": "db56f9f3651f492654aecb5d95d2dc419d3fe8ef",
+        "base_sha": "016d78b09e36c934705cd8601b69d3e1ae6af440",
+        "changed_files": 57,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/compiler/diagnosticMessages.json",
+            "additions": 18,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/compiler/tsbuildPublic.ts",
+            "additions": 10,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/compiler/watch.ts",
+            "additions": 77,
+            "deletions": 6,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/executeCommandLine/executeCommandLine.ts",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/harness/harnessIO.ts",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/testRunner/unittests/tsbuild/publicApi.ts",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "additions": 7,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/api/tsserverlibrary.d.ts",
+            "additions": 5,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/api/typescript.d.ts",
+            "additions": 5,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/deeplyNestedAssignabilityIssue.errors.txt",
+            "additions": 3,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/duplicateIdentifierRelatedSpans1.errors.txt",
+            "additions": 5,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/duplicateIdentifierRelatedSpans2.errors.txt",
+            "additions": 4,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/duplicateIdentifierRelatedSpans3.errors.txt",
+            "additions": 4,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/duplicateIdentifierRelatedSpans4.errors.txt",
+            "additions": 4,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/duplicateIdentifierRelatedSpans5.errors.txt",
+            "additions": 4,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/duplicateIdentifierRelatedSpans6.errors.txt",
+            "additions": 4,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/duplicateIdentifierRelatedSpans7.errors.txt",
+            "additions": 4,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/esModuleInteropPrettyErrorRelatedInformation.errors.txt",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/manyCompilerErrorsInTheTwoFiles.errors.txt",
+            "additions": 144,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/manyCompilerErrorsInTheTwoFiles.js",
+            "additions": 30,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/manyCompilerErrorsInTheTwoFiles.symbols",
+            "additions": 16,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/manyCompilerErrorsInTheTwoFiles.types",
+            "additions": 46,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/baselines/reference/multiLineContextDiagnosticWithPretty.errors.txt",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/multipleClassPropertyModifiersErrors.errors.txt",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/parserIndexMemberDeclaration10.errors.txt",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/parserMemberAccessorDeclaration8.errors.txt",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/parserMemberFunctionDeclaration2.errors.txt",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/parserMemberVariableDeclaration2.errors.txt",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/prettyContextNotDebugAssertion.errors.txt",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/prettyFileWithErrorsAndTabs.errors.txt",
+            "additions": 3,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/staticAsIdentifier.errors.txt",
+            "additions": 6,
+            "deletions": 6,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/staticModifierAlreadySeen.errors.txt",
+            "additions": 6,
+            "deletions": 6,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/composite/initial-build/when-setting-composite-false-on-command-line-but-has-tsbuild-info-in-config.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/declarationEmit/when-pkg-references-sibling-package-through-indirect-symlink-moduleCaseChange.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/declarationEmit/when-pkg-references-sibling-package-through-indirect-symlink.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-composite.js",
+            "additions": 33,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-incremental-declaration.js",
+            "additions": 33,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-incremental.js",
+            "additions": 33,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-with-initial-noEmit-composite.js",
+            "additions": 7,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-with-initial-noEmit-incremental-declaration.js",
+            "additions": 7,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-with-initial-noEmit-incremental.js",
+            "additions": 7,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/incremental/initial-build/when-global-file-is-added,-the-signatures-are-updated.js",
+            "additions": 20,
+            "deletions": 5,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/incremental/initial-build/with-noEmitOnError-semantic-errors.js",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/incremental/initial-build/with-noEmitOnError-syntax-errors.js",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/projectReferences/initial-build/when-project-contains-invalid-project-reference.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/projectReferences/initial-build/when-project-references-composite-project-with-noEmit.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsc/react-jsx-emit-mode/initial-build/with-no-backing-types-found-doesn't-crash-under---strict.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tscWatch/incremental/editing-module-augmentation-incremental.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tscWatch/incremental/importHelpers-backing-types-removed-incremental.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tscWatch/incremental/jsxImportSource-backing-types-added-incremental.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tscWatch/incremental/jsxImportSource-backing-types-removed-incremental.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tscWatch/incremental/jsxImportSource-option-changed-incremental.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tscWatch/incremental/module-compilation/own-file-emit-with-errors-incremental.js",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tscWatch/incremental/own-file-emit-with-errors-incremental.js",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tscWatch/incremental/when-file-with-ambient-global-declaration-file-is-deleted-incremental.js",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/typedefCrossModule5.errors.txt",
+            "additions": 4,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/compiler/manyCompilerErrorsInTheTwoFiles.ts",
+            "additions": 12,
+            "deletions": 0,
+            "change_type": "ADDED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/compiler/diagnosticMessages.json",
+      "src/compiler/tsbuildPublic.ts",
+      "src/compiler/watch.ts",
+      "src/executeCommandLine/executeCommandLine.ts",
+      "src/harness/harnessIO.ts",
+      "src/testRunner/unittests/tsbuild/publicApi.ts",
+      "src/testRunner/unittests/tscWatch/helpers.ts"
+    ],
+    "test_or_validation_files": [
+      "tests/baselines/reference/api/tsserverlibrary.d.ts",
+      "tests/baselines/reference/api/typescript.d.ts",
+      "tests/baselines/reference/deeplyNestedAssignabilityIssue.errors.txt",
+      "tests/baselines/reference/duplicateIdentifierRelatedSpans1.errors.txt",
+      "tests/baselines/reference/duplicateIdentifierRelatedSpans2.errors.txt",
+      "tests/baselines/reference/duplicateIdentifierRelatedSpans3.errors.txt",
+      "tests/baselines/reference/duplicateIdentifierRelatedSpans4.errors.txt",
+      "tests/baselines/reference/duplicateIdentifierRelatedSpans5.errors.txt",
+      "tests/baselines/reference/duplicateIdentifierRelatedSpans6.errors.txt",
+      "tests/baselines/reference/duplicateIdentifierRelatedSpans7.errors.txt",
+      "tests/baselines/reference/esModuleInteropPrettyErrorRelatedInformation.errors.txt",
+      "tests/baselines/reference/manyCompilerErrorsInTheTwoFiles.errors.txt",
+      "tests/baselines/reference/manyCompilerErrorsInTheTwoFiles.js",
+      "tests/baselines/reference/manyCompilerErrorsInTheTwoFiles.symbols",
+      "tests/baselines/reference/manyCompilerErrorsInTheTwoFiles.types",
+      "tests/baselines/reference/multiLineContextDiagnosticWithPretty.errors.txt",
+      "tests/baselines/reference/multipleClassPropertyModifiersErrors.errors.txt",
+      "tests/baselines/reference/parserIndexMemberDeclaration10.errors.txt",
+      "tests/baselines/reference/parserMemberAccessorDeclaration8.errors.txt",
+      "tests/baselines/reference/parserMemberFunctionDeclaration2.errors.txt",
+      "tests/baselines/reference/parserMemberVariableDeclaration2.errors.txt",
+      "tests/baselines/reference/prettyContextNotDebugAssertion.errors.txt",
+      "tests/baselines/reference/prettyFileWithErrorsAndTabs.errors.txt",
+      "tests/baselines/reference/staticAsIdentifier.errors.txt",
+      "tests/baselines/reference/staticModifierAlreadySeen.errors.txt",
+      "tests/baselines/reference/tsc/composite/initial-build/when-setting-composite-false-on-command-line-but-has-tsbuild-info-in-config.js",
+      "tests/baselines/reference/tsc/declarationEmit/when-pkg-references-sibling-package-through-indirect-symlink-moduleCaseChange.js",
+      "tests/baselines/reference/tsc/declarationEmit/when-pkg-references-sibling-package-through-indirect-symlink.js",
+      "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-composite.js",
+      "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-incremental-declaration.js",
+      "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-incremental.js",
+      "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-with-initial-noEmit-composite.js",
+      "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-with-initial-noEmit-incremental-declaration.js",
+      "tests/baselines/reference/tsc/incremental/initial-build/noEmit-changes-with-initial-noEmit-incremental.js",
+      "tests/baselines/reference/tsc/incremental/initial-build/when-global-file-is-added,-the-signatures-are-updated.js",
+      "tests/baselines/reference/tsc/incremental/initial-build/with-noEmitOnError-semantic-errors.js",
+      "tests/baselines/reference/tsc/incremental/initial-build/with-noEmitOnError-syntax-errors.js",
+      "tests/baselines/reference/tsc/projectReferences/initial-build/when-project-contains-invalid-project-reference.js",
+      "tests/baselines/reference/tsc/projectReferences/initial-build/when-project-references-composite-project-with-noEmit.js",
+      "tests/baselines/reference/tsc/react-jsx-emit-mode/initial-build/with-no-backing-types-found-doesn't-crash-under---strict.js",
+      "tests/baselines/reference/tscWatch/incremental/editing-module-augmentation-incremental.js",
+      "tests/baselines/reference/tscWatch/incremental/importHelpers-backing-types-removed-incremental.js",
+      "tests/baselines/reference/tscWatch/incremental/jsxImportSource-backing-types-added-incremental.js",
+      "tests/baselines/reference/tscWatch/incremental/jsxImportSource-backing-types-removed-incremental.js",
+      "tests/baselines/reference/tscWatch/incremental/jsxImportSource-option-changed-incremental.js",
+      "tests/baselines/reference/tscWatch/incremental/module-compilation/own-file-emit-with-errors-incremental.js",
+      "tests/baselines/reference/tscWatch/incremental/own-file-emit-with-errors-incremental.js",
+      "tests/baselines/reference/tscWatch/incremental/when-file-with-ambient-global-declaration-file-is-deleted-incremental.js",
+      "tests/baselines/reference/typedefCrossModule5.errors.txt",
+      "tests/cases/compiler/manyCompilerErrorsInTheTwoFiles.ts"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "compiler/build pipeline",
+    "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #45742: fix(45713) Improve error report summaries",
+    "issue_body_file_refs": [
+      "index.ts",
+      "other.ts",
+      "third.ts"
+    ],
+    "thread_file_refs": [
+      "bogus.json",
+      "utilities.ts",
+      "watch.ts",
+      "executeCommandLine.ts",
+      "tsbuildPublic.ts",
+      "helpers.ts",
+      "internal/timers.js"
+    ],
+    "resolution_comment_excerpts": [
+      "Sure, give it a shot there's no need to try and claim the issue - until there's a solid WIP PR it's open for anyone to give it a go.",
+      "@orta Apologies for my new-ness, may I ask about running tests? I've implemented the first part of this ticket (I am yet to implement a breakdown of the errors), but multiple files and single files are handled. When running tests I appear to have a number of them failing with this kind of error: ``` 15) unittests:: tsbuild:: exitCodeOnBogusFile:: test exit code tsc -b bogus.json exitCodeOnBogusFile:: test exit code exitCodeOnBogusFile test exit code \"before all\" hook for \"Generates files matching the baseline\": Error: Debug Failure. at C:\\Users\\rbarg\\dev\\TypeScript\\src\\compiler\\utilities.ts:58",
+      "> @orta Apologies for my new-ness, may I ask about running tests? I've implemented the first part of this ticket (I am yet to implement a breakdown of the errors), but multiple files and single files are handled. When running tests I appear to have a number of them failing with this kind of error: > > ``` > 15) > > unittests:: tsbuild:: exitCodeOnBogusFile:: test exit code > tsc -b bogus.json exitCodeOnBogusFile:: test exit code > exitCodeOnBogusFile > test exit code > \"before all\" hook for \"Generates files matching the baseline\": > Error: Debug Failure. > at C:\\Users\\rbarg\\dev\\TypeScript\\src\\",
+      "Ace, sorry just read all this - looking good so far 👍🏻"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-22698",
+  "primary_group": "compatibility_versioning",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 22698,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/22698",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/22698.json",
+  "title": "Handle FutureWarning from NumPy in Series Construction",
+  "labels": [
+    "Compat",
+    "Blocker"
+  ],
+  "state": "closed",
+  "created_at": "2018-09-13T19:01:31Z",
+  "closed_at": "2019-06-21T01:11:56Z",
+  "selection_rationale": "pandas compatibility with NumPy FutureWarning in Series construction.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      26966
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "8a967d2d14456b651e4bc46f2c089279b5cda829"
+    ],
+    "cite": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22699",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22699",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "26966",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 26966,
+        "title": "Surface NumPy FutureWarning about comparisons",
+        "url": "https://github.com/pandas-dev/pandas/pull/26966",
+        "merged": true,
+        "merge_commit_sha": "06a3a03c005aae7942d37b6031f8297ae2f2e3e0",
+        "head_sha": "add926f261c6539b26913980969d73a3a707d8f4",
+        "base_sha": "cfd65e98e694b2ad40e97d06ffdd9096a3dea909",
+        "changed_files": 2,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "pandas/core/indexes/base.py",
+            "additions": 2,
+            "deletions": 7,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/indexes/test_numpy_compat.py",
+            "additions": 13,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "pandas/core/indexes/base.py"
+    ],
+    "test_or_validation_files": [
+      "pandas/tests/indexes/test_numpy_compat.py"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "Series operations",
+    "responsibility_summary": "Relevant code is responsible for Series operations behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #26966: Surface NumPy FutureWarning about comparisons",
+    "issue_body_file_refs": [
+      "Users/taugspurger/sandbox/numpy/numpy/core/numeric.py"
+    ],
+    "thread_file_refs": [
+      "pandas/core/arrays/datetimelike.py",
+      "github.com/pandas-dev/pandas/blob/d765dfbd53a70b94bc8e22b664d9235959832fd6/pandas/core/arrays/datetimelike.py",
+      "github.com/pandas-dev/pandas/blob/857515f60ef39d13d943969f6958e922f1e9b430/pandas/core/arrays/integer.py",
+      "github.com/pandas-dev/pandas/blob/d39249ad8ffc201dc7e92b063e2c8c2823b1cdc7/pandas/core/indexes/base.py",
+      "Users/taugspurger/sandbox/pandas/pandas/core/indexes/base.py"
+    ],
+    "resolution_comment_excerpts": [
+      "Also want to look at `cmp_method` in `pandas/core/arrays/datetimelike.py`",
+      "The occurrences of that last one: https://github.com/pandas-dev/pandas/blob/d765dfbd53a70b94bc8e22b664d9235959832fd6/pandas/core/arrays/datetimelike.py#L59-L63 https://github.com/pandas-dev/pandas/blob/857515f60ef39d13d943969f6958e922f1e9b430/pandas/core/arrays/integer.py#L508-L512 https://github.com/pandas-dev/pandas/blob/d39249ad8ffc201dc7e92b063e2c8c2823b1cdc7/pandas/core/indexes/base.py#L98-L102",
+      "Looking through this again, I'm concerned I was overly-zealous in my filtering in https://github.com/pandas-dev/pandas/pull/22699. In particular, the `cmp_method` ones are probably bad. We're silencing the following ```python In [6]: pd.Index([1, 2]) == 'a' /Users/taugspurger/sandbox/pandas/pandas/core/indexes/base.py:84: FutureWarning: elementwise comparison failed; returning scalar instead, but in the future will perform elementwise comparison result = op(self.values, np.asarray(other)) Out[6]: False In [7]: pd.Index([1, 2]) == 1 Out[7]: array([ True, False]) In [8]: pd.Index(['a', 'b']) == ",
+      "Though I think we're OK pushing this to 0.24.2 or 0.25, since NumPy just had a release."
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

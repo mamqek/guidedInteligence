@@ -1,0 +1,438 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-36617",
+  "primary_group": "maintenance_refactor",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 36617,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/36617",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/36617.json",
+  "title": "DOC: Replace single with double backticks in RST files",
+  "labels": [
+    "Docs",
+    "Clean",
+    "good first issue"
+  ],
+  "state": "closed",
+  "created_at": "2020-09-25T01:51:05Z",
+  "closed_at": "2020-09-26T22:50:28Z",
+  "selection_rationale": "pandas documentation cleanup case; distinct RST/docstring maintenance.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      36632
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "6c615dba6948d780960d0fa5e99ac57d9d0de6c2",
+      "227cf91ac888e091a61953d1ef58a252849db168",
+      "cdf67462cd769512cdd4f992f30c5d6d69eb30a8"
+    ],
+    "cite": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36591",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36632",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36627",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36630",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "36632",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 36632,
+        "title": "Replace single with double backticks in RST file #36617",
+        "url": "https://github.com/pandas-dev/pandas/pull/36632",
+        "merged": true,
+        "merge_commit_sha": "227cf91ac888e091a61953d1ef58a252849db168",
+        "head_sha": "a53b240d949100adfa892c960db89f8baea15f88",
+        "base_sha": "e088ea31a897929848caa4b5ce3db9d308c604db",
+        "changed_files": 39,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": ".pre-commit-config.yaml",
+            "additions": 0,
+            "deletions": 14,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/development/contributing.rst",
+            "additions": 10,
+            "deletions": 10,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/development/contributing_docstring.rst",
+            "additions": 31,
+            "deletions": 31,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/development/extending.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/ecosystem.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/getting_started/comparison/comparison_with_sql.rst",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/getting_started/install.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/getting_started/intro_tutorials/06_calculate_statistics.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/getting_started/intro_tutorials/08_combine_dataframes.rst",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/user_guide/categorical.rst",
+            "additions": 36,
+            "deletions": 36,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.10.1.rst",
+            "additions": 4,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.11.0.rst",
+            "additions": 4,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.13.0.rst",
+            "additions": 4,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.13.1.rst",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.14.0.rst",
+            "additions": 15,
+            "deletions": 15,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.14.1.rst",
+            "additions": 4,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.15.0.rst",
+            "additions": 4,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.15.1.rst",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.15.2.rst",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.16.0.rst",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.16.1.rst",
+            "additions": 5,
+            "deletions": 5,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.16.2.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.17.0.rst",
+            "additions": 4,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.18.0.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.19.1.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.23.0.rst",
+            "additions": 11,
+            "deletions": 11,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.23.1.rst",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.24.0.rst",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.24.1.rst",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.25.0.rst",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.25.1.rst",
+            "additions": 7,
+            "deletions": 7,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.6.0.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.6.1.rst",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.7.0.rst",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.8.0.rst",
+            "additions": 4,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.9.0.rst",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.9.1.rst",
+            "additions": 13,
+            "deletions": 13,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v1.0.0.rst",
+            "additions": 16,
+            "deletions": 16,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v1.1.0.rst",
+            "additions": 11,
+            "deletions": 11,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      ".pre-commit-config.yaml"
+    ],
+    "test_or_validation_files": [],
+    "documentation_files": [
+      "doc/source/development/contributing.rst",
+      "doc/source/development/contributing_docstring.rst",
+      "doc/source/development/extending.rst",
+      "doc/source/ecosystem.rst",
+      "doc/source/getting_started/comparison/comparison_with_sql.rst",
+      "doc/source/getting_started/install.rst",
+      "doc/source/getting_started/intro_tutorials/06_calculate_statistics.rst",
+      "doc/source/getting_started/intro_tutorials/08_combine_dataframes.rst",
+      "doc/source/user_guide/categorical.rst",
+      "doc/source/whatsnew/v0.10.1.rst",
+      "doc/source/whatsnew/v0.11.0.rst",
+      "doc/source/whatsnew/v0.13.0.rst",
+      "doc/source/whatsnew/v0.13.1.rst",
+      "doc/source/whatsnew/v0.14.0.rst",
+      "doc/source/whatsnew/v0.14.1.rst",
+      "doc/source/whatsnew/v0.15.0.rst",
+      "doc/source/whatsnew/v0.15.1.rst",
+      "doc/source/whatsnew/v0.15.2.rst",
+      "doc/source/whatsnew/v0.16.0.rst",
+      "doc/source/whatsnew/v0.16.1.rst",
+      "doc/source/whatsnew/v0.16.2.rst",
+      "doc/source/whatsnew/v0.17.0.rst",
+      "doc/source/whatsnew/v0.18.0.rst",
+      "doc/source/whatsnew/v0.19.1.rst",
+      "doc/source/whatsnew/v0.23.0.rst",
+      "doc/source/whatsnew/v0.23.1.rst",
+      "doc/source/whatsnew/v0.24.0.rst",
+      "doc/source/whatsnew/v0.24.1.rst",
+      "doc/source/whatsnew/v0.25.0.rst",
+      "doc/source/whatsnew/v0.25.1.rst",
+      "doc/source/whatsnew/v0.6.0.rst",
+      "doc/source/whatsnew/v0.6.1.rst",
+      "doc/source/whatsnew/v0.7.0.rst",
+      "doc/source/whatsnew/v0.8.0.rst",
+      "doc/source/whatsnew/v0.9.0.rst",
+      "doc/source/whatsnew/v0.9.1.rst",
+      "doc/source/whatsnew/v1.0.0.rst",
+      "doc/source/whatsnew/v1.1.0.rst"
+    ],
+    "symbols_or_apis": [],
+    "subsystem": "documentation tooling",
+    "responsibility_summary": "Relevant code is responsible for documentation tooling behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #36632: Replace single with double backticks in RST file #36617",
+    "issue_body_file_refs": [
+      "doc/source/user_guide/10min.rst",
+      "doc/source/user_guide/timeseries.rst",
+      "doc/source/user_guide/visualization.rst",
+      "doc/source/user_guide/missing_data.rst",
+      "doc/source/user_guide/options.rst",
+      "doc/source/user_guide/reshaping.rst",
+      "doc/source/user_guide/scale.rst",
+      "doc/source/user_guide/merging.rst",
+      "doc/source/user_guide/cookbook.rst",
+      "doc/source/user_guide/enhancingperf.rst",
+      "doc/source/user_guide/groupby.rst",
+      "doc/source/user_guide/io.rst",
+      "doc/source/getting_started/overview.rst",
+      "doc/source/reference/panel.rst",
+      "doc/source/reference/plotting.rst",
+      "doc/source/user_guide/basics.rst",
+      "doc/source/user_guide/categorical.rst",
+      "doc/source/development/contributing.rst",
+      "doc/source/development/contributing_docstring.rst",
+      "doc/source/development/extending.rst",
+      "doc/source/ecosystem.rst",
+      "doc/source/getting_started/comparison/comparison_with_sql.rst",
+      "doc/source/getting_started/install.rst",
+      "doc/source/getting_started/intro_tutorials/06_calculate_statistics.rst",
+      "doc/source/getting_started/intro_tutorials/08_combine_dataframes.rst"
+    ],
+    "thread_file_refs": [
+      "doc/source/development/contributing.rst",
+      "doc/source/development/contributing_docstring.rst",
+      "doc/source/development/extending.rst",
+      "doc/source/ecosystem.rst",
+      "doc/source/getting_started/install.rst",
+      "doc/source/getting_started/comparison/comparison_with_sql.rst",
+      "doc/source/getting_started/intro_tutorials/06_calculate_statistics.rst",
+      "doc/source/getting_started/intro_tutorials/08_combine_dataframes.rst",
+      "doc/source/user_guide/categorical.rst"
+    ],
+    "resolution_comment_excerpts": [
+      "I have added a PR to fix a few of the files. There are still more that needs to be fixed in case anyone else wants to help.",
+      "Than I'll take : - doc/source/development/contributing.rst - doc/source/development/contributing_docstring.rst - doc/source/development/extending.rst - doc/source/ecosystem.rst - doc/source/getting_started/install.rst - doc/source/getting_started/comparison/comparison_with_sql.rst - doc/source/getting_started/intro_tutorials/06_calculate_statistics.rst - doc/source/getting_started/intro_tutorials/08_combine_dataframes.rst - doc/source/user_guide/categorical.rst",
+      "if some files still left to fix I've made a PR #36632",
+      "> Hi @dsaxton , I would like take this issue, can I? Sure, feel free to simply open a PR (which it looks like you've done)"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "case_id": "vuejs-vue-10803",
+  "implementation_overlap_files": [
+    "src/platforms/web/server/modules/dom-props.js"
+  ],
+  "oracle_documentation_files": [],
+  "oracle_files": [
+    "src/platforms/web/server/modules/dom-props.js",
+    "test/ssr/ssr-string.spec.js"
+  ],
+  "oracle_implementation_files": [
+    "src/platforms/web/server/modules/dom-props.js"
+  ],
+  "oracle_only_files": [
+    "test/ssr/ssr-string.spec.js"
+  ],
+  "oracle_source": {
+    "hidden_resolution_summary": "PR #11121: fix(ssr): textarea keeps undefined/null values",
+    "responsibility_summary": "Relevant code is responsible for language service/server behavior described by the issue and fixed by the selected PR.",
+    "subsystem": "language service/server",
+    "thread_file_refs": true,
+    "verification_case_id": "vuejs-vue-10803",
+    "verification_group": "bug_regression",
+    "verification_json": true
+  },
+  "oracle_symbols": [],
+  "oracle_test_or_validation_files": [
+    "test/ssr/ssr-string.spec.js"
+  ],
+  "overlap_files": [
+    "src/platforms/web/server/modules/dom-props.js"
+  ],
+  "prompt_title": "SSR: textarea domProps keeps falsy values",
+  "retrieved_only_files": [
+    "src/platforms/web/compiler/directives/model.js",
+    "src/platforms/web/runtime/modules/dom-props.js",
+    "src/core/util/error.js",
+    "src/server/optimizing-compiler/optimizer.js",
+    "src/compiler/error-detector.js"
+  ],
+  "retrieved_source_files": [
+    "src/platforms/web/compiler/directives/model.js",
+    "src/platforms/web/server/modules/dom-props.js",
+    "src/platforms/web/runtime/modules/dom-props.js",
+    "src/core/util/error.js",
+    "src/server/optimizing-compiler/optimizer.js",
+    "src/compiler/error-detector.js"
+  ],
+  "top_k": {
+    "found_positions": {
+      "src/platforms/web/server/modules/dom-props.js": 2
+    },
+    "found_within_10": true,
+    "found_within_20": true,
+    "found_within_5": true,
+    "k_values": [
+      5,
+      10,
+      20
+    ]
+  },
+  "verification_case_id": "vuejs-vue-10803"
+}

@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-4542",
+  "primary_group": "feature_enhancement",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 4542,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/4542",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/4542.json",
+  "title": "ENH: Adding XlsxWriter as an ExcelWriter() option",
+  "labels": [
+    "Enhancement",
+    "IO Data",
+    "IO Excel"
+  ],
+  "state": "closed",
+  "created_at": "2013-08-12T13:39:22Z",
+  "closed_at": "2013-09-22T23:14:58Z",
+  "selection_rationale": "pandas Excel writer capability enhancement involving IO subsystem.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      4857
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "4593614ecbcd7ca1e975d441ef99cb694f68a2bd"
+    ],
+    "cite": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "4517",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "4739",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "4847",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "4857",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "4517",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 4857,
+        "title": "ENH: Added xlsxwriter as an ExcelWriter option.",
+        "url": "https://github.com/pandas-dev/pandas/pull/4857",
+        "merged": true,
+        "merge_commit_sha": "149f5db21f7663af942c6b10dade26dde4016817",
+        "head_sha": "b0c290f4879a542b027b4c36a922f5ae2216ed5a",
+        "base_sha": "ebfb4c8a91d8d566317d9a973f827a165d15e4ae",
+        "changed_files": 13,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "ci/requirements-2.7.txt",
+            "additions": 1,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "ci/requirements-2.7_LOCALE.txt",
+            "additions": 1,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "ci/requirements-3.2.txt",
+            "additions": 1,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "ci/requirements-3.3.txt",
+            "additions": 1,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/10min.rst",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/install.rst",
+            "additions": 2,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/io.rst",
+            "additions": 26,
+            "deletions": 8,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/release.rst",
+            "additions": 3,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/frame.py",
+            "additions": 4,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/io/excel.py",
+            "additions": 93,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/io/tests/test_excel.py",
+            "additions": 72,
+            "deletions": 8,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/test_panel.py",
+            "additions": 20,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/util/print_versions.py",
+            "additions": 6,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "pandas/core/frame.py",
+      "pandas/io/excel.py",
+      "pandas/util/print_versions.py"
+    ],
+    "test_or_validation_files": [
+      "ci/requirements-2.7.txt",
+      "ci/requirements-2.7_LOCALE.txt",
+      "ci/requirements-3.2.txt",
+      "ci/requirements-3.3.txt",
+      "pandas/io/tests/test_excel.py",
+      "pandas/tests/test_panel.py"
+    ],
+    "documentation_files": [
+      "doc/source/10min.rst",
+      "doc/source/install.rst",
+      "doc/source/io.rst",
+      "doc/source/release.rst"
+    ],
+    "symbols_or_apis": [],
+    "subsystem": "IO subsystem",
+    "responsibility_summary": "Relevant code is responsible for IO subsystem behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #4857: ENH: Added xlsxwriter as an ExcelWriter option.",
+    "issue_body_file_refs": [
+      "CONTRIBUTING.md"
+    ],
+    "thread_file_refs": [
+      "io/html.py",
+      "format.py",
+      "github.com/pydata/pandas/blob/master/pandas/io/pytables.py",
+      "xltime.py",
+      "github.com/pydata/pandas/blob/master/vb_suite/ctors.py",
+      "suite.py"
+    ],
+    "resolution_comment_excerpts": [
+      "@jreback @jtratner The code is getting close to a PR. I'll rebase/squash it onto another branch prior to that so that the merge is only one commit. I still have a bit more to add first but any comments on the existing code are welcome. I wrote 28 `xlsxwriter` specific tests and added `xlsxwriter` variations of all of the existing `openpyxl` tests. Here are some initial benchmark figures for the three supported writer modules: ``` $ python xltime.py 100 Engine = openpyxl Rows = 100 time = 0.12 Engine = xlsxwriter Rows = 100 time = 0.02 Engine = xlwt Rows = 100 time = 0.03 $ python xltime.py 100",
+      "you can put this in the form of a vbench I think you could try to create a vbench for this, nothing there now but create a file like this: (named say excel): https://github.com/pydata/pandas/blob/master/vb_suite/ctors.py, and add it to the suite.py. test using: test_perf.sh -b <commit prior> -t <your last commit> (lots of options to test_perf, e.g. you might want to start all of the tests with excel_, then you can add the -r excel option to ONLY test thoses specific vbenches",
+      "@jmcnamara how to use pandas.to_excel(Write or maybe pandas.ExcelWriter) to add some data to an existed file , but not rewrite it??",
+      "> @jmcnamara how to use pandas.to_excel(Write or maybe pandas.ExcelWriter) to add some data to an existed file , but not rewrite it?? You would have to [read it in](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_excel.html), make your changes, and print to the same filename."
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

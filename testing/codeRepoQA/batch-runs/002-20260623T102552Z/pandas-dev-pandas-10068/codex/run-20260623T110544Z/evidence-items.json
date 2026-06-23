@@ -1,0 +1,92 @@
+[
+  {
+    "metadata": {
+      "claim_supported": "`_maybe_match_name` returns `None` when both operands have names and the names differ.",
+      "coverage_area": "name-resolution helper used by arithmetic/comparison code",
+      "file_role": "implementation",
+      "line_range": "L3324-L3331",
+      "path": "pandas/core/common.py",
+      "retrieval_path": "codex",
+      "why_relevant": "This is the helper that decides whether a binary op result should keep a name or drop it when names disagree."
+    },
+    "rank": 1,
+    "snippet": "def _maybe_match_name(a, b):\n    a_has = hasattr(a, 'name')\n    b_has = hasattr(b, 'name')\n    if a_has and b_has:\n        if a.name == b.name:\n            return a.name\n        else:\n            return None",
+    "source_category": "source_code",
+    "source_id": "workspace:pandas/core/common.py:L3324-L3331"
+  },
+  {
+    "metadata": {
+      "claim_supported": "The Series special-arithmetic wrapper (`__add__`, `__sub__`, etc.) resolves result names through `_maybe_match_name` and passes that name into the constructor.",
+      "coverage_area": "Series special arithmetic wrapper",
+      "file_role": "implementation",
+      "line_range": "L460-L527",
+      "path": "pandas/core/ops.py",
+      "retrieval_path": "codex",
+      "why_relevant": "This is the code path behind `s1 + s2`, and it explicitly uses name matching when both operands are Series."
+    },
+    "rank": 2,
+    "snippet": "def _arith_method_SERIES(op, name, str_rep, fill_zeros=None,\n                         default_axis=None, **eval_kwargs):\n    \"\"\"\n    Wrapper function for Series arithmetic operations, to avoid\n    code duplication.\n    \"\"\"\n    def na_op(x, y):\n        try:\n            result = expressions.evaluate(op, str_rep, x, y,\n                                          raise_on_error=True, **eval_kwargs)\n        except TypeError:\n            if isinstance(y, (np.ndarray, pd.Series, pd.Index)):\n                dtype = np.find_common_type([x.dtype, y.dtype], [])\n                result = np.empty(x.size, dtype=dtype)\n                mask = notnull(x) & notnull(y)\n                result[mask] = op(x[mask], _values_from_object(y[mask]))\n            elif isinstance(x, np.ndarray):\n                result = np.empty(len(x), dtype=x.dtype)\n                mask = notnull(x)\n                result[mask] = op(x[mask], y)\n            else:\n                raise TypeError(\"{typ} cannot perform the operation {op}\".format(typ=type(x).__name__,op=str_rep))\n\n            result, changed = com._maybe_upcast_putmask(result, ~mask, np.nan)\n\n        result = com._fill_zeros(result, x, y, name, fill_zeros)\n        return result\n\n    def wrapper(left, right, name=name):\n\n        if isinstance(right, pd.DataFrame):\n            return NotImplemented\n\n        time_converted = _TimeOp.maybe_convert_for_time_op(left, right, name)\n\n        if time_converted is None:\n            lvalues, rvalues = left, right\n            dtype = None\n            wrap_results = lambda x: x\n        elif time_converted == NotImplemented:\n            return NotImplemented\n        else:\n            left, right = time_converted.left, time_converted.right\n            lvalues, rvalues = time_converted.lvalues, time_converted.rvalues\n            dtype = time_converted.dtype\n            wrap_results = time_converted.wrap_results\n\n        if isinstance(rvalues, pd.Series):\n            rindex = getattr(rvalues,'index',rvalues)\n            name = _maybe_match_name(left, rvalues)\n            lvalues = getattr(lvalues, 'values', lvalues)\n            rvalues = getattr(rvalues, 'values', rvalues)\n            if left.index.equals(rindex):\n                index = left.index\n            else:\n                index, lidx, ridx = left.index.join(rindex, how='outer',\n                                                       return_indexers=True)\n\n                if lidx is not None:\n                    lvalues = com.take_1d(lvalues, lidx)\n\n                if ridx is not None:\n                    rvalues = com.take_1d(rvalues, ridx)\n\n            arr = na_op(lvalues, rvalues)\n\n            return left._constructor(wrap_results(arr), index=index,\n                                     name=name, dtype=dtype)",
+    "source_category": "source_code",
+    "source_id": "workspace:pandas/core/ops.py:L460-L527"
+  },
+  {
+    "metadata": {
+      "claim_supported": "The Series flex-arithmetic wrapper (`add`, `sub`, etc.) routes Series operands into `self._binop(...)`.",
+      "coverage_area": "Series flex arithmetic wrapper",
+      "file_role": "implementation",
+      "line_range": "L755-L768",
+      "path": "pandas/core/ops.py",
+      "retrieval_path": "codex",
+      "why_relevant": "This is the code path behind `s1.add(s2)` and shows it delegates to Series._binop rather than using the special-arithmetic wrapper."
+    },
+    "rank": 3,
+    "snippet": "    @Appender(doc)\n    def flex_wrapper(self, other, level=None, fill_value=None, axis=0):\n        # validate axis\n        self._get_axis_number(axis)\n        if isinstance(other, pd.Series):\n            return self._binop(other, op, level=level, fill_value=fill_value)\n        elif isinstance(other, (np.ndarray, pd.Series, list, tuple)):\n            if len(other) != len(self):\n                raise ValueError('Lengths must be equal')\n            return self._binop(self._constructor(other, self.index), op,\n                               level=level, fill_value=fill_value)\n        else:\n            return self._constructor(op(self.values, other),\n                                     self.index).__finalize__(self)",
+    "source_category": "source_code",
+    "source_id": "workspace:pandas/core/ops.py:L755-L768"
+  },
+  {
+    "metadata": {
+      "claim_supported": "`Series._binop` computes `name = _maybe_match_name(self, other)` but does not pass that `name` into the returned Series; it finalizes the result from `self` instead.",
+      "coverage_area": "Series binary-op implementation",
+      "file_role": "implementation",
+      "line_range": "L1466-L1511",
+      "path": "pandas/core/series.py",
+      "retrieval_path": "codex",
+      "why_relevant": "This is the key implementation detail behind the inconsistent name retention for flex arithmetic."
+    },
+    "rank": 4,
+    "snippet": "    def _binop(self, other, func, level=None, fill_value=None):\n        \"\"\"\n        Perform generic binary operation with optional fill value\n\n        Parameters\n        ----------\n        other : Series\n        func : binary operator\n        fill_value : float or object\n            Value to substitute for NA/null values. If both Series are NA in a\n            location, the result will be NA regardless of the passed fill value\n        level : int or level name, default None\n            Broadcast across a level, matching Index values on the\n            passed MultiIndex level\n\n        Returns\n        -------\n        combined : Series\n        \"\"\"\n        if not isinstance(other, Series):\n            raise AssertionError('Other operand must be Series')\n\n        new_index = self.index\n        this = self\n\n        if not self.index.equals(other.index):\n            this, other = self.align(other, level=level, join='outer', copy=False)\n            new_index = this.index\n\n        this_vals = this.values\n        other_vals = other.values\n\n        if fill_value is not None:\n            this_mask = isnull(this_vals)\n            other_mask = isnull(other_vals)\n            this_vals = this_vals.copy()\n            other_vals = other_vals.copy()\n\n            # one but not both\n            mask = this_mask ^ other_mask\n            this_vals[this_mask & mask] = fill_value\n            other_vals[other_mask & mask] = fill_value\n\n        result = func(this_vals, other_vals)\n        name = _maybe_match_name(self, other)\n        return self._constructor(result, index=new_index).__finalize__(self)",
+    "source_category": "source_code",
+    "source_id": "workspace:pandas/core/series.py:L1466-L1511"
+  },
+  {
+    "metadata": {
+      "claim_supported": "Series is wired up with both flex and special arithmetic method families.",
+      "coverage_area": "Series method registration",
+      "file_role": "implementation",
+      "line_range": "L2735-L2737",
+      "path": "pandas/core/series.py",
+      "retrieval_path": "codex",
+      "why_relevant": "This shows that both arithmetic entry points are installed on Series from different wrapper families."
+    },
+    "rank": 5,
+    "snippet": "# Add arithmetic!\nops.add_flex_arithmetic_methods(Series, **ops.series_flex_funcs)\nops.add_special_arithmetic_methods(Series, **ops.series_special_funcs)",
+    "source_category": "source_code",
+    "source_id": "workspace:pandas/core/series.py:L2735-L2737"
+  },
+  {
+    "metadata": {
+      "claim_supported": "Index addition is implemented separately as direct union/new-Index construction.",
+      "coverage_area": "Index arithmetic context",
+      "file_role": "implementation",
+      "line_range": "L1325-L1331",
+      "path": "pandas/core/index.py",
+      "retrieval_path": "codex",
+      "why_relevant": "This provides the requested Index-side context for comparison with Series arithmetic behavior."
+    },
+    "rank": 6,
+    "snippet": "    def __add__(self, other):\n        if com.is_list_like(other):\n            warnings.warn(\"using '+' to provide set union with Indexes is deprecated, \"\n                          \"use '|' or .union()\", FutureWarning)\n        if isinstance(other, Index):\n            return self.union(other)\n        return Index(np.array(self) + other)",
+    "source_category": "source_code",
+    "source_id": "workspace:pandas/core/index.py:L1325-L1331"
+  }
+]

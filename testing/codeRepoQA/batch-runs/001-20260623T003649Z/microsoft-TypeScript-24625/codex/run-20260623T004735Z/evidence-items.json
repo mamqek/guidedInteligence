@@ -1,0 +1,47 @@
+[
+  {
+    "metadata": {
+      "claim_supported": "TypeScript's watch API defines `CreateProgram<T>` as a callback that takes `rootNames` and `options` first, both possibly `undefined`, and `WatchCompilerHost<T>` requires `createProgram` to use that callback type.",
+      "coverage_area": "watch API type definitions",
+      "file_role": "implementation",
+      "line_range": "L270-L278",
+      "path": "src/compiler/watch.ts",
+      "retrieval_path": "codex",
+      "why_relevant": "This is the target type that ts-loader's `watchHost.createProgram` must satisfy, so it shows the new expected signature shape in 2.9."
+    },
+    "rank": 1,
+    "snippet": "    /** Create the program with rootNames and options, if they are undefined, oldProgram and new configFile diagnostics create new program */\n    export type CreateProgram<T extends BuilderProgram> = (rootNames: ReadonlyArray<string> | undefined, options: CompilerOptions | undefined, host?: CompilerHost, oldProgram?: T, configFileParsingDiagnostics?: ReadonlyArray<Diagnostic>) => T;\n    export interface WatchCompilerHost<T extends BuilderProgram> {\n        // TODO: GH#18217 Optional methods are frequently asserted\n\n        /**\n         * Used to create the program when need for program creation or recreation detected\n         */\n        createProgram: CreateProgram<T>;",
+    "source_category": "source_code",
+    "source_id": "workspace:src/compiler/watch.ts:L270-L278"
+  },
+  {
+    "metadata": {
+      "claim_supported": "`createWatchCompilerHostOfFilesAndCompilerOptions` builds a watch host by passing the `createProgram` callback through, then adds `rootFiles` and `options` onto the returned host object.",
+      "coverage_area": "watch host factory for root files/options",
+      "file_role": "implementation",
+      "line_range": "L257-L264",
+      "path": "src/compiler/watch.ts",
+      "retrieval_path": "codex",
+      "why_relevant": "This shows the concrete watch-host creation path where a supplied `createProgram` callback is consumed, matching the compile error context around `WatchHost`."
+    },
+    "rank": 2,
+    "snippet": "    /**\n     * Creates the watch compiler host from system for compiling root files and options in watch mode\n     */\n    export function createWatchCompilerHostOfFilesAndCompilerOptions<T extends BuilderProgram = EmitAndSemanticDiagnosticsBuilderProgram>(rootFiles: string[], options: CompilerOptions, system: System, createProgram?: CreateProgram<T>, reportDiagnostic?: DiagnosticReporter, reportWatchStatus?: WatchStatusReporter): WatchCompilerHostOfFilesAndCompilerOptions<T> {\n        const host = createWatchCompilerHost(system, createProgram, reportDiagnostic || createDiagnosticReporter(system), reportWatchStatus) as WatchCompilerHostOfFilesAndCompilerOptions<T>;\n        host.rootFiles = rootFiles;\n        host.options = options;\n        return host;",
+    "source_category": "source_code",
+    "source_id": "workspace:src/compiler/watch.ts:L257-L264"
+  },
+  {
+    "metadata": {
+      "claim_supported": "`createAbstractBuilder` is overloaded to take either a `Program` or `rootNames` plus `CompilerOptions`, but its first overload expects `newProgram: Program` rather than the `rootNames: ReadonlyArray<string> | undefined` form used by `CreateProgram<T>`.",
+      "coverage_area": "builder API used as the supplied implementation",
+      "file_role": "implementation",
+      "line_range": "L567-L572",
+      "path": "src/compiler/builder.ts",
+      "retrieval_path": "codex",
+      "why_relevant": "This is the implementation side of the mismatch: the builder helper's callable shape differs from the watch API callback shape that `WatchHost.createProgram` requires."
+    },
+    "rank": 3,
+    "snippet": "    /**\n     * Creates a builder thats just abstraction over program and can be used with watch\n     */\n    export function createAbstractBuilder(newProgram: Program, host: BuilderProgramHost, oldProgram?: BuilderProgram, configFileParsingDiagnostics?: ReadonlyArray<Diagnostic>): BuilderProgram;\n    export function createAbstractBuilder(rootNames: ReadonlyArray<string>, options: CompilerOptions, host?: CompilerHost, oldProgram?: BuilderProgram, configFileParsingDiagnostics?: ReadonlyArray<Diagnostic>): BuilderProgram;\n    export function createAbstractBuilder(newProgramOrRootNames: Program | ReadonlyArray<string>, hostOrOptions: BuilderProgramHost | CompilerOptions, oldProgramOrHost?: CompilerHost | BuilderProgram, configFileParsingDiagnosticsOrOldProgram?: ReadonlyArray<Diagnostic> | BuilderProgram, configFileParsingDiagnostics?: ReadonlyArray<Diagnostic>): BuilderProgram {",
+    "source_category": "source_code",
+    "source_id": "workspace:src/compiler/builder.ts:L567-L572"
+  }
+]

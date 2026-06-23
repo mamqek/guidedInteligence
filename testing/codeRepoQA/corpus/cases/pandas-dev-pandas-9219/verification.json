@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-9219",
+  "primary_group": "question_usage",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 9219,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/9219",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/9219.json",
+  "title": "DataFrame.to_hdf fails in Python 3.4",
+  "labels": [
+    "Usage Question",
+    "IO HDF5"
+  ],
+  "state": "closed",
+  "created_at": "2015-01-09T22:35:44Z",
+  "closed_at": "2015-01-09T23:16:46Z",
+  "selection_rationale": "pandas Usage Question around HDF storage; useful for comparing explanation to maintainer guidance.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [],
+    "referenced_commit_shas_from_issue_events": [
+      "6535781d96b243dba6632fd8f87cd0f0608c6bc9"
+    ],
+    "cite": [],
+    "cited_by": [],
+    "resolution_status": "has_local_resolution_artifact"
+  },
+  "oracle": {
+    "implementation_files": [],
+    "test_or_validation_files": [],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "HDF5 IO integration",
+    "responsibility_summary": "pandas HDFStore/to_hdf is built on PyTables semantics and owns the file IO path; h5py-created structures are not equivalent write targets for pandas to_hdf.",
+    "hidden_resolution_summary": "Maintainer guidance says HDFStore/to_hdf uses PyTables. pandas may read h5py files in some cases, but writing through an h5py-opened structure is not the supported path; use PyTables/HDFStore/to_hdf-managed IO.",
+    "issue_body_file_refs": [
+      "home/mrocklin/Software/anaconda/envs/py34/lib/python3.4/site-packages/tables/attributeset.py"
+    ],
+    "thread_file_refs": [
+      "leaf.py",
+      "testscript.py",
+      "generic.py",
+      "pytables.py",
+      "_optional.py"
+    ],
+    "resolution_comment_excerpts": [
+      "I don't understand the answer, maybe what I am trying to do cannot be achieved in this way. I am using h5py to create the HDF5 file and its internal structure. A normal workflow for me would be: 1. Create a new HDF5 file: ``` import h5py import pandas as pd f = h5py.File('file.hdf5', 'a') ``` 2. Create a group and dataset: ``` grp = f.create_group('One_Group') dset = f.create_dataset('One_Group/One_Dset', (100,), dtype='S10') ``` 3. Every time I have new data, append it to the corresponding dataset: ``` df = pd.read_table('data.csv', sep='\\t') df.to_hdf('file.hdf5', '/One_Group/One_Dset', appe",
+      "@iipr ``HDFStore`` is based upon ``pytables``, see the docs [here](http://pandas.pydata.org/pandas-docs/stable/io.html#hdf5-pytables) it can *read* ``h5py`` files, but not write them, and certainly not by opening a ``h5py`` in that way. You *can* open a ``PyTables`` file directly and do what you are doing. But really no need for that as ``to_hdf`` (and ``HDFStore``) can take care of the file IO directly. In the future this may be possible (as ``h5py`` and ``PyTables`` are combining the formats), but not today.",
+      "I see, thanks a lot. You are right, I read [this](https://hdfgroup.org/wp/2015/09/python-hdf5-a-vision/) some time ago, but I didn't know if the combination of `h5py` and `PyTables` was already happening or not. I will probably start working with `PyTables` to see if it goes fine for my project then.",
+      "Hey, Curiously I have the same issue. I've updated drivers and installed both through Conda, and manually as suggested above. it still gives me the same error: I do activate my environments before testing. `CREATING-SOME LABELS FOR THE FRAMES Traceback (most recent call last): File \"testscript.py\", line 108, in <module> dataFrame.to_hdf( File \"C:\\Users\\phar0732\\.conda\\envs\\DEEPLABCUT2\\lib\\site-packages\\pandas\\core\\generic.py\", line 2703, in to_hdf pytables.to_hdf( File \"C:\\Users\\phar0732\\.conda\\envs\\DEEPLABCUT2\\lib\\site-packages\\pandas\\io\\pytables.py\", line 311, in to_hdf with HDFStore( File \""
+    ],
+    "notes": "Question/usage case: score explanation agreement and citation/leakage first; implementation-file overlap is secondary or not applicable."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "not_primary_for_question_usage",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "optional_context_files_only"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

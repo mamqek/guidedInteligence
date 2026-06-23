@@ -1,0 +1,116 @@
+{
+  "cases": [
+    "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-45713\\issue.json",
+    "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-46770\\issue.json",
+    "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\pandas-dev-pandas-10068\\issue.json",
+    "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\pandas-dev-pandas-14942\\issue.json",
+    "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\vuejs-vue-10803\\issue.json"
+  ],
+  "codex_run_config": "configs/testing/codex.json",
+  "created_at": "2026-06-23T11:29:05.174850+00:00",
+  "error_count": 1,
+  "result_count": 10,
+  "results": [
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\002-20260623T102552Z\\microsoft-TypeScript-45713\\workspace\\run-20260623T102628Z",
+      "case_id": "microsoft-TypeScript-45713",
+      "elapsed_seconds": 657.377722,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-45713\\issue.json",
+      "retrieval_mode": "workspace",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-45713\\runs\\run-20260623T102628Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\002-20260623T102552Z\\microsoft-TypeScript-45713\\codex\\run-20260623T103650Z",
+      "case_id": "microsoft-TypeScript-45713",
+      "elapsed_seconds": 228.128706,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-45713\\issue.json",
+      "retrieval_mode": "codex",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-45713\\runs\\run-20260623T103650Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\002-20260623T102552Z\\microsoft-TypeScript-46770\\workspace\\run-20260623T104115Z",
+      "case_id": "microsoft-TypeScript-46770",
+      "elapsed_seconds": 646.962716,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-46770\\issue.json",
+      "retrieval_mode": "workspace",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-46770\\runs\\run-20260623T104115Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\002-20260623T102552Z\\microsoft-TypeScript-46770\\codex\\run-20260623T105125Z",
+      "case_id": "microsoft-TypeScript-46770",
+      "elapsed_seconds": 221.209392,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\microsoft-TypeScript-46770\\issue.json",
+      "retrieval_mode": "codex",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-46770\\runs\\run-20260623T105125Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\002-20260623T102552Z\\pandas-dev-pandas-10068\\workspace\\run-20260623T105532Z",
+      "case_id": "pandas-dev-pandas-10068",
+      "elapsed_seconds": 636.726384,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\pandas-dev-pandas-10068\\issue.json",
+      "retrieval_mode": "workspace",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\pandas-dev-pandas-10068\\runs\\run-20260623T105532Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\002-20260623T102552Z\\pandas-dev-pandas-10068\\codex\\run-20260623T110544Z",
+      "case_id": "pandas-dev-pandas-10068",
+      "elapsed_seconds": 268.2034,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\pandas-dev-pandas-10068\\issue.json",
+      "retrieval_mode": "codex",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\pandas-dev-pandas-10068\\runs\\run-20260623T110544Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": null,
+      "case_id": "pandas-dev-pandas-14942",
+      "elapsed_seconds": 3.154051,
+      "error": "RuntimeError: git checkout --detach 28edd06498987972953b5c8e1c98b7f55d24b8d2 failed in C:\\Programming\\guidedInteligence_testcases\\pandas-dev-pandas-14942\\s\\28edd0649898: fatal: update_ref failed for ref 'HEAD': couldn't set 'HEAD'",
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\pandas-dev-pandas-14942\\issue.json",
+      "retrieval_mode": "workspace",
+      "run_dir": null,
+      "status": "error"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\002-20260623T102552Z\\pandas-dev-pandas-14942\\codex\\run-20260623T111015Z",
+      "case_id": "pandas-dev-pandas-14942",
+      "elapsed_seconds": 599.744057,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\pandas-dev-pandas-14942\\issue.json",
+      "retrieval_mode": "codex",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\pandas-dev-pandas-14942\\runs\\run-20260623T111015Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\002-20260623T102552Z\\vuejs-vue-10803\\workspace\\run-20260623T112023Z",
+      "case_id": "vuejs-vue-10803",
+      "elapsed_seconds": 408.270416,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\vuejs-vue-10803\\issue.json",
+      "retrieval_mode": "workspace",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\vuejs-vue-10803\\runs\\run-20260623T112023Z",
+      "status": "ok"
+    },
+    {
+      "batch_artifact_dir": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\batch-runs\\002-20260623T102552Z\\vuejs-vue-10803\\codex\\run-20260623T112703Z",
+      "case_id": "vuejs-vue-10803",
+      "elapsed_seconds": 122.825007,
+      "error": null,
+      "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\vuejs-vue-10803\\issue.json",
+      "retrieval_mode": "codex",
+      "run_dir": "C:\\Programming\\guidedInteligence_testcases\\vuejs-vue-10803\\runs\\run-20260623T112703Z",
+      "status": "ok"
+    }
+  ],
+  "workspace_run_config": "configs/testing/workspace.json"
+}

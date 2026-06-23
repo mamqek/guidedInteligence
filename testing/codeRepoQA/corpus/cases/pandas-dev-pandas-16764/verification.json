@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-16764",
+  "primary_group": "performance_memory",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 16764,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/16764",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/16764.json",
+  "title": "PERF: pandas' import time",
+  "labels": [
+    "Performance"
+  ],
+  "state": "closed",
+  "created_at": "2017-06-23T14:46:16Z",
+  "closed_at": "2017-10-02T13:32:53Z",
+  "selection_rationale": "pandas import-time performance issue; broad startup responsibility rather than operation-specific speed.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      17710
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "2310faa109bdfd9ff3ef4fc19a163d790d60c645",
+      "d434ad28ffbc1e9165c49395ef084cc45a4ba341",
+      "d6d62abe3c1d9828f37156fea6b6ee19de204550",
+      "9463730d947bade861ff21b03f80825d6bcd883a"
+    ],
+    "cite": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "7282",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "17710",
+        "is_own_repo": true
+      },
+      {
+        "owner": "quiltdata",
+        "repo_name": "quilt",
+        "number": "194",
+        "is_own_repo": false
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 17710,
+        "title": "Delay import",
+        "url": "https://github.com/pandas-dev/pandas/pull/17710",
+        "merged": true,
+        "merge_commit_sha": "2310faa109bdfd9ff3ef4fc19a163d790d60c645",
+        "head_sha": "9d0f74a73aa26f8ba7a6e59e797dfa3638272eb5",
+        "base_sha": "2781b18008a7dca575a4f3496c8f11c1ea05cced",
+        "changed_files": 21,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": ".travis.yml",
+            "additions": 2,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "ci/check_imports.py",
+            "additions": 36,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.21.0.txt",
+            "additions": 3,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/computation/__init__.py",
+            "additions": 0,
+            "deletions": 23,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/computation/check.py",
+            "additions": 22,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "pandas/core/computation/eval.py",
+            "additions": 6,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/computation/expressions.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/config_init.py",
+            "additions": 30,
+            "deletions": 28,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/frame.py",
+            "additions": 5,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/internals.py",
+            "additions": 2,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/ops.py",
+            "additions": 8,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/panel.py",
+            "additions": 2,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/io/common.py",
+            "additions": 17,
+            "deletions": 20,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/io/excel.py",
+            "additions": 15,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/plotting/__init__.py",
+            "additions": 0,
+            "deletions": 6,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/plotting/_core.py",
+            "additions": 14,
+            "deletions": 7,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/plotting/_style.py",
+            "additions": 0,
+            "deletions": 67,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/computation/test_compat.py",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/frame/test_query_eval.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/util/_tester.py",
+            "additions": 12,
+            "deletions": 14,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/util/testing.py",
+            "additions": 5,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      ".travis.yml",
+      "pandas/core/computation/__init__.py",
+      "pandas/core/computation/check.py",
+      "pandas/core/computation/eval.py",
+      "pandas/core/computation/expressions.py",
+      "pandas/core/config_init.py",
+      "pandas/core/frame.py",
+      "pandas/core/internals.py",
+      "pandas/core/ops.py",
+      "pandas/core/panel.py",
+      "pandas/io/common.py",
+      "pandas/io/excel.py",
+      "pandas/plotting/__init__.py",
+      "pandas/plotting/_core.py",
+      "pandas/plotting/_style.py",
+      "pandas/util/_tester.py",
+      "pandas/util/testing.py"
+    ],
+    "test_or_validation_files": [
+      "ci/check_imports.py",
+      "pandas/tests/computation/test_compat.py",
+      "pandas/tests/frame/test_query_eval.py"
+    ],
+    "documentation_files": [
+      "doc/source/whatsnew/v0.21.0.txt"
+    ],
+    "symbols_or_apis": [],
+    "subsystem": "module resolution",
+    "responsibility_summary": "Relevant code is responsible for module resolution behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #17710: Delay import",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [
+      "a/pandas/plotting/__init__.py",
+      "b/pandas/plotting/__init__.py",
+      "a/pandas/plotting/_core.py",
+      "b/pandas/plotting/_core.py",
+      "pandas.__init__.py",
+      "pandas._libs.json",
+      "pandas.io.json"
+    ],
+    "resolution_comment_excerpts": [
+      "Oh, sorry, I was thinking of `show_versions`, not `get_versions`. `get_versions` would be a bit harder to fix... I did try out https://github.com/pypa/setuptools_scm instead of versioneer, and it worked well. May be worth looking into.",
+      "I did a profile with https://github.com/cournape/import-profiler From a very quick skim: - `s3fs` (boto3) also takes a lot of time (140.4 of 786.7 ms). This can maybe be delayed? - do we need to import `pytest` ? (43 ms) (this is in pandas.util._tester, I think we can easily move the pytest import inside the `test` function?) - `xlsxwriter` (22 ms) probably doesn't need to be imported on pandas import (but didn't look into it, it is imported in the config files) Not huge, but those two would already remove ca 20% of the import time. However I don't see `get_versions` somewhere in there, so not",
+      "Also see #7282, but seems like already more attention here.",
+      "> Also see #7282, but seems like already more attention here. It's a bit different issue, this is in general about reducing import time, the other issue is about a specific case where the import takes many seconds (but also numpy takes seconds to import, so IMO it's not pandas specific issue)"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

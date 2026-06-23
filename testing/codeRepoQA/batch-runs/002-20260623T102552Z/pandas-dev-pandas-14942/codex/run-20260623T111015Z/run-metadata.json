@@ -1,0 +1,52 @@
+{
+  "case_id": "pandas-dev-pandas-14942",
+  "clone_url": "https://github.com/pandas-dev/pandas.git",
+  "codex_model": "gpt-5.4-mini",
+  "created_at": "2016-12-21T15:14:01Z",
+  "index_dir": "C:\\Programming\\guidedInteligence_testcases\\pandas-dev-pandas-14942\\s\\28edd0649898\\.guided-intelligence\\index",
+  "index_exclude_paths": [
+    ".git",
+    ".guided-intelligence",
+    ".codegraphcontext",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+    "dist",
+    "build",
+    ".cache",
+    "coverage",
+    "pandas/tests",
+    "doc",
+    "docs",
+    "asv_bench",
+    "benchmarks",
+    "ci",
+    "scripts",
+    "web"
+  ],
+  "issue_json": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\corpus\\cases\\pandas-dev-pandas-14942\\issue.json",
+  "llm_config": {
+    "api_key_configured": true,
+    "api_style": "openai_chat_completions",
+    "continuity_enabled": false,
+    "endpoint_url": "https://api.openai.com/v1/chat/completions",
+    "max_tokens": 8000,
+    "model": "gpt-4.1-mini",
+    "planner_strategy": "issue_repo_sketch_v1",
+    "temperature": 0.0,
+    "timeout_seconds": 120
+  },
+  "origin_repo_dir": "C:\\Programming\\guidedInteligence_testcases\\_repos\\pandas-dev-pandas\\origin",
+  "repo_pre_commit": "28edd06498987972953b5c8e1c98b7f55d24b8d2",
+  "repo_pre_path": "C:\\Programming\\guidedInteligence_testcases\\pandas-dev-pandas-14942\\s\\28edd0649898",
+  "resolution": {
+    "confidence": "high",
+    "details": {
+      "source": "verification_json"
+    },
+    "strategy": "verification_base_commit"
+  },
+  "retrieval_mode": "codex",
+  "run_created_at": "2026-06-23T11:20:13.942423+00:00",
+  "verification_json": "C:\\Programming\\guidedInteligence_testcases\\pandas-dev-pandas-14942\\verification.json"
+}

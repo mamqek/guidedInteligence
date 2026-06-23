@@ -1,0 +1,170 @@
+You are acting only as a codebase evidence retriever.
+Inspect the current working repository snapshot and return implementation evidence for the user question.
+The user question below is the complete sanitized issue packet. It contains only visible pre-resolution issue fields.
+Do not inspect CodeRepoQA raw issue JSON, verification JSON, oracle files, QA_data folders, run artifacts, or post-resolution external information.
+Do not produce a final explanation. Do not edit files.
+Return only JSON matching the provided schema.
+
+Evidence requirements:
+- Prefer source-code implementation files over tests unless tests are essential.
+- Prefer targeted `rg -n` searches and small line-window reads over whole-file reads.
+- Avoid generated/localization/baseline output and vendored directories unless the issue directly names them.
+- Do not search `.guided-intelligence`, `lib`, `loc`, `src/loc`, `tests/baselines`, or `node_modules`.
+- Use repository-relative file paths.
+- Use concrete line ranges that support each claim.
+- Each claim_supported must be directly grounded in the file and line range.
+- Select the smallest evidence set that can support later explanation generation.
+- Put uncertainty in uncertainties instead of guessing.
+
+Sanitized issue packet:
+Explain the code context needed for this issue.
+
+Title: groupby with category column and two additional columns eats up all main memory
+
+#### Code Sample, a copy-pastable example if possible
+
+```python
+import numpy as np
+import pandas as pd
+
+df = pd.DataFrame({
+    'cat': np.random.randint(0, 255, size=3000000),
+    'int_id': np.random.randint(0, 255, size=3000000),
+    'other_id': np.random.randint(0, 10000, size=3000000),
+    'foo': 0
+})
+df['cat'] = df.cat.astype(str).astype('category')
+
+# killed after 6 minutes of 100% cpu and  90G maximum main memory usage
+grouped = df.groupby(['cat', 'int_id', 'other_id']).count()
+```
+#### Problem description
+
+The problem occurs only when I try to group by at least three columns. For two and one columns, it works.
+
+If I replace the categorical column with an integer one, the groupby only takes about 2 seconds and does not use so much memory. This is also the workaround I use currently when I have to group by columns where one of the columns has the type category. But this is kind of ugly.
+
+#### Expected Output
+
+```python
+from collections import defaultdict
+
+class CategoryColGrouper:
+    def __init__(self):
+        self.lookups = defaultdict(dict)
+        self.max_num = {}
+        self.seen_cat_cols = set()
+
+    def get_data_type(self, max_num):
+        if max_num < 2 ** 8:
+            return np.uint8
+        elif max_num < 2 ** 16:
+            return np.uint16
+        elif max_num < 2 ** 32:
+            return np.uint32
+        else:
+            return np.uint64
+
+    def get_cat_cols(self, df):
+        cat_cols = []
+        for col in df.columns:
+            if str(df[col].dtype) == 'category':
+                cat_cols.append(col)
+        return cat_cols
+
+    def get_lookup_for_col(self, df, col):
+        col_lookup = self.lookups[col]
+        max_num = self.max_num.get(col, 0)
+
+        missing = []
+        for value in df[col].unique():
+            if value not in col_lookup:
+                missing.append(value)
+
+        for num, value in enumerate(missing):
+            new_num = num + max_num
+            col_lookup[value] = new_num
+            self.max_num[col] = new_num
+
+        return col_lookup
+
+    def make_groupable(self, df):
+        cat_cols = self.get_cat_cols(df)
+        self.seen_cat_cols = self.seen_cat_cols.union(cat_cols)
+        for cat_col in cat_cols:
+            col_lookup = self.get_lookup_for_col(df, cat_col)
+            df[cat_col] = df[cat_col].apply(lambda x: col_lookup[x])
+            data_type = self.get_data_type(self.max_num[cat_col])
+            df[cat_col] = df[cat_col].astype(data_type)
+        return df
+
+    def restore_category_cols(self, df):
+        for cat_col in self.seen_cat_cols:
+            col_lookup = self.lookups[cat_col]
+            rcol_lookup = {v: k for k, v in col_lookup.items()}
+            df[cat_col] = df[cat_col].apply(lambda x: rcol_lookup[x])
+            df[cat_col] = df[cat_col].astype('category')
+        return df
+
+ccg = CategoryColGrouper()
+df = ccg.make_groupable(df)
+
+grouped = df.groupby(['cat', 'int_id', 'other_id']).count()
+
+df = ccg.restore_category_cols(df)
+```
+
+#### Output of ``pd.show_versions()``
+
+<details>
+INSTALLED VERSIONS
+------------------
+commit: None
+python: 3.5.2.final.0
+python-bits: 64
+OS: Linux
+OS-release: 3.2.0-4-amd64
+machine: x86_64
+processor: 
+byteorder: little
+LC_ALL: C
+LANG: en_US.UTF-8
+LOCALE: None.None
+
+pandas: 0.19.1
+nose: None
+pip: 9.0.1
+setuptools: 32.1.0.post20161217
+Cython: 0.25.2
+numpy: 1.11.3
+scipy: 0.18.1
+statsmodels: 0.6.1
+xarray: None
+IPython: 5.1.0
+sphinx: None
+patsy: 0.4.1
+dateutil: 2.6.0
+pytz: 2016.10
+blosc: None
+bottleneck: None
+tables: None
+numexpr: None
+matplotlib: 2.0.0rc2
+openpyxl: None
+xlrd: None
+xlwt: None
+xlsxwriter: None
+lxml: None
+bs4: None
+html5lib: None
+httplib2: None
+apiclient: None
+sqlalchemy: 1.1.4
+pymysql: None
+psycopg2: None
+jinja2: 2.8
+boto: None
+pandas_datareader: None
+
+
+</details>

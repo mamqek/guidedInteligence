@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-10068",
+  "primary_group": "bug_regression",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 10068,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/10068",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/10068.json",
+  "title": "BUG/API: Series arithmetic ops inconsistently hold names",
+  "labels": [
+    "Bug"
+  ],
+  "state": "closed",
+  "created_at": "2015-05-06T05:24:39Z",
+  "closed_at": "2015-06-02T10:38:48Z",
+  "selection_rationale": "pandas Series arithmetic metadata bug; compact fix with production and test files.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      10240
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "1ce4d7dd25a51989f5d342e8b5af50169c740305",
+      "29520681b37a419d42554d8686fd01f7de745008",
+      "7278722ea4dcb37861d337ef21c690ef7cf4aed9"
+    ],
+    "cite": [],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "10240",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 10240,
+        "title": "BUG: Series arithmetic methods incorrectly hold name",
+        "url": "https://github.com/pandas-dev/pandas/pull/10240",
+        "merged": true,
+        "merge_commit_sha": "",
+        "head_sha": "a7a02f45fd459f19e2e5b4553d42578e94fd2f54",
+        "base_sha": "ed000e98f71119c4a8e9c9b35b638a6d070970e3",
+        "changed_files": 3,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "doc/source/whatsnew/v0.17.0.txt",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/series.py",
+            "additions": 6,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/test_series.py",
+            "additions": 18,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "pandas/core/series.py"
+    ],
+    "test_or_validation_files": [
+      "pandas/tests/test_series.py"
+    ],
+    "documentation_files": [
+      "doc/source/whatsnew/v0.17.0.txt"
+    ],
+    "symbols_or_apis": [],
+    "subsystem": "Series operations",
+    "responsibility_summary": "Relevant code is responsible for Series operations behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #10240: BUG: Series arithmetic methods incorrectly hold name",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [
+      "github.com/pydata/pandas/blob/master/pandas/core/series.py",
+      "ops.py",
+      "github.com/pydata/pandas/blob/master/pandas/core/ops.py",
+      "github.com/pydata/pandas/blob/master/pandas/tests/test_series.py",
+      "test_series.py",
+      "self.ts"
+    ],
+    "resolution_comment_excerpts": [
+      "@vikramls I don't think we want to change that behavior (if names are different, the resulting name should be `None`). So I guess this needs a different fix.",
+      "@shoyer - The test-case checks the same scenario that this bug is addressed to. Does this mean that the bug is not valid? from test_series.py: ``` python result = self.ts + cp # self.ts and cp are both Series objects self.assertIsNone(result.name) ``` Series.add is executed via the `_binop` method wheres Series + Series is executed via the added `__add__` method.",
+      "@vikramls To clarify, I think this behavior is correct: ``` (s1 + s2).name # None ``` and this behavior is the bug: ``` s1.add(s2).name # a ```",
+      "@shoyer, thanks for the clarification. In this case the bug is triggered by the call to `__finalize__` which copies attributes from `other` to the newly created object. One fix is to remove the call to `__finalize__` in `_binop` but it doesn't seem right to special-case `_binop` in this manner."
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

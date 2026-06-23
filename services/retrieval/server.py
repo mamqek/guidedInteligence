@@ -8,6 +8,7 @@ import os
 import re
 import secrets
 import socket
+import statistics
 import subprocess
 import threading
 import time
@@ -26,11 +27,24 @@ from core.models import ConversationState, UserIntent
 from core.policy import PolicyStage
 from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, SourceCategory, SourcePolicy
 from services.guidance.answer_evaluation import evaluate_answers
-from services.retrieval.bm25 import DEFAULT_EXCLUDED_PATHS, estimate_indexing_scope, load_index
+from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, estimate_indexing_scope, load_index
+from services.retrieval.workspace.cgcignore import (
+    CGCIGNORE_END,
+    CGCIGNORE_START,
+    normalize_cgcignore_excludes as _normalize_cgcignore_excludes,
+    remove_managed_cgcignore_block as _remove_managed_cgcignore_block,
+    sync_cgcignore as _sync_cgcignore,
+)
 from services.logging.store import JsonlLogger
 from services.retrieval.config import (
+    DEFAULT_CODEX_PROMPT_PROFILE,
+    RETRIEVAL_MODE_CODEX,
+    RETRIEVAL_MODE_WORKSPACE,
+    SUPPORTED_CODEX_PROMPT_PROFILES,
     MCPConnectedSourceConfig,
     RemoteMCPConnectedSourceConfig,
+    RetrievalEmbeddingConfig,
+    RetrievalQdrantConfig,
     WorkspaceRetrievalConfig,
     _parse_env_file,
     load_retrieval_embedding_config,
@@ -39,14 +53,16 @@ from services.retrieval.config import (
     load_retrieval_qdrant_config,
     source_categories_from_strings,
 )
-from services.retrieval.mcp import (
+from services.retrieval.codex.provider import CodexRetrievalStage
+from services.retrieval.codex.cli import resolve_codex_command
+from services.retrieval.workspace.mcp import (
     LocalMCPConnectedSourceAdapter,
     MCPConnectedSourceError,
     RemoteMCPConnectedSourceAdapter,
     RemoteMCPConnectedSourceError,
 )
-from services.retrieval.qdrant_backend import QdrantHybridBackend
-from services.retrieval.tools.contracts import ToolRequest
+from services.retrieval.workspace.qdrant_backend import QdrantHybridBackend
+from services.retrieval.workspace.tools.contracts import ToolRequest
 from services.retrieval.workspace import WorkspaceRetrievalStage
 
 
@@ -72,6 +88,48 @@ DEFAULT_REMOTE_MCP_SOURCE_KEYS = (
     "google_drive",
 )
 DEFAULT_ALLOWED_SOURCE_KEYS = (*BUILTIN_SOURCE_KEYS, *DEFAULT_REMOTE_MCP_SOURCE_KEYS)
+RETRIEVAL_STAGE_WINDOWS: dict[str, tuple[int, int]] = {
+    "index_cgc": (12, 36),
+    "index_bm25_qdrant": (36, 46),
+    "connected_context": (46, 50),
+    "repo_context": (50, 54),
+    "retrieval_planning": (54, 60),
+    "initial_narrowing": (60, 67),
+    "required_role_retrieval": (67, 79),
+    "role_refinement": (79, 86),
+    "synthesis_assessment": (86, 89),
+    "weak_role_recovery": (89, 92),
+    "protocol_bridge": (92, 94),
+    "coverage_gate": (94, 96),
+}
+RETRIEVAL_STAGE_MESSAGES: dict[str, str] = {
+    "index_cgc": "Refreshing the code graph.",
+    "index_bm25_qdrant": "Syncing the local search indexes.",
+    "connected_context": "Collecting connected source context.",
+    "repo_context": "Building repository context hints.",
+    "retrieval_planning": "Planning the evidence search.",
+    "initial_narrowing": "Narrowing the likely code areas.",
+    "required_role_retrieval": "Collecting core evidence.",
+    "role_refinement": "Tightening file-level evidence.",
+    "synthesis_assessment": "Checking whether the evidence is enough.",
+    "weak_role_recovery": "Recovering weak evidence areas.",
+    "protocol_bridge": "Connecting prompt details to code paths.",
+    "coverage_gate": "Verifying coverage before explanation.",
+}
+DEFAULT_RETRIEVAL_STAGE_HINT_SECONDS: dict[str, float] = {
+    "index_cgc": 240.0,
+    "index_bm25_qdrant": 45.0,
+    "connected_context": 5.0,
+    "repo_context": 12.0,
+    "retrieval_planning": 18.0,
+    "initial_narrowing": 18.0,
+    "required_role_retrieval": 60.0,
+    "role_refinement": 45.0,
+    "synthesis_assessment": 12.0,
+    "weak_role_recovery": 24.0,
+    "protocol_bridge": 6.0,
+    "coverage_gate": 12.0,
+}
 
 
 class RetrievalServerError(RuntimeError):
@@ -118,6 +176,10 @@ class RuntimeState:
             "embedding_configured": _config_loader_ok(load_retrieval_embedding_config, self.tool_root),
             "runs_dir": str(self.runs_root),
             "github_repository": self.github_repository(),
+            "retrieval_mode": _retrieval_mode(self.config),
+            "codex_prompt_profile": str(
+                _retrieval_settings(self.config).get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
+            ),
         }
 
     def github_repository(self) -> str:
@@ -391,6 +453,7 @@ class RuntimeState:
         indexing = self.config.get("indexing", {})
         if not isinstance(indexing, Mapping):
             indexing = {}
+        retrieval_mode = _retrieval_mode(self.config)
         exclude_paths = _string_list(indexing.get("exclude_paths", []))
         chunk_line_count = 40
         chunk_line_overlap = 10
@@ -400,6 +463,17 @@ class RuntimeState:
             chunk_line_count=chunk_line_count,
             chunk_line_overlap=chunk_line_overlap,
         )
+        if retrieval_mode == RETRIEVAL_MODE_CODEX:
+            return {
+                **estimate,
+                **_index_time_estimate(estimate),
+                "exclude_paths": exclude_paths,
+                "enable_indexing": False,
+                "index_ready": True,
+                "index_status": "codex_mode",
+                "index_status_detail": "Codex retrieval mode uses the selected workspace directly and skips local indexing.",
+                "index_last_built_at": "",
+            }
         readiness = self._index_readiness(
             estimate=estimate,
             exclude_paths=tuple(exclude_paths),
@@ -424,6 +498,8 @@ class RuntimeState:
     ) -> dict[str, Any]:
         index_dir = self.workspace_root / CONFIG_DIR_NAME / "index"
         index_path = index_dir / "bm25-index.json"
+        cgc_db_path = index_dir / "cgc-kuzu"
+        cgc_marker_path = Path(str(cgc_db_path) + ".complete.json")
         bm25_manifest = _load_json(index_dir / "bm25-scope-manifest.json", {})
         expected_scope = {
             "workspace_root": str(self.workspace_root.resolve()),
@@ -431,6 +507,13 @@ class RuntimeState:
             "chunk_line_count": chunk_line_count,
             "chunk_line_overlap": chunk_line_overlap,
         }
+        if not cgc_db_path.exists() or not cgc_marker_path.exists():
+            return {
+                "index_ready": False,
+                "index_status": "missing_or_stale",
+                "index_status_detail": "Completed CGC structural index is missing.",
+                "index_last_built_at": _manifest_timestamp(index_dir / "qdrant-sync-manifest.json"),
+            }
         if not index_path.exists() or not _manifest_scope_matches(bm25_manifest, expected_scope):
             return {
                 "index_ready": False,
@@ -639,7 +722,6 @@ class RuntimeState:
             if not indexing_estimate.get("enable_indexing", True):
                 raise RetrievalServerError("Indexing is disabled in workspace settings.", status=400)
             run_dir.mkdir(parents=True, exist_ok=True)
-            self._sync_cgcignore_excludes()
             stage = WorkspaceRetrievalStage(self._workspace_retrieval_config(run_dir=run_dir))
             cgc_tools = stage._cgc_tools()
             index_observation = cgc_tools["cgc_index_repo"].run(
@@ -739,6 +821,10 @@ class RuntimeState:
             "phase": "indexing" if indexing_estimate.get("enable_indexing", True) else "retrieval",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "workspace_root": str(self.workspace_root),
+            "retrieval_mode": _retrieval_mode(self.config),
+            "codex_prompt_profile": str(
+                _retrieval_settings(self.config).get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
+            ),
             "prompt": prompt,
             "allowed_sources": list(allowed_source_keys),
             "run_dir": str(run_dir),
@@ -746,6 +832,7 @@ class RuntimeState:
             "progress_percent": 1,
             "progress_message": "Queued explanation run.",
             "progress_logs": [],
+            "progress_timeline": [],
         }
         (run_dir / "run-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
         threading.Thread(
@@ -766,44 +853,76 @@ class RuntimeState:
     ) -> None:
         started_at = datetime.now(timezone.utc)
         role_subquery_count = 0
+        completed_role_subqueries = 0
         completed_embedding_batches = 0
+        stage_duration_hints = _load_historical_stage_duration_hints(self.runs_root, exclude_run_id=run_id)
         try:
-            embedding_config = load_retrieval_embedding_config(self.tool_root / ".env")
+            retrieval_mode = _retrieval_mode(self.config)
+            if retrieval_mode == RETRIEVAL_MODE_CODEX:
+                embedding_config = RetrievalEmbeddingConfig(
+                    model="codex-not-used",
+                    endpoint_url="codex-not-used",
+                    api_key="codex-not-used",
+                )
+            else:
+                embedding_config = load_retrieval_embedding_config(self.tool_root / ".env")
             estimated_chunks = int(indexing_estimate.get("estimated_chunks") or 0)
             estimated_embedding_batches = max(1, (estimated_chunks + embedding_config.batch_size - 1) // embedding_config.batch_size)
         except Exception:
             estimated_chunks = int(indexing_estimate.get("estimated_chunks") or 0)
             estimated_embedding_batches = max(1, estimated_chunks // 32)
-        self._update_run_progress(run_dir, phase="indexing", percent=5, message="Checking index readiness.")
+        retrieval_mode = _retrieval_mode(self.config)
+        initial_phase = "codex" if retrieval_mode == RETRIEVAL_MODE_CODEX else "indexing"
+        self._update_run_progress(run_dir, phase=initial_phase, percent=5, message="Checking retrieval mode.")
         try:
-            self.ensure_qdrant_runtime()
-            self._sync_cgcignore_excludes()
+            if retrieval_mode != RETRIEVAL_MODE_CODEX:
+                self.ensure_qdrant_runtime()
             self._update_run_progress(run_dir, phase="retrieval", percent=10, message="Starting retrieval.")
             llm_config = load_retrieval_llm_config(self.tool_root / ".env")
-            retrieval_stage = WorkspaceRetrievalStage(
-                self._workspace_retrieval_config(
-                    run_dir=run_dir,
-                    enabled_source_categories=tuple(allowed_categories),
-                    enabled_sources=tuple(allowed_source_keys),
-                )
+            retrieval_config = self._workspace_retrieval_config(
+                run_dir=run_dir,
+                enabled_source_categories=tuple(allowed_categories),
+                enabled_sources=tuple(allowed_source_keys),
             )
+            if retrieval_config.retrieval_mode == RETRIEVAL_MODE_CODEX:
+                retrieval_stage = CodexRetrievalStage(retrieval_config)
+            else:
+                retrieval_stage = WorkspaceRetrievalStage(retrieval_config)
             original_record = retrieval_stage._record
 
             def record_retrieval_progress(event_type: str, event_payload: Mapping[str, Any]) -> None:
-                nonlocal role_subquery_count, completed_embedding_batches
+                nonlocal role_subquery_count, completed_role_subqueries, completed_embedding_batches
                 original_record(event_type, event_payload)
-                if event_type == "workspace_index_cgc_started":
-                    self._update_run_progress(run_dir, phase="cgc", percent=12, message="Refreshing code graph.", log="Refreshing code graph.")
-                elif event_type == "workspace_index_bm25_started":
-                    self._update_run_progress(run_dir, phase="bm25", percent=15, message="Building BM25 workspace index.", log="Code graph refreshed.")
+                if event_type == "retrieval_stage_started":
+                    stage_key = str(event_payload.get("stage_key") or "").strip()
+                    if stage_key:
+                        phase, percent, message, timeline_event = _progress_update_for_stage_start(
+                            stage_key,
+                            event_payload,
+                            duration_hints=stage_duration_hints,
+                        )
+                        self._update_run_progress(run_dir, phase=phase, percent=percent, message=message, log=message, timeline_event=timeline_event)
+                elif event_type == "retrieval_stage_completed":
+                    stage_key = str(event_payload.get("stage_key") or "").strip()
+                    if stage_key:
+                        observed_seconds = _elapsed_seconds_from_payload(event_payload)
+                        if observed_seconds is not None:
+                            stage_duration_hints[stage_key] = observed_seconds
+                        phase, percent, message, log, timeline_event = _progress_update_for_stage_completion(
+                            stage_key,
+                            event_payload,
+                            duration_hints=stage_duration_hints,
+                        )
+                        self._update_run_progress(run_dir, phase=phase, percent=percent, message=message, log=log, timeline_event=timeline_event)
                 elif event_type == "workspace_bm25_index_reused":
-                    self._update_run_progress(run_dir, phase="qdrant", percent=18, message="BM25 index is in sync.", log="BM25 index reused.")
+                    self._update_run_progress(run_dir, phase="qdrant", percent=44, message="Local search index is already in sync.", log="BM25 index reused.")
                 elif event_type == "workspace_bm25_index_rebuilt":
-                    self._update_run_progress(run_dir, phase="qdrant", percent=20, message="BM25 index rebuilt; syncing embeddings.", log="BM25 index rebuilt.")
+                    self._update_run_progress(run_dir, phase="qdrant", percent=45, message="BM25 index rebuilt; syncing embeddings.", log="BM25 index rebuilt.")
                 elif event_type == "embedding_batch_completed":
                     completed_embedding_batches += 1
                     display_total = max(estimated_embedding_batches, completed_embedding_batches)
-                    percent = 30 + int(min(1.0, completed_embedding_batches / display_total) * 55)
+                    stage_start, stage_end = RETRIEVAL_STAGE_WINDOWS["index_bm25_qdrant"]
+                    percent = stage_start + int(min(1.0, completed_embedding_batches / display_total) * max(1, stage_end - stage_start - 1))
                     self._update_run_progress(
                         run_dir,
                         phase="embeddings",
@@ -811,20 +930,37 @@ class RuntimeState:
                         message=f"Syncing embeddings into Qdrant ({completed_embedding_batches}/{display_total} batches).",
                     )
                 elif event_type == "workspace_index_reused":
-                    self._update_run_progress(run_dir, phase="retrieval", percent=18, message="Index is ready.", log="Index ready.")
-                elif event_type == "workspace_index_rebuilt":
-                    self._update_run_progress(run_dir, phase="retrieval", percent=86, message="Index is ready.", log="Index ready.")
-                elif event_type == "retrieval_plan_created":
-                    self._update_run_progress(run_dir, phase="planning", percent=30, message="Retrieval plan created.", log="Retrieval plan created.")
+                    self._update_run_progress(run_dir, phase="retrieval", percent=46, message="Index is ready.", log="Index ready.")
                 elif event_type == "role_subquery_started":
                     role_subquery_count += 1
-                    percent = min(70, 38 + role_subquery_count * 4)
                     role = str(event_payload.get("role") or "role")
-                    self._update_run_progress(run_dir, phase="retrieval", percent=percent, message=f"Retrieving evidence for {role}.")
+                    phase_name = str(event_payload.get("phase") or "required")
+                    percent = _subquery_progress_percent(
+                        stage_key="required_role_retrieval" if phase_name == "required" else "coverage_gate",
+                        completed=max(completed_role_subqueries, 0),
+                        total=max(role_subquery_count, 1),
+                    )
+                    self._update_run_progress(run_dir, phase="retrieval", percent=percent, message=f"Collecting {role.replace('_', ' ')} evidence.")
+                elif event_type == "role_subquery_completed":
+                    completed_role_subqueries += 1
+                    role = str(event_payload.get("role") or "role")
+                    phase_name = str(event_payload.get("phase") or "required")
+                    elapsed = _elapsed_seconds_from_payload(event_payload)
+                    log = f"Finished {role.replace('_', ' ')} evidence{_duration_suffix(elapsed)}."
+                    percent = _subquery_progress_percent(
+                        stage_key="required_role_retrieval" if phase_name == "required" else "coverage_gate",
+                        completed=completed_role_subqueries,
+                        total=max(role_subquery_count, completed_role_subqueries, 1),
+                    )
+                    self._update_run_progress(run_dir, phase="retrieval", percent=percent, message="Collecting core evidence.", log=log)
                 elif event_type in {"role_followup_completed", "deterministic_coverage_gate_completed", "gap_check_completed"}:
-                    self._update_run_progress(run_dir, phase="retrieval", percent=76, message="Checking evidence coverage.")
+                    self._update_run_progress(run_dir, phase="retrieval", percent=94, message="Verifying coverage before explanation.")
                 elif event_type == "retrieval_refinement_evaluated":
-                    self._update_run_progress(run_dir, phase="retrieval", percent=82, message="Evaluating retrieval sufficiency.")
+                    self._update_run_progress(run_dir, phase="retrieval", percent=89, message="Checking whether the evidence is enough.")
+                elif event_type == "codex_retrieval_started":
+                    self._update_run_progress(run_dir, phase="codex", percent=20, message="Asking Codex for code evidence.", log="Codex retrieval started.")
+                elif event_type == "codex_retrieval_completed":
+                    self._update_run_progress(run_dir, phase="codex", percent=86, message="Codex evidence received.", log="Codex evidence received.")
 
             retrieval_stage._record = record_retrieval_progress  # type: ignore[method-assign]
             policy = PolicyStage(SourcePolicy(allowed_categories=tuple(allowed_categories), policy_name="local_web_ui"))
@@ -867,6 +1003,7 @@ class RuntimeState:
                     "allowed_sources": list(allowed_source_keys),
                     "run_dir": str(run_dir),
                     "index_estimate": indexing_estimate,
+                    "progress_active_stage": {},
                 }
             )
             (run_dir / "run-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
@@ -884,6 +1021,7 @@ class RuntimeState:
                     "progress_percent": 100,
                     "progress_message": str(exc),
                     "progress_logs": logs[-8:],
+                    "progress_active_stage": {},
                 }
             )
             (run_dir / "run-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
@@ -896,8 +1034,9 @@ class RuntimeState:
         percent: int,
         message: str,
         log: str | None = None,
+        timeline_event: Mapping[str, Any] | None = None,
     ) -> None:
-        _update_run_metadata_progress(run_dir, phase=phase, percent=percent, message=message, log=log)
+        _update_run_metadata_progress(run_dir, phase=phase, percent=percent, message=message, log=log, timeline_event=timeline_event)
 
     def _workspace_retrieval_config(
         self,
@@ -910,15 +1049,41 @@ class RuntimeState:
         indexing = self.config.get("indexing", {})
         if not isinstance(indexing, Mapping):
             indexing = {}
+        connected_context = self.config.get("connected_context", {})
+        if not isinstance(connected_context, Mapping):
+            connected_context = {}
         index_exclude_paths = tuple(_string_list(indexing.get("exclude_paths", [])))
         connections = _connections_mapping(self.config)
+        retrieval_settings = _retrieval_settings(self.config)
+        retrieval_mode = _retrieval_mode(self.config)
+        if retrieval_mode == RETRIEVAL_MODE_CODEX:
+            embedding_config = RetrievalEmbeddingConfig(
+                model="codex-not-used",
+                endpoint_url="codex-not-used",
+                api_key="codex-not-used",
+            )
+            qdrant_config = RetrievalQdrantConfig(
+                url="codex-not-used",
+                collection_name="codex_not_used",
+                timeout_seconds=30,
+            )
+        else:
+            embedding_config = load_retrieval_embedding_config(tool_env_path)
+            qdrant_config = load_retrieval_qdrant_config(tool_env_path)
         return WorkspaceRetrievalConfig(
             workspace_root=str(self.workspace_root),
             index_dir=str(self.workspace_root / CONFIG_DIR_NAME / "index"),
             run_dir=str(run_dir),
             llm_config=load_retrieval_llm_config(tool_env_path),
-            embedding_config=load_retrieval_embedding_config(tool_env_path),
-            qdrant_config=load_retrieval_qdrant_config(tool_env_path),
+            embedding_config=embedding_config,
+            qdrant_config=qdrant_config,
+            retrieval_mode=retrieval_mode,
+            codex_command=resolve_codex_command(_string_list(retrieval_settings.get("codex_command", ["codex"]))),
+            codex_model=str(retrieval_settings.get("codex_model") or "gpt-5.4-mini").strip() or "gpt-5.4-mini",
+            codex_prompt_profile=str(
+                retrieval_settings.get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
+            ).strip().lower(),
+            codex_timeout_seconds=int(retrieval_settings.get("codex_timeout_seconds") or 900),
             enable_indexing=bool(indexing.get("enable_indexing", load_retrieval_enable_indexing(tool_env_path))),
             cgc_repo_path=str(self.workspace_root),
             cgc_db_path=str(self.workspace_root / CONFIG_DIR_NAME / "index" / "cgc-kuzu"),
@@ -927,16 +1092,23 @@ class RuntimeState:
             index_exclude_paths=index_exclude_paths,
             enabled_source_categories=enabled_source_categories if enabled_source_categories is not None else tuple(DEFAULT_ALLOWED_SOURCE_CATEGORIES),
             enabled_sources=enabled_sources if enabled_sources is not None else tuple(_enabled_sources_from_config(self.config)),
+            connected_context_enabled=bool(connected_context.get("enabled", True)),
+            connected_context_max_sources=int(connected_context.get("max_sources") or 8),
+            connected_context_max_calls=int(connected_context.get("max_calls") or 8),
+            connected_context_max_candidates_per_source=int(
+                connected_context.get("max_candidates_per_source") or 5
+            ),
+            connected_context_max_candidates_total=int(connected_context.get("max_candidates_total") or 20),
+            connected_context_max_candidate_chars=int(connected_context.get("max_candidate_chars") or 2400),
+            connected_context_max_candidate_chars_total=int(
+                connected_context.get("max_candidate_chars_total") or 24000
+            ),
+            connected_context_max_selected_context=int(connected_context.get("max_selected_context") or 4),
+            connected_context_max_selected_evidence=int(connected_context.get("max_selected_evidence") or 2),
+            connected_context_timeout_seconds=int(connected_context.get("timeout_seconds") or 45),
             remote_mcp_connected_sources=_configured_remote_mcp_sources(self.config, self.provider_auth()),
             mcp_connected_sources=_configured_mcp_sources(self.config),
         )
-
-    def _sync_cgcignore_excludes(self) -> None:
-        indexing = self.config.get("indexing", {})
-        if not isinstance(indexing, Mapping):
-            indexing = {}
-        exclude_paths = _string_list(indexing.get("exclude_paths", []))
-        _sync_cgcignore(self.workspace_root, tuple(exclude_paths))
 
     def evaluate_run_answers(self, run_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         run_dir = self._run_dir(run_id)
@@ -1022,6 +1194,25 @@ class RuntimeState:
             "indexing": {
                 "enable_indexing": load_retrieval_enable_indexing(self.tool_root / ".env"),
                 "exclude_paths": list(DEFAULT_EXCLUDED_PATHS),
+            },
+            "retrieval": {
+                "mode": RETRIEVAL_MODE_WORKSPACE,
+                "codex_command": ["codex"],
+                "codex_model": "gpt-5.4-mini",
+                "codex_prompt_profile": DEFAULT_CODEX_PROMPT_PROFILE,
+                "codex_timeout_seconds": 900,
+            },
+            "connected_context": {
+                "enabled": True,
+                "max_sources": 8,
+                "max_calls": 8,
+                "max_candidates_per_source": 5,
+                "max_candidates_total": 20,
+                "max_candidate_chars": 2400,
+                "max_candidate_chars_total": 24000,
+                "max_selected_context": 4,
+                "max_selected_evidence": 2,
+                "timeout_seconds": 45,
             },
             "ui": {
                 "default_prompt": "Explain where abstract class parsing and validation happen.",
@@ -1214,12 +1405,23 @@ def _update_run_metadata_progress(
     percent: int,
     message: str,
     log: str | None = None,
+    timeline_event: Mapping[str, Any] | None = None,
 ) -> None:
     metadata_path = run_dir / "run-metadata.json"
     metadata = _load_json(metadata_path, {})
     logs = list(metadata.get("progress_logs", [])) if isinstance(metadata.get("progress_logs"), list) else []
+    timeline = list(metadata.get("progress_timeline", [])) if isinstance(metadata.get("progress_timeline"), list) else []
     if log:
         logs.append(log)
+    if timeline_event:
+        timeline.append(dict(timeline_event))
+    active_stage = dict(metadata.get("progress_active_stage", {})) if isinstance(metadata.get("progress_active_stage"), Mapping) else {}
+    if timeline_event:
+        event_kind = str(timeline_event.get("event") or "")
+        if event_kind == "stage_started":
+            active_stage = dict(timeline_event)
+        elif event_kind == "stage_completed":
+            active_stage = {}
     metadata.update(
         {
             "status": "running",
@@ -1227,6 +1429,8 @@ def _update_run_metadata_progress(
             "progress_percent": max(0, min(99, percent)),
             "progress_message": message,
             "progress_logs": logs[-8:],
+            "progress_timeline": timeline[-64:],
+            "progress_active_stage": active_stage,
         }
     )
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
@@ -1250,6 +1454,139 @@ def _orchestration_progress_for_event(event_type: str) -> tuple[int, str, str, s
     return mapping.get(event_type)
 
 
+def _progress_update_for_stage_start(
+    stage_key: str,
+    event_payload: Mapping[str, Any],
+    *,
+    duration_hints: Mapping[str, float],
+) -> tuple[str, int, str, dict[str, Any]]:
+    window_start, window_end = RETRIEVAL_STAGE_WINDOWS.get(stage_key, (12, 96))
+    message = RETRIEVAL_STAGE_MESSAGES.get(stage_key, str(event_payload.get("stage_label") or "Working.").strip() or "Working.")
+    started_at = datetime.now(timezone.utc).isoformat()
+    expected_seconds = round(float(duration_hints.get(stage_key) or 0.0), 2)
+    timeline_event = {
+        "event": "stage_started",
+        "stage_key": stage_key,
+        "stage_label": str(event_payload.get("stage_label") or message).strip() or message,
+        "started_at": started_at,
+        "window_start_percent": window_start,
+        "window_end_percent": window_end,
+        "expected_seconds": expected_seconds,
+    }
+    return stage_key, window_start, message, timeline_event
+
+
+def _progress_update_for_stage_completion(
+    stage_key: str,
+    event_payload: Mapping[str, Any],
+    *,
+    duration_hints: Mapping[str, float],
+) -> tuple[str, int, str, str, dict[str, Any]]:
+    window_start, window_end = RETRIEVAL_STAGE_WINDOWS.get(stage_key, (12, 96))
+    message = RETRIEVAL_STAGE_MESSAGES.get(stage_key, str(event_payload.get("stage_label") or "Working.").strip() or "Working.")
+    observed_seconds = _elapsed_seconds_from_payload(event_payload)
+    effective_seconds = observed_seconds if observed_seconds is not None else float(duration_hints.get(stage_key) or 0.0)
+    timeline_event = {
+        "event": "stage_completed",
+        "stage_key": stage_key,
+        "stage_label": str(event_payload.get("stage_label") or message).strip() or message,
+        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "window_start_percent": window_start,
+        "window_end_percent": window_end,
+        "elapsed_seconds": round(effective_seconds, 2),
+    }
+    return stage_key, max(window_start, window_end - 1), message, f"{message.rstrip('.')}{_duration_suffix(observed_seconds)}.", timeline_event
+
+
+def _elapsed_seconds_from_payload(payload: Mapping[str, Any]) -> float | None:
+    elapsed_ms = payload.get("elapsed_ms")
+    if isinstance(elapsed_ms, (int, float)) and not isinstance(elapsed_ms, bool):
+        return max(0.0, float(elapsed_ms) / 1000.0)
+    elapsed_seconds = payload.get("elapsed_seconds")
+    if isinstance(elapsed_seconds, (int, float)) and not isinstance(elapsed_seconds, bool):
+        return max(0.0, float(elapsed_seconds))
+    return None
+
+
+def _duration_suffix(seconds: float | None) -> str:
+    if seconds is None or seconds <= 0:
+        return ""
+    return f" in {_format_elapsed_compact(seconds)}"
+
+
+def _format_elapsed_compact(seconds: float) -> str:
+    total_seconds = max(0, int(round(seconds)))
+    minutes, remaining_seconds = divmod(total_seconds, 60)
+    if minutes <= 0:
+        return f"{remaining_seconds}s"
+    hours, remaining_minutes = divmod(minutes, 60)
+    if hours <= 0:
+        return f"{remaining_minutes}m {remaining_seconds}s"
+    return f"{hours}h {remaining_minutes}m {remaining_seconds}s"
+
+
+def _subquery_progress_percent(stage_key: str, *, completed: int, total: int) -> int:
+    window_start, window_end = RETRIEVAL_STAGE_WINDOWS.get(stage_key, (12, 96))
+    usable_width = max(1, window_end - window_start - 1)
+    ratio = min(1.0, max(0.0, completed / max(total, 1)))
+    return window_start + int(usable_width * ratio)
+
+
+def _load_historical_stage_duration_hints(runs_root: Path, *, exclude_run_id: str) -> dict[str, float]:
+    durations: dict[str, list[float]] = {}
+    hints = dict(DEFAULT_RETRIEVAL_STAGE_HINT_SECONDS)
+    if not runs_root.exists():
+        return hints
+    try:
+        run_dirs = sorted((path for path in runs_root.iterdir() if path.is_dir()), key=lambda item: item.stat().st_mtime, reverse=True)
+    except OSError:
+        return hints
+    for run_dir in run_dirs[:24]:
+        if run_dir.name == exclude_run_id:
+            continue
+        metadata = _load_json(run_dir / "run-metadata.json", {})
+        timeline = metadata.get("progress_timeline") if isinstance(metadata.get("progress_timeline"), list) else []
+        for entry in timeline:
+            if not isinstance(entry, Mapping):
+                continue
+            if str(entry.get("event") or "") != "stage_completed":
+                continue
+            stage_key = str(entry.get("stage_key") or "").strip()
+            elapsed_seconds = entry.get("elapsed_seconds")
+            if not stage_key or not isinstance(elapsed_seconds, (int, float)) or isinstance(elapsed_seconds, bool) or elapsed_seconds <= 0:
+                continue
+            durations.setdefault(stage_key, []).append(float(elapsed_seconds))
+    for stage_key, samples in durations.items():
+        if samples:
+            hints[stage_key] = float(statistics.median(samples))
+    return hints
+
+
+def _display_progress_percent(metadata: Mapping[str, Any]) -> int:
+    stored = int(metadata.get("progress_percent") or 0)
+    if str(metadata.get("status") or "") != "running":
+        return stored
+    active_stage = metadata.get("progress_active_stage")
+    if not isinstance(active_stage, Mapping):
+        return stored
+    stage_start = active_stage.get("started_at")
+    if not isinstance(stage_start, str) or not stage_start.strip():
+        return stored
+    expected_seconds = active_stage.get("expected_seconds")
+    if not isinstance(expected_seconds, (int, float)) or isinstance(expected_seconds, bool) or expected_seconds <= 0:
+        return stored
+    try:
+        started_at = datetime.fromisoformat(stage_start)
+    except ValueError:
+        return stored
+    window_start = int(active_stage.get("window_start_percent") or stored)
+    window_end = int(active_stage.get("window_end_percent") or stored)
+    elapsed_seconds = max(0.0, (datetime.now(timezone.utc) - started_at).total_seconds())
+    ratio = min(0.97, elapsed_seconds / float(expected_seconds))
+    simulated = window_start + int(max(0, window_end - window_start) * ratio)
+    return max(stored, min(99, simulated))
+
+
 def _qdrant_reachable(url: str, *, timeout_seconds: float) -> bool:
     target = url.rstrip("/") + "/collections"
     request = urllib.request.Request(target, method="GET")
@@ -1258,46 +1595,6 @@ def _qdrant_reachable(url: str, *, timeout_seconds: float) -> bool:
             return 200 <= int(response.status) < 500
     except (OSError, urllib.error.URLError, TimeoutError):
         return False
-
-
-CGCIGNORE_START = "# BEGIN guided-intelligence managed excludes"
-CGCIGNORE_END = "# END guided-intelligence managed excludes"
-
-
-def _sync_cgcignore(workspace_root: Path, exclude_paths: tuple[str, ...]) -> None:
-    cgcignore_path = workspace_root / ".cgcignore"
-    existing = cgcignore_path.read_text(encoding="utf-8") if cgcignore_path.exists() else ""
-    cleaned = _remove_managed_cgcignore_block(existing).rstrip()
-    managed_lines = [CGCIGNORE_START]
-    for path in _normalize_cgcignore_excludes(exclude_paths):
-        managed_lines.append(path)
-    managed_lines.append(CGCIGNORE_END)
-    next_text = "\n".join(part for part in (cleaned, "\n".join(managed_lines)) if part).rstrip() + "\n"
-    if next_text != existing:
-        cgcignore_path.write_text(next_text, encoding="utf-8")
-
-
-def _remove_managed_cgcignore_block(text: str) -> str:
-    pattern = re.compile(
-        rf"(^|\n){re.escape(CGCIGNORE_START)}\n.*?\n{re.escape(CGCIGNORE_END)}\n?",
-        re.DOTALL,
-    )
-    return pattern.sub("\n", text).strip("\n")
-
-
-def _normalize_cgcignore_excludes(exclude_paths: tuple[str, ...]) -> tuple[str, ...]:
-    output: list[str] = []
-    for value in exclude_paths:
-        item = value.strip().replace("\\", "/").strip("/")
-        if not item:
-            continue
-        if "." in Path(item).name:
-            pattern = item
-        else:
-            pattern = item.rstrip("/") + "/"
-        if pattern not in output:
-            output.append(pattern)
-    return tuple(output)
 
 
 def _cgc_failure_message(payload: Mapping[str, Any]) -> str:
@@ -1322,13 +1619,49 @@ def _cgc_failure_message(payload: Mapping[str, Any]) -> str:
 def _index_time_estimate(estimate: Mapping[str, Any]) -> dict[str, Any]:
     files = int(estimate.get("file_count") or 0)
     chunks = int(estimate.get("estimated_chunks") or 0)
+    total_bytes = int(estimate.get("total_bytes") or 0)
     if files <= 0 or chunks <= 0:
-        return {"estimated_seconds_min": 0, "estimated_seconds_max": 0}
+        return {
+            "estimated_seconds_min": 0,
+            "estimated_seconds_max": 0,
+            "cgc_estimated_seconds_min": 0,
+            "cgc_estimated_seconds_max": 0,
+            "cgc_full_estimated_seconds_min": 0,
+            "cgc_full_estimated_seconds_max": 0,
+            "cgc_skip_external_estimated_seconds_min": 0,
+            "cgc_skip_external_estimated_seconds_max": 0,
+            "cgc_timeout_risk": False,
+            "index_estimate_notes": [],
+        }
     min_seconds = max(10, int(chunks * 0.05 + files * 0.002))
     max_seconds = max(min_seconds + 10, int(chunks * 0.15 + files * 0.006))
+    size_mib = total_bytes / (1024 * 1024)
+    cgc_full_midpoint_seconds = max(20, int(chunks * 0.055 + files * 0.25 + size_mib * 120))
+    cgc_full_min_seconds = max(15, int(cgc_full_midpoint_seconds * 0.75))
+    cgc_full_max_seconds = max(cgc_full_min_seconds + 20, int(cgc_full_midpoint_seconds * 1.35))
+    cgc_skip_midpoint_seconds = max(15, int(cgc_full_midpoint_seconds * 0.57))
+    cgc_skip_min_seconds = max(10, int(cgc_skip_midpoint_seconds * 0.75))
+    cgc_skip_max_seconds = max(cgc_skip_min_seconds + 20, int(cgc_skip_midpoint_seconds * 1.35))
+    notes: list[str] = []
+    if cgc_skip_max_seconds > 180:
+        notes.append(
+            "CGC structural indexing may exceed the interactive timeout even with SKIP_EXTERNAL_RESOLUTION; narrow exclusions or prepare the index before retrieval."
+        )
+    if chunks > 8000 or size_mib > 5:
+        notes.append(
+            "Large generated/test files can dominate CGC graph construction even when BM25/Qdrant indexing looks reasonable."
+        )
     return {
         "estimated_seconds_min": min_seconds,
         "estimated_seconds_max": max_seconds,
+        "cgc_estimated_seconds_min": cgc_skip_min_seconds,
+        "cgc_estimated_seconds_max": cgc_skip_max_seconds,
+        "cgc_full_estimated_seconds_min": cgc_full_min_seconds,
+        "cgc_full_estimated_seconds_max": cgc_full_max_seconds,
+        "cgc_skip_external_estimated_seconds_min": cgc_skip_min_seconds,
+        "cgc_skip_external_estimated_seconds_max": cgc_skip_max_seconds,
+        "cgc_timeout_risk": cgc_skip_max_seconds > 180,
+        "index_estimate_notes": notes,
     }
 
 
@@ -1343,6 +1676,26 @@ def _merge_config(defaults: dict[str, Any], payload: dict[str, Any]) -> dict[str
 
 
 def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
+    retrieval = config.get("retrieval")
+    if not isinstance(retrieval, dict):
+        retrieval = {}
+        config["retrieval"] = retrieval
+    retrieval["mode"] = str(retrieval.get("mode") or RETRIEVAL_MODE_WORKSPACE).strip().lower()
+    if retrieval["mode"] not in {RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX}:
+        retrieval["mode"] = RETRIEVAL_MODE_WORKSPACE
+    command = retrieval.get("codex_command", ["codex"])
+    if isinstance(command, str):
+        command = [command]
+    retrieval["codex_command"] = _string_list(command) or ["codex"]
+    retrieval["codex_model"] = str(retrieval.get("codex_model") or "gpt-5.4-mini").strip() or "gpt-5.4-mini"
+    retrieval["codex_prompt_profile"] = str(
+        retrieval.get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
+    ).strip().lower()
+    try:
+        timeout_seconds = int(retrieval.get("codex_timeout_seconds") or 900)
+    except (TypeError, ValueError):
+        timeout_seconds = 900
+    retrieval["codex_timeout_seconds"] = timeout_seconds
     indexing = config.get("indexing")
     if isinstance(indexing, dict):
         indexing.pop("include_paths", None)
@@ -1574,6 +1927,30 @@ def _is_legacy_github_mcp_source(source: Mapping[str, Any]) -> bool:
 
 
 def _validate_config(payload: Mapping[str, Any]) -> None:
+    retrieval = payload.get("retrieval", {})
+    if not isinstance(retrieval, Mapping):
+        raise RetrievalServerError("`retrieval` must be an object.")
+    mode = str(retrieval.get("mode") or RETRIEVAL_MODE_WORKSPACE).strip()
+    if mode not in {RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX}:
+        raise RetrievalServerError("`retrieval.mode` must be either `workspace` or `codex`.")
+    command = retrieval.get("codex_command", [])
+    if not isinstance(command, list) or not _string_list(command):
+        raise RetrievalServerError("`retrieval.codex_command` must be a non-empty array.")
+    if not str(retrieval.get("codex_model") or "").strip():
+        raise RetrievalServerError("`retrieval.codex_model` is required.")
+    prompt_profile = str(retrieval.get("codex_prompt_profile") or "").strip()
+    if prompt_profile not in SUPPORTED_CODEX_PROMPT_PROFILES:
+        raise RetrievalServerError(
+            "`retrieval.codex_prompt_profile` must be one of: "
+            + ", ".join(SUPPORTED_CODEX_PROMPT_PROFILES)
+            + "."
+        )
+    try:
+        codex_timeout_seconds = int(retrieval.get("codex_timeout_seconds") or 0)
+    except (TypeError, ValueError) as exc:
+        raise RetrievalServerError("`retrieval.codex_timeout_seconds` must be an integer.") from exc
+    if codex_timeout_seconds <= 0:
+        raise RetrievalServerError("`retrieval.codex_timeout_seconds` must be greater than zero.")
     if not isinstance(payload.get("enabled_sources", []), list):
         raise RetrievalServerError("`enabled_sources` must be an array.")
     unknown_sources = [
@@ -1611,6 +1988,16 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
         text = str(value).strip()
         if Path(text).is_absolute() or ".." in Path(text).parts:
             raise RetrievalServerError("`indexing.exclude_paths` entries must be workspace-relative safe paths.")
+
+
+def _retrieval_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    retrieval = config.get("retrieval", {})
+    return retrieval if isinstance(retrieval, Mapping) else {}
+
+
+def _retrieval_mode(config: Mapping[str, Any]) -> str:
+    mode = str(_retrieval_settings(config).get("mode") or RETRIEVAL_MODE_WORKSPACE).strip().lower()
+    return mode if mode in {RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX} else RETRIEVAL_MODE_WORKSPACE
 
 
 def _allowed_source_keys_from_payload(payload: Mapping[str, Any], config: Mapping[str, Any]) -> tuple[str, ...]:
@@ -2322,6 +2709,7 @@ def _github_repository_from_remote_url(value: str) -> str:
 
 def _run_summary_from_payload(run_id: str, run_dir: Path, result: Mapping[str, Any]) -> dict[str, Any]:
     metadata = _load_json(run_dir / "run-metadata.json", {})
+    display_percent = _display_progress_percent(metadata)
     if not result:
         estimate = metadata.get("index_estimate") if isinstance(metadata.get("index_estimate"), Mapping) else {}
         metrics = _run_metrics(run_dir, metadata)
@@ -2337,7 +2725,7 @@ def _run_summary_from_payload(run_id: str, run_dir: Path, result: Mapping[str, A
             "stop_reason": "",
             "response_preview": "",
             "index_estimate": _deepcopy_json(estimate),
-            "progress_percent": int(metadata.get("progress_percent") or 0),
+            "progress_percent": display_percent,
             "progress_message": str(metadata.get("progress_message") or ""),
             "progress_logs": _plain_string_list(metadata.get("progress_logs", [])),
             **metrics,
@@ -2359,7 +2747,7 @@ def _run_summary_from_payload(run_id: str, run_dir: Path, result: Mapping[str, A
         "stop_reason": summary.get("stop_reason", ""),
         "response_preview": str(response.get("content") or "")[:500],
         "index_estimate": _deepcopy_json(metadata.get("index_estimate") or {}),
-        "progress_percent": int(metadata.get("progress_percent") or 100),
+        "progress_percent": display_percent if str(metadata.get("status") or "") == "running" else int(metadata.get("progress_percent") or 100),
         "progress_message": str(metadata.get("progress_message") or ""),
         "progress_logs": _plain_string_list(metadata.get("progress_logs", [])),
         **metrics,
@@ -2493,3 +2881,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

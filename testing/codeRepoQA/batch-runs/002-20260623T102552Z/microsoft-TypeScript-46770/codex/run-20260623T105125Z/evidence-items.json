@@ -1,0 +1,92 @@
+[
+  {
+    "metadata": {
+      "claim_supported": "The compiler explicitly accepts `module: nodenext`/`node12` and `moduleResolution: nodenext`/`node12` as legal settings.",
+      "coverage_area": "tsconfig option parsing for module and moduleResolution",
+      "file_role": "implementation",
+      "line_range": "L419-L425",
+      "path": "src/compiler/commandLineParser.ts",
+      "retrieval_path": "codex",
+      "why_relevant": "This places the issue on the intended NodeNext/Node12 code path rather than an unsupported configuration."
+    },
+    "rank": 1,
+    "snippet": "                es6: ModuleKind.ES2015,\n                es2015: ModuleKind.ES2015,\n                es2020: ModuleKind.ES2020,\n                es2022: ModuleKind.ES2022,\n                esnext: ModuleKind.ESNext,\n                node12: ModuleKind.Node12,\n                nodenext: ModuleKind.NodeNext,",
+    "source_category": "source_code",
+    "source_id": "workspace:src/compiler/commandLineParser.ts:L419-L425"
+  },
+  {
+    "metadata": {
+      "claim_supported": "Under `node12`/`nodenext`, the emitted module format for `.ts/.js` files is inferred from the nearest `package.json` `type` field, with `type: \"module\"` mapping to ESNext and other cases defaulting to CommonJS.",
+      "coverage_area": "Node format inference from package.json",
+      "file_role": "implementation",
+      "line_range": "L803-L816",
+      "path": "src/compiler/program.ts",
+      "retrieval_path": "codex",
+      "why_relevant": "This matches the report that adding `type: \"module\"` changes whether a package can be imported."
+    },
+    "rank": 2,
+    "snippet": "    export function getImpliedNodeFormatForFile(fileName: Path, packageJsonInfoCache: PackageJsonInfoCache | undefined, host: ModuleResolutionHost, options: CompilerOptions): ModuleKind.ESNext | ModuleKind.CommonJS | undefined {\n        switch (getEmitModuleResolutionKind(options)) {\n            case ModuleResolutionKind.Node12:\n            case ModuleResolutionKind.NodeNext:\n                return fileExtensionIsOneOf(fileName, [Extension.Dmts, Extension.Mts, Extension.Mjs]) ? ModuleKind.ESNext :\n                    fileExtensionIsOneOf(fileName, [Extension.Dcts, Extension.Cts, Extension.Cjs]) ? ModuleKind.CommonJS :\n                    fileExtensionIsOneOf(fileName, [Extension.Dts, Extension.Ts, Extension.Tsx, Extension.Js, Extension.Jsx]) ? lookupFromPackageJson() :\n                    undefined; // other extensions, like `json` or `tsbuildinfo`, are set as `undefined` here but they should never be fed through the transformer pipeline\n            default:\n                return undefined;\n        }\n        function lookupFromPackageJson(): ModuleKind.ESNext | ModuleKind.CommonJS {\n            const scope = getPackageScopeForPath(fileName, packageJsonInfoCache, host, options);\n            return scope?.packageJsonContent.type === \"module\" ? ModuleKind.ESNext : ModuleKind.CommonJS;",
+    "source_category": "source_code",
+    "source_id": "workspace:src/compiler/program.ts:L803-L816"
+  },
+  {
+    "metadata": {
+      "claim_supported": "NodeNext/Node12 resolution uses different condition sets for ESM versus CJS, specifically `['node','import','types']` versus `['node','require','types']`.",
+      "coverage_area": "module resolution conditions for NodeNext/Node12",
+      "file_role": "implementation",
+      "line_range": "L1284-L1294",
+      "path": "src/compiler/moduleNameResolver.ts",
+      "retrieval_path": "codex",
+      "why_relevant": "This shows why package exports can resolve differently depending on whether the importing file is treated as ESM."
+    },
+    "rank": 3,
+    "snippet": "        // conditions are only used by the node12/nodenext resolver - there's no priority order in the list,\n        //it's essentially a set (priority is determined by object insertion order in the object we look at).\n        const state: ModuleResolutionState = {\n            compilerOptions,\n            host,\n            traceEnabled,\n            failedLookupLocations,\n            packageJsonInfoCache: cache,\n            features,\n            conditions: features & NodeResolutionFeatures.EsmMode ? [\"node\", \"import\", \"types\"] : [\"node\", \"require\", \"types\"]\n        };",
+    "source_category": "source_code",
+    "source_id": "workspace:src/compiler/moduleNameResolver.ts:L1284-L1294"
+  },
+  {
+    "metadata": {
+      "claim_supported": "Package.json `typings`, `types`, `main`, and `tsconfig` fields are normalized and read as path entries during module resolution.",
+      "coverage_area": "package.json path-field parsing",
+      "file_role": "implementation",
+      "line_range": "L150-L179",
+      "path": "src/compiler/moduleNameResolver.ts",
+      "retrieval_path": "codex",
+      "why_relevant": "This is the code that turns package metadata into candidate module entrypoints and declaration files."
+    },
+    "rank": 4,
+    "snippet": "    function readPackageJsonPathField<K extends \"typings\" | \"types\" | \"main\" | \"tsconfig\">(jsonContent: PackageJson, fieldName: K, baseDirectory: string, state: ModuleResolutionState): PackageJson[K] | undefined {\n        const fileName = readPackageJsonField(jsonContent, fieldName, \"string\", state);\n        if (fileName === undefined) {\n            return;\n        }\n        if (!fileName) {\n            if (state.traceEnabled) {\n                trace(state.host, Diagnostics.package_json_had_a_falsy_0_field, fieldName);\n            }\n            return;\n        }\n        const path = normalizePath(combinePaths(baseDirectory, fileName));\n        if (state.traceEnabled) {\n            trace(state.host, Diagnostics.package_json_has_0_field_1_that_references_2, fieldName, fileName, path);\n        }\n        return path;\n    }\n\n    function readPackageJsonTypesFields(jsonContent: PackageJson, baseDirectory: string, state: ModuleResolutionState) {\n        return readPackageJsonPathField(jsonContent, \"typings\", baseDirectory, state)\n            || readPackageJsonPathField(jsonContent, \"types\", baseDirectory, state);\n    }\n\n    function readPackageJsonTSConfigField(jsonContent: PackageJson, baseDirectory: string, state: ModuleResolutionState) {\n        return readPackageJsonPathField(jsonContent, \"tsconfig\", baseDirectory, state);\n    }\n\n    function readPackageJsonMainField(jsonContent: PackageJson, baseDirectory: string, state: ModuleResolutionState) {\n        return readPackageJsonPathField(jsonContent, \"main\", baseDirectory, state);\n    }",
+    "source_category": "source_code",
+    "source_id": "workspace:src/compiler/moduleNameResolver.ts:L150-L179"
+  },
+  {
+    "metadata": {
+      "claim_supported": "For package resolution, JavaScript/TypeScript/DTS lookups consult different package.json fields: JS uses `main`, TypeScript uses `types`/`typings` first then `main`, and DTS-only lookups use `types`/`typings`.",
+      "coverage_area": "entrypoint selection by file kind",
+      "file_role": "implementation",
+      "line_range": "L1784-L1798",
+      "path": "src/compiler/moduleNameResolver.ts",
+      "retrieval_path": "codex",
+      "why_relevant": "This directly relates to a package that ships declarations versus one that relies on `@types`, and to why the declared main file matters."
+    },
+    "rank": 5,
+    "snippet": "    function loadNodeModuleFromDirectoryWorker(extensions: Extensions, candidate: string, onlyRecordFailures: boolean, state: ModuleResolutionState, jsonContent: PackageJsonPathFields | undefined, versionPaths: VersionPaths | undefined): PathAndExtension | undefined {\n        let packageFile: string | undefined;\n        if (jsonContent) {\n            switch (extensions) {\n                case Extensions.JavaScript:\n                case Extensions.Json:\n                    packageFile = readPackageJsonMainField(jsonContent, candidate, state);\n                    break;\n                case Extensions.TypeScript:\n                    // When resolving typescript modules, try resolving using main field as well\n                    packageFile = readPackageJsonTypesFields(jsonContent, candidate, state) || readPackageJsonMainField(jsonContent, candidate, state);\n                    break;\n                case Extensions.DtsOnly:\n                    packageFile = readPackageJsonTypesFields(jsonContent, candidate, state);\n                    break;",
+    "source_category": "source_code",
+    "source_id": "workspace:src/compiler/moduleNameResolver.ts:L1784-L1798"
+  },
+  {
+    "metadata": {
+      "claim_supported": "In package resolution, `exports` has priority over file/directory lookup in NodeNext/Node12, and ESM mode otherwise falls back to `index.js` only when `main` and `exports` are absent.",
+      "coverage_area": "package entrypoint lookup and ESM fallback",
+      "file_role": "implementation",
+      "line_range": "L2183-L2205",
+      "path": "src/compiler/moduleNameResolver.ts",
+      "retrieval_path": "codex",
+      "why_relevant": "This is the control flow most likely to make a package import succeed or fail based on package metadata such as `exports`, `main`, or file extensions."
+    },
+    "rank": 6,
+    "snippet": "            // package exports are higher priority than file/directory lookups (and, if there's exports present, blocks them)\n            if (packageInfo && packageInfo.packageJsonContent.exports && state.features & NodeResolutionFeatures.Exports) {\n                return loadModuleFromExports(packageInfo, extensions, combinePaths(\".\", rest), state, cache, redirectedReference)?.value;\n            }\n            let pathAndExtension =\n                loadModuleFromFile(extensions, candidate, onlyRecordFailures, state) ||\n                loadNodeModuleFromDirectoryWorker(\n                    extensions,\n                    candidate,\n                    onlyRecordFailures,\n                    state,\n                    packageInfo && packageInfo.packageJsonContent,\n                    packageInfo && packageInfo.versionPaths\n                );\n            if (\n                !pathAndExtension && packageInfo\n                && packageInfo.packageJsonContent.exports === undefined\n                && packageInfo.packageJsonContent.main === undefined\n                && state.features & NodeResolutionFeatures.EsmMode\n            ) {\n                // EsmMode disables index lookup in `loadNodeModuleFromDirectoryWorker` generally, however non-relative package resolutions still assume\n                // a default `index.js` entrypoint if no `main` or `exports` are present\n                pathAndExtension = loadModuleFromFile(extensions, combinePaths(candidate, \"index.js\"), onlyRecordFailures, state);",
+    "source_category": "source_code",
+    "source_id": "workspace:src/compiler/moduleNameResolver.ts:L2183-L2205"
+  }
+]

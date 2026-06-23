@@ -19,9 +19,9 @@ from unittest.mock import patch
 from core.models import ConversationState, EvidenceItem, UserIntent
 from core.policy import PolicyStage
 from core.source_policy import SourceCategory, SourcePolicy
-from services.retrieval.bm25 import build_index_from_repo, save_index
+from services.retrieval.workspace.bm25 import build_index_from_repo, save_index
 from services.retrieval import workspace_llm
-from services.retrieval.bm25 import BM25SearchResult
+from services.retrieval.workspace.bm25 import BM25SearchResult
 from services.retrieval.config import (
     RetrievalEmbeddingConfig,
     RetrievalQdrantConfig,
@@ -31,15 +31,15 @@ from services.retrieval.config import (
     load_retrieval_llm_config,
     load_retrieval_qdrant_config,
 )
-from services.retrieval.qdrant_backend import QdrantSearchResult
-from services.retrieval.responsibility import profile_candidate, score_responsibility
-from services.retrieval.step2 import RoleDirectedSubquery, WorkspaceRetrievalPlan
-from services.retrieval.role_validation import AnchorSupport, supported_roles
-from services.retrieval.tools import cgc_tool_specs, local_tool_specs, qdrant_tool_specs
-from services.retrieval.tools.local import OpenFileTool
-from services.retrieval.tools.qdrant import QdrantHybridSearchTool
-from services.retrieval.tools.cgc import CGCAnalyzeDepsTool, CGCFindCodeTool, CGCQueryGraphTool, CGCRunCliTool
-from services.retrieval.tools.contracts import ToolObservation, ToolRequest
+from services.retrieval.workspace.qdrant_backend import QdrantSearchResult
+from services.retrieval.workspace.responsibility import profile_candidate, score_responsibility
+from services.retrieval.workspace.step2 import RoleDirectedSubquery, WorkspaceRetrievalPlan
+from services.retrieval.workspace.role_validation import AnchorSupport, supported_roles
+from services.retrieval.workspace.tools import cgc_tool_specs, local_tool_specs, qdrant_tool_specs
+from services.retrieval.workspace.tools.local import OpenFileTool
+from services.retrieval.workspace.tools.qdrant import QdrantHybridSearchTool
+from services.retrieval.workspace.tools.cgc import CGCAnalyzeDepsTool, CGCFindCodeTool, CGCIndexRepoTool, CGCQueryGraphTool, CGCRunCliTool
+from services.retrieval.workspace.tools.contracts import ToolObservation, ToolRequest
 from services.retrieval.workspace import (
     PreparedRoleBucket,
     RetrievalCandidate,
@@ -55,17 +55,19 @@ from services.retrieval.workspace import (
     _role_retarget_queries,
     _select_diverse_completion_entries,
 )
-from services.retrieval.pipeline.protocol_graph import discover_protocol_relationship_candidates
-from services.retrieval.obsidian import ObsidianSearchResult
+from services.retrieval.workspace.pipeline.protocol_graph import discover_protocol_relationship_candidates
+from services.retrieval.workspace.obsidian import ObsidianSearchResult
 
 
 class WorkspaceRetrievalStageFixture(unittest.TestCase):
     def setUp(self) -> None:
         workspace_llm._TEMPERATURE_DISABLED_MODELS.clear()
+        self.qdrant_rebuild_timeouts: list[int | None] = []
         def fake_ensure_available(_backend):
             return None
 
-        def fake_rebuild_collection(backend, log_event=None):
+        def fake_rebuild_collection(backend, log_event=None, timeout_seconds=None):
+            self.qdrant_rebuild_timeouts.append(timeout_seconds)
             return len(backend.index.documents)
 
         def fake_collection_exists(_backend):
@@ -110,12 +112,12 @@ class WorkspaceRetrievalStageFixture(unittest.TestCase):
             )
 
         self.qdrant_patches = [
-            patch("services.retrieval.qdrant_backend.QdrantHybridBackend.ensure_available", new=fake_ensure_available),
-            patch("services.retrieval.qdrant_backend.QdrantHybridBackend.rebuild_collection", new=fake_rebuild_collection),
-            patch("services.retrieval.qdrant_backend.QdrantHybridBackend.collection_exists", new=fake_collection_exists),
-            patch("services.retrieval.qdrant_backend.QdrantHybridBackend.index_signature", new=fake_index_signature),
-            patch("services.retrieval.qdrant_backend.QdrantHybridBackend.point_count", new=fake_point_count),
-            patch("services.retrieval.qdrant_backend.QdrantHybridBackend.search", new=fake_hybrid_search),
+            patch("services.retrieval.workspace.qdrant_backend.QdrantHybridBackend.ensure_available", new=fake_ensure_available),
+            patch("services.retrieval.workspace.qdrant_backend.QdrantHybridBackend.rebuild_collection", new=fake_rebuild_collection),
+            patch("services.retrieval.workspace.qdrant_backend.QdrantHybridBackend.collection_exists", new=fake_collection_exists),
+            patch("services.retrieval.workspace.qdrant_backend.QdrantHybridBackend.index_signature", new=fake_index_signature),
+            patch("services.retrieval.workspace.qdrant_backend.QdrantHybridBackend.point_count", new=fake_point_count),
+            patch("services.retrieval.workspace.qdrant_backend.QdrantHybridBackend.search", new=fake_hybrid_search),
         ]
         for patcher in self.qdrant_patches:
             patcher.start()
@@ -286,6 +288,30 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                         qdrant_config=_qdrant_config(),
                     )
                 )
+
+    def test_rebuild_index_passes_qdrant_timeout_to_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            (repo / "src").mkdir(parents=True)
+            (repo / "src" / "parser.ts").write_text(
+                "export function parseClassDeclaration() { return 'abstract'; }\n",
+                encoding="utf-8",
+            )
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=str(repo),
+                    index_dir=str(root / "index"),
+                    llm_config=_llm_config("http://unused/v1/chat/completions"),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                    qdrant_index_timeout_seconds=123,
+                )
+            )
+
+            stage._rebuild_index()
+
+            self.assertEqual(self.qdrant_rebuild_timeouts[-1], 123)
 
     def test_required_role_buckets_filter_test_noise_and_keep_impl_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server(
@@ -1311,7 +1337,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
         self.assertIn("abstract keyword parser", queries)
         self.assertIn("parse", queries)
         self.assertIn("parser", queries)
-        self.assertIn("parser syntax tokens How does parsing handle abstract classes?", queries)
+        self.assertIn("input parsing request handling How does parsing handle abstract classes?", queries)
 
     def test_prepare_role_bucket_uses_llm_generated_helper_queries(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server(
@@ -1562,6 +1588,60 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
     def test_obsidian_source_truth_guides_retrieval_to_checker(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server(
             [
+                {
+                    "queries": [
+                        {
+                            "source_key": "local_notes",
+                            "query": "TypeScript abstract class behavior",
+                            "reason": "The design note may explain the implementation boundary.",
+                            "should_query": True,
+                        }
+                    ]
+                },
+                {
+                    "ranked_documents": [
+                        {
+                            "source_id": "obsidian:Project retrieval source of truth.md",
+                            "relevance_score": 0.95,
+                            "decision": "accept",
+                            "reason": "The note identifies the semantic validation area.",
+                            "contribution_type": "architecture",
+                            "adds_code_retrieval_signal": True,
+                            "currentness": "current",
+                            "confidence": "high",
+                            "context_use": True,
+                            "evidence_use": True,
+                        }
+                    ],
+                    "signals": {
+                        "retrieval_terms": [
+                            {
+                                "value": "abstract class semantic validation",
+                                "source_ids": ["obsidian:Project retrieval source of truth.md"],
+                            }
+                        ],
+                        "file_hints": [
+                            {
+                                "value": "src/compiler/checker.ts",
+                                "source_ids": ["obsidian:Project retrieval source of truth.md"],
+                            }
+                        ],
+                        "symbol_hints": [],
+                        "suggested_subqueries": [
+                            {
+                                "value": "Where are abstract class constraints checked semantically?",
+                                "source_ids": ["obsidian:Project retrieval source of truth.md"],
+                            }
+                        ],
+                    },
+                    "facts": [
+                        {
+                            "text": "Abstract class constraints are handled during semantic checking.",
+                            "source_ids": ["obsidian:Project retrieval source of truth.md"],
+                        }
+                    ],
+                    "conflicts": [],
+                },
                 _step2_response(subqueries=[("validation_checking", "where are abstract class constraints enforced")]),
                 _late_synthesis_response(accepted_anchor_refs=["workspace:src/compiler/checker.ts:L1-L3"]),
                 _late_synthesis_response(accepted_anchor_refs=["workspace:src/compiler/checker.ts:L1-L3"]),
@@ -1610,6 +1690,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     obsidian_vault_path=str(vault),
                     obsidian_db_path=str(vault / ".obsidian-hybrid-search.db"),
                     obsidian_command=("obsidian-hybrid-search",),
+                    enabled_sources=("source_code", "local_notes"),
                 )
             )
             (index_dir / "qdrant-sync-manifest.json").write_text(
@@ -1640,9 +1721,16 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 )
                 result = stage.retrieve(state, _policy_result(state))
 
-            self.assertIn("src/compiler/checker.ts", result.retrieval_summary["trusted_local_note_file_hints"])
-            self.assertNotIn("src/compiler/checker.ts", result.retrieval_summary["retrieval_plan"]["confirmed_file_hints"])
-            self.assertIn("src/compiler/checker.ts", result.retrieval_summary["retrieval_plan"]["metadata"]["trusted_local_note_file_hints"])
+            self.assertIn(
+                "src/compiler/checker.ts",
+                result.retrieval_summary["trusted_local_note_file_hints"],
+                msg=json.dumps(result.retrieval_summary["connected_source_context"], indent=2),
+            )
+            self.assertIn("src/compiler/checker.ts", result.retrieval_summary["retrieval_plan"]["confirmed_file_hints"])
+            self.assertIn(
+                "obsidian:Project retrieval source of truth.md",
+                result.retrieval_summary["connected_source_context"]["selected_context_ids"],
+            )
             selected_paths = {item.metadata.get("path") for item in result.evidence}
             self.assertIn("src/compiler/checker.ts", selected_paths)
 
@@ -2034,6 +2122,32 @@ class CGCToolTests(unittest.TestCase):
 
             self.assertEqual(calls[0][:2], ["uvx", "codegraphcontext"])
             self.assertEqual(observation.status, "ok")
+
+    def test_cgc_index_repo_syncs_configured_excludes_to_cgcignore(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / ".cgcignore").write_text("existing/\n", encoding="utf-8")
+            tool = CGCRunCliTool(
+                WorkspaceRetrievalConfig(
+                    workspace_root=str(root),
+                    index_dir=str(root / "index"),
+                    llm_config=_llm_config("http://unused/v1/chat/completions"),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                    index_exclude_paths=("node_modules", "tests/baselines", "generated/file.ts"),
+                )
+            )
+            index_tool = CGCIndexRepoTool(tool.config)
+
+            with patch("services.retrieval.tools.cgc.subprocess.run", return_value=_completed(stdout="ok")):
+                observation = index_tool.run(ToolRequest(tool_name="cgc_index_repo", arguments={}))
+
+            self.assertEqual(observation.status, "ok")
+            raw = (root / ".cgcignore").read_text(encoding="utf-8")
+            self.assertIn("existing/", raw)
+            self.assertIn("node_modules/", raw)
+            self.assertIn("tests/baselines/", raw)
+            self.assertIn("generated/file.ts", raw)
 
     def test_cgc_run_cli_rejects_non_whitelisted_subcommands(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -2683,3 +2797,4 @@ class _FakeHTTPResponse:
 
 if __name__ == "__main__":
     unittest.main()
+

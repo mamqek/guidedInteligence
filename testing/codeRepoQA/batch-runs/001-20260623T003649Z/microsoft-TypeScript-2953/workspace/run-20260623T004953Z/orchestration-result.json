@@ -1,0 +1,3312 @@
+{
+  "conversation_id": "microsoft-TypeScript-2953:run-20260623T004953Z",
+  "policy_result": {
+    "allowed": true,
+    "allowed_sources": [
+      "local_notes",
+      "source_code"
+    ],
+    "boundary_choices": [],
+    "intent": "understand_code",
+    "reason": "Guided explanation turn selected.",
+    "retrieval_required": true,
+    "source_policy_name": "coderepoqa_workspace_initial",
+    "turn_type": "guided_explanation",
+    "violations": []
+  },
+  "response_payload": {
+    "content": "### Bottom line\nThe issue about missing `DataView` and related interfaces from `lib.d.ts` concerns the absence of certain standard library type declarations that represent JavaScript built-in objects. The relevant TypeScript compiler flow for this issue involves the representation of types and symbols (`src/compiler/types.ts`), the parsing of source code into AST nodes (`src/compiler/parser.ts`), semantic validation of declarations and types (`src/compiler/checker.ts`), and the diagnostic messages that report errors to users (`src/compiler/diagnosticMessages.json`). Although the retrieved evidence does not show the actual `DataView` interface or its removal, it provides the context for how such interfaces are represented, parsed, checked, and how errors would be reported if these types are missing or misused. Understanding this flow is essential before modifying or debugging the compiler's handling of standard library declarations.\n\n### System flow\nRepresentation/types -> Parser -> Checker -> Diagnostics\n\nThe flow starts with the compiler's internal representation of types and symbols, which includes interfaces like `DataView` if declared. The parser reads source code and produces AST nodes that reference these types. The checker validates that these types exist and are used correctly. If a type like `DataView` is missing from the standard library declarations, the checker will detect unresolved symbols or type errors, which are then reported through diagnostic messages.\n\n### Represent declarations, symbols, and type-system state (src/compiler/types.ts)\nThis file defines the core data structures for the compiler's type system, including interfaces for `Type`, `IntrinsicType`, and `NodeLinks` that cache type and symbol information on AST nodes. For example, the snippet shows:\n\n```ts\nexport interface Type {\nflags: TypeFlags;               // Flags\n/* @internal */ id: number;     // Unique ID\nsymbol?: Symbol;                // Symbol associated with type (if any)\n}\n```\n\nThis representation is crucial because the presence or absence of a type like `DataView` in the standard library would be reflected here as a symbol and type. Later compiler stages rely on this stable representation to resolve and check types. Next inspection targets include how node flags and symbols are defined and linked to declarations.\n\n### Parse class declarations and members (src/compiler/parser.ts)\nThe parser converts source tokens into AST nodes, including class declarations and members. The snippets show parsing contexts and an update function for source files:\n\n```ts\nconst enum ParsingContext {\nSourceElements,            // Elements in source file\nModuleElements,            // Elements in module declaration\nBlockStatements,           // Statements in block\nSwitchClauses,             // Clauses in switch statement\nSwitchClauseStatements,    // Statements in switch clause\nTypeMembers,               // Members in interface or type literal\nClassMembers,              // Members in class declaration\n...\n}\n```\n\nThis matters because if `DataView` or related interfaces are declared as classes or interfaces in `lib.d.ts`, the parser must correctly recognize and attach modifiers and members to these declarations. Missing or incorrect parsing would prevent these types from being available downstream. Next steps include inspecting how modifiers and keywords are parsed before class declarations.\n\n### Validate class declarations and related semantic rules (src/compiler/checker.ts)\nThe checker walks parsed declarations to enforce semantic rules and report errors. The snippets include functions that relate properties between types and check decorators and heritage clauses:\n\n```ts\nfunction propertiesRelatedTo(source: ObjectType, target: ObjectType, reportErrors: boolean): Ternary {\nif (relation === identityRelation) {\nreturn propertiesIdenticalTo(source, target);\n}\nlet result = Ternary.True;\nlet properties = getPropertiesOfObjectType(target);\n...\n}\n```\n\nThis is important because if `DataView` is missing from the type system, the checker will fail to find its symbol or properties, leading to errors. The checker is where missing or invalid uses of standard library types are detected. Next inspection targets include modifier validation and class instantiation checks.\n\n### Define diagnostic messages for errors (src/compiler/diagnosticMessages.json)\nThis JSON file stores user-facing error messages. The snippet shows error codes and messages related to compiler options, but the file also contains messages for missing types or invalid declarations.\n\n```json\n\"Option 'noEmit' cannot be specified with option 'out' or 'outDir'.\": {\n\"category\": \"Error\",\n\"code\": 5040\n},\n\"Option 'noEmit' cannot be specified with option 'declaration'.\": {\n\"category\": \"Error\",\n\"code\": 5041\n},\n```\n\nFor the missing `DataView` issue, the checker would use diagnostic messages defined here to report unresolved symbols or missing types. Adding or updating diagnostics is necessary when introducing new validation rules.\n\n### Implementation / investigation path\nTo address the missing `DataView` and related interfaces, one would start by verifying the presence of these declarations in the standard library `.d.ts` files. Then, ensure the parser correctly recognizes these declarations and attaches appropriate flags and symbols. The checker must resolve these symbols and validate their usage. If missing, diagnostics should report clear errors. Finally, if these types affect emitted code, the emitter would be inspected, but no evidence here suggests emission changes.\n\n### What still needs verification\nThe retrieved evidence does not include the actual `DataView` interface declaration or its removal history. To fully understand the missing interfaces, one should inspect the standard library `.d.ts` files directly and the related symbol registration code. Also, diagnostic messages specific to missing standard library types would be useful to confirm error reporting behavior.\n\n---\n\n## Evidence Not To Miss\n\n- This snippet matters because it shows the diagnostic or error path directly. It was retrieved for the `diagnostics` part of the question. See [src/compiler/diagnosticMessages.json:L1768-L1847](src/compiler/diagnosticMessages.json#L1768-L1847).",
+    "evidence_refs": [
+      "repo-pre:src/compiler/types.ts:L1473-L1552",
+      "repo-pre:src/compiler/types.ts:L1420-L1472",
+      "repo-pre:src/compiler/parser.ts:L4834-L4913",
+      "repo-pre:src/compiler/parser.ts:L4870-L4949",
+      "repo-pre:src/compiler/checker.ts:L4265-L4344",
+      "repo-pre:src/compiler/checker.ts:L8378-L8457",
+      "repo-pre:src/compiler/diagnosticMessages.json:L1768-L1847"
+    ],
+    "metadata": {
+      "coverage_status": "strong",
+      "generator": "llm_explanation",
+      "prompt_template_id": "explanation_markdown_v2",
+      "render_notes": {
+        "summary": "This explanation covers the compiler's representation of types, parsing of declarations, semantic checking, and diagnostics relevant to missing standard library interfaces like DataView.",
+        "title": "Implementation Context for Missing DataView and Related Interfaces in lib.d.ts"
+      },
+      "retrieval_sufficient": true,
+      "understanding_checks": [
+        {
+          "evidence_refs": [
+            "repo-pre:src/compiler/parser.ts:L4834-L4913",
+            "repo-pre:src/compiler/parser.ts:L4870-L4949"
+          ],
+          "expected_answer_points": [
+            "The parser converts source tokens into AST nodes representing classes and interfaces, including their members and modifiers.",
+            "Correct parsing ensures that declarations like DataView are recognized and attached to the AST for later semantic analysis.",
+            "If parsing fails or skips these declarations, the types won't be available to the checker."
+          ],
+          "hint": "Consider the ParsingContext enum and updateSourceFile function that manage parsing contexts and incremental parsing.",
+          "id": "q2",
+          "origin": "required supporting responsibility",
+          "question": "How does the parser in src/compiler/parser.ts handle class and interface declarations that would include standard library types like DataView, and why is this important?",
+          "question_type": "secondary",
+          "role": "input_parsing"
+        },
+        {
+          "evidence_refs": [
+            "repo-pre:src/compiler/checker.ts:L4265-L4344",
+            "repo-pre:src/compiler/checker.ts:L8378-L8457"
+          ],
+          "expected_answer_points": [
+            "The checker validates that types and their properties exist and conform to semantic rules.",
+            "It uses functions like propertiesRelatedTo to compare and validate object types.",
+            "If DataView is missing, the checker will fail to resolve its symbol and report errors using diagnostic messages.",
+            "This stage is where missing or invalid standard library types cause user-facing errors."
+          ],
+          "hint": "Look at how the checker relates properties of object types and checks heritage clauses.",
+          "id": "q3",
+          "origin": "required supporting responsibility",
+          "question": "What does the checker in src/compiler/checker.ts do when it encounters types like DataView, and how would missing declarations affect error reporting?",
+          "question_type": "secondary",
+          "role": "validation_checking"
+        }
+      ],
+      "used_evidence_refs": [
+        "repo-pre:src/compiler/types.ts:L1473-L1552",
+        "repo-pre:src/compiler/types.ts:L1420-L1472",
+        "repo-pre:src/compiler/parser.ts:L4834-L4913",
+        "repo-pre:src/compiler/parser.ts:L4870-L4949",
+        "repo-pre:src/compiler/checker.ts:L4265-L4344",
+        "repo-pre:src/compiler/checker.ts:L8378-L8457",
+        "repo-pre:src/compiler/diagnosticMessages.json:L1768-L1847"
+      ]
+    },
+    "turn_type": "guided_explanation",
+    "violations": []
+  },
+  "response_plan": {
+    "boundary_choices": [],
+    "boundary_message_required": false,
+    "must_include_evidence": true,
+    "notes": {
+      "coverage_status": "strong",
+      "prompt_template_id": "explanation_markdown_v2",
+      "retrieval_sufficient": true
+    },
+    "required_sections": [
+      "generated_explanation",
+      "understanding_checks"
+    ],
+    "turn_type": "guided_explanation"
+  },
+  "retrieval_result": {
+    "coverage_status": "strong",
+    "evidence": [
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "representation",
+          "file_role": "implementation",
+          "path": "src/compiler/types.ts",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 1,
+        "snippet": "    export interface Type {\n        flags: TypeFlags;               // Flags\n        /* @internal */ id: number;     // Unique ID\n        symbol?: Symbol;                // Symbol associated with type (if any)\n    }\n\n    /* @internal */ \n    // Intrinsic types (TypeFlags.Intrinsic)\n    export interface IntrinsicType extends Type {\n        intrinsicName: string;  // Name of intrinsic type\n    }\n\n    // String literal types (TypeFlags.StringLiteral)\n    export interface StringLiteralType extends Type {\n        text: string;  // Text of string literal\n    }\n\n    // Object types (TypeFlags.ObjectType)\n    export interface ObjectType extends Type { }\n\n    // Class and interface types (TypeFlags.Class and TypeFlags.Interface)\n    export interface InterfaceType extends ObjectType {\n        typeParameters: TypeParameter[];           // Type parameters (undefined if non-generic)\n    }\n\n    export interface InterfaceTypeWithBaseTypes extends InterfaceType {\n        baseTypes: ObjectType[];\n    }\n\n    export interface InterfaceTypeWithDeclaredMembers extends InterfaceType {\n        declaredProperties: Symbol[];              // Declared members\n        declaredCallSignatures: Signature[];       // Declared call signatures\n        declaredConstructSignatures: Signature[];  // Declared construct signatures\n        declaredStringIndexType: Type;             // Declared string index type\n        declaredNumberIndexType: Type;             // Declared numeric index type\n    }\n\n    // Type references (TypeFlags.Reference)\n    export interface TypeReference extends ObjectType {\n        target: GenericType;    // Type reference target\n        typeArguments: Type[];  // Type reference type arguments\n    }\n\n    // Generic class and interface types\n    export interface GenericType extends InterfaceType, TypeReference {\n        /* @internal */\n        instantiations: Map<TypeReference>;   // Generic instantiation cache\n    }\n\n    export interface TupleType extends ObjectType {\n        elementTypes: Type[];          // Element types\n        baseArrayType: TypeReference;  // Array<T> where T is best common type of element types\n    }\n\n    export interface UnionType extends Type {\n        types: Type[];                    // Constituent types\n        /* @internal */\n        reducedType: Type;                // Reduced union type (all subtypes removed)\n        /* @internal */\n        resolvedProperties: SymbolTable;  // Cache of resolved properties\n    }\n\n    /* @internal */\n    // Resolved object or union type\n    export interface ResolvedType extends ObjectType, UnionType {\n        members: SymbolTable;              // Properties by name\n        properties: Symbol[];              // Properties\n        callSignatures: Signature[];       // Call signatures of type\n        constructSignatures: Signature[];  // Construct signatures of type\n        stringIndexType: Type;             // String index type\n        numberIndexType: Type;             // Numeric index type\n    }\n\n    // Type parameters (TypeFlags.TypeParameter)\n    export interface TypeParameter extends Type {\n        constraint: Type;        // Constraint\n        /* @internal */\n        target?: TypeParameter;  // Instantiation target\n        /* @internal */\n        mapper?: TypeMapper;     // Instantiation mapper",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/types.ts:L1473-L1552"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "input_parsing",
+          "file_role": "implementation",
+          "path": "src/compiler/parser.ts",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 2,
+        "snippet": "                    : undefined);\n        }\n\n        const enum ParsingContext {\n            SourceElements,            // Elements in source file\n            ModuleElements,            // Elements in module declaration\n            BlockStatements,           // Statements in block\n            SwitchClauses,             // Clauses in switch statement\n            SwitchClauseStatements,    // Statements in switch clause\n            TypeMembers,               // Members in interface or type literal\n            ClassMembers,              // Members in class declaration\n            EnumMembers,               // Members in enum declaration\n            HeritageClauseElement,     // Elements in a heritage clause\n            VariableDeclarations,      // Variable declarations in variable statement\n            ObjectBindingElements,     // Binding elements in object binding list\n            ArrayBindingElements,      // Binding elements in array binding list\n            ArgumentExpressions,       // Expressions in argument list\n            ObjectLiteralMembers,      // Members in object literal\n            ArrayLiteralMembers,       // Members in array literal\n            Parameters,                // Parameters in parameter list\n            TypeParameters,            // Type parameters in type parameter list\n            TypeArguments,             // Type arguments in type argument list\n            TupleElementTypes,         // Element types in tuple element type list\n            HeritageClauses,           // Heritage clauses for a class or interface declaration.\n            ImportOrExportSpecifiers,  // Named import clause's import specifier list\n            Count                      // Number of parsing contexts\n        }\n\n        const enum Tristate {\n            False,\n            True,\n            Unknown\n        }\n    }\n\n    module IncrementalParser {\n        export function updateSourceFile(sourceFile: SourceFile, newText: string, textChangeRange: TextChangeRange, aggressiveChecks: boolean): SourceFile {\n            aggressiveChecks = aggressiveChecks || Debug.shouldAssert(AssertionLevel.Aggressive);\n\n            checkChangeRange(sourceFile, newText, textChangeRange, aggressiveChecks);\n            if (textChangeRangeIsUnchanged(textChangeRange)) {\n                // if the text didn't change, then we can just return our current source file as-is.\n                return sourceFile;\n            }\n\n            if (sourceFile.statements.length === 0) {\n                // If we don't have any statements in the current source file, then there's no real\n                // way to incrementally parse.  So just do a full parse instead.\n                return Parser.parseSourceFile(sourceFile.fileName, newText, sourceFile.languageVersion, /*syntaxCursor*/ undefined, /*setNodeParents*/ true)\n            }\n\n            // Make sure we're not trying to incrementally update a source file more than once.  Once\n            // we do an update the original source file is considered unusbale from that point onwards.\n            //\n            // This is because we do incremental parsing in-place.  i.e. we take nodes from the old\n            // tree and give them new positions and parents.  From that point on, trusting the old\n            // tree at all is not possible as far too much of it may violate invariants.\n            let incrementalSourceFile = <IncrementalNode><Node>sourceFile;\n            Debug.assert(!incrementalSourceFile.hasBeenIncrementallyParsed);\n            incrementalSourceFile.hasBeenIncrementallyParsed = true;\n\n            let oldText = sourceFile.text;\n            let syntaxCursor = createSyntaxCursor(sourceFile);\n\n            // Make the actual change larger so that we know to reparse anything whose lookahead\n            // might have intersected the change.\n            let changeRange = extendToAffectedRange(sourceFile, textChangeRange);\n            checkChangeRange(sourceFile, newText, changeRange, aggressiveChecks);\n\n            // Ensure that extending the affected range only moved the start of the change range\n            // earlier in the file.\n            Debug.assert(changeRange.span.start <= textChangeRange.span.start);\n            Debug.assert(textSpanEnd(changeRange.span) === textSpanEnd(textChangeRange.span));\n            Debug.assert(textSpanEnd(textChangeRangeNewSpan(changeRange)) === textSpanEnd(textChangeRangeNewSpan(textChangeRange)));\n\n            // The is the amount the nodes after the edit range need to be adjusted.  It can be\n            // positive (if the edit added characters), negative (if the edit deleted characters)\n            // or zero (if this was a pure overwrite with nothing added/removed).\n            let delta = textChangeRangeNewSpan(changeRange).length - changeRange.span.length;\n",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/parser.ts:L4834-L4913"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "validation_checking",
+          "file_role": "implementation",
+          "path": "src/compiler/checker.ts",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 3,
+        "snippet": "            function propertiesRelatedTo(source: ObjectType, target: ObjectType, reportErrors: boolean): Ternary {\n                if (relation === identityRelation) {\n                    return propertiesIdenticalTo(source, target);\n                }\n                let result = Ternary.True;\n                let properties = getPropertiesOfObjectType(target);\n                let requireOptionalProperties = relation === subtypeRelation && !(source.flags & TypeFlags.ObjectLiteral);\n                for (let targetProp of properties) {\n                    let sourceProp = getPropertyOfType(source, targetProp.name);\n                    if (sourceProp !== targetProp) {\n                        if (!sourceProp) {\n                            if (!(targetProp.flags & SymbolFlags.Optional) || requireOptionalProperties) {\n                                if (reportErrors) {\n                                    reportError(Diagnostics.Property_0_is_missing_in_type_1, symbolToString(targetProp), typeToString(source));\n                                }\n                                return Ternary.False;\n                            }\n                        }\n                        else if (!(targetProp.flags & SymbolFlags.Prototype)) {\n                            let sourceFlags = getDeclarationFlagsFromSymbol(sourceProp);\n                            let targetFlags = getDeclarationFlagsFromSymbol(targetProp);\n                            if (sourceFlags & NodeFlags.Private || targetFlags & NodeFlags.Private) {\n                                if (sourceProp.valueDeclaration !== targetProp.valueDeclaration) {\n                                    if (reportErrors) {\n                                        if (sourceFlags & NodeFlags.Private && targetFlags & NodeFlags.Private) {\n                                            reportError(Diagnostics.Types_have_separate_declarations_of_a_private_property_0, symbolToString(targetProp));\n                                        }\n                                        else {\n                                            reportError(Diagnostics.Property_0_is_private_in_type_1_but_not_in_type_2, symbolToString(targetProp),\n                                                typeToString(sourceFlags & NodeFlags.Private ? source : target),\n                                                typeToString(sourceFlags & NodeFlags.Private ? target : source));\n                                        }\n                                    }\n                                    return Ternary.False;\n                                }\n                            }\n                            else if (targetFlags & NodeFlags.Protected) {\n                                let sourceDeclaredInClass = sourceProp.parent && sourceProp.parent.flags & SymbolFlags.Class;\n                                let sourceClass = sourceDeclaredInClass ? <InterfaceType>getDeclaredTypeOfSymbol(sourceProp.parent) : undefined;\n                                let targetClass = <InterfaceType>getDeclaredTypeOfSymbol(targetProp.parent);\n                                if (!sourceClass || !hasBaseType(sourceClass, targetClass)) {\n                                    if (reportErrors) {\n                                        reportError(Diagnostics.Property_0_is_protected_but_type_1_is_not_a_class_derived_from_2,\n                                            symbolToString(targetProp), typeToString(sourceClass || source), typeToString(targetClass));\n                                    }\n                                    return Ternary.False;\n                                }\n                            }\n                            else if (sourceFlags & NodeFlags.Protected) {\n                                if (reportErrors) {\n                                    reportError(Diagnostics.Property_0_is_protected_in_type_1_but_public_in_type_2,\n                                        symbolToString(targetProp), typeToString(source), typeToString(target));\n                                }\n                                return Ternary.False;\n                            }\n                            let related = isRelatedTo(getTypeOfSymbol(sourceProp), getTypeOfSymbol(targetProp), reportErrors);\n                            if (!related) {\n                                if (reportErrors) {\n                                    reportError(Diagnostics.Types_of_property_0_are_incompatible, symbolToString(targetProp));\n                                }\n                                return Ternary.False;\n                            }\n                            result &= related;\n                            if (sourceProp.flags & SymbolFlags.Optional && !(targetProp.flags & SymbolFlags.Optional)) {\n                                // TypeScript 1.0 spec (April 2014): 3.8.3\n                                // S is a subtype of a type T, and T is a supertype of S if ...\n                                // S' and T are object types and, for each member M in T..\n                                // M is a property and S' contains a property N where\n                                // if M is a required property, N is also a required property\n                                // (M - property in T)\n                                // (N - property in S)\n                                if (reportErrors) {\n                                    reportError(Diagnostics.Property_0_is_optional_in_type_1_but_required_in_type_2,\n                                        symbolToString(targetProp), typeToString(source), typeToString(target));\n                                }\n                                return Ternary.False;\n                            }\n                        }\n                    }\n                }",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/checker.ts:L4265-L4344"
+      },
+      {
+        "metadata": {
+          "chunk_line_ranges": "[\"L331-L370\"]",
+          "chunk_refs": "[\"repo-pre:src/compiler/diagnosticMessages.json:L331-L370\"]",
+          "commit": "workspace",
+          "coverage_area": "diagnostics",
+          "file_role": "implementation",
+          "path": "src/compiler/diagnosticMessages.json",
+          "retrieval_path": "late_accepted_file_span",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 4,
+        "snippet": "    \"Option 'noEmit' cannot be specified with option 'out' or 'outDir'.\": {\n        \"category\": \"Error\",\n        \"code\": 5040\n    },\n    \"Option 'noEmit' cannot be specified with option 'declaration'.\": {\n        \"category\": \"Error\",\n        \"code\": 5041\n    },\n    \"Option 'project' cannot be mixed with source files on a command line.\": {\n        \"category\": \"Error\",\n        \"code\": 5042\n    },\n    \"Option 'sourceMap' cannot be specified with option 'separateCompilation'.\": {\n        \"category\": \"Error\",\n        \"code\": 5043\n    },\n    \"Option 'declaration' cannot be specified with option 'separateCompilation'.\": {\n        \"category\": \"Error\",\n        \"code\": 5044\n    },\n    \"Option 'noEmitOnError' cannot be specified with option 'separateCompilation'.\": {\n        \"category\": \"Error\",\n        \"code\": 5045\n    },\n    \"Option 'out' cannot be specified with option 'separateCompilation'.\": {\n        \"category\": \"Error\",\n        \"code\": 5046\n    },\n    \"Option 'separateCompilation' can only be used when either option'--module' is provided or option 'target' is 'ES6' or higher.\": {\n        \"category\": \"Error\",\n        \"code\": 5047\n    },\n    \"Option 'sourceMap' cannot be specified with option 'inlineSourceMap'.\": {\n        \"category\": \"Error\",\n        \"code\": 5048\n    },\n    \"Option 'sourceRoot' cannot be specified with option 'inlineSourceMap'.\": {\n        \"category\": \"Error\",\n        \"code\": 5049\n    },\n    \"Option 'mapRoot' cannot be specified with option 'inlineSourceMap'.\": {\n        \"category\": \"Error\",\n        \"code\": 5050\n    },\n     \"Option 'inlineSources' can only be used when either option '--inlineSourceMap' or option '--sourceMap' is provided.\": {\n        \"category\": \"Error\",\n        \"code\": 5051\n    },\n\n    \"Concatenate and emit output to single file.\": {\n        \"category\": \"Message\",\n        \"code\": 6001\n    },\n    \"Generates corresponding '.d.ts' file.\": {\n        \"category\": \"Message\",\n        \"code\": 6002\n    },\n    \"Specifies the location where debugger should locate map files instead of generated locations.\": {\n        \"category\": \"Message\",\n        \"code\": 6003\n    },\n    \"Specifies the location where debugger should locate TypeScript files instead of source locations.\": {\n        \"category\": \"Message\",\n        \"code\": 6004\n    },\n    \"Watch input files.\": {\n        \"category\": \"Message\",\n        \"code\": 6005\n    },\n    \"Redirect output structure to the directory.\": {\n        \"category\": \"Message\",\n        \"code\": 6006\n    },\n    \"Do not erase const enum declarations in generated code.\": {\n        \"category\": \"Message\",\n        \"code\": 6007\n    },\n    \"Do not emit outputs if any type checking errors were reported.\": {\n        \"category\": \"Message\",\n        \"code\": 6008",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/diagnosticMessages.json:L1768-L1847"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "behavior_output",
+          "file_role": "implementation",
+          "path": "src/compiler/emitter.js",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 5,
+        "snippet": "                        emitAMDModule(node, startIndex);\n                    }\n                    else if (compilerOptions.module === 3 /* System */) {\n                        emitSystemModule(node, startIndex);\n                    }\n                    else {\n                        emitCommonJSModule(node, startIndex);\n                    }\n                }\n                else {\n                    externalImports = undefined;\n                    exportSpecifiers = undefined;\n                    exportEquals = undefined;\n                    hasExportStars = false;\n                    emitCaptureThisForNodeIfNecessary(node);\n                    emitLinesStartingAt(node.statements, startIndex);\n                    emitTempDeclarations(true);\n                }\n                emitLeadingComments(node.endOfFileToken);\n            }\n            function emitNodeWithoutSourceMap(node, allowGeneratedIdentifiers) {\n                if (!node) {\n                    return;\n                }\n                if (node.flags & 2 /* Ambient */) {\n                    return emitOnlyPinnedOrTripleSlashComments(node);\n                }\n                var emitComments = shouldEmitLeadingAndTrailingComments(node);\n                if (emitComments) {\n                    emitLeadingComments(node);\n                }\n                emitJavaScriptWorker(node, allowGeneratedIdentifiers);\n                if (emitComments) {\n                    emitTrailingComments(node);\n                }\n            }\n            function shouldEmitLeadingAndTrailingComments(node) {\n                switch (node.kind) {\n                    // All of these entities are emitted in a specialized fashion.  As such, we allow\n                    // the specialized methods for each to handle the comments on the nodes.\n                    case 202 /* InterfaceDeclaration */:\n                    case 200 /* FunctionDeclaration */:\n                    case 209 /* ImportDeclaration */:\n                    case 208 /* ImportEqualsDeclaration */:\n                    case 203 /* TypeAliasDeclaration */:\n                    case 214 /* ExportAssignment */:\n                        return false;\n                    case 205 /* ModuleDeclaration */:\n                        // Only emit the leading/trailing comments for a module if we're actually\n                        // emitting the module as well.\n                        return shouldEmitModuleDeclaration(node);\n                    case 204 /* EnumDeclaration */:\n                        // Only emit the leading/trailing comments for an enum if we're actually\n                        // emitting the module as well.\n                        return shouldEmitEnumDeclaration(node);\n                }\n                // If this is the expression body of an arrow function that we're down-leveling, \n                // then we don't want to emit comments when we emit the body.  It will have already\n                // been taken care of when we emitted the 'return' statement for the function\n                // expression body.\n                if (node.kind !== 179 /* Block */ &&\n                    node.parent &&\n                    node.parent.kind === 163 /* ArrowFunction */ &&\n                    node.parent.body === node &&\n                    compilerOptions.target <= 1 /* ES5 */) {\n                    return false;\n                }\n                // Emit comments for everything else.\n                return true;\n            }\n            function emitJavaScriptWorker(node, allowGeneratedIdentifiers) {\n                if (allowGeneratedIdentifiers === void 0) { allowGeneratedIdentifiers = true; }\n                // Check if the node can be emitted regardless of the ScriptTarget\n                switch (node.kind) {\n                    case 65 /* Identifier */:\n                        return emitIdentifier(node, allowGeneratedIdentifiers);\n                    case 129 /* Parameter */:\n                        return emitParameter(node);\n                    case 134 /* MethodDeclaration */:\n                    case 133 /* MethodSignature */:",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/emitter.js:L4856-L4935"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "representation",
+          "file_role": "implementation",
+          "path": "src/compiler/types.ts",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 6,
+        "snippet": "    export interface NodeLinks {\n        resolvedType?: Type;              // Cached type of type node\n        resolvedSignature?: Signature;    // Cached signature of signature node or call expression\n        resolvedSymbol?: Symbol;          // Cached name resolution result\n        flags?: NodeCheckFlags;           // Set of flags specific to Node\n        enumMemberValue?: number;         // Constant value of enum member\n        isIllegalTypeReferenceInConstraint?: boolean; // Is type reference in constraint refers to the type parameter from the same list\n        isVisible?: boolean;              // Is this node visible\n        generatedName?: string;           // Generated name for module, enum, or import declaration\n        generatedNames?: Map<string>;     // Generated names table for source file\n        assignmentChecks?: Map<boolean>;  // Cache of assignment checks\n        hasReportedStatementInAmbientContext?: boolean;  // Cache boolean if we report statements in ambient context\n        importOnRightSide?: Symbol;       // for import declarations - import that appear on the right side\n    }\n\n    export const enum TypeFlags {\n        Any                     = 0x00000001,\n        String                  = 0x00000002,\n        Number                  = 0x00000004,\n        Boolean                 = 0x00000008,\n        Void                    = 0x00000010,\n        Undefined               = 0x00000020,\n        Null                    = 0x00000040,\n        Enum                    = 0x00000080,  // Enum type\n        StringLiteral           = 0x00000100,  // String literal type\n        TypeParameter           = 0x00000200,  // Type parameter\n        Class                   = 0x00000400,  // Class\n        Interface               = 0x00000800,  // Interface\n        Reference               = 0x00001000,  // Generic type reference\n        Tuple                   = 0x00002000,  // Tuple\n        Union                   = 0x00004000,  // Union\n        Anonymous               = 0x00008000,  // Anonymous\n        /* @internal */ \n        FromSignature           = 0x00010000,  // Created for signature assignment check\n        ObjectLiteral           = 0x00020000,  // Originates in an object literal\n        /* @internal */ \n        ContainsUndefinedOrNull = 0x00040000,  // Type is or contains Undefined or Null type\n        /* @internal */ \n        ContainsObjectLiteral = 0x00080000,  // Type is or contains object literal type\n        ESSymbol                = 0x00100000,  // Type of symbol primitive introduced in ES6\n\n        /* @internal */ \n        Intrinsic = Any | String | Number | Boolean | ESSymbol | Void | Undefined | Null,\n        /* @internal */ \n        Primitive = String | Number | Boolean | ESSymbol | Void | Undefined | Null | StringLiteral | Enum,\n        StringLike = String | StringLiteral,\n        NumberLike = Number | Enum,\n        ObjectType = Class | Interface | Reference | Tuple | Anonymous,\n        /* @internal */ \n        RequiresWidening = ContainsUndefinedOrNull | ContainsObjectLiteral\n    }\n\n    // Properties common to all types",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/types.ts:L1420-L1472"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "input_parsing",
+          "file_role": "implementation",
+          "path": "src/compiler/parser.ts",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 7,
+        "snippet": "        export function updateSourceFile(sourceFile: SourceFile, newText: string, textChangeRange: TextChangeRange, aggressiveChecks: boolean): SourceFile {\n            aggressiveChecks = aggressiveChecks || Debug.shouldAssert(AssertionLevel.Aggressive);\n\n            checkChangeRange(sourceFile, newText, textChangeRange, aggressiveChecks);\n            if (textChangeRangeIsUnchanged(textChangeRange)) {\n                // if the text didn't change, then we can just return our current source file as-is.\n                return sourceFile;\n            }\n\n            if (sourceFile.statements.length === 0) {\n                // If we don't have any statements in the current source file, then there's no real\n                // way to incrementally parse.  So just do a full parse instead.\n                return Parser.parseSourceFile(sourceFile.fileName, newText, sourceFile.languageVersion, /*syntaxCursor*/ undefined, /*setNodeParents*/ true)\n            }\n\n            // Make sure we're not trying to incrementally update a source file more than once.  Once\n            // we do an update the original source file is considered unusbale from that point onwards.\n            //\n            // This is because we do incremental parsing in-place.  i.e. we take nodes from the old\n            // tree and give them new positions and parents.  From that point on, trusting the old\n            // tree at all is not possible as far too much of it may violate invariants.\n            let incrementalSourceFile = <IncrementalNode><Node>sourceFile;\n            Debug.assert(!incrementalSourceFile.hasBeenIncrementallyParsed);\n            incrementalSourceFile.hasBeenIncrementallyParsed = true;\n\n            let oldText = sourceFile.text;\n            let syntaxCursor = createSyntaxCursor(sourceFile);\n\n            // Make the actual change larger so that we know to reparse anything whose lookahead\n            // might have intersected the change.\n            let changeRange = extendToAffectedRange(sourceFile, textChangeRange);\n            checkChangeRange(sourceFile, newText, changeRange, aggressiveChecks);\n\n            // Ensure that extending the affected range only moved the start of the change range\n            // earlier in the file.\n            Debug.assert(changeRange.span.start <= textChangeRange.span.start);\n            Debug.assert(textSpanEnd(changeRange.span) === textSpanEnd(textChangeRange.span));\n            Debug.assert(textSpanEnd(textChangeRangeNewSpan(changeRange)) === textSpanEnd(textChangeRangeNewSpan(textChangeRange)));\n\n            // The is the amount the nodes after the edit range need to be adjusted.  It can be\n            // positive (if the edit added characters), negative (if the edit deleted characters)\n            // or zero (if this was a pure overwrite with nothing added/removed).\n            let delta = textChangeRangeNewSpan(changeRange).length - changeRange.span.length;\n\n            // If we added or removed characters during the edit, then we need to go and adjust all\n            // the nodes after the edit.  Those nodes may move forward (if we inserted chars) or they\n            // may move backward (if we deleted chars).\n            //\n            // Doing this helps us out in two ways.  First, it means that any nodes/tokens we want\n            // to reuse are already at the appropriate position in the new text.  That way when we\n            // reuse them, we don't have to figure out if they need to be adjusted.  Second, it makes\n            // it very easy to determine if we can reuse a node.  If the node's position is at where\n            // we are in the text, then we can reuse it.  Otherwise we can't.  If the node's position\n            // is ahead of us, then we'll need to rescan tokens.  If the node's position is behind\n            // us, then we'll need to skip it or crumble it as appropriate\n            //\n            // We will also adjust the positions of nodes that intersect the change range as well.\n            // By doing this, we ensure that all the positions in the old tree are consistent, not\n            // just the positions of nodes entirely before/after the change range.  By being\n            // consistent, we can then easily map from positions to nodes in the old tree easily.\n            //\n            // Also, mark any syntax elements that intersect the changed span.  We know, up front,\n            // that we cannot reuse these elements.\n            updateTokenPositionsAndMarkElements(incrementalSourceFile,\n                changeRange.span.start, textSpanEnd(changeRange.span), textSpanEnd(textChangeRangeNewSpan(changeRange)), delta, oldText, newText, aggressiveChecks);\n\n            // Now that we've set up our internal incremental state just proceed and parse the\n            // source file in the normal fashion.  When possible the parser will retrieve and\n            // reuse nodes from the old tree.\n            //\n            // Note: passing in 'true' for setNodeParents is very important.  When incrementally\n            // parsing, we will be reusing nodes from the old tree, and placing it into new\n            // parents.  If we don't set the parents now, we'll end up with an observably\n            // inconsistent tree.  Setting the parents on the new tree should be very fast.  We\n            // will immediately bail out of walking any subtrees when we can see that their parents\n            // are already correct.\n            let result = Parser.parseSourceFile(sourceFile.fileName, newText, sourceFile.languageVersion, syntaxCursor, /* setParentNode */ true)\n\n            return result;\n        }",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/parser.ts:L4870-L4949"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "validation_checking",
+          "file_role": "implementation",
+          "path": "src/compiler/checker.ts",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 8,
+        "snippet": "            checkDecorators(node);\n        }\n\n        function checkTypeReferenceNode(node: TypeReferenceNode) {\n            checkGrammarTypeReferenceInStrictMode(node.typeName);\n            return checkTypeReferenceOrHeritageClauseElement(node);\n        }\n\n        function checkHeritageClauseElement(node: HeritageClauseElement) {\n            checkGrammarHeritageClauseElementInStrictMode(<PropertyAccessExpression>node.expression);\n\n            return checkTypeReferenceOrHeritageClauseElement(node);\n        }\n\n        function checkTypeReferenceOrHeritageClauseElement(node: TypeReferenceNode | HeritageClauseElement) {\n            // Grammar checking\n            checkGrammarTypeArguments(node, node.typeArguments);\n\n            let type = getTypeFromTypeReferenceOrHeritageClauseElement(node);\n            if (type !== unknownType && node.typeArguments) {\n                // Do type argument local checks only if referenced type is successfully resolved\n                let len = node.typeArguments.length;\n                for (let i = 0; i < len; i++) {\n                    checkSourceElement(node.typeArguments[i]);\n                    let constraint = getConstraintOfTypeParameter((<TypeReference>type).target.typeParameters[i]);\n                    if (produceDiagnostics && constraint) {\n                        let typeArgument = (<TypeReference>type).typeArguments[i];\n                        checkTypeAssignableTo(typeArgument, constraint, node, Diagnostics.Type_0_does_not_satisfy_the_constraint_1);\n                    }\n                }\n            }\n        }\n\n        function checkTypeQuery(node: TypeQueryNode) {\n            getTypeFromTypeQueryNode(node);\n        }\n\n        function checkTypeLiteral(node: TypeLiteralNode) {\n            forEach(node.members, checkSourceElement);\n            if (produceDiagnostics) {\n                let type = getTypeFromTypeLiteralOrFunctionOrConstructorTypeNode(node);\n                checkIndexConstraints(type);\n                checkTypeForDuplicateIndexSignatures(node);\n            }\n        }\n\n        function checkArrayType(node: ArrayTypeNode) {\n            checkSourceElement(node.elementType);\n        }\n\n        function checkTupleType(node: TupleTypeNode) {\n            // Grammar checking\n            let hasErrorFromDisallowedTrailingComma = checkGrammarForDisallowedTrailingComma(node.elementTypes);\n            if (!hasErrorFromDisallowedTrailingComma && node.elementTypes.length === 0) {\n                grammarErrorOnNode(node, Diagnostics.A_tuple_type_element_list_cannot_be_empty);\n            }\n\n            forEach(node.elementTypes, checkSourceElement);\n        }\n\n        function checkUnionType(node: UnionTypeNode) {\n            forEach(node.types, checkSourceElement);\n        }\n\n        function isPrivateWithinAmbient(node: Node): boolean {\n            return (node.flags & NodeFlags.Private) && isInAmbientContext(node);\n        }\n\n        function checkSpecializedSignatureDeclaration(signatureDeclarationNode: SignatureDeclaration): void {\n            if (!produceDiagnostics) {\n                return;\n            }\n            let signature = getSignatureFromDeclaration(signatureDeclarationNode);\n            if (!signature.hasStringLiterals) {\n                return;\n            }\n\n            // TypeScript 1.0 spec (April 2014): 3.7.2.2\n            // Specialized signatures are not permitted in conjunction with a function body\n            if (nodeIsPresent((<FunctionLikeDeclaration>signatureDeclarationNode).body)) {",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/checker.ts:L8378-L8457"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "diagnostics",
+          "file_role": "implementation",
+          "path": "src/compiler/diagnosticMessages.json",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 9,
+        "snippet": "        \"code\": 2480\n    },\n    \"Cannot initialize outer scoped variable '{0}' in the same scope as block scoped declaration '{1}'.\": {\n        \"category\": \"Error\",\n        \"code\": 2481\n    },\n    \"The left-hand side of a 'for...of' statement cannot use a type annotation.\": {\n        \"category\": \"Error\",\n        \"code\": 2483\n    },\n    \"Export declaration conflicts with exported declaration of '{0}'\": {\n        \"category\": \"Error\",\n        \"code\": 2484\n    },\n    \"The left-hand side of a 'for...of' statement cannot be a previously defined constant.\": {\n        \"category\": \"Error\",\n        \"code\": 2485\n    },\n    \"The left-hand side of a 'for...in' statement cannot be a previously defined constant.\": {\n        \"category\": \"Error\",\n        \"code\": 2486\n    },\n    \"Invalid left-hand side in 'for...of' statement.\": {\n        \"category\": \"Error\",\n        \"code\": 2487\n    },\n    \"Type must have a '[Symbol.iterator]()' method that returns an iterator.\": {\n        \"category\": \"Error\",\n        \"code\": 2488\n    },\n    \"An iterator must have a 'next()' method.\": {\n        \"category\": \"Error\",\n        \"code\": 2489\n    },\n    \"The type returned by the 'next()' method of an iterator must have a 'value' property.\": {\n        \"category\": \"Error\",\n        \"code\": 2490\n    },\n    \"The left-hand side of a 'for...in' statement cannot be a destructuring pattern.\": {\n        \"category\": \"Error\",\n        \"code\": 2491\n    },\n    \"Cannot redeclare identifier '{0}' in catch clause\": {\n        \"category\": \"Error\",\n        \"code\": 2492\n    },\n    \"Tuple type '{0}' with length '{1}' cannot be assigned to tuple with length '{2}'.\": {\n        \"category\": \"Error\",\n        \"code\": 2493\n    },\n    \"Using a string in a 'for...of' statement is only supported in ECMAScript 5 and higher.\": {\n        \"category\": \"Error\",\n        \"code\": 2494\n    },\n    \"Type '{0}' is not an array type or a string type.\": {\n        \"category\": \"Error\",\n        \"code\": 2495\n    },\n    \"The 'arguments' object cannot be referenced in an arrow function in ES3 and ES5. Consider using a standard function expression.\": {\n        \"category\": \"Error\",\n        \"code\": 2496\n    },\n    \"Module '{0}' resolves to a non-module entity and cannot be imported using this construct.\": {\n        \"category\": \"Error\",\n        \"code\": 2497\n    },\n    \"Module '{0}' uses 'export =' and cannot be used with 'export *'.\": {\n        \"category\": \"Error\",\n        \"code\": 2498\n    },\n    \"An interface can only extend an identifier/qualified-name with optional type arguments.\": {\n        \"category\": \"Error\",\n        \"code\": 2499\n    },\n    \"A class can only implement an identifier/qualified-name with optional type arguments.\": {\n        \"category\": \"Error\",\n        \"code\": 2500\n    },\n    \"A rest element cannot contain a binding pattern.\": {\n        \"category\": \"Error\",",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/diagnosticMessages.json:L1361-L1440"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "behavior_output",
+          "file_role": "implementation",
+          "path": "src/compiler/emitter.js",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 10,
+        "snippet": "            function shouldEmitLeadingAndTrailingComments(node) {\n                switch (node.kind) {\n                    // All of these entities are emitted in a specialized fashion.  As such, we allow\n                    // the specialized methods for each to handle the comments on the nodes.\n                    case 202 /* InterfaceDeclaration */:\n                    case 200 /* FunctionDeclaration */:\n                    case 209 /* ImportDeclaration */:\n                    case 208 /* ImportEqualsDeclaration */:\n                    case 203 /* TypeAliasDeclaration */:\n                    case 214 /* ExportAssignment */:\n                        return false;\n                    case 205 /* ModuleDeclaration */:\n                        // Only emit the leading/trailing comments for a module if we're actually\n                        // emitting the module as well.\n                        return shouldEmitModuleDeclaration(node);\n                    case 204 /* EnumDeclaration */:\n                        // Only emit the leading/trailing comments for an enum if we're actually\n                        // emitting the module as well.\n                        return shouldEmitEnumDeclaration(node);\n                }\n                // If this is the expression body of an arrow function that we're down-leveling, \n                // then we don't want to emit comments when we emit the body.  It will have already\n                // been taken care of when we emitted the 'return' statement for the function\n                // expression body.\n                if (node.kind !== 179 /* Block */ &&\n                    node.parent &&\n                    node.parent.kind === 163 /* ArrowFunction */ &&\n                    node.parent.body === node &&\n                    compilerOptions.target <= 1 /* ES5 */) {\n                    return false;\n                }\n                // Emit comments for everything else.\n                return true;\n            }",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/emitter.js:L4892-L4925"
+      }
+    ],
+    "failures_or_fallbacks": [],
+    "retrieval_summary": {
+      "cgc_command_prefix": [
+        "C:\\Programming\\guidedInteligence\\.venv\\Scripts\\cgc.exe"
+      ],
+      "cgc_index_command": [
+        "C:\\Programming\\guidedInteligence\\.venv\\Scripts\\cgc.exe",
+        "index",
+        "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-2953\\s\\0d2e50b16794"
+      ],
+      "cgc_narrowed_file_count": 4,
+      "connected_source_context": {
+        "conflicts": [],
+        "documents": [],
+        "elapsed_ms": 0.0,
+        "facts": [],
+        "failures": [],
+        "file_hints": [],
+        "queries": [],
+        "ranked_documents": [],
+        "retrieval_terms": [],
+        "selected_context_ids": [],
+        "selected_evidence_ids": [],
+        "signal_provenance": {},
+        "skipped_sources": {},
+        "suggested_subqueries": [],
+        "symbol_hints": [],
+        "usage": {}
+      },
+      "connected_source_count": 0,
+      "connected_sources": [],
+      "deterministic_coverage_gate": {
+        "missing_roles": [],
+        "reasons": [],
+        "role_status": {
+          "behavior_output": "strong",
+          "diagnostics": "strong",
+          "input_parsing": "strong",
+          "representation": "strong",
+          "validation_checking": "strong"
+        },
+        "satisfied": true
+      },
+      "exploration_rounds": 0,
+      "index_document_count": 4264,
+      "index_rebuilt": true,
+      "qdrant_path_filter_count": 4,
+      "refinement_policy": {
+        "acceptance_satisfied": true,
+        "accepted_anchor_refs": [
+          "repo-pre:src/compiler/types.ts:L1473-L1552",
+          "repo-pre:src/compiler/types.ts:L1420-L1472",
+          "repo-pre:src/compiler/parser.ts:L4834-L4913",
+          "repo-pre:src/compiler/parser.ts:L4870-L4949",
+          "repo-pre:src/compiler/checker.ts:L4265-L4344",
+          "repo-pre:src/compiler/checker.ts:L8378-L8457",
+          "repo-pre:src/compiler/diagnosticMessages.json:L1768-L1847",
+          "repo-pre:src/compiler/diagnosticMessages.json:L1361-L1440",
+          "repo-pre:src/compiler/emitter.js:L4856-L4935",
+          "repo-pre:src/compiler/emitter.js:L4892-L4925"
+        ],
+        "follow_up_queries": [],
+        "missing_areas": [],
+        "rejected_anchor_refs": [
+          "repo-pre:src/compiler/utilities.ts:FILE",
+          "repo-pre:src/compiler/declarationEmitter.ts:FILE",
+          "repo-pre:src/server/node.d.ts:FILE",
+          "repo-pre:src/compiler/tsc.ts:FILE",
+          "repo-pre:src/services/formatting/rules.ts:FILE",
+          "repo-pre:src/services/services.ts:FILE",
+          "repo-pre:src/services/formatting/rulesMap.ts:FILE"
+        ],
+        "snippet_assessment": [
+          {
+            "reason": "Contains representation of intrinsic and string literal types, relevant to DataView interface representation in the compiler types.",
+            "ref": "repo-pre:src/compiler/types.ts:L1473-L1552",
+            "role": "core"
+          },
+          {
+            "reason": "Defines NodeLinks and cached type information, important for type representation and resolution including DataView.",
+            "ref": "repo-pre:src/compiler/types.ts:L1420-L1472",
+            "role": "core"
+          },
+          {
+            "reason": "Shows parsing context and mechanisms relevant to parsing lib.d.ts and interfaces like DataView.",
+            "ref": "repo-pre:src/compiler/parser.ts:L4834-L4913",
+            "role": "core"
+          },
+          {
+            "reason": "Contains updateSourceFile function and parsing checks, relevant to parsing and recognizing DataView interface declarations.",
+            "ref": "repo-pre:src/compiler/parser.ts:L4870-L4949",
+            "role": "core"
+          },
+          {
+            "reason": "Contains type checking functions that validate object types, relevant to checking DataView usage.",
+            "ref": "repo-pre:src/compiler/checker.ts:L4265-L4344",
+            "role": "core"
+          },
+          {
+            "reason": "Contains functions checking heritage clauses and type references, relevant to validating DataView interface references.",
+            "ref": "repo-pre:src/compiler/checker.ts:L8378-L8457",
+            "role": "core"
+          },
+          {
+            "reason": "Contains diagnostic messages relevant to errors that could arise from missing or invalid DataView interface usage.",
+            "ref": "repo-pre:src/compiler/diagnosticMessages.json:L1768-L1847",
+            "role": "core"
+          },
+          {
+            "reason": "Contains diagnostic messages relevant to TypeScript errors, supporting explanation of DataView related diagnostics.",
+            "ref": "repo-pre:src/compiler/diagnosticMessages.json:L1361-L1440",
+            "role": "core"
+          },
+          {
+            "reason": "Contains emitter logic relevant to emitting code and handling interfaces like DataView.",
+            "ref": "repo-pre:src/compiler/emitter.js:L4856-L4935",
+            "role": "core"
+          },
+          {
+            "reason": "Contains functions controlling emission of comments and nodes, relevant to emitting DataView interface declarations.",
+            "ref": "repo-pre:src/compiler/emitter.js:L4892-L4925",
+            "role": "core"
+          }
+        ],
+        "stop_reason": "All required roles for explaining the issue about missing DataView and related interfaces in TypeScript lib.d.ts and compiler source are covered by the retrieved and validated evidence."
+      },
+      "required_role_buckets": [
+        {
+          "accepted_refs": [
+            "repo-pre:src/compiler/types.ts:L1473-L1552",
+            "repo-pre:src/compiler/types.ts:L1420-L1472"
+          ],
+          "evaluations": [
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "dependency_supported",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/compiler/types.ts",
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/compiler/types.ts"
+                ],
+                "dependency_paths": [
+                  "src/services/formatting/rules.ts"
+                ],
+                "dependency_support_score": 2.2,
+                "local_intent_score": 2.75,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 1.4,
+                "symbol": "SourceMapData",
+                "threshold": 0.0,
+                "total_score": 15.033
+              }
+            },
+            {
+              "path": "src/compiler/utilities.ts",
+              "ref": "repo-pre:src/compiler/utilities.ts:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/compiler/types.ts",
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 5.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.35,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "isCatchClauseVariableDeclaration",
+                "threshold": 0.0,
+                "total_score": 7.983
+              }
+            },
+            {
+              "path": "src/compiler/declarationEmitter.ts",
+              "ref": "repo-pre:src/compiler/declarationEmitter.ts:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/compiler/types.ts",
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.35,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "emitVariableDeclaration",
+                "threshold": 0.0,
+                "total_score": 7.75
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "dependency_supported",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/compiler/types.ts",
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [
+                  "src/services/formatting/rules.ts"
+                ],
+                "dependency_support_score": 2.2,
+                "local_intent_score": 1.35,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "SymbolFlags",
+                "threshold": 0.0,
+                "total_score": 7.7
+              }
+            },
+            {
+              "path": "src/server/node.d.ts",
+              "ref": "repo-pre:src/server/node.d.ts:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "dependency_supported",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/compiler/types.ts",
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [
+                  "src/services/formatting/rules.ts"
+                ],
+                "dependency_support_score": 2.2,
+                "local_intent_score": 0.2,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "",
+                "threshold": 0.0,
+                "total_score": 6.8
+              }
+            },
+            {
+              "path": "src/compiler/emitter.ts",
+              "ref": "repo-pre:src/compiler/emitter.ts:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/compiler/types.ts",
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "writeJavaScriptAndSourceMapFile",
+                "threshold": 0.0,
+                "total_score": 5.4
+              }
+            },
+            {
+              "path": "src/compiler/emitter.js",
+              "ref": "repo-pre:src/compiler/emitter.js:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/compiler/types.ts",
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "writeJavaScriptAndSourceMapFile",
+                "threshold": 0.0,
+                "total_score": -3.9
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:L1194-L1247",
+              "source_role": "representation",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "SymbolWriter",
+                "threshold": 3.0,
+                "total_score": 3.45
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:L1420-L1472",
+              "source_role": "representation",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "NodeLinks",
+                "threshold": 3.0,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:L1473-L1552",
+              "source_role": "representation",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "Type",
+                "threshold": 3.0,
+                "total_score": 4.15
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:L368-L383",
+              "source_role": "representation",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "Node",
+                "threshold": 3.0,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:L1473-L1552",
+              "source_role": "representation",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "Type",
+                "threshold": 3.0,
+                "total_score": 4.15
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:L1420-L1472",
+              "source_role": "representation",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "NodeLinks",
+                "threshold": 3.0,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:L368-L383",
+              "source_role": "representation",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "Node",
+                "threshold": 3.0,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:L1194-L1247",
+              "source_role": "representation",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "SymbolWriter",
+                "threshold": 3.0,
+                "total_score": 3.45
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where is DataView and related interfaces represented in the TypeScript AST or symbol table?",
+            "Where in the compiler source is the DataView interface declared or represented?",
+            "type declaration model",
+            "symbol node metadata",
+            "DataView interface representation"
+          ],
+          "missing_reason": "",
+          "query": "Where is DataView and related interfaces represented in the TypeScript AST or symbol table?",
+          "rejected_refs": [
+            "repo-pre:src/compiler/utilities.ts:FILE",
+            "repo-pre:src/compiler/declarationEmitter.ts:FILE",
+            "repo-pre:src/compiler/checker.ts:FILE",
+            "repo-pre:src/server/node.d.ts:FILE",
+            "repo-pre:src/compiler/emitter.ts:FILE",
+            "repo-pre:src/compiler/emitter.js:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/compiler/types.ts:FILE",
+            "repo-pre:src/compiler/checker.ts:FILE",
+            "repo-pre:src/server/node.d.ts:FILE",
+            "repo-pre:src/compiler/utilities.ts:FILE",
+            "repo-pre:src/compiler/emitter.ts:FILE",
+            "repo-pre:src/compiler/declarationEmitter.ts:FILE",
+            "repo-pre:src/compiler/emitter.js:FILE",
+            "repo-pre:src/compiler/types.ts:L1473-L1552",
+            "repo-pre:src/compiler/types.ts:L1420-L1472",
+            "repo-pre:src/compiler/types.ts:L368-L383",
+            "repo-pre:src/compiler/types.ts:L1194-L1247"
+          ],
+          "role": "representation",
+          "role_status": "strong",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [
+            "repo-pre:src/compiler/types.ts:L1473-L1552",
+            "repo-pre:src/compiler/types.ts:L1420-L1472"
+          ],
+          "snippet_assessment": [
+            {
+              "reason": "Contains representation of intrinsic and string literal types, relevant to DataView interface representation in the compiler types.",
+              "ref": "repo-pre:src/compiler/types.ts:L1473-L1552",
+              "role": "core"
+            },
+            {
+              "reason": "Defines NodeLinks and cached type information, important for type representation and resolution including DataView.",
+              "ref": "repo-pre:src/compiler/types.ts:L1420-L1472",
+              "role": "core"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "L1473-L1552",
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:L1473-L1552",
+              "satisfies_role": true,
+              "snippet": "...\n/* @internal */ \n    // Intrinsic types (TypeFlags.Intrinsic)\n    export interface IntrinsicType extends Type {\n        intrinsicName: string;  // Name of intrinsic type\n    }\n\n    // String literal types (TypeFlags.StringLiteral)\n    export interface StringLiteralType extends Type {\n        text: string;  // Text of string literal\n    }\n\n    // Object types (TypeFlags.ObjectType)\n    export interface ObjectType extends Type { }",
+              "snippet_quality": "core"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "L1420-L1472",
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:L1420-L1472",
+              "satisfies_role": true,
+              "snippet": "export interface NodeLinks {\n        resolvedType?: Type;              // Cached type of type node\n        resolvedSignature?: Signature;    // Cached signature of signature node or call expression\n        resolvedSymbol?: Symbol;          // Cached name resolution result\n        flags?: NodeCheckFlags;           // Set of flags specific to Node\n        enumMemberValue?: number;         // Constant value of enum member",
+              "snippet_quality": "core"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted"
+          ]
+        },
+        {
+          "accepted_refs": [
+            "repo-pre:src/compiler/parser.ts:L4834-L4913",
+            "repo-pre:src/compiler/parser.ts:L4870-L4949"
+          ],
+          "evaluations": [
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/server/protocol.d.ts",
+                  "src/compiler/parser.ts"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/compiler/parser.ts"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.45,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 1.4,
+                "symbol": "list",
+                "threshold": 0.0,
+                "total_score": 14.7
+              }
+            },
+            {
+              "path": "src/server/protocol.d.ts",
+              "ref": "repo-pre:src/server/protocol.d.ts:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/server/protocol.d.ts",
+                  "src/compiler/parser.ts"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/server/protocol.d.ts"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 1.4,
+                "symbol": "FormatOptions",
+                "threshold": 0.0,
+                "total_score": 14.417
+              }
+            },
+            {
+              "path": "src/server/node.d.ts",
+              "ref": "repo-pre:src/server/node.d.ts:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/server/protocol.d.ts",
+                  "src/compiler/parser.ts"
+                ],
+                "anchor_proximity_score": 8.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 1.4,
+                "symbol": "RequestInfo",
+                "threshold": 0.0,
+                "total_score": 13.25
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/server/protocol.d.ts",
+                  "src/compiler/parser.ts"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.35,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "InterfaceDeclaration",
+                "threshold": 0.0,
+                "total_score": 5.25
+              }
+            },
+            {
+              "path": "src/services/services.ts",
+              "ref": "repo-pre:src/services/services.ts:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/server/protocol.d.ts",
+                  "src/compiler/parser.ts"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.35,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "FormatCodeOptions",
+                "threshold": 0.0,
+                "total_score": 5.0
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L2106-L2185",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.8,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "parseIndexSignatureWithModifiers",
+                "threshold": 3.0,
+                "total_score": 6.1
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L2719-L2750",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.15,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "parseParenthesizedArrowFunctionExpressionHead",
+                "threshold": 3.0,
+                "total_score": 6.45
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L3740-L3806",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.15,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "parseStatement",
+                "threshold": 3.0,
+                "total_score": 6.45
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L2749-L2750",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.5,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "parseParenthesizedArrowFunctionExpressionHead",
+                "threshold": 3.0,
+                "total_score": 6.8
+              }
+            },
+            {
+              "path": "src/server/protocol.d.ts",
+              "ref": "repo-pre:src/server/protocol.d.ts:L339-L418",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "FormatOptions",
+                "threshold": 3.0,
+                "total_score": 3.85
+              }
+            },
+            {
+              "path": "src/server/protocol.d.ts",
+              "ref": "repo-pre:src/server/protocol.d.ts:L342-L374",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "FormatOptions",
+                "threshold": 3.0,
+                "total_score": 3.85
+              }
+            },
+            {
+              "path": "src/server/protocol.d.ts",
+              "ref": "repo-pre:src/server/protocol.d.ts:L412-L422",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "OpenRequestArgs",
+                "threshold": 3.0,
+                "total_score": 4.2
+              }
+            },
+            {
+              "path": "src/server/protocol.d.ts",
+              "ref": "repo-pre:src/server/protocol.d.ts:L375-L397",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "ConfigureRequestArguments",
+                "threshold": 3.0,
+                "total_score": 4.2
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L2749-L2750",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.5,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "parseParenthesizedArrowFunctionExpressionHead",
+                "threshold": 3.0,
+                "total_score": 6.8
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L2719-L2750",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.15,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "parseParenthesizedArrowFunctionExpressionHead",
+                "threshold": 3.0,
+                "total_score": 6.45
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L3740-L3806",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.15,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "parseStatement",
+                "threshold": 3.0,
+                "total_score": 6.45
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L2106-L2185",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.8,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "parseIndexSignatureWithModifiers",
+                "threshold": 3.0,
+                "total_score": 6.1
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L4834-L4913",
+              "source_role": "input_parsing",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.85,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "ParsingContext",
+                "threshold": 3.0,
+                "total_score": 6.25
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L4870-L4949",
+              "source_role": "input_parsing",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.5,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "updateSourceFile",
+                "threshold": 3.0,
+                "total_score": 5.9
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L2719-L2750",
+              "source_role": "input_parsing",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.15,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "parseParenthesizedArrowFunctionExpressionHead",
+                "threshold": 3.0,
+                "total_score": 5.55
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L4930-L4950",
+              "source_role": "input_parsing",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.5,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "Setting",
+                "threshold": 3.0,
+                "total_score": 5.9
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L4834-L4913",
+              "source_role": "input_parsing",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.85,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "ParsingContext",
+                "threshold": 3.0,
+                "total_score": 6.25
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L4870-L4949",
+              "source_role": "input_parsing",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.5,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "updateSourceFile",
+                "threshold": 3.0,
+                "total_score": 5.9
+              }
+            },
+            {
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L4930-L4950",
+              "source_role": "input_parsing",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.5,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "Setting",
+                "threshold": 3.0,
+                "total_score": 5.9
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where does the TypeScript parser parse and attach DataView and related interface declarations from lib.d.ts?",
+            "Where in the compiler source is the lib.d.ts file parsed and DataView interface recognized?",
+            "input parsing request handling",
+            "event payload route syntax parsing",
+            "DataView interface representation"
+          ],
+          "missing_reason": "",
+          "query": "Where does the TypeScript parser parse and attach DataView and related interface declarations from lib.d.ts?",
+          "rejected_refs": [
+            "repo-pre:src/server/node.d.ts:FILE",
+            "repo-pre:src/compiler/types.ts:FILE",
+            "repo-pre:src/services/services.ts:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/server/protocol.d.ts:FILE",
+            "repo-pre:src/compiler/parser.ts:FILE",
+            "repo-pre:src/server/node.d.ts:FILE",
+            "repo-pre:src/compiler/types.ts:FILE",
+            "repo-pre:src/services/services.ts:FILE",
+            "repo-pre:src/compiler/parser.ts:L2749-L2750",
+            "repo-pre:src/compiler/parser.ts:L2719-L2750",
+            "repo-pre:src/compiler/parser.ts:L3740-L3806",
+            "repo-pre:src/compiler/parser.ts:L2106-L2185",
+            "repo-pre:src/compiler/parser.ts:L4834-L4913",
+            "repo-pre:src/compiler/parser.ts:L4870-L4949",
+            "repo-pre:src/compiler/parser.ts:L4930-L4950"
+          ],
+          "role": "input_parsing",
+          "role_status": "strong",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [
+            "repo-pre:src/compiler/parser.ts:L4834-L4913",
+            "repo-pre:src/compiler/parser.ts:L4870-L4949"
+          ],
+          "snippet_assessment": [
+            {
+              "reason": "Shows parsing context and mechanisms relevant to parsing lib.d.ts and interfaces like DataView.",
+              "ref": "repo-pre:src/compiler/parser.ts:L4834-L4913",
+              "role": "core"
+            },
+            {
+              "reason": "Contains updateSourceFile function and parsing checks, relevant to parsing and recognizing DataView interface declarations.",
+              "ref": "repo-pre:src/compiler/parser.ts:L4870-L4949",
+              "role": "core"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "L4834-L4913",
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L4834-L4913",
+              "satisfies_role": true,
+              "snippet": "...\n}\n\n        const enum ParsingContext {\n            SourceElements,            // Elements in source file\n            ModuleElements,            // Elements in module declaration\n            BlockStatements,           // Statements in block\n            SwitchClauses,             // Clauses in switch statement\n            SwitchClauseStatements,    // Statements in switch clause\n            TypeMembers,               // Members in interface or type literal",
+              "snippet_quality": "core"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "L4870-L4949",
+              "path": "src/compiler/parser.ts",
+              "ref": "repo-pre:src/compiler/parser.ts:L4870-L4949",
+              "satisfies_role": true,
+              "snippet": "export function updateSourceFile(sourceFile: SourceFile, newText: string, textChangeRange: TextChangeRange, aggressiveChecks: boolean): SourceFile {\n            aggressiveChecks = aggressiveChecks || Debug.shouldAssert(AssertionLevel.Aggressive);\n\n            checkChangeRange(sourceFile, newText, textChangeRange, aggressiveChecks);\n            if (textChangeRangeIsUnchanged(textChangeRange)) {",
+              "snippet_quality": "core"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted"
+          ]
+        },
+        {
+          "accepted_refs": [
+            "repo-pre:src/compiler/checker.ts:L4265-L4344",
+            "repo-pre:src/compiler/checker.ts:L8378-L8457"
+          ],
+          "evaluations": [
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/compiler/checker.ts"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/compiler/checker.ts"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 1.4,
+                "symbol": "checkTypeReferenceOrHeritageClauseElement",
+                "threshold": 0.0,
+                "total_score": 14.9
+              }
+            },
+            {
+              "path": "src/services/formatting/rulesProvider.ts",
+              "ref": "repo-pre:src/services/formatting/rulesProvider.ts:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/compiler/checker.ts"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.3,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.4,
+                "symbol": "NoSpaceBetweenParens",
+                "threshold": 0.0,
+                "total_score": 9.8
+              }
+            },
+            {
+              "path": "src/compiler/tsc.ts",
+              "ref": "repo-pre:src/compiler/tsc.ts:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/compiler/checker.ts"
+                ],
+                "anchor_proximity_score": 4.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.35,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "ExitStatus",
+                "threshold": 0.0,
+                "total_score": 6.95
+              }
+            },
+            {
+              "path": "src/services/formatting/rules.ts",
+              "ref": "repo-pre:src/services/formatting/rules.ts:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/compiler/checker.ts"
+                ],
+                "anchor_proximity_score": 5.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.4,
+                "symbol": "",
+                "threshold": 0.0,
+                "total_score": 6.4
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L8361-L8440",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "annotations",
+                "threshold": 3.2,
+                "total_score": 5.4
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L8392-L8410",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "checkTypeReferenceOrHeritageClauseElement",
+                "threshold": 3.2,
+                "total_score": 5.05
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L9811-L9854",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "checkIndexConstraints",
+                "threshold": 3.2,
+                "total_score": 5.05
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L8386-L8391",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "checkHeritageClauseElement",
+                "threshold": 3.2,
+                "total_score": 5.05
+              }
+            },
+            {
+              "path": "src/services/formatting/rulesProvider.ts",
+              "ref": "repo-pre:src/services/formatting/rulesProvider.ts:L5-L84",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.3,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.4,
+                "symbol": "RulesProvider",
+                "threshold": 3.2,
+                "total_score": 1.1
+              }
+            },
+            {
+              "path": "src/services/formatting/rulesProvider.ts",
+              "ref": "repo-pre:src/services/formatting/rulesProvider.ts:L1-L80",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.3,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.4,
+                "symbol": "RulesProvider",
+                "threshold": 3.2,
+                "total_score": 1.1
+              }
+            },
+            {
+              "path": "src/services/formatting/rulesProvider.ts",
+              "ref": "repo-pre:src/services/formatting/rulesProvider.ts:L1-L3",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.3,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.4,
+                "symbol": "RulesProvider",
+                "threshold": 3.2,
+                "total_score": 1.1
+              }
+            },
+            {
+              "path": "src/services/formatting/rulesProvider.ts",
+              "ref": "repo-pre:src/services/formatting/rulesProvider.ts:L4-L4",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.3,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.4,
+                "symbol": "RulesProvider",
+                "threshold": 3.2,
+                "total_score": 1.1
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L8361-L8440",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "annotations",
+                "threshold": 3.2,
+                "total_score": 5.4
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L8392-L8410",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "checkTypeReferenceOrHeritageClauseElement",
+                "threshold": 3.2,
+                "total_score": 5.05
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L9811-L9854",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "checkIndexConstraints",
+                "threshold": 3.2,
+                "total_score": 5.05
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L8386-L8391",
+              "source_role": "validation_checking",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.9,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "checkHeritageClauseElement",
+                "threshold": 3.2,
+                "total_score": 5.05
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L8378-L8457",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "checkTypeReferenceNode",
+                "threshold": 3.2,
+                "total_score": 4.5
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L4265-L4344",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.45,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "propertiesRelatedTo",
+                "threshold": 3.2,
+                "total_score": 4.85
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L9855-L9898",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "checkIndexConstraintForProperty",
+                "threshold": 3.2,
+                "total_score": 4.15
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L4325-L4347",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.45,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "Ternary",
+                "threshold": 3.2,
+                "total_score": 4.85
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L4265-L4344",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.45,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "propertiesRelatedTo",
+                "threshold": 3.2,
+                "total_score": 4.85
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L8378-L8457",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "checkTypeReferenceNode",
+                "threshold": 3.2,
+                "total_score": 4.5
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L9855-L9898",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "checkIndexConstraintForProperty",
+                "threshold": 3.2,
+                "total_score": 4.15
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L4325-L4347",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.45,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "Ternary",
+                "threshold": 3.2,
+                "total_score": 4.85
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where does the TypeScript checker validate presence and usage of DataView and related interfaces?",
+            "Where in the checker is the presence of DataView interface enforced or validated?",
+            "semantic validation rules",
+            "constraint error checking",
+            "DataView interface representation"
+          ],
+          "missing_reason": "",
+          "query": "Where does the TypeScript checker validate presence and usage of DataView and related interfaces?",
+          "rejected_refs": [
+            "repo-pre:src/compiler/tsc.ts:FILE",
+            "repo-pre:src/services/formatting/rules.ts:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/services/formatting/rules.ts:FILE",
+            "repo-pre:src/compiler/checker.ts:FILE",
+            "repo-pre:src/compiler/tsc.ts:FILE",
+            "repo-pre:src/services/formatting/rulesProvider.ts:FILE",
+            "repo-pre:src/compiler/checker.ts:L8361-L8440",
+            "repo-pre:src/compiler/checker.ts:L8392-L8410",
+            "repo-pre:src/compiler/checker.ts:L9811-L9854",
+            "repo-pre:src/compiler/checker.ts:L8386-L8391",
+            "repo-pre:src/compiler/checker.ts:L4265-L4344",
+            "repo-pre:src/compiler/checker.ts:L8378-L8457",
+            "repo-pre:src/compiler/checker.ts:L9855-L9898",
+            "repo-pre:src/compiler/checker.ts:L4325-L4347"
+          ],
+          "role": "validation_checking",
+          "role_status": "strong",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [
+            "repo-pre:src/compiler/checker.ts:L4265-L4344",
+            "repo-pre:src/compiler/checker.ts:L8378-L8457"
+          ],
+          "snippet_assessment": [
+            {
+              "reason": "Contains type checking functions that validate object types, relevant to checking DataView usage.",
+              "ref": "repo-pre:src/compiler/checker.ts:L4265-L4344",
+              "role": "core"
+            },
+            {
+              "reason": "Contains functions checking heritage clauses and type references, relevant to validating DataView interface references.",
+              "ref": "repo-pre:src/compiler/checker.ts:L8378-L8457",
+              "role": "core"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "L4265-L4344",
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L4265-L4344",
+              "satisfies_role": true,
+              "snippet": "function propertiesRelatedTo(source: ObjectType, target: ObjectType, reportErrors: boolean): Ternary {\n                if (relation === identityRelation) {\n                    return propertiesIdenticalTo(source, target);\n                }\n                let result = Ternary.True;\n                let properties = getPropertiesOfObjectType(target);\n                let requireOptionalProperties = relation === subtypeRelation && !(source.flags & TypeFlags.ObjectLiteral);",
+              "snippet_quality": "core"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "L8378-L8457",
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:L8378-L8457",
+              "satisfies_role": true,
+              "snippet": "...\n}\n\n        function checkHeritageClauseElement(node: HeritageClauseElement) {\n            checkGrammarHeritageClauseElementInStrictMode(<PropertyAccessExpression>node.expression);\n\n            return checkTypeReferenceOrHeritageClauseElement(node);\n        }\n\n        function checkTypeReferenceOrHeritageClauseElement(node: TypeReferenceNode | HeritageClauseElement) {\n            // Grammar checking\n            checkGrammarTypeArguments(node, node.typeArguments);",
+              "snippet_quality": "core"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_support_only_downvoted",
+            "responsibility_owner_selected"
+          ]
+        },
+        {
+          "accepted_refs": [
+            "repo-pre:src/compiler/diagnosticMessages.json:L1768-L1847",
+            "repo-pre:src/compiler/diagnosticMessages.json:L1361-L1440"
+          ],
+          "evaluations": [
+            {
+              "path": "src/compiler/diagnosticMessages.json",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:FILE",
+              "source_role": "diagnostics",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 1.4,
+                "symbol": "Error",
+                "threshold": 0.0,
+                "total_score": 12.05
+              }
+            },
+            {
+              "path": "src/compiler/tsc.ts",
+              "ref": "repo-pre:src/compiler/tsc.ts:FILE",
+              "source_role": "diagnostics",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 4.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "reportDiagnostics",
+                "threshold": 0.0,
+                "total_score": 4.95
+              }
+            },
+            {
+              "path": "src/compiler/checker.ts",
+              "ref": "repo-pre:src/compiler/checker.ts:FILE",
+              "source_role": "diagnostics",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "throwIfNonDiagnosticsProducing",
+                "threshold": 0.0,
+                "total_score": 3.5
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:FILE",
+              "source_role": "diagnostics",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "DiagnosticMessage",
+                "threshold": 0.0,
+                "total_score": 3.5
+              }
+            },
+            {
+              "path": "src/compiler/diagnosticMessages.json",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:L1361-L1440",
+              "source_role": "diagnostics",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "annotation",
+                "threshold": 2.5,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/diagnosticMessages.json",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:L331-L370",
+              "source_role": "diagnostics",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "element",
+                "threshold": 2.5,
+                "total_score": 3.45
+              }
+            },
+            {
+              "path": "src/compiler/diagnosticMessages.json",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:L751-L790",
+              "source_role": "diagnostics",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "type",
+                "threshold": 2.5,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/diagnosticMessages.json",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:L1361-L1440",
+              "source_role": "diagnostics",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "annotation",
+                "threshold": 2.5,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/diagnosticMessages.json",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:L751-L790",
+              "source_role": "diagnostics",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "type",
+                "threshold": 2.5,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/diagnosticMessages.json",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:L331-L370",
+              "source_role": "diagnostics",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "element",
+                "threshold": 2.5,
+                "total_score": 3.45
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where are diagnostics emitted for missing or invalid DataView interface usage?",
+            "Where in the diagnostics source are errors about missing DataView interface reported?",
+            "diagnostic error messages",
+            "failure reporting diagnostics",
+            "DataView interface representation"
+          ],
+          "missing_reason": "",
+          "query": "Where are diagnostics emitted for missing or invalid DataView interface usage?",
+          "rejected_refs": [
+            "repo-pre:src/compiler/tsc.ts:FILE",
+            "repo-pre:src/compiler/checker.ts:FILE",
+            "repo-pre:src/compiler/types.ts:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/compiler/tsc.ts:FILE",
+            "repo-pre:src/compiler/checker.ts:FILE",
+            "repo-pre:src/compiler/types.ts:FILE",
+            "repo-pre:src/compiler/diagnosticMessages.json:FILE",
+            "repo-pre:src/compiler/diagnosticMessages.json:L1361-L1440",
+            "repo-pre:src/compiler/diagnosticMessages.json:L751-L790",
+            "repo-pre:src/compiler/diagnosticMessages.json:L331-L370"
+          ],
+          "role": "diagnostics",
+          "role_status": "strong",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [
+            "repo-pre:src/compiler/diagnosticMessages.json:L1768-L1847",
+            "repo-pre:src/compiler/diagnosticMessages.json:L1361-L1440"
+          ],
+          "snippet_assessment": [
+            {
+              "reason": "Contains diagnostic messages relevant to errors that could arise from missing or invalid DataView interface usage.",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:L1768-L1847",
+              "role": "core"
+            },
+            {
+              "reason": "Contains diagnostic messages relevant to TypeScript errors, supporting explanation of DataView related diagnostics.",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:L1361-L1440",
+              "role": "core"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "L1768-L1847",
+              "path": "src/compiler/diagnosticMessages.json",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:L1768-L1847",
+              "satisfies_role": true,
+              "snippet": "...\n\"Option 'noEmitOnError' cannot be specified with option 'separateCompilation'.\": {\n        \"category\": \"Error\",\n        \"code\": 5045\n    },\n    \"Option 'out' cannot be specified with option 'separateCompilation'.\": {\n        \"category\": \"Error\",\n        \"code\": 5046\n    },\n    \"Option 'separateCompilation' can only be used when either option'--module' is provided or option 'target' is 'ES6' or higher.\": {\n        \"category\": \"Error\",\n        \"code\": 5047\n    },",
+              "snippet_quality": "core"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "L1361-L1440",
+              "path": "src/compiler/diagnosticMessages.json",
+              "ref": "repo-pre:src/compiler/diagnosticMessages.json:L1361-L1440",
+              "satisfies_role": true,
+              "snippet": "\"code\": 2480\n    },\n    \"Cannot initialize outer scoped variable '{0}' in the same scope as block scoped declaration '{1}'.\": {\n        \"category\": \"Error\",\n        \"code\": 2481\n    },\n    \"The left-hand side of a 'for...of' statement cannot use a type annotation.\": {\n        \"category\": \"Error\",\n        \"code\": 2483\n    },\n    \"Export declaration conflicts with exported declaration of '{0}'\": {\n        \"category\": \"Error\",\n        \"code\": 2484\n    },",
+              "snippet_quality": "core"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted"
+          ]
+        },
+        {
+          "accepted_refs": [
+            "repo-pre:src/compiler/emitter.js:L4856-L4935",
+            "repo-pre:src/compiler/emitter.js:L4892-L4925"
+          ],
+          "evaluations": [
+            {
+              "path": "src/compiler/declarationEmitter.ts",
+              "ref": "repo-pre:src/compiler/declarationEmitter.ts:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.4,
+                "symbol": "emitType",
+                "threshold": 0.0,
+                "total_score": 12.0
+              }
+            },
+            {
+              "path": "src/compiler/emitter.js",
+              "ref": "repo-pre:src/compiler/emitter.js:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.35,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.4,
+                "symbol": "",
+                "threshold": 0.0,
+                "total_score": 10.35
+              }
+            },
+            {
+              "path": "src/services/services.ts",
+              "ref": "repo-pre:src/services/services.ts:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 5.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.35,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "DocumentRegistryEntry",
+                "threshold": 0.0,
+                "total_score": 8.15
+              }
+            },
+            {
+              "path": "src/compiler/types.ts",
+              "ref": "repo-pre:src/compiler/types.ts:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.7,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "FunctionDeclaration",
+                "threshold": 0.0,
+                "total_score": 5.6
+              }
+            },
+            {
+              "path": "src/services/formatting/rulesMap.ts",
+              "ref": "repo-pre:src/services/formatting/rulesMap.ts:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/compiler/declarationEmitter.ts"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.2,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "RulesBucketConstructionState",
+                "threshold": 0.0,
+                "total_score": 5.1
+              }
+            },
+            {
+              "path": "src/compiler/emitter.js",
+              "ref": "repo-pre:src/compiler/emitter.js:L4856-L4935",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "emitNodeWithoutSourceMap",
+                "threshold": 3.1,
+                "total_score": 4.5
+              }
+            },
+            {
+              "path": "src/compiler/emitter.js",
+              "ref": "repo-pre:src/compiler/emitter.js:L4892-L4925",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "shouldEmitLeadingAndTrailingComments",
+                "threshold": 3.1,
+                "total_score": 4.5
+              }
+            },
+            {
+              "path": "src/compiler/emitter.js",
+              "ref": "repo-pre:src/compiler/emitter.js:L1443-L1461",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.0,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.4,
+                "symbol": "tryEmitConstantValue",
+                "threshold": 3.1,
+                "total_score": 1.4
+              }
+            },
+            {
+              "path": "src/compiler/emitter.js",
+              "ref": "repo-pre:src/compiler/emitter.js:L1442-L1442",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.0,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.4,
+                "symbol": "emitShorthandPropertyAssignment",
+                "threshold": 3.1,
+                "total_score": 1.4
+              }
+            },
+            {
+              "path": "src/compiler/declarationEmitter.ts",
+              "ref": "repo-pre:src/compiler/declarationEmitter.ts:L1506-L1585",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "emitNode",
+                "threshold": 3.1,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/declarationEmitter.ts",
+              "ref": "repo-pre:src/compiler/declarationEmitter.ts:L1575-L1590",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.0,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.4,
+                "symbol": "getDeclarationOutput",
+                "threshold": 3.1,
+                "total_score": 1.4
+              }
+            },
+            {
+              "path": "src/compiler/declarationEmitter.ts",
+              "ref": "repo-pre:src/compiler/declarationEmitter.ts:L5-L13",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "ModuleElementDeclarationEmitInfo",
+                "threshold": 3.1,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/emitter.js",
+              "ref": "repo-pre:src/compiler/emitter.js:L4856-L4935",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "emitNodeWithoutSourceMap",
+                "threshold": 3.1,
+                "total_score": 4.5
+              }
+            },
+            {
+              "path": "src/compiler/emitter.js",
+              "ref": "repo-pre:src/compiler/emitter.js:L4892-L4925",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "shouldEmitLeadingAndTrailingComments",
+                "threshold": 3.1,
+                "total_score": 4.5
+              }
+            },
+            {
+              "path": "src/compiler/declarationEmitter.ts",
+              "ref": "repo-pre:src/compiler/declarationEmitter.ts:L1506-L1585",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "emitNode",
+                "threshold": 3.1,
+                "total_score": 3.8
+              }
+            },
+            {
+              "path": "src/compiler/declarationEmitter.ts",
+              "ref": "repo-pre:src/compiler/declarationEmitter.ts:L5-L13",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "ModuleElementDeclarationEmitInfo",
+                "threshold": 3.1,
+                "total_score": 3.8
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where does the TypeScript emitter handle emitting or referencing DataView and related interfaces?",
+            "Where in the emitter is DataView interface emission or referencing handled?",
+            "output render display state",
+            "emit render generation",
+            "DataView interface representation"
+          ],
+          "missing_reason": "",
+          "query": "Where does the TypeScript emitter handle emitting or referencing DataView and related interfaces?",
+          "rejected_refs": [
+            "repo-pre:src/services/services.ts:FILE",
+            "repo-pre:src/compiler/types.ts:FILE",
+            "repo-pre:src/services/formatting/rulesMap.ts:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/compiler/types.ts:FILE",
+            "repo-pre:src/compiler/emitter.js:FILE",
+            "repo-pre:src/services/services.ts:FILE",
+            "repo-pre:src/services/formatting/rulesMap.ts:FILE",
+            "repo-pre:src/compiler/declarationEmitter.ts:FILE",
+            "repo-pre:src/compiler/emitter.js:L4856-L4935",
+            "repo-pre:src/compiler/emitter.js:L4892-L4925",
+            "repo-pre:src/compiler/declarationEmitter.ts:L1506-L1585",
+            "repo-pre:src/compiler/declarationEmitter.ts:L5-L13"
+          ],
+          "role": "behavior_output",
+          "role_status": "strong",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [
+            "repo-pre:src/compiler/emitter.js:L4856-L4935",
+            "repo-pre:src/compiler/emitter.js:L4892-L4925"
+          ],
+          "snippet_assessment": [
+            {
+              "reason": "Contains emitter logic relevant to emitting code and handling interfaces like DataView.",
+              "ref": "repo-pre:src/compiler/emitter.js:L4856-L4935",
+              "role": "core"
+            },
+            {
+              "reason": "Contains functions controlling emission of comments and nodes, relevant to emitting DataView interface declarations.",
+              "ref": "repo-pre:src/compiler/emitter.js:L4892-L4925",
+              "role": "core"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "L4856-L4935",
+              "path": "src/compiler/emitter.js",
+              "ref": "repo-pre:src/compiler/emitter.js:L4856-L4935",
+              "satisfies_role": true,
+              "snippet": "...\nexportEquals = undefined;\n                    hasExportStars = false;\n                    emitCaptureThisForNodeIfNecessary(node);\n                    emitLinesStartingAt(node.statements, startIndex);\n                    emitTempDeclarations(true);\n                }\n                emitLeadingComments(node.endOfFileToken);\n            }\n            function emitNodeWithoutSourceMap(node, allowGeneratedIdentifiers) {\n                if (!node) {\n                    return;",
+              "snippet_quality": "core"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "L4892-L4925",
+              "path": "src/compiler/emitter.js",
+              "ref": "repo-pre:src/compiler/emitter.js:L4892-L4925",
+              "satisfies_role": true,
+              "snippet": "function shouldEmitLeadingAndTrailingComments(node) {\n                switch (node.kind) {\n                    // All of these entities are emitted in a specialized fashion.  As such, we allow\n                    // the specialized methods for each to handle the comments on the nodes.\n                    case 202 /* InterfaceDeclaration */:\n                    case 200 /* FunctionDeclaration */:\n                    case 209 /* ImportDeclaration */:",
+              "snippet_quality": "core"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected"
+          ]
+        }
+      ],
+      "responsibility_expansion_intents": [],
+      "retrieval_plan": {
+        "confirmed_entities": [],
+        "confirmed_file_hints": [],
+        "conversation_id": "microsoft-TypeScript-2953:run-20260623T004953Z",
+        "grounded_entities": [
+          "DataView",
+          "TypeScript",
+          "L1689",
+          "JavaScript",
+          "Global_Objects",
+          "littleEndian",
+          "ArrayBuffer",
+          "setInt16",
+          "Int16Array"
+        ],
+        "grounded_file_hints": [
+          "lib.d.ts",
+          "github.com/Microsoft/TypeScript/commits/master/bin/lib.d.ts",
+          "github.com/Microsoft/TypeScript/blob/6f1feffe6710a3201fb46a0b01e16051bfc18a29/bin/lib.d.ts",
+          "github.com/Microsoft/TypeScript/blob/b8ebf561f94ea27ecfc6af3c2b20661e6fcd79ed/bin/lib.d.ts"
+        ],
+        "llm_concept_terms": [
+          "DataView",
+          "TypeScript lib.d.ts",
+          "JavaScript Global Objects",
+          "typed array interfaces"
+        ],
+        "llm_subqueries": [
+          {
+            "query": "Where is DataView and related interfaces represented in the TypeScript AST or symbol table?",
+            "role": "representation"
+          },
+          {
+            "query": "Where does the TypeScript parser parse and attach DataView and related interface declarations from lib.d.ts?",
+            "role": "input_parsing"
+          },
+          {
+            "query": "Where does the TypeScript checker validate presence and usage of DataView and related interfaces?",
+            "role": "validation_checking"
+          },
+          {
+            "query": "Where are diagnostics emitted for missing or invalid DataView interface usage?",
+            "role": "diagnostics"
+          },
+          {
+            "query": "Where does the TypeScript emitter handle emitting or referencing DataView and related interfaces?",
+            "role": "behavior_output"
+          },
+          {
+            "query": "Are there tests covering DataView interface presence and usage in lib.d.ts?",
+            "role": "tests"
+          },
+          {
+            "query": "Where is DataView documented in TypeScript's lib.d.ts or related docs?",
+            "role": "docs"
+          },
+          {
+            "query": "Are there compiler options or config affecting inclusion of DataView in lib.d.ts?",
+            "role": "config"
+          }
+        ],
+        "metadata": {
+          "planner": "llm_workspace_grounded_v2",
+          "repo_context": {
+            "confirmed_anchor_examples": [],
+            "confirmed_entities": [],
+            "confirmed_file_hints": [],
+            "connected_context": {
+              "conflicts": [],
+              "facts": [],
+              "file_hints": [],
+              "retrieval_terms": [],
+              "selected_context_ids": [],
+              "suggested_subqueries": [],
+              "symbol_hints": []
+            },
+            "repo_sketch": {
+              "file_index": [
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "binder",
+                    "ModuleInstanceState",
+                    "getModuleInstanceState",
+                    "declarations",
+                    "alias",
+                    "only"
+                  ],
+                  "path": "src/compiler/binder.ts",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "checker",
+                    "getNodeId",
+                    "getSymbolId",
+                    "createTypeChecker",
+                    "getEmitResolver",
+                    "information"
+                  ],
+                  "path": "src/compiler/checker.ts",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "commandLineParser",
+                    "parseCommandLine",
+                    "parseStrings",
+                    "parseResponseFile",
+                    "readConfigFile",
+                    "parseConfigFileText"
+                  ],
+                  "path": "src/compiler/commandLineParser.ts",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "core",
+                    "Ternary",
+                    "Comparison",
+                    "StringSet",
+                    "forEach",
+                    "contains"
+                  ],
+                  "path": "src/compiler/core.ts",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "declarationEmitter",
+                    "ModuleElementDeclarationEmitInfo",
+                    "DeclarationEmit",
+                    "GetSymbolAccessibilityDiagnostic",
+                    "EmitTextWriterWithSymbolWriter",
+                    "SymbolAccessibilityDiagnostic"
+                  ],
+                  "path": "src/compiler/declarationEmitter.ts",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "diagnosticMessages",
+                    "json",
+                    "annotation",
+                    "must",
+                    "declaration",
+                    "can"
+                  ],
+                  "path": "src/compiler/diagnosticMessages.json",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "emitter",
+                    "isExternalModuleOrDeclarationFile",
+                    "emitFiles",
+                    "var",
+                    "isNodeDescendentOf",
+                    "isUniqueLocalName"
+                  ],
+                  "path": "src/compiler/emitter.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "emitter",
+                    "ScopeFrame",
+                    "isExternalModuleOrDeclarationFile",
+                    "TempFlags",
+                    "emitFiles",
+                    "const"
+                  ],
+                  "path": "src/compiler/emitter.ts",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "parser",
+                    "getNodeConstructor",
+                    "createNode",
+                    "visitNode",
+                    "visitNodeArray",
+                    "visitEachNode"
+                  ],
+                  "path": "src/compiler/parser.ts",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "program",
+                    "findConfigFile",
+                    "createCompilerHost",
+                    "getCanonicalFileName",
+                    "getSourceFile",
+                    "directoryExists"
+                  ],
+                  "path": "src/compiler/program.ts",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "scanner",
+                    "ErrorCallback",
+                    "Scanner",
+                    "lookupInUnicodeMap",
+                    "isUnicodeIdentifierStart",
+                    "isUnicodeIdentifierPart"
+                  ],
+                  "path": "src/compiler/scanner.ts",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "sys",
+                    "System",
+                    "FileWatcher",
+                    "Enumerator",
+                    "getWScriptSystem",
+                    "readFile"
+                  ],
+                  "path": "src/compiler/sys.ts",
+                  "role": "implementation"
+                }
+              ],
+              "file_roles": {
+                "documentation": 2,
+                "implementation": 49,
+                "other": 6,
+                "test": 4
+              },
+              "representative_files": [
+                ".travis.yml",
+                "CONTRIBUTING.md",
+                "src/compiler/binder.ts",
+                "tests/perfsys.ts",
+                "CopyrightNotice.txt",
+                "Jakefile.js",
+                "LICENSE.txt",
+                "README.md",
+                "ThirdPartyNoticeText.txt",
+                "package.json",
+                "src/compiler/checker.ts",
+                "src/compiler/commandLineParser.ts"
+              ],
+              "top_directories": [
+                {
+                  "file_count": 26,
+                  "path": "src/services"
+                },
+                {
+                  "file_count": 16,
+                  "path": "src/compiler"
+                },
+                {
+                  "file_count": 7,
+                  "path": "src/server"
+                },
+                {
+                  "file_count": 1,
+                  "path": ".travis.yml"
+                },
+                {
+                  "file_count": 1,
+                  "path": "CONTRIBUTING.md"
+                },
+                {
+                  "file_count": 1,
+                  "path": "CopyrightNotice.txt"
+                },
+                {
+                  "file_count": 1,
+                  "path": "Jakefile.js"
+                },
+                {
+                  "file_count": 1,
+                  "path": "LICENSE.txt"
+                }
+              ]
+            }
+          }
+        },
+        "negative_filters": [
+          "harness",
+          "fixture",
+          "baseline",
+          "generated"
+        ],
+        "owner_artifact_terms": [
+          "DataView interface representation",
+          "lib.d.ts declaration",
+          "compiler checker",
+          "declaration parsing",
+          "diagnostic messages",
+          "emitter behavior",
+          "declaration parser"
+        ],
+        "owner_subqueries": [
+          {
+            "query": "Where in the compiler source is the DataView interface declared or represented?",
+            "role": "representation"
+          },
+          {
+            "query": "Where in the compiler source is the lib.d.ts file parsed and DataView interface recognized?",
+            "role": "input_parsing"
+          },
+          {
+            "query": "Where in the checker is the presence of DataView interface enforced or validated?",
+            "role": "validation_checking"
+          },
+          {
+            "query": "Where in the diagnostics source are errors about missing DataView interface reported?",
+            "role": "diagnostics"
+          },
+          {
+            "query": "Where in the emitter is DataView interface emission or referencing handled?",
+            "role": "behavior_output"
+          }
+        ],
+        "prompt_summary": "Issue about missing DataView and related interfaces from lib.d.ts in TypeScript between April 11 and April 18, causing code using DataView to fail. The code example uses DataView, ArrayBuffer, setInt16, Int16Array, and littleEndian detection. Need to find where DataView and related interfaces are represented, parsed, checked, diagnosed, and emitted in TypeScript's lib.d.ts and compiler source.",
+        "raw_prompt": "Explain the code context needed for this issue.\n\nTitle: `DataView` and other interfaces missing from lib.d.ts\n\nLooking at history : https://github.com/Microsoft/TypeScript/commits/master/bin/lib.d.ts\n\nWas there on April 11 : https://github.com/Microsoft/TypeScript/blob/6f1feffe6710a3201fb46a0b01e16051bfc18a29/bin/lib.d.ts#L1689\n\nIsn't there on April 18: https://github.com/Microsoft/TypeScript/blob/b8ebf561f94ea27ecfc6af3c2b20661e6fcd79ed/bin/lib.d.ts\n\nReport by Atom-TypeScript user @vaughnroyko \n\nThe following code now fails (source from : https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView):\n\n``` ts\nvar littleEndian = (function() {\n  var buffer = new ArrayBuffer(2);\n  new DataView(buffer).setInt16(0, 256, true);\n  return new Int16Array(buffer)[0] === 256;\n})();\nconsole.log(littleEndian); // true or false\n```\n",
+        "raw_prompt_evidence": [
+          "DataView",
+          "lib.d.ts",
+          "github.com/Microsoft/TypeScript/commits/master/bin/lib.d.ts",
+          "github.com/Microsoft/TypeScript/blob/6f1feffe6710a3201fb46a0b01e16051bfc18a29/bin/lib.d.ts",
+          "github.com/Microsoft/TypeScript/blob/b8ebf561f94ea27ecfc6af3c2b20661e6fcd79ed/bin/lib.d.ts",
+          "github.com",
+          "developer.mozilla.org",
+          "console.log"
+        ],
+        "required_roles": [
+          "representation",
+          "input_parsing",
+          "validation_checking",
+          "diagnostics",
+          "behavior_output"
+        ],
+        "retrieval_terms": [
+          "DataView",
+          "lib.d.ts",
+          "missing DataView",
+          "setInt16",
+          "Int16Array",
+          "littleEndian",
+          "ArrayBuffer",
+          "DataView interface"
+        ],
+        "source_priorities": [
+          "source_code",
+          "local_notes"
+        ],
+        "speculative_entities": [
+          "typed array interfaces",
+          "ArrayBuffer",
+          "JavaScript Global Objects",
+          "lib.d.ts interface declarations"
+        ],
+        "support_subqueries": [
+          {
+            "query": "Where are tests for lib.d.ts interfaces including DataView?",
+            "role": "tests"
+          },
+          {
+            "query": "Where is DataView described in TypeScript documentation or lib.d.ts comments?",
+            "role": "docs"
+          },
+          {
+            "query": "Where are compiler config options that might affect lib.d.ts interface inclusion?",
+            "role": "config"
+          }
+        ],
+        "supporting_roles": [
+          "tests",
+          "docs",
+          "config"
+        ],
+        "surface_context_terms": [
+          "DataView",
+          "lib.d.ts",
+          "setInt16",
+          "Int16Array",
+          "littleEndian detection"
+        ]
+      },
+      "retriever": "workspace",
+      "selected_count": 10,
+      "source_registry": [
+        {
+          "adapter_name": "codegraphcontext+qdrant-hybrid",
+          "category": "source_code",
+          "enabled": true,
+          "indexed": true,
+          "note": "CGC narrows files first; Qdrant hybrid retrieval searches dense+sparse vectors inside the filtered file set.",
+          "provider": "",
+          "queryable": true,
+          "source_key": "source_code",
+          "title": "Source code"
+        },
+        {
+          "adapter_name": "codegraphcontext+qdrant-hybrid",
+          "category": "documentation",
+          "enabled": false,
+          "indexed": true,
+          "note": "Workspace docs participate in the same CGC-first Qdrant hybrid retrieval flow.",
+          "provider": "",
+          "queryable": true,
+          "source_key": "repo_docs",
+          "title": "Repository docs"
+        },
+        {
+          "adapter_name": "connected_documents+mcp+remote_mcp",
+          "category": "issue_tracker",
+          "enabled": false,
+          "indexed": false,
+          "note": "Issue tracker context is supplied as connected documents or MCP-backed query results.",
+          "provider": "",
+          "queryable": false,
+          "source_key": "issue_tracker",
+          "title": ""
+        },
+        {
+          "adapter_name": "connected_documents+mcp+remote_mcp",
+          "category": "pull_request",
+          "enabled": false,
+          "indexed": false,
+          "note": "Pull request context is supplied as connected documents or MCP-backed query results.",
+          "provider": "",
+          "queryable": false,
+          "source_key": "pull_request",
+          "title": ""
+        },
+        {
+          "adapter_name": "obsidian-hybrid-search+local_note_files",
+          "category": "local_notes",
+          "enabled": true,
+          "indexed": false,
+          "note": "Obsidian owns local-note indexing; workspace retrieval consumes matching note results as trusted source guidance without adding them to Qdrant.",
+          "provider": "",
+          "queryable": true,
+          "source_key": "local_notes",
+          "title": "Local notes"
+        },
+        {
+          "adapter_name": "connected_documents+remote_mcp+mcp",
+          "category": "notebooklm",
+          "enabled": false,
+          "indexed": false,
+          "note": "NotebookLM context is attached as provided text snippets or remote/local MCP results.",
+          "provider": "",
+          "queryable": false,
+          "source_key": "notebooklm",
+          "title": "NotebookLM"
+        }
+      ],
+      "stop_reason": "All required roles for explaining the issue about missing DataView and related interfaces in TypeScript lib.d.ts and compiler source are covered by the retrieved and validated evidence.",
+      "supporting_role_buckets": [],
+      "tool_calls": 335,
+      "trusted_local_note_file_hints": [],
+      "trusted_local_notes": []
+    },
+    "sufficient": true
+  },
+  "run_trace_summary": {
+    "allowed": true,
+    "coverage_status": "strong",
+    "retrieval_invoked": true,
+    "turn_type": "guided_explanation",
+    "violation_count": 0
+  }
+}

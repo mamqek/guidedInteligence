@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "case_id": "vuejs-vue-9042",
+  "primary_group": "compatibility_versioning",
+  "repository": "vuejs/vue",
+  "issue_number": 9042,
+  "issue_url": "https://github.com/vuejs/vue/issues/9042",
+  "original_issue_path": "vue/cloudide/workspace/QA_data/vue/9042.json",
+  "title": "First character or paste is not accepted for watch when assigning placeholder to \"\" in <textarea> tag with IE11",
+  "labels": [
+    "browser quirks"
+  ],
+  "state": "closed",
+  "created_at": "2018-11-08T04:44:05Z",
+  "closed_at": "2019-02-04T22:39:49Z",
+  "selection_rationale": "Vue browser compatibility issue with IE11 textarea placeholder/watch behavior.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      9297
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "0fb03b7831693b4abc90dd0bfe971c36c02d82a6",
+      "133d792631cad0ce7d181d1b4c49ca40f457e315"
+    ],
+    "cite": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "7138",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "9297",
+        "is_own_repo": true
+      },
+      {
+        "owner": "devopsred",
+        "repo_name": "gaia",
+        "number": "5",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "5",
+        "is_own_repo": true
+      },
+      {
+        "owner": "iliutastoica",
+        "repo_name": "30-days-of-vue",
+        "number": "1",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "1",
+        "is_own_repo": true
+      },
+      {
+        "owner": "iliutastoica",
+        "repo_name": "vue-blog-demo",
+        "number": "1",
+        "is_own_repo": false
+      },
+      {
+        "owner": "iliutastoica",
+        "repo_name": "vuejs-wordpress-theme-starter",
+        "number": "1",
+        "is_own_repo": false
+      },
+      {
+        "owner": "iliutastoica",
+        "repo_name": "fullstack-vue",
+        "number": "1",
+        "is_own_repo": false
+      },
+      {
+        "owner": "iliutastoica",
+        "repo_name": "casino-demo-vue-search",
+        "number": "3",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "3",
+        "is_own_repo": true
+      },
+      {
+        "owner": "cbrightly",
+        "repo_name": "pump-and-dump",
+        "number": "2",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "2",
+        "is_own_repo": true
+      },
+      {
+        "owner": "tt9133github",
+        "repo_name": "snyktest",
+        "number": "2",
+        "is_own_repo": false
+      },
+      {
+        "owner": "Matthelonianxl",
+        "repo_name": "ethereumbook",
+        "number": "3",
+        "is_own_repo": false
+      },
+      {
+        "owner": "maxiplux",
+        "repo_name": "full-stack-fastapi-couchbase",
+        "number": "3",
+        "is_own_repo": false
+      },
+      {
+        "owner": "iliutastoica",
+        "repo_name": "30-days-of-vue",
+        "number": "4",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "4",
+        "is_own_repo": true
+      },
+      {
+        "owner": "iliutastoica",
+        "repo_name": "30-days-of-vue",
+        "number": "5",
+        "is_own_repo": false
+      },
+      {
+        "owner": "ajesse11x",
+        "repo_name": "ethereumbook",
+        "number": "4",
+        "is_own_repo": false
+      },
+      {
+        "owner": "dyna-dot",
+        "repo_name": "bit-javascript",
+        "number": "3",
+        "is_own_repo": false
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 9297,
+        "title": "fix #9042, #7138: handle empty placeholder case in IE",
+        "url": "https://github.com/vuejs/vue/pull/9297",
+        "merged": true,
+        "merge_commit_sha": "0fb03b7831693b4abc90dd0bfe971c36c02d82a6",
+        "head_sha": "9e58a635bc5bd711f1ef321d7a42f6a563b67744",
+        "base_sha": "dbc0582587f90e78867809bb6ae683301cd0626b",
+        "changed_files": 2,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/platforms/web/runtime/modules/attrs.js",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "test/unit/features/directives/model-text.spec.js",
+            "additions": 17,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/platforms/web/runtime/modules/attrs.js"
+    ],
+    "test_or_validation_files": [
+      "test/unit/features/directives/model-text.spec.js"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "module resolution",
+    "responsibility_summary": "Relevant code is responsible for module resolution behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #9297: fix #9042, #7138: handle empty placeholder case in IE",
+    "issue_body_file_refs": [
+      "cdn.jsdelivr.net/npm/vue/dist/vue.js"
+    ],
+    "thread_file_refs": [
+      "github.com/vuejs/vue/blob/d483a49c86874b2e75863b661f81feecd46ae721/src/platforms/web/runtime/modules/attrs.js"
+    ],
+    "resolution_comment_excerpts": [
+      "@Justineo Thanks! So the new release will fix the bug?",
+      "We haven't got time to look into this in IE11 yet so I can't guarantee anything right now.",
+      "related to https://github.com/vuejs/vue/issues/7138",
+      "PR with a fix submitted. As a temp workaround, use `:placeholder=\"placeholder || null\"`"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

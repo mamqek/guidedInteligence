@@ -1,0 +1,51 @@
+{
+  "case_id": "microsoft-TypeScript-2953",
+  "implementation_overlap_files": [],
+  "oracle_documentation_files": [],
+  "oracle_files": [
+    "src/lib/extensions.d.ts"
+  ],
+  "oracle_implementation_files": [
+    "src/lib/extensions.d.ts"
+  ],
+  "oracle_only_files": [
+    "src/lib/extensions.d.ts"
+  ],
+  "oracle_source": {
+    "hidden_resolution_summary": "PR #2960: Fix #2953: Put DataView definition back into lib.d.ts",
+    "responsibility_summary": "Relevant code is responsible for standard library declarations behavior described by the issue and fixed by the selected PR.",
+    "subsystem": "standard library declarations",
+    "thread_file_refs": true,
+    "verification_case_id": "microsoft-TypeScript-2953",
+    "verification_group": "bug_regression",
+    "verification_json": true
+  },
+  "oracle_symbols": [],
+  "oracle_test_or_validation_files": [],
+  "overlap_files": [],
+  "prompt_title": "`DataView` and other interfaces missing from lib.d.ts",
+  "retrieved_only_files": [
+    "bin/lib.d.ts",
+    "src/lib/es6.d.ts",
+    "src/compiler/utilities.ts",
+    "src/services/services.ts"
+  ],
+  "retrieved_source_files": [
+    "bin/lib.d.ts",
+    "src/lib/es6.d.ts",
+    "src/compiler/utilities.ts",
+    "src/services/services.ts"
+  ],
+  "top_k": {
+    "found_positions": {},
+    "found_within_10": false,
+    "found_within_20": false,
+    "found_within_5": false,
+    "k_values": [
+      5,
+      10,
+      20
+    ]
+  },
+  "verification_case_id": "microsoft-TypeScript-2953"
+}

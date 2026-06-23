@@ -1,0 +1,49 @@
+{
+  "case_id": "pandas-dev-pandas-10068",
+  "implementation_overlap_files": [],
+  "oracle_documentation_files": [
+    "doc/source/whatsnew/v0.17.0.txt"
+  ],
+  "oracle_files": [
+    "pandas/core/series.py",
+    "pandas/tests/test_series.py",
+    "doc/source/whatsnew/v0.17.0.txt"
+  ],
+  "oracle_implementation_files": [
+    "pandas/core/series.py"
+  ],
+  "oracle_only_files": [
+    "pandas/core/series.py",
+    "pandas/tests/test_series.py",
+    "doc/source/whatsnew/v0.17.0.txt"
+  ],
+  "oracle_source": {
+    "hidden_resolution_summary": "PR #10240: BUG: Series arithmetic methods incorrectly hold name",
+    "responsibility_summary": "Relevant code is responsible for Series operations behavior described by the issue and fixed by the selected PR.",
+    "subsystem": "Series operations",
+    "thread_file_refs": true,
+    "verification_case_id": "pandas-dev-pandas-10068",
+    "verification_group": "bug_regression",
+    "verification_json": true
+  },
+  "oracle_symbols": [],
+  "oracle_test_or_validation_files": [
+    "pandas/tests/test_series.py"
+  ],
+  "overlap_files": [],
+  "prompt_title": "BUG/API: Series arithmetic ops inconsistently hold names",
+  "retrieved_only_files": [],
+  "retrieved_source_files": [],
+  "top_k": {
+    "found_positions": {},
+    "found_within_10": false,
+    "found_within_20": false,
+    "found_within_5": false,
+    "k_values": [
+      5,
+      10,
+      20
+    ]
+  },
+  "verification_case_id": "pandas-dev-pandas-10068"
+}

@@ -1,0 +1,264 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-22872",
+  "primary_group": "maintenance_refactor",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 22872,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/22872",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/22872.json",
+  "title": "Replace bare excepts by explicit excepts in pandas/tests/",
+  "labels": [
+    "CI",
+    "good first issue"
+  ],
+  "state": "closed",
+  "created_at": "2018-09-28T14:15:49Z",
+  "closed_at": "2018-11-19T01:25:28Z",
+  "selection_rationale": "pandas tests maintenance cleanup replacing bare excepts.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      23370
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "cd65d8eabfd671f467166ab9c47080fde2c0cec3"
+    ],
+    "cite": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "18419",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22873",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22874",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22875",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22877",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22877",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22873",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22874",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22875",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "18419",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "22882",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "23370",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 23370,
+        "title": "STYLE: Specify bare exceptions in pandas/tests",
+        "url": "https://github.com/pandas-dev/pandas/pull/23370",
+        "merged": true,
+        "merge_commit_sha": "e538182203fc243e0fe964883c1e53566bc93058",
+        "head_sha": "6a86779a12c68d15035d3e71192a79d6235f4283",
+        "base_sha": "960a73f0c81d877fc40c77f66c834fe6af51760f",
+        "changed_files": 11,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": ".pep8speaks.yml",
+            "additions": 0,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/conf.py",
+            "additions": 3,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/indexing/common.py",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/io/formats/test_format.py",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/io/test_pytables.py",
+            "additions": 4,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/io/test_sql.py",
+            "additions": 4,
+            "deletions": 3,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/test_multilevel.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/test_nanops.py",
+            "additions": 4,
+            "deletions": 4,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/test_panel.py",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/test_strings.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "setup.cfg",
+            "additions": 0,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      ".pep8speaks.yml",
+      "setup.cfg"
+    ],
+    "test_or_validation_files": [
+      "pandas/tests/indexing/common.py",
+      "pandas/tests/io/formats/test_format.py",
+      "pandas/tests/io/test_pytables.py",
+      "pandas/tests/io/test_sql.py",
+      "pandas/tests/test_multilevel.py",
+      "pandas/tests/test_nanops.py",
+      "pandas/tests/test_panel.py",
+      "pandas/tests/test_strings.py"
+    ],
+    "documentation_files": [
+      "doc/source/conf.py"
+    ],
+    "symbols_or_apis": [],
+    "subsystem": "IO subsystem",
+    "responsibility_summary": "Relevant code is responsible for IO subsystem behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #23370: STYLE: Specify bare exceptions in pandas/tests",
+    "issue_body_file_refs": [
+      "pandas/tests/test_multilevel.py",
+      "pandas/tests/test_nanops.py",
+      "pandas/tests/test_panel.py",
+      "pandas/tests/test_strings.py",
+      "pandas/tests/indexing/common.py",
+      "pandas/tests/io/test_pytables.py",
+      "pandas/tests/io/test_sql.py",
+      "pandas/tests/io/formats/test_format.py"
+    ],
+    "thread_file_refs": [
+      "pandas/tests/test_panel.py",
+      "pandas/tests/test_nanops.py",
+      "pandas/tests/test_multilevel.py",
+      "pandas/tests/test_strings.py",
+      "pandas/tests/io/test_pytables.py",
+      "pandas/tests/io/test_sql.py",
+      "pandas/tests/io/formats/test_format.py",
+      "pandas/tests/indexing/common.py"
+    ],
+    "resolution_comment_excerpts": [
+      "On it!",
+      "This issue seems not fixed after some time. It has been a month and I'm not sure if Harald will be finishing this as he didn't respond if he will be fixing the requested changes on his pull request. Could I take over and try to work on this? @datapythonista @jreback",
+      "we would accept multiple PRs for this",
+      "This is the updated list. I will start working on this as soon as possible. ``` pandas/tests/test_panel.py:338:13: E722 do not use bare 'except' pandas/tests/test_panel.py:344:13: E722 do not use bare 'except' pandas/tests/test_nanops.py:144:9: E722 do not use bare 'except' pandas/tests/test_nanops.py:149:9: E722 do not use bare 'except' pandas/tests/test_nanops.py:170:21: E722 do not use bare 'except' pandas/tests/test_nanops.py:174:21: E722 do not use bare 'except' pandas/tests/test_multilevel.py:1381:9: E722 do not use bare 'except' pandas/tests/test_strings.py:2632:13: E722 do not use bare"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

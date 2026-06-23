@@ -1,0 +1,62 @@
+You are acting only as a codebase evidence retriever.
+Inspect the current working repository snapshot and return implementation evidence for the user question.
+The user question below is the complete sanitized issue packet. It contains only visible pre-resolution issue fields.
+Do not inspect CodeRepoQA raw issue JSON, verification JSON, oracle files, QA_data folders, run artifacts, or post-resolution external information.
+Do not produce a final explanation. Do not edit files.
+Return only JSON matching the provided schema.
+
+Evidence requirements:
+- Prefer source-code implementation files over tests unless tests are essential.
+- Prefer targeted `rg -n` searches and small line-window reads over whole-file reads.
+- Avoid generated/localization/baseline output and vendored directories unless the issue directly names them.
+- Do not search `.guided-intelligence`, `lib`, `loc`, `src/loc`, `tests/baselines`, or `node_modules`.
+- Use repository-relative file paths.
+- Use concrete line ranges that support each claim.
+- Each claim_supported must be directly grounded in the file and line range.
+- Select the smallest evidence set that can support later explanation generation.
+- Put uncertainty in uncertainties instead of guessing.
+
+Sanitized issue packet:
+Explain the code context needed for this issue.
+
+Title: TypeScript 2.9 Watch API change breaking watch support in ts-loader?
+
+Hey everybody! (and in particular @sheetalkamat and @andy-ms !)
+
+**TypeScript Version:**  2.9.1
+
+Apologies for raising a bug.  I suspect this probably *isn't* a bug.  (Although I suppose it may be.)  I'm raising this issue because it may be a bug; but either way I could really benefit from some guidance. 
+
+I'm one of the maintainers of [ts-loader](https://github.com/TypeStrong/ts-loader).  I was just doing the relevant housekeeping to cut a new release.  I thought I'd switch to building ts-loader with TypeScript 2.9.  However, this presents the following compile error:
+
+```
+src/servicesHost.ts:190:9 - error TS2322: Type '{ rootFiles: string[]; options: CompilerOptions; useCaseSensitiveFileNames: () => boolean; getNew...' is not assignable to type 'WatchHost'.
+  Types of property 'createProgram' are incompatible.
+    Type '{ (newProgram: Program, host: BuilderProgramHost, oldProgram?: BuilderProgram | undefined, config...' is not assignable to type 'CreateProgram<BuilderProgram>'.
+      Types of parameters 'newProgram' and 'rootNames' are incompatible.
+        Type 'ReadonlyArray<string> | undefined' is not assignable to type 'Program'.
+          Type 'undefined' is not assignable to type 'Program'.
+
+190   const watchHost: WatchHost = {
+            ~~~~~~~~~
+```
+
+The error message isn't as revealing as it might be but I **think** it's related to [`createAbstractBuilder`](https://github.com/Microsoft/TypeScript/blob/master/src/compiler/builder.ts#L570) somehow no longer aligning with [`createProgram`](https://github.com/Microsoft/TypeScript/blob/master/src/compiler/watch.ts#L278).
+
+The easiest way to see this in action is to take the ts-loader source code and amend [this line](https://github.com/TypeStrong/ts-loader/blob/master/src/servicesHost.ts#L242) from: 
+
+```ts
+    createProgram: compiler.createAbstractBuilder as any // TODO: Chase up with TypeScript team about API change
+```
+
+to:
+
+```ts
+    createProgram: compiler.createAbstractBuilder
+```
+
+et voila! Compile error.
+
+I've tried digging through the history of [`builder.ts`](https://github.com/Microsoft/TypeScript/commits/master/src/compiler/builder.ts) and I've a hunch that this may be linked to the `strictNullChecks` switch that recently happened.  Unfortunately I'm not getting enough information from the compiler to meaningful progress this.  I'm drawing a blank.
+
+Would you be able to give me some guidance please?   My apologies if I'm missing something super obvious.

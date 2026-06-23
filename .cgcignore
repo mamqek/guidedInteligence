@@ -22,4 +22,7 @@ dist/
 build/
 .cache
 coverage/
+vue/
+TypeScript/
+pandas/
 # END guided-intelligence managed excludes

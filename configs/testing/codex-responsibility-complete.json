@@ -1,0 +1,15 @@
+{
+  "retrieval_mode": "codex",
+  "test_root": "C:/Programming/guidedInteligence_testcases",
+  "shared_repo_root": "C:/Programming/guidedInteligence_testcases/_repos",
+  "rebuild_index": false,
+  "chunk_lines": 40,
+  "chunk_overlap": 10,
+  "codex_command": [
+    "codex"
+  ],
+  "codex_model": "gpt-5.4-mini",
+  "codex_prompt_profile": "responsibility-complete",
+  "codex_timeout_seconds": 900,
+  "cases": []
+}

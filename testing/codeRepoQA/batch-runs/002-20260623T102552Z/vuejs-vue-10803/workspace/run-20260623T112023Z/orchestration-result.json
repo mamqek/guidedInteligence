@@ -1,0 +1,3644 @@
+{
+  "conversation_id": "vuejs-vue-10803:run-20260623T112023Z",
+  "policy_result": {
+    "allowed": true,
+    "allowed_sources": [
+      "local_notes",
+      "source_code"
+    ],
+    "boundary_choices": [],
+    "intent": "understand_code",
+    "reason": "Guided explanation turn selected.",
+    "retrieval_required": true,
+    "source_policy_name": "coderepoqa_workspace_initial",
+    "turn_type": "guided_explanation",
+    "violations": []
+  },
+  "response_payload": {
+    "content": "### Bottom line\nThe issue about SSR rendering of `<textarea>` with falsy `domProps.value` relates primarily to how the Vue SSR compiler and runtime handle `domProps` during server-side rendering. The relevant code path involves parsing and representing the `domProps` on virtual nodes, validating and updating DOM properties during runtime, and emitting the final SSR string output. Understanding this flow requires inspecting the compiler's representation of directives and properties, the server-side rendering module that serializes `domProps` to strings, and the runtime module that updates DOM properties in the browser. Diagnostic utilities are also relevant for error reporting but less central here.\n\n### System flow\nParser (src/platforms/web/server/modules/dom-props.js) -> Representation (src/platforms/web/compiler/directives/model.js) -> Validation/Runtime update (src/platforms/web/runtime/modules/dom-props.js) -> Diagnostics (src/core/util/error.js) -> Behavior output (src/server/optimizing-compiler/optimizer.js)\n\nThis flow starts with parsing the `domProps` from vnode data during SSR compilation, then representing these properties in the compiler's AST and directive model. The runtime module handles DOM property updates in the client, including special handling for `value` on elements like `<textarea>`. Diagnostics provide error handling support. The SSR optimizer emits the final HTML string, where the falsy `value` should be omitted rather than rendered as \"null\".\n\n### Parser (src/platforms/web/server/modules/dom-props.js)\nThis module parses `domProps` from vnode data, merging properties from parent nodes to produce a final set of DOM properties for rendering. It turns source tokens into structured data that later stages consume.\n\nExcerpt:\n```js\nexport default function renderDOMProps (node: VNodeWithData): string {\nlet props = node.data.domProps\nlet res = ''\nlet parent = node.parent\nwhile (isDef(parent)) {\nif (parent.data && parent.data.domProps) {\nprops = extend(extend({}, props), parent.data.domProps)\n}\nparent = parent.parent\n}\n// ...\n}\n```\nThis shows how `domProps` are collected and merged, which is crucial for SSR to know what properties to render.\n\n### Representation (src/platforms/web/compiler/directives/model.js)\nThis file defines compiler data shapes and directive handling, including the `model` directive that binds data to inputs. It sets up the AST elements and directive metadata that represent the state of bindings and properties.\n\nExcerpt:\n```js\nexport default function model (\nel: ASTElement,\ndir: ASTDirective,\n_warn: Function\n): ?boolean {\nwarn = _warn\nconst value = dir.value\nconst modifiers = dir.modifiers\nconst tag = el.tag\nconst type = el.attrsMap.type\n// ...\n}\n```\nThis representation is important because it influences how `domProps` and their values are tracked and later emitted.\n\n### Validation/Runtime update (src/platforms/web/runtime/modules/dom-props.js)\nThis module updates DOM properties on actual elements during client runtime. It includes logic to handle special cases like the `value` property on `<textarea>`, avoiding unwanted cursor resets and stringifying values.\n\nExcerpt:\n```js\nif (key === 'value' && elm.tagName !== 'PROGRESS') {\nelm._value = cur\nconst strCur = isUndef(cur) ? '' : String(cur)\nif (shouldUpdateValue(elm, strCur)) {\nelm.value = strCur\n}\n}\n```\nThis logic is relevant because it shows how falsy values like `null` are converted to empty strings in the browser, but the SSR output may not have the same handling.\n\n### Diagnostics (src/core/util/error.js)\nThis file provides error handling utilities used throughout the compiler and runtime. While not directly related to the SSR output issue, it is important for reporting any errors encountered during processing.\n\nExcerpt:\n```js\nexport function handleError (err: Error, vm: any, info: string) {\npushTarget()\n// ...\n}\n```\n\n### Behavior output (src/server/optimizing-compiler/optimizer.js)\nThis module is responsible for generating the SSR output string from the AST. It optimizes the tree and decides how to serialize elements and their properties.\n\nExcerpt:\n```js\n/**\n* In SSR, the vdom tree is generated only once and never patched, so\n* we can optimize most element / trees into plain string render functions.\n* The SSR optimizer walks the AST tree to detect optimizable elements and trees.\n*/\n```\nThis is the place to inspect how falsy `domProps.value` is serialized for `<textarea>`, and why `null` might be rendered as text content instead of omitted.\n\n### Implementation / investigation path\nTo address the issue, start by examining how `domProps` are parsed and merged in the server modules (`src/platforms/web/server/modules/dom-props.js`). Then check how the compiler represents these properties in the AST and directives (`src/platforms/web/compiler/directives/model.js`). Next, review the SSR optimizer's emission logic (`src/server/optimizing-compiler/optimizer.js`) to see how it serializes `domProps.value` for `<textarea>`. Finally, compare with the runtime update logic (`src/platforms/web/runtime/modules/dom-props.js`) that converts falsy values to empty strings in the browser. Adjusting the SSR emission to mimic this behavior should fix the issue.\n\n### What still needs verification\nThe retrieved snippets do not explicitly show the SSR string emission code that handles `domProps.value` for `<textarea>`. Further inspection of the SSR renderer or optimizer code that serializes vnode properties to HTML strings is needed to confirm where the falsy value is incorrectly rendered as \"null\".\n\n---\n\n## Evidence Not To Miss\n\n- This snippet matters because it shows the diagnostic or error path directly. It was retrieved for the `diagnostics` part of the question. See [src/core/util/error.js:L1-L80](src/core/util/error.js#L1-L80).",
+    "evidence_refs": [
+      "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+      "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+      "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+      "repo-pre:src/core/util/error.js:L1-L80",
+      "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+      "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66",
+      "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45",
+      "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77"
+    ],
+    "metadata": {
+      "coverage_status": "partial",
+      "generator": "llm_explanation",
+      "prompt_template_id": "explanation_markdown_v2",
+      "render_notes": {
+        "summary": "Explains the flow from parsing domProps, representing them in the compiler, runtime DOM property updates, diagnostics, and SSR output emission relevant to the issue of falsy domProps.value rendering as 'null' in SSR.",
+        "title": "SSR textarea domProps falsy value rendering context"
+      },
+      "retrieval_sufficient": false,
+      "understanding_checks": [
+        {
+          "evidence_refs": [
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45"
+          ],
+          "expected_answer_points": [
+            "It iterates up the vnode's parent chain, merging `domProps` from each parent into a combined props object.",
+            "This ensures that inherited or nested `domProps` are included in the final set to render.",
+            "This merging is important because SSR needs the complete set of DOM properties to generate accurate HTML output."
+          ],
+          "hint": "Look at how `renderDOMProps` walks the parent chain and merges `domProps` objects.",
+          "id": "q1",
+          "origin": "required supporting responsibility",
+          "question": "How does the server module `renderDOMProps` function merge `domProps` from a vnode and its parents, and why is this important for SSR output?",
+          "question_type": "primary",
+          "role": "representation"
+        },
+        {
+          "evidence_refs": [
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77"
+          ],
+          "expected_answer_points": [
+            "It stores the current value as `_value` on the element.",
+            "It converts falsy values like `null` to an empty string before setting `elm.value`.",
+            "It avoids resetting the cursor position if the value hasn't changed.",
+            "This prevents rendering `null` as text content in the browser, unlike SSR output."
+          ],
+          "hint": "Look at the `updateDOMProps` function's handling of the `value` key for non-PROGRESS elements.",
+          "id": "q3",
+          "origin": "required supporting responsibility",
+          "question": "How does the runtime module handle updating the `value` property on a `<textarea>` element, especially when the value is falsy like `null`?",
+          "question_type": "secondary",
+          "role": "validation_checking"
+        }
+      ],
+      "used_evidence_refs": [
+        "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+        "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+        "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+        "repo-pre:src/core/util/error.js:L1-L80",
+        "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+        "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66",
+        "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45",
+        "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77"
+      ]
+    },
+    "turn_type": "guided_explanation",
+    "violations": []
+  },
+  "response_plan": {
+    "boundary_choices": [],
+    "boundary_message_required": false,
+    "must_include_evidence": true,
+    "notes": {
+      "coverage_status": "partial",
+      "prompt_template_id": "explanation_markdown_v2",
+      "retrieval_sufficient": false
+    },
+    "required_sections": [
+      "generated_explanation",
+      "understanding_checks"
+    ],
+    "turn_type": "guided_explanation"
+  },
+  "retrieval_result": {
+    "coverage_status": "partial",
+    "evidence": [
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "representation",
+          "file_role": "implementation",
+          "path": "src/platforms/web/compiler/directives/model.js",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 1,
+        "snippet": "/* @flow */\n\nimport config from 'core/config'\nimport { addHandler, addProp, getBindingAttr } from 'compiler/helpers'\nimport { genComponentModel, genAssignmentCode } from 'compiler/directives/model'\n\nlet warn\n\n// in some cases, the event used has to be determined at runtime\n// so we used some reserved tokens during compile.\nexport const RANGE_TOKEN = '__r'\nexport const CHECKBOX_RADIO_TOKEN = '__c'\n\nexport default function model (\n  el: ASTElement,\n  dir: ASTDirective,\n  _warn: Function\n): ?boolean {\n  warn = _warn\n  const value = dir.value\n  const modifiers = dir.modifiers\n  const tag = el.tag\n  const type = el.attrsMap.type\n\n  if (process.env.NODE_ENV !== 'production') {\n    // inputs with type=\"file\" are read only and setting the input's\n    // value will throw an error.\n    if (tag === 'input' && type === 'file') {\n      warn(\n        `<${el.tag} v-model=\"${value}\" type=\"file\">:\\n` +\n        `File inputs are read only. Use a v-on:change listener instead.`,\n        el.rawAttrsMap['v-model']\n      )\n    }\n  }\n\n  if (el.component) {\n    genComponentModel(el, value, modifiers)\n    // component v-model doesn't need extra runtime\n    return false\n  } else if (tag === 'select') {\n    genSelect(el, value, modifiers)\n  } else if (tag === 'input' && type === 'checkbox') {\n    genCheckboxModel(el, value, modifiers)\n  } else if (tag === 'input' && type === 'radio') {\n    genRadioModel(el, value, modifiers)\n  } else if (tag === 'input' || tag === 'textarea') {\n    genDefaultModel(el, value, modifiers)\n  } else if (!config.isReservedTag(tag)) {\n    genComponentModel(el, value, modifiers)\n    // component v-model doesn't need extra runtime\n    return false\n  } else if (process.env.NODE_ENV !== 'production') {\n    warn(\n      `<${el.tag} v-model=\"${value}\">: ` +\n      `v-model is not supported on this element type. ` +\n      'If you are working with contenteditable, it\\'s recommended to ' +\n      'wrap a library dedicated for that purpose inside a custom component.',\n      el.rawAttrsMap['v-model']\n    )\n  }\n\n  // ensure runtime directive metadata\n  return true\n}\n\nfunction genCheckboxModel (\n  el: ASTElement,\n  value: string,\n  modifiers: ?ASTModifiers\n) {\n  const number = modifiers && modifiers.number\n  const valueBinding = getBindingAttr(el, 'value') || 'null'\n  const trueValueBinding = getBindingAttr(el, 'true-value') || 'true'\n  const falseValueBinding = getBindingAttr(el, 'false-value') || 'false'\n  addProp(el, 'checked',\n    `Array.isArray(${value})` +\n    `?_i(${value},${valueBinding})>-1` + (\n      trueValueBinding === 'true'\n        ? `:(${value})`",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "input_parsing",
+          "file_role": "implementation",
+          "path": "src/platforms/web/server/modules/dom-props.js",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 2,
+        "snippet": "/* @flow */\n\nimport VNode from 'core/vdom/vnode'\nimport { renderAttr } from './attrs'\nimport { isDef, isUndef, extend } from 'shared/util'\nimport { propsToAttrMap, isRenderableAttr } from '../util'\n\nexport default function renderDOMProps (node: VNodeWithData): string {\n  let props = node.data.domProps\n  let res = ''\n\n  let parent = node.parent\n  while (isDef(parent)) {\n    if (parent.data && parent.data.domProps) {\n      props = extend(extend({}, props), parent.data.domProps)\n    }\n    parent = parent.parent\n  }\n\n  if (isUndef(props)) {\n    return res\n  }\n\n  const attrs = node.data.attrs\n  for (const key in props) {\n    if (key === 'innerHTML') {\n      setText(node, props[key], true)\n    } else if (key === 'textContent') {\n      setText(node, props[key], false)\n    } else if (key === 'value' && node.tag === 'textarea') {\n      setText(node, props[key], false)\n    } else {\n      // $flow-disable-line (WTF?)\n      const attr = propsToAttrMap[key] || key.toLowerCase()\n      if (isRenderableAttr(attr) &&\n        // avoid rendering double-bound props/attrs twice\n        !(isDef(attrs) && isDef(attrs[attr]))\n      ) {\n        res += renderAttr(attr, props[key])\n      }\n    }\n  }\n  return res\n}\n\nfunction setText (node, text, raw) {\n  const child = new VNode(undefined, undefined, undefined, text)\n  child.raw = raw\n  node.children = [child]\n}",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "validation_checking",
+          "file_role": "implementation",
+          "path": "src/platforms/web/runtime/modules/dom-props.js",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 3,
+        "snippet": "function updateDOMProps (oldVnode: VNodeWithData, vnode: VNodeWithData) {\n  if (isUndef(oldVnode.data.domProps) && isUndef(vnode.data.domProps)) {\n    return\n  }\n  let key, cur\n  const elm: any = vnode.elm\n  const oldProps = oldVnode.data.domProps || {}\n  let props = vnode.data.domProps || {}\n  // clone observed objects, as the user probably wants to mutate it\n  if (isDef(props.__ob__)) {\n    props = vnode.data.domProps = extend({}, props)\n  }\n\n  for (key in oldProps) {\n    if (!(key in props)) {\n      elm[key] = ''\n    }\n  }\n\n  for (key in props) {\n    cur = props[key]\n    // ignore children if the node has textContent or innerHTML,\n    // as these will throw away existing DOM nodes and cause removal errors\n    // on subsequent patches (#3360)\n    if (key === 'textContent' || key === 'innerHTML') {\n      if (vnode.children) vnode.children.length = 0\n      if (cur === oldProps[key]) continue\n      // #6601 work around Chrome version <= 55 bug where single textNode\n      // replaced by innerHTML/textContent retains its parentNode property\n      if (elm.childNodes.length === 1) {\n        elm.removeChild(elm.childNodes[0])\n      }\n    }\n\n    if (key === 'value' && elm.tagName !== 'PROGRESS') {\n      // store value as _value as well since\n      // non-string values will be stringified\n      elm._value = cur\n      // avoid resetting cursor position when value is the same\n      const strCur = isUndef(cur) ? '' : String(cur)\n      if (shouldUpdateValue(elm, strCur)) {\n        elm.value = strCur\n      }\n    } else if (key === 'innerHTML' && isSVG(elm.tagName) && isUndef(elm.innerHTML)) {\n      // IE doesn't support innerHTML for SVG elements\n      svgContainer = svgContainer || document.createElement('div')\n      svgContainer.innerHTML = `<svg>${cur}</svg>`\n      const svg = svgContainer.firstChild\n      while (elm.firstChild) {\n        elm.removeChild(elm.firstChild)\n      }\n      while (svg.firstChild) {\n        elm.appendChild(svg.firstChild)\n      }\n    } else if (\n      // skip the update if old and new VDOM state is the same.\n      // `value` is handled separately because the DOM value may be temporarily\n      // out of sync with VDOM state due to focus, composition and modifiers.\n      // This  #4521 by skipping the unnecesarry `checked` update.\n      cur !== oldProps[key]\n    ) {\n      // some property updates can throw\n      // e.g. `value` on <progress> w/ non-finite value\n      try {\n        elm[key] = cur\n      } catch (e) {}\n    }\n  }\n}\n\n// check platforms/web/util/attrs.js acceptValue",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78"
+      },
+      {
+        "metadata": {
+          "chunk_line_ranges": "[\"L73-L83\", \"L1-L8\", \"L58-L72\"]",
+          "chunk_refs": "[\"repo-pre:src/core/util/error.js:L73-L83\", \"repo-pre:src/core/util/error.js:L1-L8\", \"repo-pre:src/core/util/error.js:L58-L72\"]",
+          "commit": "workspace",
+          "coverage_area": "diagnostics",
+          "file_role": "implementation",
+          "path": "src/core/util/error.js",
+          "retrieval_path": "late_accepted_file_span",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 4,
+        "snippet": "/* @flow */\n\nimport config from '../config'\nimport { warn } from './debug'\nimport { inBrowser, inWeex } from './env'\nimport { isPromise } from 'shared/util'\nimport { pushTarget, popTarget } from '../observer/dep'\n\nexport function handleError (err: Error, vm: any, info: string) {\n  // Deactivate deps tracking while processing error handler to avoid possible infinite rendering.\n  // See: https://github.com/vuejs/vuex/issues/1505\n  pushTarget()\n  try {\n    if (vm) {\n      let cur = vm\n      while ((cur = cur.$parent)) {\n        const hooks = cur.$options.errorCaptured\n        if (hooks) {\n          for (let i = 0; i < hooks.length; i++) {\n            try {\n              const capture = hooks[i].call(cur, err, vm, info) === false\n              if (capture) return\n            } catch (e) {\n              globalHandleError(e, cur, 'errorCaptured hook')\n            }\n          }\n        }\n      }\n    }\n    globalHandleError(err, vm, info)\n  } finally {\n    popTarget()\n  }\n}\n\nexport function invokeWithErrorHandling (\n  handler: Function,\n  context: any,\n  args: null | any[],\n  vm: any,\n  info: string\n) {\n  let res\n  try {\n    res = args ? handler.apply(context, args) : handler.call(context)\n    if (res && !res._isVue && isPromise(res) && !res._handled) {\n      res.catch(e => handleError(e, vm, info + ` (Promise/async)`))\n      // issue #9511\n      // avoid catch triggering multiple times when nested calls\n      res._handled = true\n    }\n  } catch (e) {\n    handleError(e, vm, info)\n  }\n  return res\n}\n\nfunction globalHandleError (err, vm, info) {\n  if (config.errorHandler) {\n    try {\n      return config.errorHandler.call(null, err, vm, info)\n    } catch (e) {\n      // if the user intentionally throws the original error in the handler,\n      // do not log it twice\n      if (e !== err) {\n        logError(e, null, 'config.errorHandler')\n      }\n    }\n  }\n  logError(err, vm, info)\n}\n\nfunction logError (err, vm, info) {\n  if (process.env.NODE_ENV !== 'production') {\n    warn(`Error in ${info}: \"${err.toString()}\"`, vm)\n  }\n  /* istanbul ignore else */\n  if ((inBrowser || inWeex) && typeof console !== 'undefined') {\n    console.error(err)\n  } else {",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/core/util/error.js:L1-L80"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "behavior_output",
+          "file_role": "implementation",
+          "path": "src/server/optimizing-compiler/optimizer.js",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 5,
+        "snippet": "/* @flow */\n\n/**\n * In SSR, the vdom tree is generated only once and never patched, so\n * we can optimize most element / trees into plain string render functions.\n * The SSR optimizer walks the AST tree to detect optimizable elements and trees.\n *\n * The criteria for SSR optimizability is quite a bit looser than static tree\n * detection (which is designed for client re-render). In SSR we bail only for\n * components/slots/custom directives.\n */\n\nimport { no, makeMap, isBuiltInTag } from 'shared/util'\n\n// optimizability constants\nexport const optimizability = {\n  FALSE: 0,    // whole sub tree un-optimizable\n  FULL: 1,     // whole sub tree optimizable\n  SELF: 2,     // self optimizable but has some un-optimizable children\n  CHILDREN: 3, // self un-optimizable but have fully optimizable children\n  PARTIAL: 4   // self un-optimizable with some un-optimizable children\n}\n\nlet isPlatformReservedTag\n\nexport function optimize (root: ?ASTElement, options: CompilerOptions) {\n  if (!root) return\n  isPlatformReservedTag = options.isReservedTag || no\n  walk(root, true)\n}\n\nfunction walk (node: ASTNode, isRoot?: boolean) {\n  if (isUnOptimizableTree(node)) {\n    node.ssrOptimizability = optimizability.FALSE\n    return\n  }\n  // root node or nodes with custom directives should always be a VNode\n  const selfUnoptimizable = isRoot || hasCustomDirective(node)\n  const check = child => {\n    if (child.ssrOptimizability !== optimizability.FULL) {\n      node.ssrOptimizability = selfUnoptimizable\n        ? optimizability.PARTIAL\n        : optimizability.SELF\n    }\n  }\n  if (selfUnoptimizable) {\n    node.ssrOptimizability = optimizability.CHILDREN\n  }\n  if (node.type === 1) {\n    for (let i = 0, l = node.children.length; i < l; i++) {\n      const child = node.children[i]\n      walk(child)\n      check(child)\n    }\n    if (node.ifConditions) {\n      for (let i = 1, l = node.ifConditions.length; i < l; i++) {\n        const block = node.ifConditions[i].block\n        walk(block, isRoot)\n        check(block)\n      }\n    }\n    if (node.ssrOptimizability == null ||\n      (!isRoot && (node.attrsMap['v-html'] || node.attrsMap['v-text']))\n    ) {\n      node.ssrOptimizability = optimizability.FULL\n    } else {\n      node.children = optimizeSiblings(node)\n    }\n  } else {\n    node.ssrOptimizability = optimizability.FULL\n  }\n}\n\nfunction optimizeSiblings (el) {\n  const children = el.children\n  const optimizedChildren = []\n\n  let currentOptimizableGroup = []\n  const pushGroup = () => {\n    if (currentOptimizableGroup.length) {",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "representation",
+          "file_role": "implementation",
+          "path": "src/platforms/web/compiler/directives/model.js",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 6,
+        "snippet": "export default function model (\n  el: ASTElement,\n  dir: ASTDirective,\n  _warn: Function\n): ?boolean {\n  warn = _warn\n  const value = dir.value\n  const modifiers = dir.modifiers\n  const tag = el.tag\n  const type = el.attrsMap.type\n\n  if (process.env.NODE_ENV !== 'production') {\n    // inputs with type=\"file\" are read only and setting the input's\n    // value will throw an error.\n    if (tag === 'input' && type === 'file') {\n      warn(\n        `<${el.tag} v-model=\"${value}\" type=\"file\">:\\n` +\n        `File inputs are read only. Use a v-on:change listener instead.`,\n        el.rawAttrsMap['v-model']\n      )\n    }\n  }\n\n  if (el.component) {\n    genComponentModel(el, value, modifiers)\n    // component v-model doesn't need extra runtime\n    return false\n  } else if (tag === 'select') {\n    genSelect(el, value, modifiers)\n  } else if (tag === 'input' && type === 'checkbox') {\n    genCheckboxModel(el, value, modifiers)\n  } else if (tag === 'input' && type === 'radio') {\n    genRadioModel(el, value, modifiers)\n  } else if (tag === 'input' || tag === 'textarea') {\n    genDefaultModel(el, value, modifiers)\n  } else if (!config.isReservedTag(tag)) {\n    genComponentModel(el, value, modifiers)\n    // component v-model doesn't need extra runtime\n    return false\n  } else if (process.env.NODE_ENV !== 'production') {\n    warn(\n      `<${el.tag} v-model=\"${value}\">: ` +\n      `v-model is not supported on this element type. ` +\n      'If you are working with contenteditable, it\\'s recommended to ' +\n      'wrap a library dedicated for that purpose inside a custom component.',\n      el.rawAttrsMap['v-model']\n    )\n  }\n\n  // ensure runtime directive metadata\n  return true\n}\n",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "input_parsing",
+          "file_role": "implementation",
+          "path": "src/platforms/web/server/modules/dom-props.js",
+          "retrieval_path": "local_in_file_refinement",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 7,
+        "snippet": "export default function renderDOMProps (node: VNodeWithData): string {\n  let props = node.data.domProps\n  let res = ''\n\n  let parent = node.parent\n  while (isDef(parent)) {\n    if (parent.data && parent.data.domProps) {\n      props = extend(extend({}, props), parent.data.domProps)\n    }\n    parent = parent.parent\n  }\n\n  if (isUndef(props)) {\n    return res\n  }\n\n  const attrs = node.data.attrs\n  for (const key in props) {\n    if (key === 'innerHTML') {\n      setText(node, props[key], true)\n    } else if (key === 'textContent') {\n      setText(node, props[key], false)\n    } else if (key === 'value' && node.tag === 'textarea') {\n      setText(node, props[key], false)\n    } else {\n      // $flow-disable-line (WTF?)\n      const attr = propsToAttrMap[key] || key.toLowerCase()\n      if (isRenderableAttr(attr) &&\n        // avoid rendering double-bound props/attrs twice\n        !(isDef(attrs) && isDef(attrs[attr]))\n      ) {\n        res += renderAttr(attr, props[key])\n      }\n    }\n  }\n  return res\n}\n",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "validation_checking",
+          "file_role": "implementation",
+          "path": "src/platforms/web/runtime/modules/dom-props.js",
+          "retrieval_path": "qdrant_hybrid_search",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 8,
+        "snippet": "elm.removeChild(elm.childNodes[0])\n      }\n    }\n\n    if (key === 'value' && elm.tagName !== 'PROGRESS') {\n      // store value as _value as well since\n      // non-string values will be stringified\n      elm._value = cur\n      // avoid resetting cursor position when value is the same\n      const strCur = isUndef(cur) ? '' : String(cur)\n      if (shouldUpdateValue(elm, strCur)) {\n        elm.value = strCur\n      }\n    } else if (key === 'innerHTML' && isSVG(elm.tagName) && isUndef(elm.innerHTML)) {\n      // IE doesn't support innerHTML for SVG elements\n      svgContainer = svgContainer || document.createElement('div')\n      svgContainer.innerHTML = `<svg>${cur}</svg>`\n      const svg = svgContainer.firstChild\n      while (elm.firstChild) {\n        elm.removeChild(elm.firstChild)\n      }\n      while (svg.firstChild) {\n        elm.appendChild(svg.firstChild)\n      }\n    } else if (\n      // skip the update if old and new VDOM state is the same.\n      // `value` is handled separately because the DOM value may be temporarily\n      // out of sync with VDOM state due to focus, composition and modifiers.\n      // This  #4521 by skipping the unnecesarry `checked` update.\n      cur !== oldProps[key]\n    ) {\n      // some property updates can throw\n      // e.g. `value` on <progress> w/ non-finite value\n      try {\n        elm[key] = cur\n      } catch (e) {}\n    }\n  }\n}\n\nfunction updateDOMProps (oldVnode: VNodeWithData, vnode: VNodeWithData) {\n  if (isUndef(oldVnode.data.domProps) && isUndef(vnode.data.domProps)) {\n    return\n  }\n  let key, cur\n  const elm: any = vnode.elm\n  const oldProps = oldVnode.data.domProps || {}\n  let props = vnode.data.domProps || {}\n  // clone observed objects, as the user probably wants to mutate it\n  if (isDef(props.__ob__)) {\n    props = vnode.data.domProps = extend({}, props)\n  }\n\n  for (key in oldProps) {\n    if (!(key in props)) {\n      elm[key] = ''\n    }\n  }\n\n  for (key in props) {\n    cur = props[key]\n    // ignore children if the node has textContent or innerHTML,\n    // as these will throw away existing DOM nodes and cause removal errors\n    // on subsequent patches (#3360)\n    if (key === 'textContent' || key === 'innerHTML') {\n      if (vnode.children) vnode.children.length = 0\n      if (cur === oldProps[key]) continue\n      // #6601 work around Chrome version <= 55 bug where single textNode\n      // replaced by innerHTML/textContent retains its parentNode property\n      if (elm.childNodes.length === 1) {\n        elm.removeChild(elm.childNodes[0])\n      }\n    }\n\n    if (key === 'value' && elm.tagName !== 'PROGRESS') {\n      // store value as _value as well since\n      // non-string values will be stringified\n      elm._value = cur\n      // avoid resetting cursor position when value is the same\n      const strCur = isUndef(cur) ? '' : String(cur)\n        elm.removeChild(elm.childNodes[0])\n      }\n    }\n\n    if (key === 'value' && elm.tagName !== 'PROGRESS') {\n      // store value as _value as well since\n      // non-s",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77"
+      },
+      {
+        "metadata": {
+          "chunk_line_ranges": "[\"L72-L78\", \"L30-L58\", \"L95-L116\"]",
+          "chunk_refs": "[\"repo-pre:src/compiler/error-detector.js:L72-L78\", \"repo-pre:src/compiler/error-detector.js:L30-L58\", \"repo-pre:src/compiler/error-detector.js:L95-L116\"]",
+          "commit": "workspace",
+          "coverage_area": "diagnostics",
+          "file_role": "implementation",
+          "path": "src/compiler/error-detector.js",
+          "retrieval_path": "late_accepted_file_span",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 9,
+        "snippet": "/* @flow */\n\nimport { dirRE, onRE } from './parser/index'\n\ntype Range = { start?: number, end?: number };\n\n// these keywords should not appear inside expressions, but operators like\n// typeof, instanceof and in are allowed\nconst prohibitedKeywordRE = new RegExp('\\\\b' + (\n  'do,if,for,let,new,try,var,case,else,with,await,break,catch,class,const,' +\n  'super,throw,while,yield,delete,export,import,return,switch,default,' +\n  'extends,finally,continue,debugger,function,arguments'\n).split(',').join('\\\\b|\\\\b') + '\\\\b')\n\n// these unary operators should not be used as property/method names\nconst unaryOperatorsRE = new RegExp('\\\\b' + (\n  'delete,typeof,void'\n).split(',').join('\\\\s*\\\\([^\\\\)]*\\\\)|\\\\b') + '\\\\s*\\\\([^\\\\)]*\\\\)')\n\n// strip strings in expressions\nconst stripStringRE = /'(?:[^'\\\\]|\\\\.)*'|\"(?:[^\"\\\\]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*\\$\\{|\\}(?:[^`\\\\]|\\\\.)*`|`(?:[^`\\\\]|\\\\.)*`/g\n\n// detect problematic expressions in a template\nexport function detectErrors (ast: ?ASTNode, warn: Function) {\n  if (ast) {\n    checkNode(ast, warn)\n  }\n}\n\nfunction checkNode (node: ASTNode, warn: Function) {\n  if (node.type === 1) {\n    for (const name in node.attrsMap) {\n      if (dirRE.test(name)) {\n        const value = node.attrsMap[name]\n        if (value) {\n          const range = node.rawAttrsMap[name]\n          if (name === 'v-for') {\n            checkFor(node, `v-for=\"${value}\"`, warn, range)\n          } else if (name === 'v-slot' || name[0] === '#') {\n            checkFunctionParameterExpression(value, `${name}=\"${value}\"`, warn, range)\n          } else if (onRE.test(name)) {\n            checkEvent(value, `${name}=\"${value}\"`, warn, range)\n          } else {\n            checkExpression(value, `${name}=\"${value}\"`, warn, range)\n          }\n        }\n      }\n    }\n    if (node.children) {\n      for (let i = 0; i < node.children.length; i++) {\n        checkNode(node.children[i], warn)\n      }\n    }\n  } else if (node.type === 2) {\n    checkExpression(node.expression, node.text, warn, node)\n  }\n}\n\nfunction checkEvent (exp: string, text: string, warn: Function, range?: Range) {\n  const stripped = exp.replace(stripStringRE, '')\n  const keywordMatch: any = stripped.match(unaryOperatorsRE)\n  if (keywordMatch && stripped.charAt(keywordMatch.index - 1) !== '$') {\n    warn(\n      `avoid using JavaScript unary operator as property name: ` +\n      `\"${keywordMatch[0]}\" in expression ${text.trim()}`,\n      range\n    )\n  }\n  checkExpression(exp, text, warn, range)\n}\n\nfunction checkFor (node: ASTElement, text: string, warn: Function, range?: Range) {\n  checkExpression(node.for || '', text, warn, range)\n  checkIdentifier(node.alias, 'v-for alias', text, warn, range)\n  checkIdentifier(node.iterator1, 'v-for iterator', text, warn, range)\n  checkIdentifier(node.iterator2, 'v-for iterator', text, warn, range)\n}\n\nfunction checkIdentifier (\n  ident: ?string,",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/compiler/error-detector.js:L1-L80"
+      },
+      {
+        "metadata": {
+          "commit": "workspace",
+          "coverage_area": "behavior_output",
+          "file_role": "implementation",
+          "path": "src/server/optimizing-compiler/optimizer.js",
+          "retrieval_path": "qdrant_hybrid_search",
+          "snapshot": "workspace_current",
+          "visibility": "workspace_visible"
+        },
+        "rank": 10,
+        "snippet": "/* @flow */\n\n/**\n * In SSR, the vdom tree is generated only once and never patched, so\n * we can optimize most element / trees into plain string render functions.\n * The SSR optimizer walks the AST tree to detect optimizable elements and trees.\n *\n * The criteria for SSR optimizability is quite a bit looser than static tree\n * detection (which is designed for client re-render). In SSR we bail only for\n * components/slots/custom directives.\n */\n\nimport { no, makeMap, isBuiltInTag } from 'shared/util'\n\n// optimizability constants\nexport const optimizability = {\n  FALSE: 0,    // whole sub tree un-optimizable\n  FULL: 1,     // whole sub tree optimizable\n  SELF: 2,     // self optimizable but has some un-optimizable children\n  CHILDREN: 3, // self un-optimizable but have fully optimizable children\n  PARTIAL: 4   // self un-optimizable with some un-optimizable children\n}\n\nlet isPlatformReservedTag\n\n/* @flow */\n\n/**\n * In SSR, the vdom tree is generated only once and never patched, so\n * we can optimize most element / trees into plain string render functions.\n * The SSR optimizer walks the AST tree to detect optimizable elements and trees.\n *\n * The criteria for SSR optimizability is quite a bit looser than static tree\n * detection (which is designed for client re-render). In SSR we bail only for\n * components/slots/custom directives.\n */\n\nimport { no, makeMap, isBuiltInTag } from 'shared/util'\n\n// optimizability constants\nexport const optimizability = {\n  FALSE: 0,    // whole sub tree un-optimizable\n  FULL: 1,     // whole sub tree optimizable\n  SELF: 2,     // self optimizable but has some un-optimizable children\n  CHILDREN: 3, // self un-optimizable but have fully optimizable children\n  PARTIAL: 4   // self un-optimizable with some un-optimizable children\n}\n\nlet isPlatformReservedTag\n\nexport function optimize (root: ?ASTElement, options: CompilerOptions) {\n  if (!root) return\n  isPlatformReservedTag = options.isReservedTag || no\n  walk(root, true)\n}\n\nfunction walk (node: ASTNode, isRoot?: boolean) {\n  if (isUnOptimizableTree(node)) {\n    node.ssrOptimizability = optimizability.FALSE\n    return\n  }\n  // root node or nodes with custom directives should always be a VNode\n  const selfUnoptimizable = isRoot || hasCustomDirective(node)\n  const check = child => {\n    if (child.ssrOptimizability !== optimizability.FULL) {\n      node.ssrOptimizability = selfUnoptimizable\n        ? optimizability.PARTIAL\n        : optimizability.SELF\n    }\n  }\n  if (selfUnoptimizable) {\n    node.ssrOptimizability = optimizability.CHILDREN\n  }\n  if (node.type === 1) {\n    for (let i = 0, l = node.children.length; i < l; i++) {\n      const child = node.children[i]\n      walk(child)\n      check(child)\n    }\n    if (node.ifConditions) {\n      for (let i = 1, l = node.ifConditions.length; i < l; i++) {\n        const block = node.ifConditions[i].block\n        walk(block, isRoot)\n        check(block)\n      }\n    }\n    if (node.ssrOptimizability == null ||\n      (!isRoot && (node.at",
+        "source_category": "source_code",
+        "source_id": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25"
+      }
+    ],
+    "failures_or_fallbacks": [
+      "representation",
+      "validation_checking",
+      "diagnostics",
+      "behavior_output"
+    ],
+    "retrieval_summary": {
+      "cgc_command_prefix": [
+        "C:\\Programming\\guidedInteligence\\.venv\\Scripts\\cgc.exe"
+      ],
+      "cgc_index_command": [
+        "C:\\Programming\\guidedInteligence\\.venv\\Scripts\\cgc.exe",
+        "index",
+        "C:\\Programming\\guidedInteligence_testcases\\vuejs-vue-10803\\s\\6390f70c2e4e"
+      ],
+      "cgc_narrowed_file_count": 3,
+      "connected_source_context": {
+        "conflicts": [],
+        "documents": [],
+        "elapsed_ms": 0.0,
+        "facts": [],
+        "failures": [],
+        "file_hints": [],
+        "queries": [],
+        "ranked_documents": [],
+        "retrieval_terms": [],
+        "selected_context_ids": [],
+        "selected_evidence_ids": [],
+        "signal_provenance": {},
+        "skipped_sources": {},
+        "suggested_subqueries": [],
+        "symbol_hints": [],
+        "usage": {}
+      },
+      "connected_source_count": 0,
+      "connected_sources": [],
+      "deterministic_coverage_gate": {
+        "missing_roles": [
+          "representation",
+          "validation_checking",
+          "diagnostics",
+          "behavior_output"
+        ],
+        "reasons": [
+          "representation:no_strong_satisfying_candidate",
+          "validation_checking:no_strong_satisfying_candidate",
+          "diagnostics:no_strong_satisfying_candidate",
+          "behavior_output:no_strong_satisfying_candidate"
+        ],
+        "role_status": {
+          "behavior_output": "missing",
+          "diagnostics": "missing",
+          "input_parsing": "strong",
+          "representation": "missing",
+          "validation_checking": "missing"
+        },
+        "satisfied": false
+      },
+      "exploration_rounds": 0,
+      "index_document_count": 1306,
+      "index_rebuilt": true,
+      "qdrant_path_filter_count": 3,
+      "refinement_policy": {
+        "acceptance_satisfied": false,
+        "accepted_anchor_refs": [
+          "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+          "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66",
+          "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+          "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45",
+          "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+          "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77",
+          "repo-pre:src/core/util/error.js:L1-L80",
+          "repo-pre:src/compiler/error-detector.js:L1-L80",
+          "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+          "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25"
+        ],
+        "follow_up_queries": [
+          {
+            "query": "Show the SSR rendering code that generates the output string for textarea elements, especially how it handles domProps value null or falsy values.",
+            "reason": "To understand how SSR output string is generated for textarea and how falsy domProps values are handled to avoid incorrect inner text.",
+            "role": "behavior_output"
+          },
+          {
+            "query": "Show code that validates or filters domProps values for textarea elements during SSR rendering to prevent rendering 'null' as inner text.",
+            "reason": "To identify if there is any filtering or transformation of falsy domProps values for textarea in SSR to prevent incorrect output.",
+            "role": "validation_checking"
+          }
+        ],
+        "missing_areas": [
+          "behavior_output",
+          "validation_checking"
+        ],
+        "rejected_anchor_refs": [
+          "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+          "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+          "repo-pre:src/platforms/web/runtime/modules/attrs.js:FILE",
+          "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:FILE",
+          "repo-pre:src/platforms/weex/compiler/modules/recycle-list/v-on.js:FILE",
+          "repo-pre:src/compiler/directives/on.js:FILE",
+          "repo-pre:src/core/vdom/patch.js:FILE",
+          "repo-pre:src/core/util/props.js:FILE",
+          "repo-pre:src/core/vdom/helpers/extract-props.js:FILE",
+          "repo-pre:src/server/render.js:FILE",
+          "repo-pre:src/server/optimizing-compiler/codegen.js:FILE",
+          "repo-pre:src/platforms/web/server/util.js:FILE",
+          "repo-pre:src/platforms/web/server/directives/show.js:FILE",
+          "repo-pre:src/compiler/codegen/index.js:FILE",
+          "repo-pre:src/platforms/weex/compiler/directives/model.js:FILE",
+          "repo-pre:src/compiler/parser/index.js:FILE"
+        ],
+        "snippet_assessment": [
+          {
+            "reason": "Provides general model directive code but no direct SSR domProps value handling for textarea.",
+            "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+            "role": "secondary"
+          },
+          {
+            "reason": "Contains model directive function but lacks direct relation to SSR domProps falsy value handling for textarea.",
+            "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66",
+            "role": "secondary"
+          },
+          {
+            "reason": "Contains renderDOMProps function that aggregates domProps from vnode and parents, relevant to SSR domProps value representation for textarea.",
+            "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+            "role": "core"
+          },
+          {
+            "reason": "Continuation of renderDOMProps function showing domProps merging, important for understanding SSR domProps value propagation.",
+            "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45",
+            "role": "core"
+          },
+          {
+            "reason": "Contains updateDOMProps function that updates DOM properties, relevant for validation and filtering of falsy domProps values in client runtime.",
+            "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+            "role": "core"
+          },
+          {
+            "reason": "Part of updateDOMProps showing handling of value property, useful for understanding falsy value filtering in runtime.",
+            "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77",
+            "role": "core"
+          },
+          {
+            "reason": "General error handling utilities, no direct diagnostics for SSR domProps falsy values found.",
+            "ref": "repo-pre:src/core/util/error.js:L1-L80",
+            "role": "secondary"
+          },
+          {
+            "reason": "Error detection utilities, no direct diagnostics for SSR domProps falsy values found.",
+            "ref": "repo-pre:src/compiler/error-detector.js:L1-L80",
+            "role": "secondary"
+          },
+          {
+            "reason": "SSR optimizer code that may relate to SSR output generation but lacks explicit handling of falsy domProps for textarea.",
+            "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+            "role": "secondary"
+          },
+          {
+            "reason": "Partial SSR optimizer code, insufficient detail on SSR output string generation for textarea domProps.",
+            "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25",
+            "role": "secondary"
+          }
+        ],
+        "stop_reason": "Insufficient coverage of SSR output string generation and falsy domProps filtering for textarea in SSR context."
+      },
+      "required_role_buckets": [
+        {
+          "accepted_refs": [
+            "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+            "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66"
+          ],
+          "evaluations": [
+            {
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 1.4,
+                "symbol": "RANGE_TOKEN",
+                "threshold": 0.0,
+                "total_score": 12.7
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/modules/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/modules/model.js:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.7,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 1.4,
+                "symbol": "bindings",
+                "threshold": 0.0,
+                "total_score": 12.253
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "updateDOMProps",
+                "threshold": 0.0,
+                "total_score": 8.4
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.65,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "renderDOMProps",
+                "threshold": 0.0,
+                "total_score": 7.717
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/attrs.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/attrs.js:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "updateAttrs",
+                "threshold": 0.0,
+                "total_score": 6.718
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/runtime-helpers.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:FILE",
+              "source_role": "representation",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.6,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "renderDOMProps",
+                "threshold": 0.0,
+                "total_score": -3.741
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "model",
+                "threshold": 3.0,
+                "total_score": 5.9
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.45,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "model",
+                "threshold": 3.0,
+                "total_score": 6.25
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L127-L175",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "genDefaultModel",
+                "threshold": 3.0,
+                "total_score": 5.2
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L44-L66",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "model",
+                "threshold": 3.0,
+                "total_score": 5.9
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/modules/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/modules/model.js:L26-L87",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.3,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.4,
+                "symbol": "preTransformNode",
+                "threshold": 3.0,
+                "total_score": 2.1
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/modules/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/modules/model.js:L1-L80",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.7,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "bindings",
+                "threshold": 3.0,
+                "total_score": 4.5
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/modules/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/modules/model.js:L88-L94",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.3,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.4,
+                "symbol": "cloneASTElement",
+                "threshold": 3.0,
+                "total_score": 2.1
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/modules/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/modules/model.js:L1-L25",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.7,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "bindings",
+                "threshold": 3.0,
+                "total_score": 4.5
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.45,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "model",
+                "threshold": 3.0,
+                "total_score": 6.25
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "model",
+                "threshold": 3.0,
+                "total_score": 5.9
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L44-L66",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.1,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "model",
+                "threshold": 3.0,
+                "total_score": 5.9
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L127-L175",
+              "source_role": "representation",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "genDefaultModel",
+                "threshold": 3.0,
+                "total_score": 5.2
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where does the code represent domProps value for textarea elements in the VNode or component structure?",
+            "How is domProps value represented in the VNode or component data structure for textarea in SSR?",
+            "type declaration model",
+            "symbol node metadata",
+            "domProps"
+          ],
+          "missing_reason": "late_assessment_downgraded",
+          "query": "Where does the code represent domProps value for textarea elements in the VNode or component structure?",
+          "rejected_refs": [
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/attrs.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+            "repo-pre:src/platforms/web/compiler/modules/model.js:FILE",
+            "repo-pre:src/platforms/web/compiler/directives/model.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/attrs.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:FILE",
+            "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+            "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66",
+            "repo-pre:src/platforms/web/compiler/directives/model.js:L44-L66",
+            "repo-pre:src/platforms/web/compiler/directives/model.js:L127-L175"
+          ],
+          "role": "representation",
+          "role_status": "weak",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [
+            "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+            "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66"
+          ],
+          "snippet_assessment": [
+            {
+              "reason": "Provides general model directive code but no direct SSR domProps value handling for textarea.",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+              "role": "secondary"
+            },
+            {
+              "reason": "Contains model directive function but lacks direct relation to SSR domProps falsy value handling for textarea.",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66",
+              "role": "secondary"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "L1-L80",
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L1-L80",
+              "satisfies_role": true,
+              "snippet": "/* @flow */\n\nimport config from 'core/config'\nimport { addHandler, addProp, getBindingAttr } from 'compiler/helpers'\nimport { genComponentModel, genAssignmentCode } from 'compiler/directives/model'\n\nlet warn\n\n// in some cases, the event used has to be determined at runtime\n// so we used some reserved tokens during compile.\nexport const RANGE_TOKEN = '__r'\nexport const CHECKBOX_RADIO_TOKEN = '__c'\n\nexport default function model (\n  el: ASTElement,\n  dir: ASTDirective,\n  _warn: Function",
+              "snippet_quality": "secondary"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "L14-L66",
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:L14-L66",
+              "satisfies_role": true,
+              "snippet": "export default function model (\n  el: ASTElement,\n  dir: ASTDirective,\n  _warn: Function\n): ?boolean {\n  warn = _warn\n  const value = dir.value\n  const modifiers = dir.modifiers\n  const tag = el.tag\n  const type = el.attrsMap.type\n\n  if (process.env.NODE_ENV !== 'production') {\n    // inputs with type=\"file\" are read only and setting the input's\n    // value will throw an error.\n    if (tag === 'input' && type === 'file') {\n      warn(\n        `<${el.tag} v-model=\"${value}\" type=\"file\">:\\n` +",
+              "snippet_quality": "secondary"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted"
+          ]
+        },
+        {
+          "accepted_refs": [
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45"
+          ],
+          "evaluations": [
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 5.0,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.35,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 1.4,
+                "symbol": "renderDOMProps",
+                "threshold": 0.0,
+                "total_score": 12.833
+              }
+            },
+            {
+              "path": "src/platforms/weex/compiler/modules/recycle-list/v-on.js",
+              "ref": "repo-pre:src/platforms/weex/compiler/modules/recycle-list/v-on.js:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 4.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "parseHandlerParams",
+                "threshold": 0.0,
+                "total_score": 7.65
+              }
+            },
+            {
+              "path": "src/compiler/directives/on.js",
+              "ref": "repo-pre:src/compiler/directives/on.js:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 4.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "ASTElement",
+                "threshold": 0.0,
+                "total_score": 7.5
+              }
+            },
+            {
+              "path": "src/core/vdom/patch.js",
+              "ref": "repo-pre:src/core/vdom/patch.js:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 0.8,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.6,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "NODE_ENV",
+                "threshold": 0.0,
+                "total_score": 1.967
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.35,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "updateDOMProps",
+                "threshold": 0.0,
+                "total_score": -0.417
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/attrs.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/attrs.js:FILE",
+              "source_role": "input_parsing",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.05,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "updateAttrs",
+                "threshold": 0.0,
+                "total_score": -2.348
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.35,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "renderDOMProps",
+                "threshold": 3.0,
+                "total_score": 5.15
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.35,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "renderDOMProps",
+                "threshold": 3.0,
+                "total_score": 5.15
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L46-L50",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.35,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "setText",
+                "threshold": 3.0,
+                "total_score": 3.15
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.35,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "renderDOMProps",
+                "threshold": 3.0,
+                "total_score": 5.15
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.35,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "renderDOMProps",
+                "threshold": 3.0,
+                "total_score": 5.15
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L46-L50",
+              "source_role": "input_parsing",
+              "stage": "role_followup_snippet_refinement",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.35,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "setText",
+                "threshold": 3.0,
+                "total_score": 3.15
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where does the parser or render function handle attaching domProps with value null to textarea elements?",
+            "How does the render function or component code assign domProps value null to textarea elements?",
+            "input parsing request handling",
+            "event payload route syntax parsing",
+            "domProps"
+          ],
+          "missing_reason": "",
+          "query": "Where does the parser or render function handle attaching domProps with value null to textarea elements?",
+          "rejected_refs": [
+            "repo-pre:src/platforms/weex/compiler/modules/recycle-list/v-on.js:FILE",
+            "repo-pre:src/compiler/directives/on.js:FILE",
+            "repo-pre:src/core/vdom/patch.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/attrs.js:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+            "repo-pre:src/compiler/directives/on.js:FILE",
+            "repo-pre:src/platforms/weex/compiler/modules/recycle-list/v-on.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/attrs.js:FILE",
+            "repo-pre:src/core/vdom/patch.js:FILE",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:L46-L50"
+          ],
+          "role": "input_parsing",
+          "role_status": "strong",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45"
+          ],
+          "snippet_assessment": [
+            {
+              "reason": "Contains renderDOMProps function that aggregates domProps from vnode and parents, relevant to SSR domProps value representation for textarea.",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+              "role": "core"
+            },
+            {
+              "reason": "Continuation of renderDOMProps function showing domProps merging, important for understanding SSR domProps value propagation.",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45",
+              "role": "core"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "L1-L50",
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+              "satisfies_role": true,
+              "snippet": "/* @flow */\n\nimport VNode from 'core/vdom/vnode'\nimport { renderAttr } from './attrs'\nimport { isDef, isUndef, extend } from 'shared/util'\nimport { propsToAttrMap, isRenderableAttr } from '../util'\n\nexport default function renderDOMProps (node: VNodeWithData): string {\n  let props = node.data.domProps\n  let res = ''\n\n  let parent = node.parent\n  while (isDef(parent)) {\n    if (parent.data && parent.data.domProps) {\n      props = extend(extend({}, props), parent.data.domProps)\n    }",
+              "snippet_quality": "core"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "L8-L45",
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45",
+              "satisfies_role": true,
+              "snippet": "export default function renderDOMProps (node: VNodeWithData): string {\n  let props = node.data.domProps\n  let res = ''\n\n  let parent = node.parent\n  while (isDef(parent)) {\n    if (parent.data && parent.data.domProps) {\n      props = extend(extend({}, props), parent.data.domProps)\n    }\n    parent = parent.parent\n  }\n\n  if (isUndef(props)) {\n    return res\n  }\n\n  const attrs = node.data.attrs\n  for (const key in props) {\n    if (key === 'innerHTML') {\n      setText(node, props[key], true)",
+              "snippet_quality": "core"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted"
+          ]
+        },
+        {
+          "accepted_refs": [
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77"
+          ],
+          "evaluations": [
+            {
+              "path": "src/core/config.js",
+              "ref": "repo-pre:src/core/config.js:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/config.js",
+                  "src/core/util/shared/constants.js",
+                  "src/platforms/web/server/modules/core/vdom/vnode.js"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/core/config.js"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "Ignore",
+                "threshold": 0.0,
+                "total_score": 8.95
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/config.js",
+                  "src/core/util/shared/constants.js",
+                  "src/platforms/web/server/modules/core/vdom/vnode.js"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.7,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "updateDOMProps",
+                "threshold": 0.0,
+                "total_score": 8.667
+              }
+            },
+            {
+              "path": "src/core/util/props.js",
+              "ref": "repo-pre:src/core/util/props.js:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/config.js",
+                  "src/core/util/shared/constants.js",
+                  "src/platforms/web/server/modules/core/vdom/vnode.js"
+                ],
+                "anchor_proximity_score": 5.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.7,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "validateProp",
+                "threshold": 0.0,
+                "total_score": 8.333
+              }
+            },
+            {
+              "path": "src/core/vdom/helpers/extract-props.js",
+              "ref": "repo-pre:src/core/vdom/helpers/extract-props.js:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/config.js",
+                  "src/core/util/shared/constants.js",
+                  "src/platforms/web/server/modules/core/vdom/vnode.js"
+                ],
+                "anchor_proximity_score": 5.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.35,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "extractPropsFromVNodeData",
+                "threshold": 0.0,
+                "total_score": 7.961
+              }
+            },
+            {
+              "path": "src/compiler/error-detector.js",
+              "ref": "repo-pre:src/compiler/error-detector.js:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/core/config.js",
+                  "src/core/util/shared/constants.js",
+                  "src/platforms/web/server/modules/core/vdom/vnode.js"
+                ],
+                "anchor_proximity_score": 2.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "checkExpression",
+                "threshold": 0.0,
+                "total_score": 0.198
+              }
+            },
+            {
+              "path": "src/core/util/error.js",
+              "ref": "repo-pre:src/core/util/error.js:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/core/config.js",
+                  "src/core/util/shared/constants.js",
+                  "src/platforms/web/server/modules/core/vdom/vnode.js"
+                ],
+                "anchor_proximity_score": 2.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.2,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "logError",
+                "threshold": 0.0,
+                "total_score": -0.669
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+              "source_role": "validation_checking",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/core/config.js",
+                  "src/core/util/shared/constants.js",
+                  "src/platforms/web/server/modules/core/vdom/vnode.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.35,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "renderDOMProps",
+                "threshold": 0.0,
+                "total_score": -0.875
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 0.0,
+                "symbol": "updateDOMProps",
+                "threshold": 3.2,
+                "total_score": 5.45
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L24-L103",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.45,
+                "reason": "validated_role_candidate",
+                "role_path_score": 0.0,
+                "symbol": "acceptValueElm",
+                "threshold": 3.2,
+                "total_score": 4.85
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L81-L88",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.55,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "shouldUpdateValue",
+                "threshold": 3.2,
+                "total_score": 1.95
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 0.0,
+                "symbol": "updateDOMProps",
+                "threshold": 3.2,
+                "total_score": 5.45
+              }
+            },
+            {
+              "path": "src/core/config.js",
+              "ref": "repo-pre:src/core/config.js:L11-L90",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "Config",
+                "threshold": 3.2,
+                "total_score": 2.45
+              }
+            },
+            {
+              "path": "src/core/config.js",
+              "ref": "repo-pre:src/core/config.js:L1-L80",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 1.7,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "Config",
+                "threshold": 3.2,
+                "total_score": 2.1
+              }
+            },
+            {
+              "path": "src/core/config.js",
+              "ref": "repo-pre:src/core/config.js:L71-L110",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "Ignore",
+                "threshold": 3.2,
+                "total_score": 2.45
+              }
+            },
+            {
+              "path": "src/core/config.js",
+              "ref": "repo-pre:src/core/config.js:L41-L80",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "Config",
+                "threshold": 3.2,
+                "total_score": 2.45
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 0.0,
+                "symbol": "updateDOMProps",
+                "threshold": 3.2,
+                "total_score": 5.45
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 4.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 0.0,
+                "symbol": "updateDOMProps",
+                "threshold": 3.2,
+                "total_score": 5.45
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L24-L103",
+              "source_role": "validation_checking",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 1.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.45,
+                "reason": "validated_role_candidate",
+                "role_path_score": 0.0,
+                "symbol": "acceptValueElm",
+                "threshold": 3.2,
+                "total_score": 4.85
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where does the code check or filter falsy domProps values like null for textarea to avoid rendering inner text?",
+            "Where does the SSR renderer or patcher filter or transform falsy domProps values for textarea to avoid incorrect inner text?",
+            "semantic validation rules",
+            "constraint error checking",
+            "domProps"
+          ],
+          "missing_reason": "late_assessment_downgraded",
+          "query": "Where does the code check or filter falsy domProps values like null for textarea to avoid rendering inner text?",
+          "rejected_refs": [
+            "repo-pre:src/core/util/props.js:FILE",
+            "repo-pre:src/core/vdom/helpers/extract-props.js:FILE",
+            "repo-pre:src/compiler/error-detector.js:FILE",
+            "repo-pre:src/core/util/error.js:FILE",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/core/util/props.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/compiler/error-detector.js:FILE",
+            "repo-pre:src/core/util/error.js:FILE",
+            "repo-pre:src/core/config.js:FILE",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+            "repo-pre:src/core/vdom/helpers/extract-props.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L24-L103"
+          ],
+          "role": "validation_checking",
+          "role_status": "weak",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77"
+          ],
+          "snippet_assessment": [
+            {
+              "reason": "Contains updateDOMProps function that updates DOM properties, relevant for validation and filtering of falsy domProps values in client runtime.",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+              "role": "core"
+            },
+            {
+              "reason": "Part of updateDOMProps showing handling of value property, useful for understanding falsy value filtering in runtime.",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77",
+              "role": "core"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "L8-L78",
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L8-L78",
+              "satisfies_role": true,
+              "snippet": "function updateDOMProps (oldVnode: VNodeWithData, vnode: VNodeWithData) {\n  if (isUndef(oldVnode.data.domProps) && isUndef(vnode.data.domProps)) {\n    return\n  }\n  let key, cur\n  const elm: any = vnode.elm\n  const oldProps = oldVnode.data.domProps || {}\n  let props = vnode.data.domProps || {}\n  // clone observed objects, as the user probably wants to mutate it\n  if (isDef(props.__ob__)) {\n    props = vnode.data.domProps = extend({}, props)\n  }\n\n  for (key in oldProps) {",
+              "snippet_quality": "core"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "L38-L77",
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:L38-L77",
+              "satisfies_role": true,
+              "snippet": "elm.removeChild(elm.childNodes[0])\n      }\n    }\n\n    if (key === 'value' && elm.tagName !== 'PROGRESS') {\n      // store value as _value as well since\n      // non-string values will be stringified\n      elm._value = cur\n      // avoid resetting cursor position when value is the same\n      const strCur = isUndef(cur) ? '' : String(cur)\n      if (shouldUpdateValue(elm, strCur)) {\n        elm.value = strCur\n      }",
+              "snippet_quality": "core"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted"
+          ]
+        },
+        {
+          "accepted_refs": [
+            "repo-pre:src/core/util/error.js:L1-L80",
+            "repo-pre:src/compiler/error-detector.js:L1-L80"
+          ],
+          "evaluations": [
+            {
+              "path": "src/core/util/error.js",
+              "ref": "repo-pre:src/core/util/error.js:FILE",
+              "source_role": "diagnostics",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/util/error.js",
+                  "src/compiler/error-detector.js"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/core/util/error.js"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "logError",
+                "threshold": 0.0,
+                "total_score": 10.033
+              }
+            },
+            {
+              "path": "src/compiler/error-detector.js",
+              "ref": "repo-pre:src/compiler/error-detector.js:FILE",
+              "source_role": "diagnostics",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/util/error.js",
+                  "src/compiler/error-detector.js"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/compiler/error-detector.js"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "checkFor",
+                "threshold": 0.0,
+                "total_score": 9.95
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+              "source_role": "diagnostics",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/util/error.js",
+                  "src/compiler/error-detector.js"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "updateDOMProps",
+                "threshold": 0.0,
+                "total_score": 3.556
+              }
+            },
+            {
+              "path": "src/server/render.js",
+              "ref": "repo-pre:src/server/render.js:FILE",
+              "source_role": "diagnostics",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/util/error.js",
+                  "src/compiler/error-detector.js"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "SSR_ATTR",
+                "threshold": 0.0,
+                "total_score": 3.5
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where are SSR rendering errors or warnings about falsy domProps values reported or logged?",
+            "Where does the SSR renderer emit diagnostics or handle errors related to domProps falsy values?",
+            "diagnostic error messages",
+            "failure reporting diagnostics",
+            "domProps"
+          ],
+          "missing_reason": "late_assessment_downgraded",
+          "query": "Where are SSR rendering errors or warnings about falsy domProps values reported or logged?",
+          "rejected_refs": [
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/server/render.js:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/core/util/error.js:FILE",
+            "repo-pre:src/compiler/error-detector.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/server/render.js:FILE"
+          ],
+          "role": "diagnostics",
+          "role_status": "weak",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [
+            "repo-pre:src/core/util/error.js:L1-L80",
+            "repo-pre:src/compiler/error-detector.js:L1-L80"
+          ],
+          "snippet_assessment": [
+            {
+              "reason": "General error handling utilities, no direct diagnostics for SSR domProps falsy values found.",
+              "ref": "repo-pre:src/core/util/error.js:L1-L80",
+              "role": "secondary"
+            },
+            {
+              "reason": "Error detection utilities, no direct diagnostics for SSR domProps falsy values found.",
+              "ref": "repo-pre:src/compiler/error-detector.js:L1-L80",
+              "role": "secondary"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "L1-L80",
+              "path": "src/core/util/error.js",
+              "ref": "repo-pre:src/core/util/error.js:L1-L80",
+              "satisfies_role": true,
+              "snippet": "/* @flow */\n\nimport config from '../config'\nimport { warn } from './debug'\nimport { inBrowser, inWeex } from './env'\nimport { isPromise } from 'shared/util'\nimport { pushTarget, popTarget } from '../observer/dep'\n\nexport function handleError (err: Error, vm: any, info: string) {\n  // Deactivate deps tracking while processing error handler to avoid possible infinite rendering.\n  // See: https://github.com/vuejs/vuex/issues/1505\n  pushTarget()\n  try {\n    if (vm) {\n      let cur = vm",
+              "snippet_quality": "secondary"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "L1-L80",
+              "path": "src/compiler/error-detector.js",
+              "ref": "repo-pre:src/compiler/error-detector.js:L1-L80",
+              "satisfies_role": true,
+              "snippet": "/* @flow */\n\nimport { dirRE, onRE } from './parser/index'\n\ntype Range = { start?: number, end?: number };\n\n// these keywords should not appear inside expressions, but operators like\n// typeof, instanceof and in are allowed\nconst prohibitedKeywordRE = new RegExp('\\\\b' + (\n  'do,if,for,let,new,try,var,case,else,with,await,break,catch,class,const,' +\n  'super,throw,while,yield,delete,export,import,return,switch,default,' +\n  'extends,finally,continue,debugger,function,arguments'",
+              "snippet_quality": "secondary"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected"
+          ]
+        },
+        {
+          "accepted_refs": [
+            "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+            "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25"
+          ],
+          "evaluations": [
+            {
+              "path": "src/compiler/codegen/index.js",
+              "ref": "repo-pre:src/compiler/codegen/index.js:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/weex/util/escodegen.js",
+                  "src/server/core/vdom/create-component.js"
+                ],
+                "anchor_proximity_score": 6.8,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "genScopedSlot",
+                "threshold": 0.0,
+                "total_score": 9.633
+              }
+            },
+            {
+              "path": "src/core/instance/render-helpers/bind-dynamic-keys.js",
+              "ref": "repo-pre:src/core/instance/render-helpers/bind-dynamic-keys.js:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/weex/util/escodegen.js",
+                  "src/server/core/vdom/create-component.js"
+                ],
+                "anchor_proximity_score": 5.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "bindDynamicKeys",
+                "threshold": 0.0,
+                "total_score": 9.2
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/optimizer.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/weex/util/escodegen.js",
+                  "src/server/core/vdom/create-component.js"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "FALSE",
+                "threshold": 0.0,
+                "total_score": 7.05
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/weex/util/escodegen.js",
+                  "src/server/core/vdom/create-component.js"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "renderDOMProps",
+                "threshold": 0.0,
+                "total_score": 6.95
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/codegen.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/codegen.js:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/weex/util/escodegen.js",
+                  "src/server/core/vdom/create-component.js"
+                ],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.65,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "genSSRElement",
+                "threshold": 0.0,
+                "total_score": 6.883
+              }
+            },
+            {
+              "path": "src/server/render.js",
+              "ref": "repo-pre:src/server/render.js:FILE",
+              "source_role": "behavior_output",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/weex/util/escodegen.js",
+                  "src/server/core/vdom/create-component.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "",
+                "threshold": 0.0,
+                "total_score": -3.541
+              }
+            },
+            {
+              "path": "src/core/instance/render-helpers/bind-dynamic-keys.js",
+              "ref": "repo-pre:src/core/instance/render-helpers/bind-dynamic-keys.js:L1-L35",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "bindDynamicKeys",
+                "threshold": 3.1,
+                "total_score": 2.8
+              }
+            },
+            {
+              "path": "src/core/instance/render-helpers/bind-dynamic-keys.js",
+              "ref": "repo-pre:src/core/instance/render-helpers/bind-dynamic-keys.js:L14-L32",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.4,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "bindDynamicKeys",
+                "threshold": 3.1,
+                "total_score": 2.8
+              }
+            },
+            {
+              "path": "src/core/instance/render-helpers/bind-dynamic-keys.js",
+              "ref": "repo-pre:src/core/instance/render-helpers/bind-dynamic-keys.js:L33-L35",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.7,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "prependModifier",
+                "threshold": 3.1,
+                "total_score": 1.1
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L1-L50",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.0,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "renderDOMProps",
+                "threshold": 3.1,
+                "total_score": 3.0
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L8-L45",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 3.0,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "renderDOMProps",
+                "threshold": 3.1,
+                "total_score": 3.0
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:L46-L50",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "local_only",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "setText",
+                "threshold": 3.1,
+                "total_score": 0.0
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/runtime-helpers.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:L61-L140",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.65,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "renderStringNode",
+                "threshold": 3.1,
+                "total_score": 4.45
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/runtime-helpers.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:L120-L130",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.65,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "renderDOMProps",
+                "threshold": 3.1,
+                "total_score": 4.45
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/runtime-helpers.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:L109-L119",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.05,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "renderAttrs",
+                "threshold": 3.1,
+                "total_score": 3.85
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/optimizer.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 0.0,
+                "symbol": "optimize",
+                "threshold": 3.1,
+                "total_score": 3.15
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/optimizer.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L32-L73",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.7,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "walk",
+                "threshold": 3.1,
+                "total_score": 1.1
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/optimizer.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L26-L31",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "insufficient_role_support",
+                "role_path_score": 0.0,
+                "symbol": "optimize",
+                "threshold": 3.1,
+                "total_score": 0.4
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/optimizer.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery_initial",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 0.0,
+                "symbol": "optimize",
+                "threshold": 3.1,
+                "total_score": 3.15
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/optimizer.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 0.0,
+                "symbol": "optimize",
+                "threshold": 3.1,
+                "total_score": 3.15
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/optimizer.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.75,
+                "reason": "validated_role_candidate",
+                "role_path_score": 0.0,
+                "symbol": "optimize",
+                "threshold": 3.1,
+                "total_score": 3.15
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/runtime-helpers.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:L61-L140",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.65,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "renderStringNode",
+                "threshold": 3.1,
+                "total_score": 4.45
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/runtime-helpers.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:L120-L130",
+              "source_role": "behavior_output",
+              "stage": "role_followup_late_recovery",
+              "validation": {
+                "acceptance_source": "anchor_boosted",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 2.65,
+                "reason": "validated_role_candidate",
+                "role_path_score": 1.4,
+                "symbol": "renderDOMProps",
+                "threshold": 3.1,
+                "total_score": 4.45
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where is the SSR output string generated for textarea elements with domProps value, especially handling null or falsy values?",
+            "Where does the SSR stringifier generate the textarea element output, and how does it handle domProps value null?",
+            "output render display state",
+            "emit render generation",
+            "domProps"
+          ],
+          "missing_reason": "late_assessment_downgraded",
+          "query": "Where is the SSR output string generated for textarea elements with domProps value, especially handling null or falsy values?",
+          "rejected_refs": [
+            "repo-pre:src/server/optimizing-compiler/optimizer.js:FILE",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/codegen.js:FILE",
+            "repo-pre:src/server/render.js:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/server/render.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/codegen.js:FILE",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+            "repo-pre:src/core/instance/render-helpers/bind-dynamic-keys.js:FILE",
+            "repo-pre:src/compiler/codegen/index.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/optimizer.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+            "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25",
+            "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:L61-L140",
+            "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:L120-L130"
+          ],
+          "role": "behavior_output",
+          "role_status": "weak",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [
+            "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+            "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25"
+          ],
+          "snippet_assessment": [
+            {
+              "reason": "SSR optimizer code that may relate to SSR output generation but lacks explicit handling of falsy domProps for textarea.",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+              "role": "secondary"
+            },
+            {
+              "reason": "Partial SSR optimizer code, insufficient detail on SSR output string generation for textarea domProps.",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25",
+              "role": "secondary"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "L1-L80",
+              "path": "src/server/optimizing-compiler/optimizer.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L80",
+              "satisfies_role": true,
+              "snippet": "/* @flow */\n\n/**\n * In SSR, the vdom tree is generated only once and never patched, so\n * we can optimize most element / trees into plain string render functions.\n * The SSR optimizer walks the AST tree to detect optimizable elements and trees.\n *\n * The criteria for SSR optimizability is quite a bit looser than static tree\n * detection (which is designed for client re-render). In SSR we bail only for\n * components/slots/custom directives.\n */",
+              "snippet_quality": "secondary"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "L1-L25",
+              "path": "src/server/optimizing-compiler/optimizer.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:L1-L25",
+              "satisfies_role": true,
+              "snippet": "/* @flow */\n\n/**\n * In SSR, the vdom tree is generated only once and never patched, so\n * we can optimize most element / trees into plain string render functions.\n * The SSR optimizer walks the AST tree to detect optimizable elements and trees.\n *\n * The criteria for SSR optimizability is quite a bit looser than static tree\n * detection (which is designed for client re-render). In SSR we bail only for\n * components/slots/custom directives.\n */",
+              "snippet_quality": "secondary"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_support_only_downvoted"
+          ]
+        }
+      ],
+      "responsibility_expansion_intents": [],
+      "retrieval_plan": {
+        "confirmed_entities": [],
+        "confirmed_file_hints": [],
+        "conversation_id": "vuejs-vue-10803:run-20260623T112023Z",
+        "grounded_entities": [
+          "SSR",
+          "domProps",
+          "renderVmWithOptions",
+          "toContain",
+          "VTextarea",
+          "L86",
+          "L92",
+          "VTextField",
+          "L357",
+          "L361",
+          "NOT",
+          "REMOVE"
+        ],
+        "grounded_file_hints": [
+          "vue/test/ssr/ssr-string.spec.js",
+          "github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextarea/VTextarea.ts",
+          "github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextField/VTextField.ts"
+        ],
+        "llm_concept_terms": [
+          "SSR",
+          "domProps",
+          "textarea value",
+          "falsy value handling",
+          "VNode",
+          "renderVmWithOptions",
+          "Vuetify VTextarea",
+          "Vuetify VTextField"
+        ],
+        "llm_subqueries": [
+          {
+            "query": "Where does the code represent domProps value for textarea elements in the VNode or component structure?",
+            "role": "representation"
+          },
+          {
+            "query": "Where does the parser or render function handle attaching domProps with value null to textarea elements?",
+            "role": "input_parsing"
+          },
+          {
+            "query": "Where does the code check or filter falsy domProps values like null for textarea to avoid rendering inner text?",
+            "role": "validation_checking"
+          },
+          {
+            "query": "Where are SSR rendering errors or warnings about falsy domProps values reported or logged?",
+            "role": "diagnostics"
+          },
+          {
+            "query": "Where is the SSR output string generated for textarea elements with domProps value, especially handling null or falsy values?",
+            "role": "behavior_output"
+          },
+          {
+            "query": "Where is the test 'falsy domProps value' in vue/test/ssr/ssr-string.spec.js implemented?",
+            "role": "tests"
+          },
+          {
+            "query": "Where is the documentation about SSR rendering of domProps for textarea elements?",
+            "role": "docs"
+          },
+          {
+            "query": "Are there any config options affecting SSR rendering of domProps values for textarea?",
+            "role": "config"
+          }
+        ],
+        "metadata": {
+          "planner": "llm_workspace_grounded_v2",
+          "repo_context": {
+            "confirmed_anchor_examples": [],
+            "confirmed_entities": [],
+            "confirmed_file_hints": [],
+            "connected_context": {
+              "conflicts": [],
+              "facts": [],
+              "file_hints": [],
+              "retrieval_terms": [],
+              "selected_context_ids": [],
+              "suggested_subqueries": [],
+              "symbol_hints": []
+            },
+            "repo_sketch": {
+              "file_index": [
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "codeframe",
+                    "generateCodeFrame",
+                    "repeat"
+                  ],
+                  "path": "src/compiler/codeframe.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "codegen",
+                    "events",
+                    "genHandlers",
+                    "genWeexHandler",
+                    "genHandler",
+                    "genKeyFilter"
+                  ],
+                  "path": "src/compiler/codegen/events.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "codegen",
+                    "index",
+                    "TransformFunction",
+                    "DataGenFunction",
+                    "DirectiveFunction",
+                    "CodegenState"
+                  ],
+                  "path": "src/compiler/codegen/index.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "create",
+                    "createCompilerCreator",
+                    "createCompiler",
+                    "compile"
+                  ],
+                  "path": "src/compiler/create-compiler.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "directives",
+                    "bind"
+                  ],
+                  "path": "src/compiler/directives/bind.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "directives",
+                    "index"
+                  ],
+                  "path": "src/compiler/directives/index.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "directives",
+                    "model",
+                    "genComponentModel",
+                    "genAssignmentCode",
+                    "ModelParseResult",
+                    "parseModel"
+                  ],
+                  "path": "src/compiler/directives/model.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "directives"
+                  ],
+                  "path": "src/compiler/directives/on.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "error",
+                    "detector",
+                    "Range",
+                    "detectErrors",
+                    "checkNode",
+                    "checkEvent"
+                  ],
+                  "path": "src/compiler/error-detector.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "helpers",
+                    "Range",
+                    "baseWarn",
+                    "pluckModuleFunction",
+                    "addProp",
+                    "addAttr"
+                  ],
+                  "path": "src/compiler/helpers.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "index",
+                    "baseCompile"
+                  ],
+                  "path": "src/compiler/index.js",
+                  "role": "implementation"
+                },
+                {
+                  "identifiers": [
+                    "src",
+                    "compiler",
+                    "optimizer",
+                    "optimize",
+                    "genStaticKeys",
+                    "markStatic",
+                    "markStaticRoots",
+                    "isStatic"
+                  ],
+                  "path": "src/compiler/optimizer.js",
+                  "role": "implementation"
+                }
+              ],
+              "file_roles": {
+                "documentation": 7,
+                "implementation": 194,
+                "other": 13,
+                "test": 8
+              },
+              "representative_files": [
+                ".babelrc.js",
+                ".github/CODE_OF_CONDUCT.md",
+                "src/compiler/codeframe.js",
+                "types/test/augmentation-test.ts",
+                ".circleci/config.yml",
+                ".eslintrc.js",
+                ".github/COMMIT_CONVENTION.md",
+                ".github/CONTRIBUTING.md",
+                ".github/FUNDING.yml",
+                ".github/ISSUE_TEMPLATE.md",
+                ".github/PULL_REQUEST_TEMPLATE.md",
+                "BACKERS.md"
+              ],
+              "top_directories": [
+                {
+                  "file_count": 91,
+                  "path": "src/platforms"
+                },
+                {
+                  "file_count": 60,
+                  "path": "src/core"
+                },
+                {
+                  "file_count": 22,
+                  "path": "src/server"
+                },
+                {
+                  "file_count": 18,
+                  "path": "src/compiler"
+                },
+                {
+                  "file_count": 8,
+                  "path": "types/test"
+                },
+                {
+                  "file_count": 2,
+                  "path": "src/shared"
+                },
+                {
+                  "file_count": 1,
+                  "path": ".babelrc.js"
+                },
+                {
+                  "file_count": 1,
+                  "path": ".circleci/config.yml"
+                }
+              ]
+            }
+          }
+        },
+        "negative_filters": [
+          "harness",
+          "fixture",
+          "baseline",
+          "generated"
+        ],
+        "owner_artifact_terms": [
+          "domProps",
+          "textarea value representation",
+          "SSR rendering",
+          "VNode data domProps",
+          "SSR stringification",
+          "VNode patching",
+          "component VTextarea",
+          "component VTextField"
+        ],
+        "owner_subqueries": [
+          {
+            "query": "How is domProps value represented in the VNode or component data structure for textarea in SSR?",
+            "role": "representation"
+          },
+          {
+            "query": "How does the render function or component code assign domProps value null to textarea elements?",
+            "role": "input_parsing"
+          },
+          {
+            "query": "Where does the SSR renderer or patcher filter or transform falsy domProps values for textarea to avoid incorrect inner text?",
+            "role": "validation_checking"
+          },
+          {
+            "query": "Where does the SSR renderer emit diagnostics or handle errors related to domProps falsy values?",
+            "role": "diagnostics"
+          },
+          {
+            "query": "Where does the SSR stringifier generate the textarea element output, and how does it handle domProps value null?",
+            "role": "behavior_output"
+          }
+        ],
+        "prompt_summary": "Issue about SSR rendering of textarea with falsy domProps value 'null' causing incorrect inner text in SSR output. Expected empty textarea but got 'null' text. Repro in vue/test/ssr/ssr-string.spec.js with renderVmWithOptions. Relevant Vuetify components VTextarea and VTextField source lines given. Version 2.6.10. Need to understand representation of domProps value, parsing of textarea domProps, validation or filtering of falsy values, diagnostics if any, and SSR output behavior for textarea value.",
+        "raw_prompt": "Explain the code context needed for this issue.\n\nTitle: SSR: textarea domProps keeps falsy values\n\n### Version\r\n2.6.10\r\n\r\n### Reproduction link\r\n[https://codesandbox.io/s/codesandbox-nuxt-vdcv8](https://codesandbox.io/s/codesandbox-nuxt-vdcv8)\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n### Steps to reproduce\r\nView page source\r\n\r\n### What is expected?\r\n```html\r\n<textarea id=\"input-62\" rows=\"5\"></textarea>\r\n```\r\n\r\n### What is actually happening?\r\n```html\r\n<textarea id=\"input-62\" rows=\"5\">null</textarea>\r\n```\r\n\r\n---\r\nSimilar to #9231\r\n\r\nRepro in `vue/test/ssr/ssr-string.spec.js`:\r\n```js\r\n  it('falsy domProps value', done => {\r\n    renderVmWithOptions({\r\n      render (h) {\r\n        return h('div', [\r\n          h('textarea', {\r\n            domProps: {\r\n              value: null\r\n            }\r\n          })\r\n        ])\r\n      }\r\n    }, result => {\r\n      expect(result).toContain(\r\n        '<div data-server-rendered=\"true\"><textarea></textarea></div>'\r\n      )\r\n      done()\r\n    })\r\n  })\r\n```\r\n\r\nRelevant vuetify code:\r\nhttps://github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextarea/VTextarea.ts#L86-L92\r\nhttps://github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextField/VTextField.ts#L357-L361\r\n\r\n<!-- generated by vue-issues. DO NOT REMOVE -->",
+        "raw_prompt_evidence": [
+          "vue/test/ssr/ssr-string.spec.js",
+          "input-62",
+          "5",
+          "falsy domProps value",
+          "div",
+          "textarea",
+          "<div data-server-rendered=\"true\"><textarea></textarea></div>",
+          "github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextarea/VTextarea.ts",
+          "github.com/vuetifyjs/vuetify/blob/243a7c34a1c58dff3753ad35dded13ba5002c8eb/packages/vuetify/src/components/VTextField/VTextField.ts",
+          "2.6.10",
+          "codesandbox.io",
+          "---"
+        ],
+        "required_roles": [
+          "representation",
+          "input_parsing",
+          "validation_checking",
+          "diagnostics",
+          "behavior_output"
+        ],
+        "retrieval_terms": [
+          "SSR textarea domProps falsy value",
+          "textarea domProps value null",
+          "renderVmWithOptions",
+          "vue/test/ssr/ssr-string.spec.js",
+          "VTextarea.ts L86-L92",
+          "VTextField.ts L357-L361",
+          "falsy domProps value",
+          "textarea SSR output"
+        ],
+        "source_priorities": [
+          "source_code",
+          "local_notes"
+        ],
+        "speculative_entities": [
+          "VNode",
+          "VNodeData",
+          "SSR renderer",
+          "render function",
+          "Vuetify component VTextarea",
+          "Vuetify component VTextField",
+          "SSR stringification",
+          "domProps filtering"
+        ],
+        "support_subqueries": [
+          {
+            "query": "Show the test case for 'falsy domProps value' in vue/test/ssr/ssr-string.spec.js",
+            "role": "tests"
+          },
+          {
+            "query": "How does renderVmWithOptions produce SSR output for textarea with domProps value null?",
+            "role": "behavior_output"
+          }
+        ],
+        "supporting_roles": [
+          "tests",
+          "docs",
+          "config"
+        ],
+        "surface_context_terms": [
+          "SSR",
+          "textarea",
+          "domProps",
+          "renderVmWithOptions",
+          "vue/test/ssr/ssr-string.spec.js"
+        ]
+      },
+      "retriever": "workspace",
+      "selected_count": 10,
+      "source_registry": [
+        {
+          "adapter_name": "codegraphcontext+qdrant-hybrid",
+          "category": "source_code",
+          "enabled": true,
+          "indexed": true,
+          "note": "CGC narrows files first; Qdrant hybrid retrieval searches dense+sparse vectors inside the filtered file set.",
+          "provider": "",
+          "queryable": true,
+          "source_key": "source_code",
+          "title": "Source code"
+        },
+        {
+          "adapter_name": "codegraphcontext+qdrant-hybrid",
+          "category": "documentation",
+          "enabled": false,
+          "indexed": true,
+          "note": "Workspace docs participate in the same CGC-first Qdrant hybrid retrieval flow.",
+          "provider": "",
+          "queryable": true,
+          "source_key": "repo_docs",
+          "title": "Repository docs"
+        },
+        {
+          "adapter_name": "connected_documents+mcp+remote_mcp",
+          "category": "issue_tracker",
+          "enabled": false,
+          "indexed": false,
+          "note": "Issue tracker context is supplied as connected documents or MCP-backed query results.",
+          "provider": "",
+          "queryable": false,
+          "source_key": "issue_tracker",
+          "title": ""
+        },
+        {
+          "adapter_name": "connected_documents+mcp+remote_mcp",
+          "category": "pull_request",
+          "enabled": false,
+          "indexed": false,
+          "note": "Pull request context is supplied as connected documents or MCP-backed query results.",
+          "provider": "",
+          "queryable": false,
+          "source_key": "pull_request",
+          "title": ""
+        },
+        {
+          "adapter_name": "obsidian-hybrid-search+local_note_files",
+          "category": "local_notes",
+          "enabled": true,
+          "indexed": false,
+          "note": "Obsidian owns local-note indexing; workspace retrieval consumes matching note results as trusted source guidance without adding them to Qdrant.",
+          "provider": "",
+          "queryable": true,
+          "source_key": "local_notes",
+          "title": "Local notes"
+        },
+        {
+          "adapter_name": "connected_documents+remote_mcp+mcp",
+          "category": "notebooklm",
+          "enabled": false,
+          "indexed": false,
+          "note": "NotebookLM context is attached as provided text snippets or remote/local MCP results.",
+          "provider": "",
+          "queryable": false,
+          "source_key": "notebooklm",
+          "title": "NotebookLM"
+        }
+      ],
+      "stop_reason": "Insufficient coverage of SSR output string generation and falsy domProps filtering for textarea in SSR context.",
+      "supporting_role_buckets": [
+        {
+          "accepted_refs": [
+            "repo-pre:src/platforms/web/compiler/directives/model.js:FILE"
+          ],
+          "evaluations": [
+            {
+              "path": "src/compiler/codegen/index.js",
+              "ref": "repo-pre:src/compiler/codegen/index.js:FILE",
+              "source_role": "tests",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 3.4,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "",
+                "threshold": 0.0,
+                "total_score": 3.9
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:FILE",
+              "source_role": "tests",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "genRadioModel",
+                "threshold": 0.0,
+                "total_score": 3.75
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/codegen.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/codegen.js:FILE",
+              "source_role": "tests",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [],
+                "anchor_proximity_score": 3.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "CodegenState",
+                "threshold": 0.0,
+                "total_score": 3.333
+              }
+            },
+            {
+              "path": "src/core/util/props.js",
+              "ref": "repo-pre:src/core/util/props.js:FILE",
+              "source_role": "tests",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "assertProp",
+                "threshold": 0.0,
+                "total_score": -4.5
+              }
+            },
+            {
+              "path": "src/platforms/weex/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/weex/compiler/directives/model.js:FILE",
+              "source_role": "tests",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "",
+                "threshold": 0.0,
+                "total_score": -4.752
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where is the test 'falsy domProps value' in vue/test/ssr/ssr-string.spec.js implemented?",
+            "test coverage",
+            "behavior cases",
+            "domProps",
+            "domProps test coverage"
+          ],
+          "missing_reason": "snippet_selection_pending",
+          "query": "Where is the test 'falsy domProps value' in vue/test/ssr/ssr-string.spec.js implemented?",
+          "rejected_refs": [
+            "repo-pre:src/server/optimizing-compiler/codegen.js:FILE",
+            "repo-pre:src/core/util/props.js:FILE",
+            "repo-pre:src/platforms/weex/compiler/directives/model.js:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/platforms/web/compiler/directives/model.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/codegen.js:FILE",
+            "repo-pre:src/core/util/props.js:FILE",
+            "repo-pre:src/compiler/codegen/index.js:FILE",
+            "repo-pre:src/platforms/weex/compiler/directives/model.js:FILE"
+          ],
+          "role": "tests",
+          "role_status": "missing",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [],
+          "snippet_assessment": [
+            {
+              "reason": "",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:FILE",
+              "role": "secondary"
+            },
+            {
+              "reason": "",
+              "ref": "repo-pre:src/compiler/codegen/index.js:FILE",
+              "role": "noise"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "FILE",
+              "path": "src/platforms/web/compiler/directives/model.js",
+              "ref": "repo-pre:src/platforms/web/compiler/directives/model.js:FILE",
+              "satisfies_role": false,
+              "snippet": "/* @flow */\n\nimport config from 'core/config'\nimport { addHandler, addProp, getBindingAttr } from 'compiler/helpers'\nimport { genComponentModel, genAssignmentCode } from 'compiler/directives/model'\n\nlet warn\n\n// in some cases, the event used has to be determined at runtime\n// so we used some reserved tokens during compile.\nexport const RANGE_TOKEN = '__r'\nexport const CHECKBOX_RADIO_TOKEN = '__c'\n\nfunction genRadioModel (\n  el: ASTElement,\n  value: string,\n  modifiers: ?ASTModifiers\n) {",
+              "snippet_quality": "secondary"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted"
+          ]
+        },
+        {
+          "accepted_refs": [],
+          "evaluations": [
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+              "source_role": "docs",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "renderDOMProps",
+                "threshold": 0.0,
+                "total_score": -2.0
+              }
+            },
+            {
+              "path": "src/platforms/web/server/directives/show.js",
+              "ref": "repo-pre:src/platforms/web/server/directives/show.js:FILE",
+              "source_role": "docs",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "",
+                "threshold": 0.0,
+                "total_score": -4.5
+              }
+            },
+            {
+              "path": "src/platforms/web/server/util.js",
+              "ref": "repo-pre:src/platforms/web/server/util.js:FILE",
+              "source_role": "docs",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "",
+                "threshold": 0.0,
+                "total_score": -4.5
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+              "source_role": "docs",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "updateDOMProps",
+                "threshold": 0.0,
+                "total_score": -4.556
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/runtime-helpers.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:FILE",
+              "source_role": "docs",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "renderDOMProps",
+                "threshold": 0.0,
+                "total_score": -4.714
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/optimizer.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/optimizer.js:FILE",
+              "source_role": "docs",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/platforms/web/server/modules/core/vdom/vnode.js",
+                  "src/platforms/web/server/modules/dom-props.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "FALSE",
+                "threshold": 0.0,
+                "total_score": -4.75
+              }
+            }
+          ],
+          "helper_queries": [
+            "Where is the documentation about SSR rendering of domProps for textarea elements?",
+            "feature documentation",
+            "usage guide",
+            "domProps",
+            "domProps feature documentation"
+          ],
+          "missing_reason": "snippet_selection_pending",
+          "query": "Where is the documentation about SSR rendering of domProps for textarea elements?",
+          "rejected_refs": [
+            "repo-pre:src/platforms/web/server/util.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/optimizer.js:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/optimizer.js:FILE",
+            "repo-pre:src/platforms/web/server/directives/show.js:FILE",
+            "repo-pre:src/platforms/web/server/util.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:FILE"
+          ],
+          "role": "docs",
+          "role_status": "missing",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [],
+          "snippet_assessment": [
+            {
+              "reason": "",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+              "role": "noise"
+            },
+            {
+              "reason": "",
+              "ref": "repo-pre:src/platforms/web/server/directives/show.js:FILE",
+              "role": "noise"
+            }
+          ],
+          "snippets": [],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected"
+          ]
+        },
+        {
+          "accepted_refs": [
+            "repo-pre:src/core/config.js:FILE",
+            "repo-pre:src/platforms/web/compiler/options.js:FILE"
+          ],
+          "evaluations": [
+            {
+              "path": "src/core/config.js",
+              "ref": "repo-pre:src/core/config.js:FILE",
+              "source_role": "config",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/config.js"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 2.0,
+                "call_paths": [
+                  "src/core/config.js"
+                ],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "Config",
+                "threshold": 0.0,
+                "total_score": 9.7
+              }
+            },
+            {
+              "path": "src/platforms/web/compiler/options.js",
+              "ref": "repo-pre:src/platforms/web/compiler/options.js:FILE",
+              "source_role": "config",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/config.js"
+                ],
+                "anchor_proximity_score": 7.2,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "CompilerOptions",
+                "threshold": 0.0,
+                "total_score": 7.7
+              }
+            },
+            {
+              "path": "src/compiler/parser/index.js",
+              "ref": "repo-pre:src/compiler/parser/index.js:FILE",
+              "source_role": "config",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": true,
+                "anchor_paths": [
+                  "src/core/config.js"
+                ],
+                "anchor_proximity_score": 6.8,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_owner_selected",
+                "role_path_score": 0.0,
+                "symbol": "parse",
+                "threshold": 0.0,
+                "total_score": 7.3
+              }
+            },
+            {
+              "path": "src/platforms/web/server/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+              "source_role": "config",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/core/config.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "renderDOMProps",
+                "threshold": 0.0,
+                "total_score": -4.0
+              }
+            },
+            {
+              "path": "src/platforms/web/runtime/modules/dom-props.js",
+              "ref": "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+              "source_role": "config",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/core/config.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "updateDOMProps",
+                "threshold": 0.0,
+                "total_score": -4.524
+              }
+            },
+            {
+              "path": "src/server/optimizing-compiler/runtime-helpers.js",
+              "ref": "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:FILE",
+              "source_role": "config",
+              "stage": "responsibility_rerank",
+              "validation": {
+                "acceptance_source": "responsibility_rerank",
+                "accepted": false,
+                "anchor_paths": [
+                  "src/core/config.js"
+                ],
+                "anchor_proximity_score": 0.0,
+                "call_flow_score": 0.0,
+                "call_paths": [],
+                "dependency_paths": [],
+                "dependency_support_score": 0.0,
+                "local_intent_score": 0.0,
+                "reason": "responsibility_support_only_downvoted",
+                "role_path_score": 0.0,
+                "symbol": "renderDOMProps",
+                "threshold": 0.0,
+                "total_score": -4.633
+              }
+            }
+          ],
+          "helper_queries": [
+            "Are there any config options affecting SSR rendering of domProps values for textarea?",
+            "configuration settings",
+            "feature options",
+            "domProps",
+            "domProps configuration settings"
+          ],
+          "missing_reason": "snippet_selection_pending",
+          "query": "Are there any config options affecting SSR rendering of domProps values for textarea?",
+          "rejected_refs": [
+            "repo-pre:src/compiler/parser/index.js:FILE",
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:FILE"
+          ],
+          "retrieved_refs": [
+            "repo-pre:src/platforms/web/server/modules/dom-props.js:FILE",
+            "repo-pre:src/core/config.js:FILE",
+            "repo-pre:src/compiler/parser/index.js:FILE",
+            "repo-pre:src/platforms/web/compiler/options.js:FILE",
+            "repo-pre:src/platforms/web/runtime/modules/dom-props.js:FILE",
+            "repo-pre:src/server/optimizing-compiler/runtime-helpers.js:FILE"
+          ],
+          "role": "config",
+          "role_status": "missing",
+          "satisfaction_source": "late_assessment",
+          "satisfying_refs": [],
+          "snippet_assessment": [
+            {
+              "reason": "",
+              "ref": "repo-pre:src/core/config.js:FILE",
+              "role": "secondary"
+            },
+            {
+              "reason": "",
+              "ref": "repo-pre:src/platforms/web/compiler/options.js:FILE",
+              "role": "secondary"
+            }
+          ],
+          "snippets": [
+            {
+              "file_role": "implementation",
+              "line_range": "FILE",
+              "path": "src/core/config.js",
+              "ref": "repo-pre:src/core/config.js:FILE",
+              "satisfies_role": false,
+              "snippet": "...\noptionMergeStrategies: Object.create(null),\n\n  /**\n   * Whether to suppress warnings.\n   */\n  silent: false,\n\n  /**\n   * Show production mode tip message on boot?\n   */\n  productionTip: process.env.NODE_ENV !== 'production',\n\n  /**\n   * Whether to enable devtools\n   */\n  devtools: process.env.NODE_ENV !== 'production',\n\n  /**\n   * Whether to record perf\n   */\n  performance: false,\n\n  /**\n   * Error handler for watcher errors\n   */\n  errorHandler: null,\n\n  /**",
+              "snippet_quality": "secondary"
+            },
+            {
+              "file_role": "implementation",
+              "line_range": "FILE",
+              "path": "src/platforms/web/compiler/options.js",
+              "ref": "repo-pre:src/platforms/web/compiler/options.js:FILE",
+              "satisfies_role": false,
+              "snippet": "...\nisPreTag,\n  mustUseProp,\n  isReservedTag,\n  getTagNamespace\n} from '../util/index'\n\nimport modules from './modules/index'\nimport directives from './directives/index'\nimport { genStaticKeys } from 'shared/util'\nimport { isUnaryTag, canBeLeftOpenTag } from './util'\n\nexport const baseOptions: CompilerOptions = {\n  expectHTML: true,\n  modules,\n  directives,\n  isPreTag,\n  isUnaryTag,\n  mustUseProp,\n  canBeLeftOpenTag,\n  isReservedTag,\n  getTagNamespace,\n  staticKeys: genStaticKeys(modules)\n}",
+              "snippet_quality": "secondary"
+            }
+          ],
+          "validation_notes": [
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_owner_selected",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted",
+            "responsibility_support_only_downvoted"
+          ]
+        }
+      ],
+      "tool_calls": 481,
+      "trusted_local_note_file_hints": [],
+      "trusted_local_notes": []
+    },
+    "sufficient": false
+  },
+  "run_trace_summary": {
+    "allowed": true,
+    "coverage_status": "partial",
+    "retrieval_invoked": true,
+    "turn_type": "guided_explanation",
+    "violation_count": 0
+  }
+}

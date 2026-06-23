@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-32289",
+  "primary_group": "testing_build_tooling",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 32289,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/32289",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/32289.json",
+  "title": "CI Failing - Linux py37_np_dev - test_constructor_list_frames",
+  "labels": [
+    "CI",
+    "Unreliable Test",
+    "Blocker",
+    "Linux"
+  ],
+  "state": "closed",
+  "created_at": "2020-02-27T11:45:18Z",
+  "closed_at": "2020-06-30T11:54:57Z",
+  "selection_rationale": "pandas CI failure case; retrieval should explain construction/test failure context, not product behavior.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      34991
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "d2d680d5aa7286083f12dbebd92fbdd1547509f0",
+      "867aea24d97affe107e8edab592d12d108970d83",
+      "d1a80363456621e70500741b9aa96ea82883daea",
+      "68947a69a7d878cd462fc610545e145945d898a6",
+      "1073cb1fb49cf17bab6890007b961b5319ff1ab4"
+    ],
+    "cite": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "32284",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "34239",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "3243",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "5324",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "32284",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "34972",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "34991",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 34991,
+        "title": "DOC/TST: DataFrame constructor with a list of DataFrames",
+        "url": "https://github.com/pandas-dev/pandas/pull/34991",
+        "merged": true,
+        "merge_commit_sha": "867aea24d97affe107e8edab592d12d108970d83",
+        "head_sha": "769d564d0df3ad01085995b94e78cf78305d5f21",
+        "base_sha": "f6fb2576be6fdafb36da3bc1cb94b1f8df23893e",
+        "changed_files": 3,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "doc/source/whatsnew/v1.1.0.rst",
+            "additions": 1,
+            "deletions": 0,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/internals/construction.py",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/frame/test_constructors.py",
+            "additions": 14,
+            "deletions": 24,
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "pandas/core/internals/construction.py"
+    ],
+    "test_or_validation_files": [
+      "pandas/tests/frame/test_constructors.py"
+    ],
+    "documentation_files": [
+      "doc/source/whatsnew/v1.1.0.rst"
+    ],
+    "symbols_or_apis": [],
+    "subsystem": "test/CI infrastructure",
+    "responsibility_summary": "Relevant code is responsible for test/CI infrastructure behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #34991: DOC/TST: DataFrame constructor with a list of DataFrames",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [
+      "pandas/core/internals/construction.py",
+      "test_constructors.py",
+      "frame.py",
+      "construction.py",
+      "1.0.4/lib/python3.8/site-packages/pandas/core/frame.py",
+      "1.0.4/lib/python3.8/site-packages/pandas/core/internals/construction.py",
+      "sandbox/pandas/pandas/core/frame.py",
+      "sandbox/pandas/pandas/core/internals/construction.py"
+    ],
+    "resolution_comment_excerpts": [
+      "+1 on deprecating passing list of 2D things to the constructor.",
+      "Nested DataFrames in general do still work, just not this method of creating them: ```df_inner=pd.DataFrame([[1,2],[3,4]]) # df_outer=pd.DataFrame([df_inner,df_inner+10]) # fails in numpy 1.19 # mixed-type list works df_outer=pd.DataFrame([8,df_inner,df_inner+10]) # or, setting the element later works df_outer=pd.DataFrame([None,None]) df.outer.at[0,0]=df_inner ``` As noted above, it seems to happen because numpy.array now returns a 3D array that stacks the DataFrames, instead of a 1D array of objects. The two failing tests were introduced in #3243 and #5324. We don't document anywhere obvious",
+      "This is failing the macpython builds now. https://dev.azure.com/pandas-dev/pandas-wheels/_build/results?buildId=38048&view=logs&j=79f3a53a-4a6d-509c-98b5-ff6e9111f67c&t=25a63239-9c30-5cf0-cb4c-3d01da7b47c5&l=1049 ``` ___________ TestDataFrameConstructors.test_constructor_list_frames ____________ [gw0] win32 -- Python 3.6.8 D:\\a\\1\\s\\test_venv\\Scripts\\python.exe self = <pandas.tests.frame.test_constructors.TestDataFrameConstructors object at 0x2882F090> @pytest.mark.xfail(_is_numpy_dev, reason=\"Interprets list of frame as 3D\") def test_constructor_list_frames(self): # see gh-3243 > result = Data",
+      "Looking at this again, I think we just remove the test, and perhaps add a whatsnew saying that because of upstream changes to NumPy this isn't supported anymore. DataFrame's are now consistently treated as 2D objects by NumPy, so we can't pretend that they're 1D in the constructor like we were. **old behavior** ```python In [28]: np.__version__ Out[28]: '1.18.5' In [29]: a = np.ones((0, 0)) In [30]: b = pd.DataFrame() In [31]: np.array([a]).shape Out[31]: (1, 0, 0) In [32]: np.array([b]).shape Out[32]: (1, 0) In [33]: pd.DataFrame([a]) ----------------------------------------------------------"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

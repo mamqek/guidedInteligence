@@ -1,0 +1,449 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-35468",
+  "primary_group": "testing_build_tooling",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 35468,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/35468",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/35468.json",
+  "title": "TS does not recompile correctly when using a combination of project references, wildcard re-exports and watch mode",
+  "labels": [
+    "Bug",
+    "Fix Available"
+  ],
+  "state": "closed",
+  "created_at": "2019-12-03T15:45:49Z",
+  "closed_at": "2019-12-19T18:10:18Z",
+  "selection_rationale": "TypeScript watch/project-reference recompilation case; build tooling behavior.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      35757
+    ],
+    "referenced_commit_shas_from_issue_events": [
+      "d293fa92d81404bb893f470ed8f66fdfe03e675f",
+      "95565387b4d260880226a25ccf11abbe3d66ffa6",
+      "ec84392f2e6c461058d349941e45f009d678ffa2"
+    ],
+    "cite": [],
+    "cited_by": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "35740",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "35757",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 35757,
+        "title": "Use resolvedPath consistently in the builder",
+        "url": "https://github.com/microsoft/TypeScript/pull/35757",
+        "merged": true,
+        "merge_commit_sha": "ec84392f2e6c461058d349941e45f009d678ffa2",
+        "head_sha": "95565387b4d260880226a25ccf11abbe3d66ffa6",
+        "base_sha": "f7860b048037bd74021ec0557a62688ec57e33c1",
+        "changed_files": 46,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/compiler/builder.ts",
+            "additions": 17,
+            "deletions": 17,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/compiler/builderState.ts",
+            "additions": 15,
+            "deletions": 15,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "additions": 45,
+            "deletions": 5,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "additions": 1,
+            "deletions": 1,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/demo/initial-build/in-master-branch-with-everything-setup-correctly-and-reports-no-error.js",
+            "additions": 19,
+            "deletions": 19,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/javascriptProjectEmit/initial-build/loads-js-based-projects-and-emits-them-correctly.js",
+            "additions": 5,
+            "deletions": 5,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/javascriptProjectEmit/initial-build/loads-js-based-projects-with-non-moved-json-files-and-emits-them-correctly.js",
+            "additions": 16,
+            "deletions": 16,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/moduleSpecifiers/initial-build/synthesized-module-specifiers-resolve-correctly.js",
+            "additions": 9,
+            "deletions": 9,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/resolveJsonModule/initial-build/importing-json-module-from-project-reference.js",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/listEmittedFiles.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/listFiles.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/rebuilds-when-extended-config-file-changes.js",
+            "additions": 8,
+            "deletions": 8,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/rebuilds-when-tsconfig-changes.js",
+            "additions": 8,
+            "deletions": 8,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/sample.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/when-esModuleInterop-option-changes.js",
+            "additions": 8,
+            "deletions": 8,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/when-logic-config-changes-declaration-dir.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/initial-build/always-builds-under-with-force-option.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/initial-build/builds-correctly-when-declarationDir-is-specified.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/initial-build/builds-correctly-when-outDir-is-specified.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/initial-build/listEmittedFiles.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/initial-build/listFiles.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/initial-build/rebuilds-when-extended-config-file-changes.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/initial-build/sample.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/initial-build/when-esModuleInterop-option-changes.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/sample1/initial-build/when-logic-specifies-tsBuildInfoFile.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/transitiveReferences/initial-build/builds-correctly-when-the-referenced-project-uses-different-module-resolution.js",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/transitiveReferences/initial-build/builds-correctly.js",
+            "additions": 2,
+            "deletions": 2,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/demo/updates-with-circular-reference.js",
+            "additions": 19,
+            "deletions": 19,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/creates-solution-in-watch-mode.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/incremental-updates-in-verbose-mode.js",
+            "additions": 28,
+            "deletions": 28,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/reportErrors/when-preserveWatchOutput-is-not-used.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/reportErrors/when-preserveWatchOutput-is-passed-on-command-line.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/watches-config-files-that-are-not-present.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-circular-project-reference/builds-when-new-file-is-added,-and-its-subsequent-updates.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-circular-project-reference/change-builds-changes-and-reports-found-errors-message.js",
+            "additions": 48,
+            "deletions": 48,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-circular-project-reference/non-local-change-does-not-start-build-of-referencing-projects.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-simple-project-reference-graph/builds-when-new-file-is-added,-and-its-subsequent-updates.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-simple-project-reference-graph/change-builds-changes-and-reports-found-errors-message.js",
+            "additions": 48,
+            "deletions": 48,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-simple-project-reference-graph/non-local-change-does-not-start-build-of-referencing-projects.js",
+            "additions": 12,
+            "deletions": 12,
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/tsbuild/watchMode/reexport/Reports-errors-correctly.js",
+            "additions": 482,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/projects/reexport/src/main/index.ts",
+            "additions": 5,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/projects/reexport/src/main/tsconfig.json",
+            "additions": 8,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/projects/reexport/src/pure/index.ts",
+            "additions": 1,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/projects/reexport/src/pure/session.ts",
+            "additions": 4,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/projects/reexport/src/pure/tsconfig.json",
+            "additions": 8,
+            "deletions": 0,
+            "change_type": "ADDED"
+          },
+          {
+            "path": "tests/projects/reexport/src/tsconfig.json",
+            "additions": 5,
+            "deletions": 0,
+            "change_type": "ADDED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/compiler/builder.ts",
+      "src/compiler/builderState.ts",
+      "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "src/testRunner/unittests/tscWatch/helpers.ts"
+    ],
+    "test_or_validation_files": [
+      "tests/baselines/reference/tsbuild/demo/initial-build/in-master-branch-with-everything-setup-correctly-and-reports-no-error.js",
+      "tests/baselines/reference/tsbuild/javascriptProjectEmit/initial-build/loads-js-based-projects-and-emits-them-correctly.js",
+      "tests/baselines/reference/tsbuild/javascriptProjectEmit/initial-build/loads-js-based-projects-with-non-moved-json-files-and-emits-them-correctly.js",
+      "tests/baselines/reference/tsbuild/moduleSpecifiers/initial-build/synthesized-module-specifiers-resolve-correctly.js",
+      "tests/baselines/reference/tsbuild/resolveJsonModule/initial-build/importing-json-module-from-project-reference.js",
+      "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/listEmittedFiles.js",
+      "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/listFiles.js",
+      "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/rebuilds-when-extended-config-file-changes.js",
+      "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/rebuilds-when-tsconfig-changes.js",
+      "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/sample.js",
+      "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/when-esModuleInterop-option-changes.js",
+      "tests/baselines/reference/tsbuild/sample1/incremental-declaration-changes/when-logic-config-changes-declaration-dir.js",
+      "tests/baselines/reference/tsbuild/sample1/initial-build/always-builds-under-with-force-option.js",
+      "tests/baselines/reference/tsbuild/sample1/initial-build/builds-correctly-when-declarationDir-is-specified.js",
+      "tests/baselines/reference/tsbuild/sample1/initial-build/builds-correctly-when-outDir-is-specified.js",
+      "tests/baselines/reference/tsbuild/sample1/initial-build/listEmittedFiles.js",
+      "tests/baselines/reference/tsbuild/sample1/initial-build/listFiles.js",
+      "tests/baselines/reference/tsbuild/sample1/initial-build/rebuilds-when-extended-config-file-changes.js",
+      "tests/baselines/reference/tsbuild/sample1/initial-build/sample.js",
+      "tests/baselines/reference/tsbuild/sample1/initial-build/when-esModuleInterop-option-changes.js",
+      "tests/baselines/reference/tsbuild/sample1/initial-build/when-logic-specifies-tsBuildInfoFile.js",
+      "tests/baselines/reference/tsbuild/transitiveReferences/initial-build/builds-correctly-when-the-referenced-project-uses-different-module-resolution.js",
+      "tests/baselines/reference/tsbuild/transitiveReferences/initial-build/builds-correctly.js",
+      "tests/baselines/reference/tsbuild/watchMode/demo/updates-with-circular-reference.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/creates-solution-in-watch-mode.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/incremental-updates-in-verbose-mode.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/reportErrors/when-preserveWatchOutput-is-not-used.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/reportErrors/when-preserveWatchOutput-is-passed-on-command-line.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/watches-config-files-that-are-not-present.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-circular-project-reference/builds-when-new-file-is-added,-and-its-subsequent-updates.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-circular-project-reference/change-builds-changes-and-reports-found-errors-message.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-circular-project-reference/non-local-change-does-not-start-build-of-referencing-projects.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-simple-project-reference-graph/builds-when-new-file-is-added,-and-its-subsequent-updates.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-simple-project-reference-graph/change-builds-changes-and-reports-found-errors-message.js",
+      "tests/baselines/reference/tsbuild/watchMode/programUpdates/with-simple-project-reference-graph/non-local-change-does-not-start-build-of-referencing-projects.js",
+      "tests/baselines/reference/tsbuild/watchMode/reexport/Reports-errors-correctly.js",
+      "tests/projects/reexport/src/main/index.ts",
+      "tests/projects/reexport/src/main/tsconfig.json",
+      "tests/projects/reexport/src/pure/index.ts",
+      "tests/projects/reexport/src/pure/session.ts",
+      "tests/projects/reexport/src/pure/tsconfig.json",
+      "tests/projects/reexport/src/tsconfig.json"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [],
+    "subsystem": "compiler/build pipeline",
+    "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+    "hidden_resolution_summary": "PR #35757: Use resolvedPath consistently in the builder",
+    "issue_body_file_refs": [
+      "session.ts",
+      "pure/index.ts",
+      "src/pure/session.ts",
+      "src/main/index.ts"
+    ],
+    "thread_file_refs": [
+      "tsc.js",
+      "src/pure/tsconfig.json",
+      "src/main/tsconfig.json",
+      "src/tsconfig.json",
+      "temp/typescript-project-references-reexport-bug/src/pure/tsconfig.json",
+      "temp/typescript-project-references-reexport-bug/src/main/tsconfig.json",
+      "src/main/index.ts",
+      "out/index.js",
+      "temp/typescript-project-references-reexport-bug/out/session.js",
+      "temp/typescript-project-references-reexport-bug/out/session.d.ts",
+      "temp/typescript-project-references-reexport-bug/out/index.js",
+      "temp/typescript-project-references-reexport-bug/out/index.d.ts"
+    ],
+    "resolution_comment_excerpts": [
+      "Sorry about that, I've added the missing files.",
+      "I am not sure if this is suppose to be error or not.. But your project is configured incorrectly leading to this issue I believe.. Both the projects write overwrite two same output file `out/index.js` ``` c:\\temp\\typescript-project-references-reexport-bug>node c:\\TypeScript\\built\\local\\tsc.js -b -v src -w --listEmittedFiles [3:00:14 PM] Starting compilation in watch mode... [3:00:14 PM] Projects in this build: * src/pure/tsconfig.json * src/main/tsconfig.json * src/tsconfig.json [3:00:14 PM] Project 'src/pure/tsconfig.json' is out of date because output file 'out/index.js' does not exist [3:00",
+      "Ok, Fixed that. In my original project I point rootDir to the root of the src folder. I've pushed the changes to the bug report repo.",
+      "@wereHamster thanks for the follow-up!"
+    ],
+    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        5,
+        10,
+        20
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "explanation_identifies_correct_subsystem_and_responsibility": "compare against oracle.subsystem and oracle.responsibility_summary",
+    "explanation_agrees_with_hidden_resolution": "compare against oracle.hidden_resolution_summary and resolution_comment_excerpts",
+    "claims_cite_pre_resolution_evidence": "all cited evidence must come from visible issue fields or pre-resolution repository snapshot",
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval artifacts must not cite comments_details, events, fixed_by, commit diff, PR body, or files introduced only after created_at"
+  }
+}

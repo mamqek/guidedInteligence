@@ -380,6 +380,7 @@ function RunPanel(props: {
                 ? ` ${props.indexEstimate.index_status_detail || ""}`
                 : ` Estimate: ${formatIndexEstimateDuration(props.indexEstimate)}.`}
               {props.indexEstimate.index_last_built_at ? ` Last prepared: ${formatDateTime(props.indexEstimate.index_last_built_at)}.` : ""}
+              {props.indexEstimate.cgc_timeout_risk ? ` CGC estimate: ${formatCgcModeEstimate(props.indexEstimate)}.` : ""}
               {" "}
               {!props.indexEstimate.index_ready && (
                 <>
@@ -1445,6 +1446,20 @@ function WorkspaceIndexPanel({
     });
   }
 
+  function updateRetrieval(next: Partial<AppConfig["retrieval"]>) {
+    if (!config.data) return;
+    setConfig({
+      data: {
+        ...config.data,
+        retrieval: {
+          ...config.data.retrieval,
+          ...next,
+        },
+      },
+      loading: false,
+    });
+  }
+
   async function saveIndexing() {
     if (!config.data) return;
     setSaving(true);
@@ -1475,6 +1490,7 @@ function WorkspaceIndexPanel({
   }
 
   const indexing = config.data?.indexing;
+  const retrieval = config.data?.retrieval;
   const selectedWorkspaceValue = workspaces.data?.some((workspace) => workspace.workspace_root === workspaceRoot) ? workspaceRoot : "";
 
   async function openSelectedWorkspace() {
@@ -1537,15 +1553,33 @@ function WorkspaceIndexPanel({
 
       <section className="panel" id="indexing-settings">
         <div className="panelHeader">
-          <h2>Indexing Settings</h2>
+          <h2>Retrieval Settings</h2>
           <button className="textButton" type="button" onClick={refreshBase}>Refresh estimate</button>
         </div>
+        {retrieval && (
+          <>
+            <label className="fieldLabel">
+              Retrieval mode
+              <select value={retrieval.mode || "workspace"} onChange={(event) => updateRetrieval({ mode: event.target.value as AppConfig["retrieval"]["mode"] })}>
+                <option value="workspace">Workspace index</option>
+                <option value="codex">Codex evidence provider</option>
+              </select>
+            </label>
+            {retrieval.mode === "codex" && (
+              <div className="indexSummary">
+                <Metric label="Codex model" value={retrieval.codex_model || "gpt-5.4-nano"} />
+                <Metric label="Timeout" value={`${retrieval.codex_timeout_seconds || 900}s`} />
+              </div>
+            )}
+          </>
+        )}
         {indexing && (
           <>
             <label className="checkRow">
               <input
                 type="checkbox"
                 checked={indexing.enable_indexing}
+                disabled={retrieval?.mode === "codex"}
                 onChange={(event) => updateIndexing({ enable_indexing: event.target.checked })}
               />
               <span>Allow indexing when missing or stale</span>
@@ -1565,10 +1599,15 @@ function WorkspaceIndexPanel({
             <Metric label="Files" value={formatCount(estimate.data.file_count)} />
             <Metric label="Chunks est." value={formatCount(estimate.data.estimated_chunks)} />
             <Metric label="Size" value={`${(estimate.data.total_bytes / 1024 / 1024).toFixed(1)} MB`} />
+            <Metric label="CGC full" value={formatCgcFullEstimateDuration(estimate.data)} />
+            <Metric label="CGC skip ext." value={formatCgcSkipEstimateDuration(estimate.data)} />
           </div>
         )}
+        {estimate.data?.index_estimate_notes?.map((note) => (
+          <p className="noticeText" key={note}>{note}</p>
+        ))}
         <button className="primaryButton" type="button" disabled={!config.data || saving} onClick={saveIndexing}>
-          {saving ? "Saving..." : "Save indexing settings"}
+          {saving ? "Saving..." : "Save retrieval settings"}
         </button>
         {estimate.error && <p className="errorText">{estimate.error}</p>}
         {config.error && <p className="errorText">{config.error}</p>}
@@ -1805,6 +1844,42 @@ function formatIndexEstimateDuration(estimate: IndexEstimate): string {
   const minSeconds = Math.max(10, chunks * 0.05 + files * 0.002);
   const maxSeconds = Math.max(minSeconds + 10, chunks * 0.15 + files * 0.006);
   return formatDurationRange(minSeconds, maxSeconds);
+}
+
+function formatCgcModeEstimate(estimate: IndexEstimate): string {
+  return `full ${formatCgcFullEstimateDuration(estimate)}, skip external ${formatCgcSkipEstimateDuration(estimate)}`;
+}
+
+function formatCgcFullEstimateDuration(estimate: IndexEstimate): string {
+  if (
+    typeof estimate.cgc_full_estimated_seconds_min === "number" &&
+    Number.isFinite(estimate.cgc_full_estimated_seconds_min) &&
+    typeof estimate.cgc_full_estimated_seconds_max === "number" &&
+    Number.isFinite(estimate.cgc_full_estimated_seconds_max)
+  ) {
+    return formatDurationRange(estimate.cgc_full_estimated_seconds_min, estimate.cgc_full_estimated_seconds_max);
+  }
+  return formatCgcSkipEstimateDuration(estimate);
+}
+
+function formatCgcSkipEstimateDuration(estimate: IndexEstimate): string {
+  if (
+    typeof estimate.cgc_skip_external_estimated_seconds_min === "number" &&
+    Number.isFinite(estimate.cgc_skip_external_estimated_seconds_min) &&
+    typeof estimate.cgc_skip_external_estimated_seconds_max === "number" &&
+    Number.isFinite(estimate.cgc_skip_external_estimated_seconds_max)
+  ) {
+    return formatDurationRange(estimate.cgc_skip_external_estimated_seconds_min, estimate.cgc_skip_external_estimated_seconds_max);
+  }
+  if (
+    typeof estimate.cgc_estimated_seconds_min === "number" &&
+    Number.isFinite(estimate.cgc_estimated_seconds_min) &&
+    typeof estimate.cgc_estimated_seconds_max === "number" &&
+    Number.isFinite(estimate.cgc_estimated_seconds_max)
+  ) {
+    return formatDurationRange(estimate.cgc_estimated_seconds_min, estimate.cgc_estimated_seconds_max);
+  }
+  return formatIndexEstimateDuration(estimate);
 }
 
 function formatDurationRange(minValue: unknown, maxValue: unknown): string {
