@@ -1,5 +1,36 @@
 # Retrieval Changelog
 
+## 2026-06-24
+
+### Changed: Workspace Step2 Objective Metadata And Narrow-Defect Role Selection
+
+- Intended stage boundary:
+  - Step2 now classifies `primary_intent`, `specificity`, active/deferred objectives, preferred relations, stop contract, expansion policy, and deterministic prompt signal flags,
+  - Stage consumes the Step2 metadata only through a gated compatibility bridge, `objective_role_selection_enabled`,
+  - the first enabled behavior is intentionally limited to `defect_localization:narrow`; other intents remain metadata-only.
+- Expected quality impact:
+  - narrow defect reports should prioritize implementation-owner evidence before broad role coverage,
+  - expected-vs-actual output should route to behavior/output evidence, while diagnostics should require concrete error/warning/exception/traceback text,
+  - support artifacts remain available through the compatibility bridge until a real deferred-objective promotion loop exists.
+- Expected token impact:
+  - fewer initial required roles for narrow defects should reduce tool calls and retrieval LLM tokens,
+  - support-role savings are not fully realized yet because deferred support roles are still available as a safety net.
+- Known regression risks:
+  - over-narrowing required roles can miss owner files when the current Stage lacks a promote-on-failure loop,
+  - prompt text such as `renderVmWithOptions` can still trigger broad config-like flags through simple lexical matching,
+  - the current objective-to-legacy-role mapping is transitional and can duplicate old role semantics.
+- Real-run comparison:
+  - baseline `vuejs-vue-10803` workspace run `run-20260623T112023Z`: `coverage_status=partial`, `sufficient=false`, implementation overlap `1`, owner file `src/platforms/web/server/modules/dom-props.js` at rank 2, 6 retrieved source files, 513 tool calls, 8 role subqueries, retrieval LLM tokens `24,239`, uncached prompt plus completion `23,215`.
+  - accepted objective-role run `run-20260624T013101Z`: `coverage_status=partial`, `sufficient=false`, implementation overlap `1`, owner file at rank 3, 5 retrieved source files, 394 tool calls, 5 role subqueries, retrieval LLM tokens `16,856`, uncached prompt plus completion `15,832`.
+  - intermediate `run-20260624T012539Z` regressed because wrong-output text activated `diagnostic_surface`; this was fixed by separating `has_diagnostic_surface` from `has_output_symptom`.
+  - stricter support-deferral run `run-20260624T013551Z` reduced retrieval LLM tokens to `12,705` but missed the oracle owner file; that Stage change was reverted.
+- Quality conclusion:
+  - keep the gated narrow-defect role selection because it preserved baseline overlap and sufficiency status while reducing tool calls by 23% and retrieval LLM tokens by 30% on the Vue case,
+  - do not remove initial support-role availability yet; deferred-objective promotion needs an explicit Stage loop and success gate first.
+- Verification:
+  - `.venv\Scripts\python.exe -m unittest tests.test_workspace_step2_objectives tests.test_coderepoqa_retrieval` passed 13 tests.
+  - `.venv\Scripts\python.exe -m py_compile services/retrieval/workspace/stage.py services/retrieval/workspace/step2/step2.py services/retrieval/workspace/step2/prompts.py tests/test_workspace_step2_objectives.py` passed.
+
 ## 2026-06-23
 
 ### Changed: Named Codex Prompt Profiles And Efficient Default

@@ -11,11 +11,27 @@ from .common import (
 )
 from .constants import (
     ALL_RETRIEVAL_ROLES,
+    ALL_RETRIEVAL_INTENTS,
+    ALL_RETRIEVAL_OBJECTIVES,
+    ALL_RETRIEVAL_SPECIFICITIES,
+    DEFAULT_PRIMARY_INTENT,
+    DEFAULT_SPECIFICITY,
+    INTENT_DEFECT_LOCALIZATION,
     MAX_LLM_CONCEPT_TERMS,
     MAX_LLM_SUBQUERIES,
     MAX_NEGATIVE_FILTERS,
     MAX_RETRIEVAL_TERMS,
     MAX_SPECULATIVE_ENTITIES,
+    OBJECTIVE_BEHAVIOR_PATH,
+    OBJECTIVE_CONFIGURATION_CONTEXT,
+    OBJECTIVE_DIAGNOSTIC_SURFACE,
+    OBJECTIVE_EFFECTS_OUTPUT,
+    OBJECTIVE_EXAMPLE_USAGE,
+    OBJECTIVE_IMPLEMENTATION_OWNER,
+    OBJECTIVE_INTERFACE_ENTRY,
+    OBJECTIVE_USAGE_CONTRACT,
+    OBJECTIVE_VERIFICATION_REPRO,
+    SPECIFICITY_NARROW,
 )
 from .types import RoleDirectedSubquery
 
@@ -73,6 +89,38 @@ def step2_response_format() -> Mapping[str, Any]:
                     "speculative_entities": {"type": "array", "items": {"type": "string"}},
                     "source_priorities": {"type": "array", "items": {"type": "string"}},
                     "negative_filters": {"type": "array", "items": {"type": "string"}},
+                    "primary_intent": {"type": "string", "enum": list(ALL_RETRIEVAL_INTENTS)},
+                    "secondary_intents": {"type": "array", "items": {"type": "string", "enum": list(ALL_RETRIEVAL_INTENTS)}},
+                    "specificity": {"type": "string", "enum": list(ALL_RETRIEVAL_SPECIFICITIES)},
+                    "active_objectives": {"type": "array", "items": {"type": "string", "enum": list(ALL_RETRIEVAL_OBJECTIVES)}},
+                    "deferred_objectives": {"type": "array", "items": {"type": "string", "enum": list(ALL_RETRIEVAL_OBJECTIVES)}},
+                    "preferred_relations": {"type": "array", "items": {"type": "string"}},
+                    "stop_contract": {
+                        "type": "object",
+                        "properties": {
+                            "required": {"type": "array", "items": {"type": "string"}},
+                            "one_of": {"type": "array", "items": {"type": "string"}},
+                            "sufficient_when": {"type": "string"},
+                        },
+                        "required": ["required", "one_of", "sufficient_when"],
+                        "additionalProperties": False,
+                    },
+                    "expansion_policy": {
+                        "type": "object",
+                        "properties": {
+                            "on_missing_owner": {"type": "array", "items": {"type": "string"}},
+                            "on_missing_causal_path": {"type": "array", "items": {"type": "string"}},
+                            "on_missing_expected_behavior": {"type": "array", "items": {"type": "string"}},
+                            "on_low_query_specificity": {"type": "array", "items": {"type": "string"}},
+                        },
+                        "required": [
+                            "on_missing_owner",
+                            "on_missing_causal_path",
+                            "on_missing_expected_behavior",
+                            "on_low_query_specificity",
+                        ],
+                        "additionalProperties": False,
+                    },
                 },
                 "required": [
                     "prompt_summary",
@@ -86,6 +134,14 @@ def step2_response_format() -> Mapping[str, Any]:
                     "speculative_entities",
                     "source_priorities",
                     "negative_filters",
+                    "primary_intent",
+                    "secondary_intents",
+                    "specificity",
+                    "active_objectives",
+                    "deferred_objectives",
+                    "preferred_relations",
+                    "stop_contract",
+                    "expansion_policy",
                 ],
                 "additionalProperties": False,
             },
@@ -132,6 +188,22 @@ def validate_step2_planner_response(
         )
     )[:MAX_RETRIEVAL_TERMS]
 
+    primary_intent = _validated_intent(response.get("primary_intent"))
+    specificity = _validated_specificity(response.get("specificity"))
+    secondary_intents = tuple(
+        intent
+        for intent in ordered_unique(_validated_intent(value, default="") for value in _sequence(response.get("secondary_intents")))
+        if intent and intent != primary_intent
+    )
+    active_objectives = _validated_objectives(response.get("active_objectives"))
+    deferred_objectives = tuple(
+        objective
+        for objective in _validated_objectives(response.get("deferred_objectives"))
+        if objective not in active_objectives
+    )
+    if not active_objectives:
+        active_objectives, deferred_objectives = _default_objectives(primary_intent, specificity)
+
     return {
         "prompt_summary": str(response.get("prompt_summary", "")).strip(),
         "retrieval_terms": retrieval_terms,
@@ -148,6 +220,74 @@ def validate_step2_planner_response(
         "negative_filters": list(
             ordered_unique(bounded_strings(response.get("negative_filters"), limit=MAX_NEGATIVE_FILTERS))
         ),
+        "primary_intent": primary_intent,
+        "secondary_intents": list(secondary_intents),
+        "specificity": specificity,
+        "active_objectives": list(active_objectives),
+        "deferred_objectives": list(deferred_objectives),
+        "preferred_relations": list(ordered_unique(bounded_strings(response.get("preferred_relations"), limit=8))),
+        "stop_contract": _validated_contract(response.get("stop_contract")),
+        "expansion_policy": _validated_expansion_policy(response.get("expansion_policy")),
+    }
+
+
+def _sequence(value: object) -> tuple[object, ...]:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return tuple(value)
+    return ()
+
+
+def _validated_intent(value: object, *, default: str = DEFAULT_PRIMARY_INTENT) -> str:
+    intent = str(value or "").strip()
+    return intent if intent in ALL_RETRIEVAL_INTENTS else default
+
+
+def _validated_specificity(value: object) -> str:
+    specificity = str(value or "").strip()
+    return specificity if specificity in ALL_RETRIEVAL_SPECIFICITIES else DEFAULT_SPECIFICITY
+
+
+def _validated_objectives(values: object) -> tuple[str, ...]:
+    objectives: list[str] = []
+    for value in _sequence(values):
+        objective = str(value or "").strip()
+        if objective in ALL_RETRIEVAL_OBJECTIVES and objective not in objectives:
+            objectives.append(objective)
+    return tuple(objectives)
+
+
+def _default_objectives(primary_intent: str, specificity: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    if primary_intent == INTENT_DEFECT_LOCALIZATION and specificity == SPECIFICITY_NARROW:
+        return (
+            (OBJECTIVE_IMPLEMENTATION_OWNER,),
+            (OBJECTIVE_BEHAVIOR_PATH, OBJECTIVE_CONFIGURATION_CONTEXT, OBJECTIVE_USAGE_CONTRACT),
+        )
+    return (
+        (OBJECTIVE_INTERFACE_ENTRY, OBJECTIVE_BEHAVIOR_PATH, OBJECTIVE_EFFECTS_OUTPUT),
+        (OBJECTIVE_IMPLEMENTATION_OWNER, OBJECTIVE_DIAGNOSTIC_SURFACE, OBJECTIVE_VERIFICATION_REPRO),
+    )
+
+
+def _validated_contract(value: object) -> dict[str, object]:
+    mapping = value if isinstance(value, Mapping) else {}
+    return {
+        "required": list(ordered_unique(bounded_strings(mapping.get("required"), limit=8))),
+        "one_of": list(ordered_unique(bounded_strings(mapping.get("one_of"), limit=8))),
+        "sufficient_when": str(mapping.get("sufficient_when", "")).strip(),
+    }
+
+
+def _validated_expansion_policy(value: object) -> dict[str, list[str]]:
+    mapping = value if isinstance(value, Mapping) else {}
+    keys = (
+        "on_missing_owner",
+        "on_missing_causal_path",
+        "on_missing_expected_behavior",
+        "on_low_query_specificity",
+    )
+    return {
+        key: list(ordered_unique(bounded_strings(mapping.get(key), limit=8)))
+        for key in keys
     }
 
 

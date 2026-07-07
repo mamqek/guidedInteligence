@@ -3,6 +3,7 @@
   "test_root": "C:/Programming/guidedInteligence_testcases",
   "shared_repo_root": "C:/Programming/guidedInteligence_testcases/_repos",
   "rebuild_index": false,
+  "objective_role_selection_enabled": true,
   "chunk_lines": 40,
   "chunk_overlap": 10,
   "codex_command": [
