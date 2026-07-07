@@ -16,9 +16,18 @@ from .constants import (
     DEFAULT_NEGATIVE_FILTERS,
     DEFAULT_REQUIRED_RETRIEVAL_ROLES,
     DEFAULT_SUPPORTING_RETRIEVAL_ROLES,
+    INTENT_DEFECT_LOCALIZATION,
     MAX_GROUNDED_ENTITIES,
     MAX_GROUNDED_FILE_HINTS,
     MAX_RAW_PROMPT_TERMS,
+    OBJECTIVE_BEHAVIOR_PATH,
+    OBJECTIVE_CONFIGURATION_CONTEXT,
+    OBJECTIVE_DIAGNOSTIC_SURFACE,
+    OBJECTIVE_EFFECTS_OUTPUT,
+    OBJECTIVE_IMPLEMENTATION_OWNER,
+    OBJECTIVE_USAGE_CONTRACT,
+    OBJECTIVE_VERIFICATION_REPRO,
+    SPECIFICITY_NARROW,
 )
 from .prompts import STEP2_PLANNER_SYSTEM_PROMPT
 from .schema import step2_response_format, validate_step2_planner_response
@@ -79,6 +88,14 @@ def plan_workspace_retrieval_step(
         ),
         allowed_sources=policy_result.allowed_sources,
     )
+    prompt_signal_flags = _prompt_signal_flags(state.user_input, evidence)
+    active_objectives, deferred_objectives = _normalize_objectives(
+        primary_intent=response["primary_intent"],
+        specificity=response["specificity"],
+        active_objectives=tuple(response["active_objectives"]),
+        deferred_objectives=tuple(response["deferred_objectives"]),
+        prompt_signal_flags=prompt_signal_flags,
+    )
     merged_negative_filters = ordered_unique(
         tuple(str(value).strip() for value in DEFAULT_NEGATIVE_FILTERS if str(value).strip())
         + tuple(response["negative_filters"])
@@ -123,9 +140,19 @@ def plan_workspace_retrieval_step(
         negative_filters=merged_negative_filters,
         required_roles=DEFAULT_REQUIRED_RETRIEVAL_ROLES,
         supporting_roles=DEFAULT_SUPPORTING_RETRIEVAL_ROLES,
+        primary_intent=response["primary_intent"],
+        secondary_intents=tuple(response["secondary_intents"]),
+        specificity=response["specificity"],
+        active_objectives=active_objectives,
+        deferred_objectives=deferred_objectives,
+        preferred_relations=tuple(response["preferred_relations"]),
+        stop_contract=dict(response["stop_contract"]),
+        expansion_policy=dict(response["expansion_policy"]),
+        prompt_signal_flags=prompt_signal_flags,
         metadata={
             "planner": "llm_workspace_grounded_v2",
             "repo_context": dict(repo_context or {}),
+            "objective_role_selection": "metadata_only",
         },
     )
 
@@ -162,6 +189,15 @@ def existing_evidence_plan(
         negative_filters=DEFAULT_NEGATIVE_FILTERS,
         required_roles=DEFAULT_REQUIRED_RETRIEVAL_ROLES,
         supporting_roles=DEFAULT_SUPPORTING_RETRIEVAL_ROLES,
+        primary_intent="existing_evidence",
+        secondary_intents=(),
+        specificity="existing_evidence",
+        active_objectives=(),
+        deferred_objectives=(),
+        preferred_relations=(),
+        stop_contract={},
+        expansion_policy={},
+        prompt_signal_flags={},
         metadata={"planner": "existing_evidence_short_circuit"},
     )
 
@@ -260,6 +296,109 @@ def _source_priorities_for_prompt(prompt: str, allowed_sources: Sequence[SourceC
         ordered.append(SourceCategory.NOTEBOOKLM)
     ordered.extend(category for category in allowed_sources if category not in ordered)
     return tuple(ordered)
+
+
+def _prompt_signal_flags(raw_prompt: str, evidence: PromptEvidence) -> dict[str, bool]:
+    combined = "\n".join([raw_prompt, *evidence.raw_prompt_evidence]).lower()
+    has_error_or_warning = bool(re.search(r"\b(error|exception|warning|traceback|failed|cannot|unsupported)\b", combined))
+    has_wrong_output = any(
+        phrase in combined
+        for phrase in (
+            "what is actually happening",
+            "expected",
+            "actually",
+            "wrong output",
+            "incorrect",
+            "got ",
+            "should",
+            "toContain".lower(),
+        )
+    )
+    has_native_repro = any(
+        phrase in combined
+        for phrase in (
+            "steps to reproduce",
+            "reproduction",
+            "repro",
+            "test/",
+            "tests/",
+            ".spec.",
+            ".test.",
+            "it(",
+            "expect(",
+            "assert",
+        )
+    )
+    mentions_config = any(
+        phrase in combined
+        for phrase in (
+            "config",
+            "configuration",
+            "setting",
+            "option",
+            "environment",
+            "env",
+            ".json",
+            ".yml",
+            ".yaml",
+            ".toml",
+            ".ini",
+        )
+    )
+    return {
+        "has_error_or_warning": has_error_or_warning,
+        "has_wrong_output": has_wrong_output,
+        "has_diagnostic_surface": has_error_or_warning,
+        "has_output_symptom": has_wrong_output,
+        "has_native_repro": has_native_repro,
+        "mentions_config": mentions_config,
+    }
+
+
+def _normalize_objectives(
+    *,
+    primary_intent: str,
+    specificity: str,
+    active_objectives: Sequence[str],
+    deferred_objectives: Sequence[str],
+    prompt_signal_flags: Mapping[str, bool],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    active = list(ordered_unique(value for value in active_objectives if value))
+    deferred = list(ordered_unique(value for value in deferred_objectives if value and value not in active))
+
+    if primary_intent == INTENT_DEFECT_LOCALIZATION and specificity == SPECIFICITY_NARROW:
+        if OBJECTIVE_IMPLEMENTATION_OWNER not in active:
+            active.insert(0, OBJECTIVE_IMPLEMENTATION_OWNER)
+        active = _remove_unless(
+            active,
+            OBJECTIVE_DIAGNOSTIC_SURFACE,
+            bool(prompt_signal_flags.get("has_diagnostic_surface")),
+            deferred,
+        )
+        if prompt_signal_flags.get("has_output_symptom") and OBJECTIVE_EFFECTS_OUTPUT not in active:
+            active.append(OBJECTIVE_EFFECTS_OUTPUT)
+        active = _remove_unless(
+            active,
+            OBJECTIVE_VERIFICATION_REPRO,
+            bool(prompt_signal_flags.get("has_native_repro")),
+            deferred,
+        )
+        if not prompt_signal_flags.get("mentions_config"):
+            active = _remove_unless(active, OBJECTIVE_CONFIGURATION_CONTEXT, False, deferred)
+        for objective in (OBJECTIVE_BEHAVIOR_PATH, OBJECTIVE_CONFIGURATION_CONTEXT, OBJECTIVE_USAGE_CONTRACT):
+            if objective not in active and objective not in deferred:
+                deferred.append(objective)
+    return tuple(active), tuple(ordered_unique(value for value in deferred if value not in active))
+
+
+def _remove_unless(active: list[str], objective: str, allowed: bool, deferred: list[str]) -> list[str]:
+    if allowed:
+        return active
+    if objective in active:
+        active = [value for value in active if value != objective]
+        if objective not in deferred:
+            deferred.append(objective)
+    return active
 
 
 _RAW_PROMPT_STOPWORDS = {

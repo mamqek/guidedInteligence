@@ -53,11 +53,27 @@ class WorkspaceRetrievalPlan:
     negative_filters: tuple[str, ...]
     required_roles: tuple[str, ...]
     supporting_roles: tuple[str, ...]
+    primary_intent: str = ""
+    secondary_intents: tuple[str, ...] = ()
+    specificity: str = ""
+    active_objectives: tuple[str, ...] = ()
+    deferred_objectives: tuple[str, ...] = ()
+    preferred_relations: tuple[str, ...] = ()
+    stop_contract: Mapping[str, Any] = field(default_factory=dict)
+    expansion_policy: Mapping[str, Any] = field(default_factory=dict)
+    prompt_signal_flags: Mapping[str, bool] = field(default_factory=dict)
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["llm_subqueries"] = [subquery.to_dict() for subquery in self.llm_subqueries]
         data["source_priorities"] = [category.value for category in self.source_priorities]
+        data["secondary_intents"] = list(self.secondary_intents)
+        data["active_objectives"] = list(self.active_objectives)
+        data["deferred_objectives"] = list(self.deferred_objectives)
+        data["preferred_relations"] = list(self.preferred_relations)
+        data["stop_contract"] = dict(self.stop_contract)
+        data["expansion_policy"] = dict(self.expansion_policy)
+        data["prompt_signal_flags"] = dict(self.prompt_signal_flags)
         data["metadata"] = dict(self.metadata)
         return data

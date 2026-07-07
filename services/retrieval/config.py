@@ -426,6 +426,7 @@ class WorkspaceRetrievalConfig:
     connected_context_max_selected_context: int = 4
     connected_context_max_selected_evidence: int = 2
     connected_context_timeout_seconds: int = 45
+    objective_role_selection_enabled: bool = False
     connected_source_adapters: Mapping[str, bool] = field(
         default_factory=lambda: {
             "issue_tracker": True,

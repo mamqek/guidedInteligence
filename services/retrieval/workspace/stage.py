@@ -143,6 +143,28 @@ from services.retrieval.workspace.responsibility import (
 )
 from services.retrieval.workspace.step2 import WorkspaceRetrievalPlan, existing_evidence_plan, extract_prompt_evidence, plan_workspace_retrieval_step
 from services.retrieval.workspace.step2.common import IDENTIFIER_PATTERN, merge_paths, ordered_unique
+from services.retrieval.workspace.step2.constants import (
+    INTENT_DEFECT_LOCALIZATION,
+    OBJECTIVE_BEHAVIOR_PATH,
+    OBJECTIVE_CONFIGURATION_CONTEXT,
+    OBJECTIVE_CONSTRAINTS_VALIDATION,
+    OBJECTIVE_DATA_STATE,
+    OBJECTIVE_DIAGNOSTIC_SURFACE,
+    OBJECTIVE_EFFECTS_OUTPUT,
+    OBJECTIVE_IMPLEMENTATION_OWNER,
+    OBJECTIVE_INTERFACE_ENTRY,
+    OBJECTIVE_USAGE_CONTRACT,
+    OBJECTIVE_VERIFICATION_REPRO,
+    ROLE_BEHAVIOR_OUTPUT,
+    ROLE_CONFIG,
+    ROLE_DIAGNOSTICS,
+    ROLE_DOCS,
+    ROLE_INPUT_PARSING,
+    ROLE_REPRESENTATION,
+    ROLE_TESTS,
+    ROLE_VALIDATION_CHECKING,
+    SPECIFICITY_NARROW,
+)
 from services.retrieval.workspace.tools import (
     CGCAnalyzeCalleesTool,
     CGCAnalyzeCallersTool,
@@ -319,6 +341,7 @@ class WorkspaceRetrievalStage:
             log_event=lambda event_type, payload: self._record(event_type, {"conversation_id": state.conversation_id, **payload}),
             log_warning=lambda payload: self._record("llm_request_warning", {"conversation_id": state.conversation_id, **payload}),
         )
+        retrieval_plan = self._apply_objective_role_selection(retrieval_plan)
         self._record("retrieval_plan_created", retrieval_plan.to_dict())
         self._complete_retrieval_stage(
             "retrieval_planning",
@@ -605,6 +628,50 @@ class WorkspaceRetrievalStage:
             retrieval_summary=retrieval_summary,
             failures_or_fallbacks=tuple(ordered_unique([*_bucket_unresolved_roles(required_buckets), *deterministic_gate.missing_roles])),
         )
+
+    def _apply_objective_role_selection(self, retrieval_plan: WorkspaceRetrievalPlan) -> WorkspaceRetrievalPlan:
+        if not self.config.objective_role_selection_enabled:
+            return retrieval_plan
+        if retrieval_plan.primary_intent != INTENT_DEFECT_LOCALIZATION or retrieval_plan.specificity != SPECIFICITY_NARROW:
+            self._record(
+                "objective_role_selection_skipped",
+                {
+                    "primary_intent": retrieval_plan.primary_intent,
+                    "specificity": retrieval_plan.specificity,
+                    "reason": "only_narrow_defect_supported",
+                },
+            )
+            return retrieval_plan
+
+        required_roles = _legacy_required_roles_for_objectives(retrieval_plan.active_objectives)
+        supporting_roles = _legacy_supporting_roles_for_objectives(
+            tuple(retrieval_plan.active_objectives) + tuple(retrieval_plan.deferred_objectives)
+        )
+        if not required_roles:
+            required_roles = (ROLE_BEHAVIOR_OUTPUT, ROLE_VALIDATION_CHECKING)
+        updated = replace(
+            retrieval_plan,
+            required_roles=required_roles,
+            supporting_roles=supporting_roles,
+            metadata={
+                **dict(retrieval_plan.metadata),
+                "objective_role_selection": "enabled_narrow_defect_v1",
+                "legacy_required_roles_before_objectives": list(retrieval_plan.required_roles),
+                "legacy_supporting_roles_before_objectives": list(retrieval_plan.supporting_roles),
+            },
+        )
+        self._record(
+            "objective_role_selection_applied",
+            {
+                "primary_intent": updated.primary_intent,
+                "specificity": updated.specificity,
+                "active_objectives": list(updated.active_objectives),
+                "deferred_objectives": list(updated.deferred_objectives),
+                "required_roles": list(updated.required_roles),
+                "supporting_roles": list(updated.supporting_roles),
+            },
+        )
+        return updated
 
     def _failed_result(
         self,
@@ -4147,6 +4214,38 @@ def _role_retarget_queries(
     return ordered_unique(value for value in queries if value)
 
 
+def _legacy_required_roles_for_objectives(objectives: Sequence[str]) -> tuple[str, ...]:
+    roles: list[str] = []
+    for objective in objectives:
+        if objective == OBJECTIVE_IMPLEMENTATION_OWNER:
+            roles.extend((ROLE_BEHAVIOR_OUTPUT, ROLE_VALIDATION_CHECKING))
+        elif objective == OBJECTIVE_INTERFACE_ENTRY:
+            roles.append(ROLE_INPUT_PARSING)
+        elif objective == OBJECTIVE_BEHAVIOR_PATH:
+            roles.extend((ROLE_BEHAVIOR_OUTPUT, ROLE_REPRESENTATION))
+        elif objective == OBJECTIVE_DATA_STATE:
+            roles.append(ROLE_REPRESENTATION)
+        elif objective == OBJECTIVE_CONSTRAINTS_VALIDATION:
+            roles.append(ROLE_VALIDATION_CHECKING)
+        elif objective == OBJECTIVE_EFFECTS_OUTPUT:
+            roles.append(ROLE_BEHAVIOR_OUTPUT)
+        elif objective == OBJECTIVE_DIAGNOSTIC_SURFACE:
+            roles.append(ROLE_DIAGNOSTICS)
+    return tuple(ordered_unique(roles))
+
+
+def _legacy_supporting_roles_for_objectives(objectives: Sequence[str]) -> tuple[str, ...]:
+    roles: list[str] = []
+    for objective in objectives:
+        if objective == OBJECTIVE_VERIFICATION_REPRO:
+            roles.append(ROLE_TESTS)
+        elif objective == OBJECTIVE_CONFIGURATION_CONTEXT:
+            roles.append(ROLE_CONFIG)
+        elif objective == OBJECTIVE_USAGE_CONTRACT:
+            roles.append(ROLE_DOCS)
+    return tuple(ordered_unique(roles))
+
+
 def _anchor_symbol_relation_query(anchor_path: str, candidate_path: str) -> str:
     anchor_value = _cypher_string(_cypher_relative_path(anchor_path))
     candidate_value = _cypher_string(candidate_path)
@@ -4189,4 +4288,3 @@ def _save_sync_manifest(path: Path, payload: Mapping[str, Any]) -> None:
     output = dict(payload)
     output["updated_at"] = datetime.now(timezone.utc).isoformat()
     path.write_text(json.dumps(output, indent=2, sort_keys=True), encoding="utf-8")
-
