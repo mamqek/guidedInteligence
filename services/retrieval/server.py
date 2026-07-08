@@ -64,6 +64,7 @@ from services.retrieval.workspace.mcp import (
 from services.retrieval.workspace.qdrant_backend import QdrantHybridBackend
 from services.retrieval.workspace.tools.contracts import ToolRequest
 from services.retrieval.workspace import WorkspaceRetrievalStage
+from services.retrieval.workspace.pipeline.execution_flow.index_setup import cgc_tools as build_cgc_tools, rebuild_index
 
 
 DEFAULT_HOST = "127.0.0.1"
@@ -723,11 +724,11 @@ class RuntimeState:
                 raise RetrievalServerError("Indexing is disabled in workspace settings.", status=400)
             run_dir.mkdir(parents=True, exist_ok=True)
             stage = WorkspaceRetrievalStage(self._workspace_retrieval_config(run_dir=run_dir))
-            cgc_tools = stage._cgc_tools()
+            cgc_tools = build_cgc_tools(stage.context)
             index_observation = cgc_tools["cgc_index_repo"].run(
                 ToolRequest(tool_name="cgc_index_repo", arguments={}, reason="manual index preparation")
             )
-            stage._record_tool(ToolRequest(tool_name="cgc_index_repo", arguments={}), index_observation, round_index=0)
+            stage.context.trace.record_tool(ToolRequest(tool_name="cgc_index_repo", arguments={}), index_observation, round_index=0)
             if index_observation.status != "ok":
                 raise RetrievalServerError(_cgc_failure_message(index_observation.payload), status=500)
             self._update_index_job(
@@ -737,7 +738,7 @@ class RuntimeState:
                 progress_percent=15,
                 log="Code graph refreshed.",
             )
-            original_record = stage._record
+            original_record = stage.context.trace.record
 
             def record_progress(event_type: str, payload: Mapping[str, Any]) -> None:
                 nonlocal completed_embedding_batches
@@ -769,8 +770,8 @@ class RuntimeState:
                         log="Qdrant index synchronized.",
                     )
 
-            stage._record = record_progress  # type: ignore[method-assign]
-            index = stage._rebuild_index()
+            stage.context.trace.record = record_progress  # type: ignore[method-assign]
+            index = rebuild_index(stage.context)
             completed_at = datetime.now(timezone.utc)
             self._finish_index_job(
                 job_id,
@@ -888,7 +889,10 @@ class RuntimeState:
                 retrieval_stage = CodexRetrievalStage(retrieval_config)
             else:
                 retrieval_stage = WorkspaceRetrievalStage(retrieval_config)
-            original_record = retrieval_stage._record
+            if isinstance(retrieval_stage, WorkspaceRetrievalStage):
+                original_record = retrieval_stage.context.trace.record
+            else:
+                original_record = retrieval_stage._record
 
             def record_retrieval_progress(event_type: str, event_payload: Mapping[str, Any]) -> None:
                 nonlocal role_subquery_count, completed_role_subqueries, completed_embedding_batches
@@ -962,7 +966,10 @@ class RuntimeState:
                 elif event_type == "codex_retrieval_completed":
                     self._update_run_progress(run_dir, phase="codex", percent=86, message="Codex evidence received.", log="Codex evidence received.")
 
-            retrieval_stage._record = record_retrieval_progress  # type: ignore[method-assign]
+            if isinstance(retrieval_stage, WorkspaceRetrievalStage):
+                retrieval_stage.context.trace.record = record_retrieval_progress  # type: ignore[method-assign]
+            else:
+                retrieval_stage._record = record_retrieval_progress  # type: ignore[method-assign]
             policy = PolicyStage(SourcePolicy(allowed_categories=tuple(allowed_categories), policy_name="local_web_ui"))
             progress_logger = _ProgressJsonlLogger(run_dir / "orchestration-trace.jsonl", run_dir)
             control = ControlLayer(
@@ -2881,4 +2888,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

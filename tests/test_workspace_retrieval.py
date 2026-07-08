@@ -40,6 +40,24 @@ from services.retrieval.workspace.tools.local import OpenFileTool
 from services.retrieval.workspace.tools.qdrant import QdrantHybridSearchTool
 from services.retrieval.workspace.tools.cgc import CGCAnalyzeDepsTool, CGCFindCodeTool, CGCIndexRepoTool, CGCQueryGraphTool, CGCRunCliTool
 from services.retrieval.workspace.tools.contracts import ToolObservation, ToolRequest
+from services.retrieval.workspace.pipeline.execution_flow.candidate_expansion import (
+    collect_converging_reference_targets,
+    direct_owner_candidate_from_path,
+    reference_expansion_source_candidates,
+    span_candidate_from_accepted_file,
+)
+from services.retrieval.workspace.pipeline.execution_flow.coverage_synthesis import (
+    apply_protocol_relationship_bridge,
+    apply_synthesis_feedback,
+)
+from services.retrieval.workspace.pipeline.execution_flow.index_setup import cgc_tools, rebuild_index
+from services.retrieval.workspace.pipeline.execution_flow.refinement_recovery import (
+    build_late_recovery_followup_specs,
+    recover_weak_role_buckets,
+    refine_selected_role_bucket,
+    refine_selected_role_buckets,
+)
+from services.retrieval.workspace.pipeline.execution_flow.role_retrieval import complete_role_buckets, prepare_role_bucket
 from services.retrieval.workspace import (
     PreparedRoleBucket,
     RetrievalCandidate,
@@ -309,7 +327,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 )
             )
 
-            stage._rebuild_index()
+            rebuild_index(stage.context)
 
             self.assertEqual(self.qdrant_rebuild_timeouts[-1], 123)
 
@@ -622,7 +640,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             index = build_index_from_repo(repo_path=repo, commit="workspace")
             open_file_tool = OpenFileTool(index)
 
-            converged_targets, tool_calls = stage._collect_converging_reference_targets(
+            converged_targets, tool_calls = collect_converging_reference_targets(stage.context, 
                 role="validation_checking",
                 candidates=(
                     _test_candidate("src/services/services.ts", "checker: TypeChecker; class SignatureObject {}", "validation_checking", "repo:services"),
@@ -660,7 +678,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             index = build_index_from_repo(repo_path=repo, commit="workspace")
             open_file_tool = OpenFileTool(index)
 
-            converged_targets, _tool_calls = stage._collect_converging_reference_targets(
+            converged_targets, _tool_calls = collect_converging_reference_targets(stage.context, 
                 role="validation_checking",
                 candidates=(
                     _test_candidate("src/services/services.ts", "checker: TypeChecker; class SignatureObject {}", "validation_checking", "repo:services"),
@@ -695,7 +713,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             index = build_index_from_repo(repo_path=repo, commit="workspace")
             open_file_tool = OpenFileTool(index)
 
-            converged_targets, _tool_calls = stage._collect_converging_reference_targets(
+            converged_targets, _tool_calls = collect_converging_reference_targets(stage.context, 
                 role="validation_checking",
                 candidates=(
                     _test_candidate("src/compiler/tc.ts", "var checker = program.getTypeChecker();", "validation_checking", "repo:tc"),
@@ -735,7 +753,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 candidates=candidates,
             )
 
-            sources = stage._reference_expansion_source_candidates(
+            sources = reference_expansion_source_candidates(stage.context, 
                 role="validation_checking",
                 prepared_bucket=bucket,
                 prepared_buckets=(bucket,),
@@ -795,7 +813,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 )
             )
 
-            candidate = stage._direct_owner_candidate_from_path(
+            candidate = direct_owner_candidate_from_path(stage.context, 
                 role="validation_checking",
                 target_path="src/compiler/checker.ts",
                 query="where class declarations and base class constraints are checked",
@@ -848,7 +866,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 "repo:src/owner.ts:L1-L1",
             )
 
-            refined = stage._span_candidate_from_accepted_file(
+            refined = span_candidate_from_accepted_file(stage.context, 
                 role="validation_checking",
                 file_candidate=_test_file_candidate(
                     "src/owner.ts",
@@ -896,7 +914,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 )
             )
 
-            candidate = stage._direct_owner_candidate_from_path(
+            candidate = direct_owner_candidate_from_path(stage.context, 
                 role="validation_checking",
                 target_path="src/compiler/checker.ts",
                 query="where class declarations and base class constraints are checked",
@@ -937,7 +955,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 )
             )
 
-            candidate = stage._direct_owner_candidate_from_path(
+            candidate = direct_owner_candidate_from_path(stage.context, 
                 role="validation_checking",
                 target_path="src/compiler/checker.ts",
                 query="where class declarations and base class constraints are checked",
@@ -1210,7 +1228,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 bucket,
             )
 
-            specs = stage._build_late_recovery_followup_specs(
+            specs = build_late_recovery_followup_specs(stage.context, 
                 bucket=bucket,
                 follow_up_queries=("path:src/compiler/checker.ts checkClassLikeDeclaration checkNewExpression",),
                 narrowed_files=("src/compiler/binder.ts", "src/compiler/checker.ts"),
@@ -1261,7 +1279,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 ],
             )
 
-            completed = stage._complete_role_buckets(
+            completed = complete_role_buckets(stage.context, 
                 retrieval_plan=plan,
                 buckets=(representation_bucket, input_bucket, validation_bucket),
             )
@@ -1284,7 +1302,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 )
             )
             plan = _test_retrieval_plan(required_roles=("representation", "input_parsing", "validation_checking"))
-            completed = stage._complete_role_buckets(
+            completed = complete_role_buckets(stage.context, 
                 retrieval_plan=plan,
                 buckets=(
                     _test_bucket(role="representation", accepted=[_test_candidate("src/compiler/types.ts", "flags SymbolFlags ClassDeclaration", "representation", "repo:types")]),
@@ -1407,7 +1425,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             )
             open_file_tool = OpenFileTool(index)
 
-            prepared, _tool_calls = stage._prepare_role_bucket(
+            prepared, _tool_calls = prepare_role_bucket(stage.context, 
                 retrieval_plan=retrieval_plan,
                 role="representation",
                 query="where are modifier flags represented",
@@ -1438,7 +1456,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 role="validation_checking",
                 accepted=[_test_candidate("src/compiler/binder.ts", "function bind(node) { return true; }", "validation_checking", "repo:binder")],
             )
-            updated = stage._apply_synthesis_feedback(
+            updated = apply_synthesis_feedback(stage.context, 
                 buckets=(bucket,),
                 decision=RetrievalSynthesisDecision(
                     acceptance_satisfied=False,
@@ -1489,7 +1507,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 snippet_assessment=(),
                 satisfaction_source="responsibility_rerank",
             )
-            updated = stage._apply_synthesis_feedback(
+            updated = apply_synthesis_feedback(stage.context, 
                 buckets=(bucket,),
                 decision=RetrievalSynthesisDecision(
                     acceptance_satisfied=True,
@@ -1570,13 +1588,13 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             )
 
             with _fake_cgc(files=[{"path": "src/compiler/checker.ts"}]):
-                updated_buckets, _, _ = stage._recover_weak_role_buckets(
+                updated_buckets, _, _ = recover_weak_role_buckets(stage.context, 
                     retrieval_plan=_test_retrieval_plan(required_roles=("validation_checking",)),
                     buckets=(bucket,),
                     synthesis_decision=decision,
                     qdrant_tool=qdrant_tool,
                     open_file_tool=open_file_tool,
-                    cgc_tools=stage._cgc_tools(),
+                    cgc_tools=cgc_tools(stage.context),
                     narrowed_files=("src/compiler/binder.ts", "src/compiler/checker.ts"),
                     starting_tool_call_count=0,
                 )
@@ -1710,7 +1728,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             )
 
             with patch(
-                "services.retrieval.workspace.ObsidianHybridSearchAdapter.search",
+                "services.retrieval.workspace.pipeline.execution_flow.connected_sources_flow.ObsidianHybridSearchAdapter.search",
                 return_value=(note_result,),
             ), patch("services.retrieval.tools.cgc.CGCFindCodeTool.run") as fake_cgc_find:
                 fake_cgc_find.return_value = ToolObservation(
@@ -1804,12 +1822,12 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             qdrant_tool = QdrantHybridSearchTool(index, qdrant_config=_qdrant_config(), embedding_config=_embedding_config())
             open_file_tool = OpenFileTool(index)
 
-            updated_bucket, _ = stage._refine_selected_role_bucket(
+            updated_bucket, _ = refine_selected_role_bucket(stage.context, 
                 bucket=bucket,
                 anchor_support=AnchorSupport(accepted_anchors={}, dependency_paths_by_anchor={}, call_paths_by_anchor={}),
                 qdrant_tool=qdrant_tool,
                 open_file_tool=open_file_tool,
-                cgc_tools=stage._cgc_tools(),
+                cgc_tools=cgc_tools(stage.context),
             )
 
             self.assertTrue(any(evaluation.stage == "role_followup_snippet_refinement" for evaluation in updated_bucket.evaluations))
@@ -1850,12 +1868,12 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 satisfaction_source="first_pass",
             )
 
-            updated_buckets, _ = stage._refine_selected_role_buckets(
+            updated_buckets, _ = refine_selected_role_buckets(stage.context, 
                 buckets=(docs_bucket,),
                 rescue_roles=("representation", "input_parsing", "validation_checking", "diagnostics", "behavior_output"),
                 qdrant_tool=QdrantHybridSearchTool(build_index_from_repo(repo_path=root, commit="test"), qdrant_config=_qdrant_config(), embedding_config=_embedding_config()),
                 open_file_tool=OpenFileTool(build_index_from_repo(repo_path=root, commit="test")),
-                cgc_tools=stage._cgc_tools(),
+                cgc_tools=cgc_tools(stage.context),
                 starting_tool_call_count=0,
             )
 
@@ -1903,7 +1921,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             bucket = _test_bucket(role="input_parsing", accepted=[frontend])
             bucket = replace(bucket, query="how index estimate route is handled", helper_queries=("index estimate backend route",))
 
-            updated = stage._apply_protocol_relationship_bridge((bucket,))
+            updated = apply_protocol_relationship_bridge(stage.context, (bucket,))
 
             self.assertEqual(len(updated), 1)
             accepted_paths = [candidate.path for candidate in updated[0].accepted_candidates]

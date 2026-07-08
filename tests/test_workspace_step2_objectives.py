@@ -18,9 +18,9 @@ from services.retrieval.workspace.step2.constants import (
 from services.retrieval.workspace.step2.schema import validate_step2_planner_response
 from services.retrieval.workspace.step2.step2 import _normalize_objectives, _prompt_signal_flags
 from services.retrieval.workspace.step2.types import PromptEvidence, WorkspaceRetrievalPlan
-from services.retrieval.workspace.stage import (
-    _legacy_required_roles_for_objectives,
-    _legacy_supporting_roles_for_objectives,
+from services.retrieval.workspace.pipeline.objective_flow import (
+    legacy_required_roles_for_objectives,
+    legacy_supporting_roles_for_objectives,
 )
 
 
@@ -136,8 +136,8 @@ class WorkspaceStep2ObjectiveTests(unittest.TestCase):
         self.assertIn(OBJECTIVE_DIAGNOSTIC_SURFACE, deferred)
 
     def test_objective_role_selection_maps_owner_to_minimal_legacy_owner_roles(self) -> None:
-        required_roles = _legacy_required_roles_for_objectives((OBJECTIVE_IMPLEMENTATION_OWNER,))
-        supporting_roles = _legacy_supporting_roles_for_objectives(
+        required_roles = legacy_required_roles_for_objectives((OBJECTIVE_IMPLEMENTATION_OWNER,))
+        supporting_roles = legacy_supporting_roles_for_objectives(
             (OBJECTIVE_VERIFICATION_REPRO, OBJECTIVE_CONFIGURATION_CONTEXT, OBJECTIVE_USAGE_CONTRACT)
         )
 
