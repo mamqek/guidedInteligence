@@ -56,7 +56,7 @@ from services.retrieval.workspace.pipeline.snippet_level import (
 from services.retrieval.workspace.responsibility import FileResponsibilityProfile, ResponsibilityExpansionIntent, infer_expansion_intents, profile_candidate
 from services.retrieval.workspace.role_completion import RoleCompletionContext, score_role_completion
 from services.retrieval.workspace.role_validation import AnchorRecord, AnchorSupport
-from services.retrieval.workspace.step2 import WorkspaceRetrievalPlan
+from services.retrieval.workspace.step2 import RoleDirectedSubquery, WorkspaceRetrievalPlan
 from services.retrieval.workspace.step2.common import ordered_unique
 from services.retrieval.workspace.tools import OpenFileTool, QdrantHybridSearchTool, ToolObservation, ToolRequest
 
@@ -73,7 +73,8 @@ def retrieve_responsibility_role_buckets(
         starting_tool_call_count: int,
         phase: str,
     ) -> tuple[tuple[RoleRetrievalBucket, ...], int, tuple[ResponsibilityExpansionIntent, ...]]:
-        subqueries = [subquery for subquery in retrieval_plan.llm_subqueries if subquery.role in subquery_roles]
+        subqueries = _role_subqueries_for_phase(retrieval_plan, subquery_roles=subquery_roles, phase=phase)
+        _record_missing_role_subqueries(ctx, requested_roles=subquery_roles, subqueries=subqueries, phase=phase)
         prepared_buckets: list[PreparedRoleBucket] = []
         tool_call_count = starting_tool_call_count
         for subquery in subqueries:
@@ -172,7 +173,8 @@ def retrieve_role_buckets(
         starting_tool_call_count: int,
         phase: str,
     ) -> tuple[tuple[RoleRetrievalBucket, ...], int]:
-        subqueries = [subquery for subquery in retrieval_plan.llm_subqueries if subquery.role in subquery_roles]
+        subqueries = _role_subqueries_for_phase(retrieval_plan, subquery_roles=subquery_roles, phase=phase)
+        _record_missing_role_subqueries(ctx, requested_roles=subquery_roles, subqueries=subqueries, phase=phase)
         prepared_buckets: list[PreparedRoleBucket] = []
         tool_call_count = starting_tool_call_count
         for subquery in subqueries:
@@ -210,6 +212,51 @@ def retrieve_role_buckets(
             for prepared_bucket in prepared_buckets
         )
         return final_buckets, tool_call_count
+
+
+def _role_subqueries_for_phase(
+    retrieval_plan: WorkspaceRetrievalPlan,
+    *,
+    subquery_roles: Sequence[str],
+    phase: str,
+) -> tuple[RoleDirectedSubquery, ...]:
+        requested_roles = set(subquery_roles)
+        if phase == "supporting":
+            candidates = (*retrieval_plan.support_subqueries, *retrieval_plan.llm_subqueries)
+        else:
+            candidates = retrieval_plan.llm_subqueries
+        selected: list[RoleDirectedSubquery] = []
+        seen: set[tuple[str, str]] = set()
+        for subquery in candidates:
+            if subquery.role not in requested_roles:
+                continue
+            key = (subquery.role, subquery.query)
+            if key in seen:
+                continue
+            seen.add(key)
+            selected.append(subquery)
+        return tuple(selected)
+
+
+def _record_missing_role_subqueries(
+    ctx: WorkspaceRetrievalContext,
+    *,
+    requested_roles: Sequence[str],
+    subqueries: Sequence[RoleDirectedSubquery],
+    phase: str,
+) -> None:
+        executable_roles = {subquery.role for subquery in subqueries}
+        missing_roles = tuple(role for role in ordered_unique(requested_roles) if role not in executable_roles)
+        if not missing_roles:
+            return
+        ctx.trace.record(
+            "role_subquery_missing",
+            {
+                "phase": phase,
+                "roles": list(missing_roles),
+                "reason": "no_planned_subquery_for_role",
+            },
+        )
 
 
 def complete_role_buckets(

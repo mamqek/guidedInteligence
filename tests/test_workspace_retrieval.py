@@ -40,6 +40,7 @@ from services.retrieval.workspace.tools.local import OpenFileTool
 from services.retrieval.workspace.tools.qdrant import QdrantHybridSearchTool
 from services.retrieval.workspace.tools.cgc import CGCAnalyzeDepsTool, CGCFindCodeTool, CGCIndexRepoTool, CGCQueryGraphTool, CGCRunCliTool
 from services.retrieval.workspace.tools.contracts import ToolObservation, ToolRequest
+from services.retrieval.workspace.pipeline.execution_flow.adaptive_loop import run_adaptive_retrieval_loop
 from services.retrieval.workspace.pipeline.execution_flow.candidate_expansion import (
     collect_converging_reference_targets,
     direct_owner_candidate_from_path,
@@ -57,7 +58,7 @@ from services.retrieval.workspace.pipeline.execution_flow.refinement_recovery im
     refine_selected_role_bucket,
     refine_selected_role_buckets,
 )
-from services.retrieval.workspace.pipeline.execution_flow.role_retrieval import complete_role_buckets, prepare_role_bucket
+from services.retrieval.workspace.pipeline.execution_flow.role_retrieval import complete_role_buckets, prepare_role_bucket, retrieve_responsibility_role_buckets
 from services.retrieval.workspace import (
     PreparedRoleBucket,
     RetrievalCandidate,
@@ -73,6 +74,7 @@ from services.retrieval.workspace import (
     _role_retarget_queries,
     _select_diverse_completion_entries,
 )
+from services.retrieval.workspace.pipeline.models import DeterministicCoverageGate
 from services.retrieval.workspace.pipeline.protocol_graph import discover_protocol_relationship_candidates
 from services.retrieval.workspace.obsidian import ObsidianSearchResult
 
@@ -307,6 +309,389 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     )
                 )
 
+    def test_adaptive_loop_round0_sufficient_does_not_promote_deferred_roles(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=temp_dir,
+                    index_dir=str(Path(temp_dir) / "index"),
+                    llm_config=_llm_config("http://unused/v1/chat/completions"),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                    objective_role_selection_enabled=True,
+                )
+            )
+            plan = _test_retrieval_plan(
+                required_roles=("behavior_output", "validation_checking"),
+                supporting_roles=("tests",),
+                primary_intent="defect_localization",
+                specificity="narrow",
+                active_objectives=("implementation_owner",),
+                deferred_objectives=("verification_repro",),
+            )
+            candidate = _test_candidate(
+                "src/compiler/checker.ts",
+                "function checkAbstractClass() { return 'abstract class behavior validation'; }",
+                "behavior_output",
+                "workspace:src/compiler/checker.ts:L1-L1",
+            )
+            buckets = (
+                _test_bucket(role="behavior_output", accepted=[candidate]),
+                _test_bucket(role="validation_checking", accepted=[candidate]),
+            )
+            decision = RetrievalSynthesisDecision(
+                acceptance_satisfied=True,
+                missing_areas=(),
+                accepted_anchor_refs=(candidate.source_id,),
+                rejected_anchor_refs=(),
+                snippet_assessment=({"ref": candidate.source_id, "role": "core", "reason": "accepted"},),
+                stop_reason="round0_sufficient",
+                follow_up_queries=(),
+            )
+            satisfied_gate = DeterministicCoverageGate(
+                satisfied=True,
+                role_status={"behavior_output": "strong", "validation_checking": "strong"},
+                missing_roles=(),
+                reasons=(),
+            )
+
+            with patch("services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.retrieve_responsibility_role_buckets", return_value=(buckets, 3, ())) as retrieve, patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.refine_selected_role_buckets",
+                return_value=(buckets, 4),
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.synthesize_or_accept_deterministic",
+                return_value=decision,
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.apply_synthesis_feedback",
+                return_value=buckets,
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.apply_protocol_relationship_bridge",
+                return_value=buckets,
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.build_deterministic_coverage_gate",
+                return_value=satisfied_gate,
+            ):
+                result = run_adaptive_retrieval_loop(
+                    stage.context,
+                    retrieval_plan=plan,
+                    qdrant_tool=None,
+                    open_file_tool=None,
+                    cgc_tools={},
+                    narrowed_files=("src/compiler/checker.ts",),
+                    starting_tool_call_count=0,
+                )
+
+            self.assertEqual(result.exploration_rounds, 1)
+            self.assertEqual(result.adaptive_rounds, 0)
+            self.assertEqual(result.promoted_roles, ())
+            self.assertEqual(result.promoted_objectives, ())
+            self.assertEqual(retrieve.call_count, 1)
+
+    def test_adaptive_loop_missing_owner_recovers_before_support_promotion(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=temp_dir,
+                    index_dir=str(Path(temp_dir) / "index"),
+                    llm_config=_llm_config("http://unused/v1/chat/completions"),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                    objective_role_selection_enabled=True,
+                )
+            )
+            plan = _test_retrieval_plan(
+                required_roles=("behavior_output", "validation_checking"),
+                supporting_roles=("tests",),
+                primary_intent="defect_localization",
+                specificity="narrow",
+                active_objectives=("implementation_owner",),
+                deferred_objectives=("verification_repro",),
+            )
+            initial_buckets = (
+                _test_bucket(role="behavior_output", accepted=[]),
+                _test_bucket(role="validation_checking", accepted=[]),
+            )
+            recovered_candidate = _test_candidate(
+                "src/compiler/checker.ts",
+                "function checkAbstractClass() { return 'abstract class behavior validation'; }",
+                "behavior_output",
+                "workspace:src/compiler/checker.ts:L1-L1",
+            )
+            recovered_buckets = (
+                _test_bucket(role="behavior_output", accepted=[recovered_candidate]),
+                _test_bucket(role="validation_checking", accepted=[recovered_candidate]),
+            )
+            missing_decision = RetrievalSynthesisDecision(False, ("behavior_output",), (), (), (), "missing_owner", ())
+            recovered_decision = RetrievalSynthesisDecision(
+                True,
+                (),
+                (recovered_candidate.source_id,),
+                (),
+                ({"ref": recovered_candidate.source_id, "role": "core", "reason": "accepted"},),
+                "owner_recovered",
+                (),
+            )
+            missing_gate = DeterministicCoverageGate(
+                satisfied=False,
+                role_status={"behavior_output": "missing", "validation_checking": "missing"},
+                missing_roles=("behavior_output", "validation_checking"),
+                reasons=("missing_owner",),
+            )
+            recovered_gate = DeterministicCoverageGate(
+                satisfied=True,
+                role_status={"behavior_output": "strong", "validation_checking": "strong"},
+                missing_roles=(),
+                reasons=(),
+            )
+
+            with patch("services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.retrieve_responsibility_role_buckets", return_value=(initial_buckets, 3, ())) as retrieve, patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.refine_selected_role_buckets",
+                return_value=(initial_buckets, 4),
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.synthesize_or_accept_deterministic",
+                return_value=missing_decision,
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.apply_synthesis_feedback",
+                return_value=initial_buckets,
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.apply_protocol_relationship_bridge",
+                side_effect=lambda _ctx, buckets, retrieval_plan=None: buckets,
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.focused_owner_grounded",
+                side_effect=(False, True, True),
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.recover_weak_role_buckets",
+                return_value=(recovered_buckets, 6, recovered_decision),
+            ) as recover, patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.build_deterministic_coverage_gate",
+                side_effect=(missing_gate, recovered_gate),
+            ):
+                result = run_adaptive_retrieval_loop(
+                    stage.context,
+                    retrieval_plan=plan,
+                    qdrant_tool=None,
+                    open_file_tool=None,
+                    cgc_tools={},
+                    narrowed_files=("src/compiler/checker.ts",),
+                    starting_tool_call_count=0,
+                )
+
+            self.assertEqual(retrieve.call_count, 1)
+            self.assertEqual(recover.call_count, 1)
+            self.assertEqual(result.promoted_roles, ())
+            self.assertEqual(result.round_summaries[1]["round_reason"], "same_objective_owner_recovery")
+
+    def test_adaptive_loop_grounded_owner_promotes_smallest_deferred_role(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=temp_dir,
+                    index_dir=str(Path(temp_dir) / "index"),
+                    llm_config=_llm_config("http://unused/v1/chat/completions"),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                    objective_role_selection_enabled=True,
+                )
+            )
+            plan = _test_retrieval_plan(
+                required_roles=("behavior_output", "validation_checking"),
+                supporting_roles=("tests", "config", "docs"),
+                primary_intent="defect_localization",
+                specificity="narrow",
+                active_objectives=("implementation_owner",),
+                deferred_objectives=("configuration_context", "verification_repro", "usage_contract"),
+            )
+            owner_candidate = _test_candidate(
+                "src/compiler/checker.ts",
+                "function checkAbstractClass() { return 'abstract class behavior validation'; }",
+                "behavior_output",
+                "workspace:src/compiler/checker.ts:L1-L1",
+            )
+            test_candidate = _test_candidate(
+                "tests/cases/abstract.ts",
+                "describe('abstract class repro', () => {});",
+                "tests",
+                "workspace:tests/cases/abstract.ts:L1-L1",
+            )
+            required_buckets = (
+                _test_bucket(role="behavior_output", accepted=[owner_candidate]),
+                _test_bucket(role="validation_checking", accepted=[owner_candidate]),
+            )
+            support_buckets = (_test_bucket(role="tests", accepted=[test_candidate]),)
+            first_decision = RetrievalSynthesisDecision(False, ("verification_repro",), (owner_candidate.source_id,), (), (), "needs_repro", ())
+            final_decision = RetrievalSynthesisDecision(
+                True,
+                (),
+                (owner_candidate.source_id, test_candidate.source_id),
+                (),
+                (
+                    {"ref": owner_candidate.source_id, "role": "core", "reason": "accepted"},
+                    {"ref": test_candidate.source_id, "role": "secondary", "reason": "repro"},
+                ),
+                "promoted_repro_sufficient",
+                (),
+            )
+
+            with patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.retrieve_responsibility_role_buckets",
+                side_effect=((required_buckets, 3, ()), (support_buckets, 5, ())),
+            ) as retrieve, patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.refine_selected_role_buckets",
+                side_effect=((required_buckets, 4), (support_buckets, 6)),
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.synthesize_or_accept_deterministic",
+                side_effect=(first_decision, final_decision),
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.apply_synthesis_feedback",
+                side_effect=(required_buckets, required_buckets + support_buckets),
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.apply_protocol_relationship_bridge",
+                return_value=required_buckets,
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.focused_owner_grounded",
+                return_value=True,
+            ):
+                result = run_adaptive_retrieval_loop(
+                    stage.context,
+                    retrieval_plan=plan,
+                    qdrant_tool=None,
+                    open_file_tool=None,
+                    cgc_tools={},
+                    narrowed_files=("src/compiler/checker.ts",),
+                    starting_tool_call_count=0,
+                )
+
+            self.assertEqual(retrieve.call_count, 2)
+            self.assertEqual(result.promoted_roles, ("tests",))
+            self.assertEqual(result.promoted_objectives, ("verification_repro",))
+            self.assertLessEqual(result.exploration_rounds, 3)
+
+    def test_supporting_phase_uses_support_subqueries_for_promoted_roles(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=temp_dir,
+                    index_dir=str(Path(temp_dir) / "index"),
+                    llm_config=_llm_config("http://unused/v1/chat/completions"),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                    objective_role_selection_enabled=True,
+                )
+            )
+            plan = _test_retrieval_plan(
+                required_roles=("behavior_output",),
+                supporting_roles=("tests",),
+                primary_intent="defect_localization",
+                specificity="narrow",
+                active_objectives=("implementation_owner",),
+                deferred_objectives=("verification_repro",),
+                include_supporting_llm_subqueries=False,
+            )
+            candidate = _test_candidate(
+                "tests/cases/abstract.ts",
+                "describe('abstract class repro', () => {});",
+                "tests",
+                "workspace:tests/cases/abstract.ts:L1-L1",
+            )
+            prepared_bucket = PreparedRoleBucket(
+                role="tests",
+                query="support query for tests",
+                helper_queries=("support query for tests",),
+                observations=(),
+                candidates=(candidate,),
+            )
+            support_bucket = _test_bucket(role="tests", accepted=[candidate])
+
+            with patch(
+                "services.retrieval.workspace.pipeline.execution_flow.role_retrieval.prepare_role_bucket",
+                return_value=(prepared_bucket, 2),
+            ) as prepare, patch(
+                "services.retrieval.workspace.pipeline.execution_flow.role_retrieval._expand_responsibility_candidates_flow",
+                return_value=({}, {}, 0),
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.role_retrieval._build_anchor_support_flow",
+                return_value=(AnchorSupport(accepted_anchors={}, dependency_paths_by_anchor={}, call_paths_by_anchor={}), 0),
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.role_retrieval._responsibility_rerank_bucket_flow",
+                return_value=support_bucket,
+            ):
+                buckets, tool_calls, _intents = retrieve_responsibility_role_buckets(
+                    stage.context,
+                    retrieval_plan=plan,
+                    subquery_roles=("tests",),
+                    qdrant_tool=None,
+                    open_file_tool=None,
+                    cgc_tools={},
+                    narrowed_files=(),
+                    starting_tool_call_count=10,
+                    phase="supporting",
+                )
+
+            self.assertEqual(tool_calls, 12)
+            self.assertEqual(buckets, (support_bucket,))
+            self.assertEqual(prepare.call_args.kwargs["query"], "support query for tests")
+
+    def test_adaptive_loop_disabled_uses_legacy_compatibility_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=temp_dir,
+                    index_dir=str(Path(temp_dir) / "index"),
+                    llm_config=_llm_config("http://unused/v1/chat/completions"),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                    objective_role_selection_enabled=False,
+                )
+            )
+            plan = _test_retrieval_plan(
+                required_roles=("behavior_output", "validation_checking"),
+                supporting_roles=("tests",),
+                primary_intent="defect_localization",
+                specificity="narrow",
+                active_objectives=("implementation_owner",),
+                deferred_objectives=("verification_repro",),
+            )
+            candidate = _test_candidate(
+                "src/compiler/checker.ts",
+                "function checkAbstractClass() { return 'abstract class behavior validation'; }",
+                "behavior_output",
+                "workspace:src/compiler/checker.ts:L1-L1",
+            )
+            buckets = (
+                _test_bucket(role="behavior_output", accepted=[candidate]),
+                _test_bucket(role="validation_checking", accepted=[candidate]),
+            )
+            decision = RetrievalSynthesisDecision(True, (), (candidate.source_id,), (), (), "legacy_done", ())
+
+            with patch("services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.retrieve_responsibility_role_buckets", return_value=(buckets, 3, ())), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.refine_selected_role_buckets",
+                return_value=(buckets, 4),
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.synthesize_or_accept_deterministic",
+                return_value=decision,
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.apply_synthesis_feedback",
+                return_value=buckets,
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.apply_protocol_relationship_bridge",
+                return_value=buckets,
+            ), patch(
+                "services.retrieval.workspace.pipeline.execution_flow.adaptive_loop.recover_weak_role_buckets",
+                return_value=(buckets, 4, decision),
+            ):
+                result = run_adaptive_retrieval_loop(
+                    stage.context,
+                    retrieval_plan=plan,
+                    qdrant_tool=None,
+                    open_file_tool=None,
+                    cgc_tools={},
+                    narrowed_files=("src/compiler/checker.ts",),
+                    starting_tool_call_count=0,
+                )
+
+            self.assertEqual(result.adaptive_rounds, 0)
+            self.assertEqual(result.round_summaries[0]["round_reason"], "legacy_compatibility")
+
     def test_rebuild_index_passes_qdrant_timeout_to_backend(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -413,6 +798,10 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             self.assertNotIn("tests/cases/abstractTests.ts", evidence_paths)
             required_buckets = result.retrieval_summary["required_role_buckets"]
             self.assertEqual([bucket["role"] for bucket in required_buckets], ["input_parsing", "validation_checking", "diagnostics"])
+            self.assertIn("adaptive_rounds", result.retrieval_summary)
+            self.assertIn("promoted_roles", result.retrieval_summary)
+            self.assertIn("promoted_objectives", result.retrieval_summary)
+            self.assertIn("round_summaries", result.retrieval_summary)
 
     def test_diagnostics_file_is_rejected_for_non_diagnostics_role(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server(
@@ -2504,7 +2893,17 @@ def _qdrant_config() -> RetrievalQdrantConfig:
     )
 
 
-def _test_retrieval_plan(*, required_roles: tuple[str, ...]) -> WorkspaceRetrievalPlan:
+def _test_retrieval_plan(
+    *,
+    required_roles: tuple[str, ...],
+    supporting_roles: tuple[str, ...] = (),
+    primary_intent: str = "behavior_explanation",
+    specificity: str = "medium",
+    active_objectives: tuple[str, ...] = (),
+    deferred_objectives: tuple[str, ...] = (),
+    include_supporting_llm_subqueries: bool = True,
+) -> WorkspaceRetrievalPlan:
+    llm_roles = (*required_roles, *supporting_roles) if include_supporting_llm_subqueries else required_roles
     return WorkspaceRetrievalPlan(
         conversation_id="conv",
         raw_prompt="Explain abstract classes.",
@@ -2518,14 +2917,18 @@ def _test_retrieval_plan(*, required_roles: tuple[str, ...]) -> WorkspaceRetriev
         grounded_file_hints=(),
         confirmed_file_hints=(),
         llm_concept_terms=("abstract classes",),
-        llm_subqueries=tuple(RoleDirectedSubquery(role=role, query=f"query for {role}") for role in required_roles),
+        llm_subqueries=tuple(RoleDirectedSubquery(role=role, query=f"query for {role}") for role in llm_roles),
         owner_subqueries=tuple(RoleDirectedSubquery(role=role, query=f"owner query for {role}") for role in required_roles),
-        support_subqueries=(),
+        support_subqueries=tuple(RoleDirectedSubquery(role=role, query=f"support query for {role}") for role in supporting_roles),
         speculative_entities=("checker.ts",),
         source_priorities=(SourceCategory.SOURCE_CODE,),
         negative_filters=("harness",),
         required_roles=required_roles,
-        supporting_roles=(),
+        supporting_roles=supporting_roles,
+        primary_intent=primary_intent,
+        specificity=specificity,
+        active_objectives=active_objectives,
+        deferred_objectives=deferred_objectives,
         metadata={"planner": "test"},
     )
 
@@ -2615,7 +3018,14 @@ def _test_bucket(
     )
 
 
-def _step2_response(subqueries: list[tuple[str, str]] | None = None) -> dict[str, object]:
+def _step2_response(
+    subqueries: list[tuple[str, str]] | None = None,
+    *,
+    primary_intent: str = "behavior_explanation",
+    specificity: str = "medium",
+    active_objectives: list[str] | None = None,
+    deferred_objectives: list[str] | None = None,
+) -> dict[str, object]:
     pairs = subqueries or [
         ("input_parsing", "where is parseClassDeclaration syntax parsed"),
         ("validation_checking", "where is abstract class validation enforced"),
@@ -2628,6 +3038,10 @@ def _step2_response(subqueries: list[tuple[str, str]] | None = None) -> dict[str
         "speculative_entities": ["checkAbstractMembers"],
         "source_priorities": ["source_code"],
         "negative_filters": ["harness"],
+        "primary_intent": primary_intent,
+        "specificity": specificity,
+        "active_objectives": active_objectives or [],
+        "deferred_objectives": deferred_objectives or [],
     }
 
 
