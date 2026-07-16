@@ -1,5 +1,40 @@
 # Retrieval Changelog
 
+## 2026-07-12
+
+### Changed: Adaptive Loop Support-Subquery Promotion
+
+- Intended stage boundary:
+  - keep Step2 as the planner that emits `support_subqueries`,
+  - keep `adaptive_loop.py` responsible for promotion decisions,
+  - fix `role_retrieval.py` so supporting-phase retrieval executes support-role queries instead of looking only at primary `llm_subqueries`.
+- Expected quality impact:
+  - promoted objectives such as `verification_repro -> tests` should now have a real chance to add evidence,
+  - narrow defect runs should avoid the previous no-op promotion where a role was promoted but no tool calls were made,
+  - the deterministic gate remains unchanged in this slice; objective-aware sufficiency is still a separate follow-up.
+- Expected token impact:
+  - promoted support rounds can now spend additional retrieval calls where previously they spent zero,
+  - first-round token use is unchanged,
+  - total tokens may increase when support evidence is actually retrieved, but the increase is tied to an explicit deferred-objective promotion.
+- Known regression risks:
+  - support subqueries may retrieve noisy test/config/doc artifacts if Step2 emits weak support queries,
+  - support evidence may improve synthesis while the legacy deterministic gate still reports missing old required roles,
+  - the no-op skip guard only skips roles with no executable planned query; it does not suppress an executed query that returns no useful evidence.
+- Verification:
+  - `.venv\Scripts\python.exe -m unittest tests.test_workspace_step2_objectives tests.test_coderepoqa_retrieval tests.test_workspace_retrieval` passed 85 tests immediately after the change.
+  - `npm.cmd run coderepoqa:evaluate:workspace -- --issue-json testing/codeRepoQA/corpus/cases/vuejs-vue-10803/issue.json` failed before pipeline execution because npm invoked system `python`, which lacked `langgraph`.
+  - subsequent direct `.venv\Scripts\python.exe` and `py -3.11` invocations became blocked by the Windows Python launcher/session state, so the real Vue rerun could not be completed in this turn.
+- Follow-up runtime repair and real-run result:
+  - repaired `.venv` by rebinding it from the stale WindowsApps Python target to `C:\Users\mukha\AppData\Local\Programs\Python\Python311\python.exe`,
+  - changed Python-backed npm scripts to invoke `.venv\Scripts\python.exe` directly so the documented CodeRepoQA commands use the project environment,
+  - reran the focused unit suite: `.venv\Scripts\python.exe -m unittest tests.test_workspace_step2_objectives tests.test_coderepoqa_retrieval tests.test_workspace_retrieval` passed 85 tests,
+  - real Vue run `run-20260712T164219Z`: `coverage_status=partial`, `sufficient=false`, `overlap_count=0`, `implementation_overlap_count=0`, 2 retrieved source files, 226 tool calls, retrieval LLM tokens `12,439`, no promoted roles because `owner_grounded=false`,
+  - real Vue run `run-20260712T164506Z`: `coverage_status=partial`, `sufficient=false`, `overlap_count=0`, `implementation_overlap_count=0`, 2 retrieved source files, 237 tool calls, retrieval LLM tokens `12,509`, no promoted roles because `owner_grounded=false`.
+- Quality conclusion:
+  - the Python/npm environment is fixed,
+  - the support-subquery promotion fix is unit-covered but was not exercised in the Vue real runs because the loop stopped in owner-recovery mode before promotion,
+  - current adaptive-loop behavior is not acceptable on the Vue benchmark: two real runs missed the oracle owner file, so the next retrieval change should target owner-grounding/recovery before treating support promotion as validated.
+
 ## 2026-06-24
 
 ### Changed: Workspace Step2 Objective Metadata And Narrow-Defect Role Selection

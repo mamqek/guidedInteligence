@@ -383,6 +383,8 @@ def _normalize_objectives(
             bool(prompt_signal_flags.get("has_native_repro")),
             deferred,
         )
+        if prompt_signal_flags.get("has_native_repro") and OBJECTIVE_VERIFICATION_REPRO not in active:
+            active.append(OBJECTIVE_VERIFICATION_REPRO)
         if not prompt_signal_flags.get("mentions_config"):
             active = _remove_unless(active, OBJECTIVE_CONFIGURATION_CONTEXT, False, deferred)
         for objective in (OBJECTIVE_BEHAVIOR_PATH, OBJECTIVE_CONFIGURATION_CONTEXT, OBJECTIVE_USAGE_CONTRACT):

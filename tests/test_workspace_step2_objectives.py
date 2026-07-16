@@ -135,6 +135,23 @@ class WorkspaceStep2ObjectiveTests(unittest.TestCase):
         self.assertEqual(active, (OBJECTIVE_IMPLEMENTATION_OWNER, OBJECTIVE_EFFECTS_OUTPUT))
         self.assertIn(OBJECTIVE_DIAGNOSTIC_SURFACE, deferred)
 
+    def test_narrow_defect_native_repro_adds_verification_objective(self) -> None:
+        active, deferred = _normalize_objectives(
+            primary_intent=INTENT_DEFECT_LOCALIZATION,
+            specificity=SPECIFICITY_NARROW,
+            active_objectives=(OBJECTIVE_IMPLEMENTATION_OWNER,),
+            deferred_objectives=(OBJECTIVE_CONFIGURATION_CONTEXT,),
+            prompt_signal_flags={
+                "has_diagnostic_surface": False,
+                "has_output_symptom": True,
+                "has_native_repro": True,
+                "mentions_config": False,
+            },
+        )
+
+        self.assertIn(OBJECTIVE_VERIFICATION_REPRO, active)
+        self.assertNotIn(OBJECTIVE_VERIFICATION_REPRO, deferred)
+
     def test_objective_role_selection_maps_owner_to_minimal_legacy_owner_roles(self) -> None:
         required_roles = legacy_required_roles_for_objectives((OBJECTIVE_IMPLEMENTATION_OWNER,))
         supporting_roles = legacy_supporting_roles_for_objectives(

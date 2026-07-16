@@ -6,30 +6,16 @@ from pathlib import Path
 from typing import Mapping
 
 from core.models import ConversationState, PolicyResult, RetrievalResult
-from services.retrieval.workspace.pipeline.coverage import (
-    build_deterministic_coverage_gate as _build_deterministic_coverage_gate,
-    coverage_status as _coverage_status,
-)
+from services.retrieval.workspace.pipeline.coverage import coverage_status as _coverage_status
+from services.retrieval.workspace.pipeline.execution_flow.adaptive_loop import run_adaptive_retrieval_loop
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
 from services.retrieval.workspace.pipeline.execution_flow.connected_sources_flow import connected_source_context
-from services.retrieval.workspace.pipeline.execution_flow.coverage_synthesis import (
-    apply_protocol_relationship_bridge,
-    apply_synthesis_feedback,
-    focused_owner_grounded,
-    owner_focus_roles as select_owner_focus_roles,
-    synthesize_or_accept_deterministic,
-)
 from services.retrieval.workspace.pipeline.execution_flow.index_setup import (
     build_step2_repo_context,
     cgc_tools as build_cgc_tools,
     rebuild_index,
 )
 from services.retrieval.workspace.pipeline.execution_flow.narrowing import run_initial_narrowing
-from services.retrieval.workspace.pipeline.execution_flow.refinement_recovery import (
-    recover_weak_role_buckets,
-    refine_selected_role_buckets,
-)
-from services.retrieval.workspace.pipeline.execution_flow.role_retrieval import retrieve_responsibility_role_buckets
 from services.retrieval.workspace.pipeline.execution_flow.run_outcomes import (
     apply_objective_role_selection,
     failed_result,
@@ -43,7 +29,6 @@ from services.retrieval.workspace.pipeline.file_level import (
     bucket_unresolved_roles as _bucket_unresolved_roles,
     coverage_area_names as _coverage_area_names,
 )
-from services.retrieval.workspace.pipeline.models import RoleRetrievalBucket
 from services.retrieval.workspace.step2 import (
     existing_evidence_plan,
     extract_prompt_evidence,
@@ -333,170 +318,40 @@ def run_workspace_retrieval(
         failed_observation = narrowing_observations[0] if narrowing_observations else index_observation
         return failed_result(ctx, retrieval_plan, failure="cgc_narrowing_failed", observation=failed_observation)
 
-    # Step 6: Retrieve required role buckets.
-    # Required roles are collected first because they represent the minimum evidence contract for the answer.
+    # Step 6: Run the bounded retrieval loop.
+    # The loop owns role retrieval, refinement, synthesis, recovery, protocol bridging, and deferred role promotion.
 
-    # ///////////////////////
-    required_role_stage_started = ctx.trace.start_stage(
-        "required_role_retrieval",
-        "Collecting core evidence",
-        required_roles=list(retrieval_plan.required_roles),
-    )
-    # ///////////////////////
-
-    required_buckets, tool_call_count, responsibility_intents = retrieve_responsibility_role_buckets(
+    loop_result = run_adaptive_retrieval_loop(
         ctx,
         retrieval_plan=retrieval_plan,
-        subquery_roles=retrieval_plan.required_roles,
         qdrant_tool=qdrant_tool,
         open_file_tool=open_file_tool,
         cgc_tools=cgc_tools,
         narrowed_files=global_narrowed_files,
         starting_tool_call_count=tool_call_count,
-        phase="required",
     )
-
-    # ///////////////////////
-    ctx.trace.complete_stage(
-        "required_role_retrieval",
-        "Collecting core evidence",
-        required_role_stage_started,
-        bucket_count=len(required_buckets),
-        tool_calls=tool_call_count,
-    )
-    # ///////////////////////
-
-    # Step 7: Apply responsibility expansion and reranking.
-    # Owner focus chooses which required roles should act as implementation anchors before support expansion.
-    owner_focus_roles = select_owner_focus_roles(ctx, retrieval_plan=retrieval_plan, buckets=required_buckets)
+    required_buckets = loop_result.required_buckets
+    supporting_buckets = loop_result.supporting_buckets
+    synthesis_decision = loop_result.synthesis_decision
+    deterministic_gate = loop_result.deterministic_gate
+    tool_call_count = loop_result.tool_call_count
+    responsibility_intents = loop_result.responsibility_intents
 
     # ///////////////////////
     ctx.trace.record(
-        "owner_focus_roles_selected",
+        "adaptive_loop_stopped",
         {
-            "required_roles": list(retrieval_plan.required_roles),
-            "focused_roles": list(owner_focus_roles),
+            "stop_reason": loop_result.stop_reason,
+            "exploration_rounds": loop_result.exploration_rounds,
+            "adaptive_rounds": loop_result.adaptive_rounds,
+            "promoted_roles": list(loop_result.promoted_roles),
+            "promoted_objectives": list(loop_result.promoted_objectives),
         },
     )
     # ///////////////////////
 
-
-    # Step 8: Run role refinement and follow-up recovery.
-    # Refinement is limited to owner-focused roles so recovery improves precision instead of widening blindly.
-
-    # ///////////////////////
-    role_refinement_stage_started = ctx.trace.start_stage(
-        "role_refinement",
-        "Tightening file-level evidence",
-        focused_roles=list(owner_focus_roles),
-    )
-    # ///////////////////////
-
-    required_buckets, tool_call_count = refine_selected_role_buckets(
-        ctx,
-        buckets=required_buckets,
-        rescue_roles=owner_focus_roles,
-        qdrant_tool=qdrant_tool,
-        open_file_tool=open_file_tool,
-        cgc_tools=cgc_tools,
-        starting_tool_call_count=tool_call_count,
-    )
-
-    # ///////////////////////
-    ctx.trace.complete_stage(
-        "role_refinement",
-        "Tightening file-level evidence",
-        role_refinement_stage_started,
-        bucket_count=len(required_buckets),
-        tool_calls=tool_call_count,
-    )
-    # ///////////////////////
-
-
-    # Step 9: Run synthesis assessment.
-    # Synthesis decides whether retrieved snippets satisfy the plan before more retrieval cost is allowed.
-
-    # ///////////////////////
-    synthesis_assessment_stage_started = ctx.trace.start_stage(
-        "synthesis_assessment",
-        "Checking whether the evidence is enough",
-    )
-    # ///////////////////////
-
-    synthesis_decision = synthesize_or_accept_deterministic(ctx, retrieval_plan, required_buckets)
-    required_buckets = apply_synthesis_feedback(
-        ctx,
-        buckets=required_buckets,
-        decision=synthesis_decision,
-        required_roles=retrieval_plan.required_roles,
-    )
-
-    # ///////////////////////
-    ctx.trace.complete_stage(
-        "synthesis_assessment",
-        "Checking whether the evidence is enough",
-        synthesis_assessment_stage_started,
-        acceptance_satisfied=synthesis_decision.acceptance_satisfied,
-        missing_roles=list(synthesis_decision.missing_roles),
-    )
-    # ///////////////////////
-
-
-    # Step 10: Run supporting role retrieval when required evidence remains weak.
-    # Weak-role recovery gives required buckets one more chance before optional support roles are promoted.
-
-    # ///////////////////////
-    weak_role_stage_started = ctx.trace.start_stage(
-        "weak_role_recovery",
-        "Recovering weak evidence areas",
-        missing_roles=list(synthesis_decision.missing_roles),
-    )
-    # ///////////////////////
-
-    required_buckets, tool_call_count, synthesis_decision = recover_weak_role_buckets(
-        ctx,
-        retrieval_plan=retrieval_plan,
-        buckets=required_buckets,
-        synthesis_decision=synthesis_decision,
-        qdrant_tool=qdrant_tool,
-        open_file_tool=open_file_tool,
-        cgc_tools=cgc_tools,
-        narrowed_files=global_narrowed_files,
-        starting_tool_call_count=tool_call_count,
-    )
-
-    # ///////////////////////
-    ctx.trace.complete_stage(
-        "weak_role_recovery",
-        "Recovering weak evidence areas",
-        weak_role_stage_started,
-        acceptance_satisfied=synthesis_decision.acceptance_satisfied,
-        missing_roles=list(synthesis_decision.missing_roles),
-    )
-    # ///////////////////////
-
-
-    # Step 11: Apply protocol bridge and deterministic coverage gate wiring.
-    # Protocol bridging is late because it should connect already-plausible anchors, not create the first owner guess.
-
-    # ///////////////////////
-    protocol_bridge_stage_started = ctx.trace.start_stage(
-        "protocol_bridge",
-        "Connecting prompt details to code paths",
-    )
-    # ///////////////////////
-
-    required_buckets = apply_protocol_relationship_bridge(ctx, required_buckets, retrieval_plan=retrieval_plan)
-
-    # ///////////////////////
-    ctx.trace.complete_stage(
-        "protocol_bridge",
-        "Connecting prompt details to code paths",
-        protocol_bridge_stage_started,
-        bucket_count=len(required_buckets),
-    )
-    # ///////////////////////
-
+    # Step 7: Select final evidence and build the retrieval result.
+    # Evidence selection happens after all coverage updates so final items reflect accepted anchors, connected sources, and gate status.
 
     # ///////////////////////
     coverage_gate_stage_started = ctx.trace.start_stage(
@@ -505,71 +360,6 @@ def run_workspace_retrieval(
     )
     # ///////////////////////
 
-    deterministic_gate = _build_deterministic_coverage_gate(retrieval_plan.required_roles, required_buckets)
-
-    supporting_buckets: tuple[RoleRetrievalBucket, ...] = ()
-    owner_grounded = focused_owner_grounded(ctx, required_buckets, owner_focus_roles)
-
-    # ///////////////////////
-    ctx.trace.record(
-        "owner_grounding_checked",
-        {
-            "focused_roles": list(owner_focus_roles),
-            "grounded": owner_grounded,
-        },
-    )
-    # ///////////////////////
-
-    # Expand into supporting roles only after core owner evidence is grounded; otherwise support/context files can drown out the implementation target.
-    if not synthesis_decision.acceptance_satisfied and _bucket_unresolved_roles(required_buckets) and owner_grounded:
-        supporting_buckets, tool_call_count, supporting_intents = retrieve_responsibility_role_buckets(
-            ctx,
-            retrieval_plan=retrieval_plan,
-            subquery_roles=retrieval_plan.supporting_roles,
-            qdrant_tool=qdrant_tool,
-            open_file_tool=open_file_tool,
-            cgc_tools=cgc_tools,
-            narrowed_files=global_narrowed_files,
-            starting_tool_call_count=tool_call_count,
-            phase="supporting",
-        )
-        responsibility_intents = tuple((*responsibility_intents, *supporting_intents))
-        supporting_buckets, tool_call_count = refine_selected_role_buckets(
-            ctx,
-            buckets=supporting_buckets,
-            rescue_roles=retrieval_plan.supporting_roles,
-            qdrant_tool=qdrant_tool,
-            open_file_tool=open_file_tool,
-            cgc_tools=cgc_tools,
-            starting_tool_call_count=tool_call_count,
-        )
-        synthesis_decision = synthesize_or_accept_deterministic(ctx, retrieval_plan, required_buckets + supporting_buckets)
-        updated_buckets = apply_synthesis_feedback(
-            ctx,
-            buckets=required_buckets + supporting_buckets,
-            decision=synthesis_decision,
-            required_roles=retrieval_plan.required_roles,
-        )
-        required_buckets = tuple(bucket for bucket in updated_buckets if bucket.role in retrieval_plan.required_roles)
-        supporting_buckets = tuple(bucket for bucket in updated_buckets if bucket.role in retrieval_plan.supporting_roles)
-        deterministic_gate = _build_deterministic_coverage_gate(retrieval_plan.required_roles, required_buckets)
-    elif not owner_grounded and _bucket_unresolved_roles(required_buckets):
-        # Deferring support expansion is intentional: an ungrounded owner means the next round should improve ownership, not add context.
-
-        # ///////////////////////
-        ctx.trace.record(
-            "supporting_expansion_deferred",
-            {
-                "reason": "owner_not_grounded",
-                "unresolved_required_roles": list(_bucket_unresolved_roles(required_buckets)),
-                "focused_roles": list(owner_focus_roles),
-            },
-        )
-        # ///////////////////////
-
-
-    # Step 12: Select final evidence and build the retrieval result.
-    # Evidence selection happens after all coverage updates so final items reflect accepted anchors, connected sources, and gate status.
     selected = _select_evidence_items(required_buckets, supporting_buckets, policy_result.allowed_sources)
     selected = _append_accepted_decision_evidence(
         selected,
@@ -658,8 +448,12 @@ def run_workspace_retrieval(
         "index_document_count": len(index.documents),
         "selected_count": len(selected),
         "tool_calls": tool_call_count,
-        "exploration_rounds": 0,
-        "stop_reason": synthesis_decision.stop_reason or "late_synthesis_complete",
+        "exploration_rounds": loop_result.exploration_rounds,
+        "adaptive_rounds": loop_result.adaptive_rounds,
+        "promoted_roles": list(loop_result.promoted_roles),
+        "promoted_objectives": list(loop_result.promoted_objectives),
+        "round_summaries": [dict(item) for item in loop_result.round_summaries],
+        "stop_reason": loop_result.stop_reason or synthesis_decision.stop_reason or "late_synthesis_complete",
         "cgc_command_prefix": list(ctx.config.cgc_command),
         "cgc_index_command": index_observation.payload.get("command", []),
         "cgc_narrowed_file_count": len(global_narrowed_files),
