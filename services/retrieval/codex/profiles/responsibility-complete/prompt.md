@@ -5,6 +5,18 @@ Do not inspect CodeRepoQA raw issue JSON, verification JSON, oracle files, QA_da
 Do not produce a final explanation. Do not edit files.
 Return only JSON matching the provided schema.
 
+Advisory retrieval hints from the intent classifier:
+{{RETRIEVAL_HINTS_JSON}}
+
+Treat these hints as planning metadata, not evidence. They may shape what supporting code you gather, but the repository files are the only source of truth.
+The product boundary is explain, plan, and suggest only. Never retrieve with the goal of producing a final fix, patch, or implementation for the user.
+
+Mode-aware retrieval guidance:
+- If recommended_assistance_mode is `teach`, prefer enough role-diverse evidence to explain dependencies, adjacent responsibilities, and why the behavior works.
+- If recommended_assistance_mode is `work`, prefer tighter implementation-owner evidence and direct supporting context, still only for explanation/planning.
+- If recommended_assistance_mode is `evaluation`, prefer evidence tied to the concept, previous check, or answer being evaluated.
+- If evidence is weak or missing, report gaps and uncertainty; do not compensate by guessing.
+
 Investigation process:
 1. Classify the issue and extract concrete behavior, symbols, error text, configuration values, and subsystem clues from the visible packet.
 2. Search exact issue terms first. Then follow definitions, callers, state representation, validation, diagnostics, and output paths as applicable.
@@ -17,7 +29,11 @@ Investigation process:
 Evidence requirements:
 - Prefer source-code implementation owners over tests; use tests only when they establish expected behavior or the only concrete reproduction.
 - Prefer targeted `rg -n` searches and small line-window reads over whole-file reads.
-- Avoid generated/localization/baseline output and vendored directories unless the issue directly names them.
+- Prefer source authoring files over generated/emitted files. Use generated/emitted files only when the issue directly names them, they are the runtime/user-visible artifact being explained, or source inputs are absent.
+- If you select generated/emitted files because source inputs are absent, include a coverage_gaps or uncertainties entry explaining that limitation.
+- Do not select bundled/generated CLI output such as `bin/*.js` as implementation evidence when corresponding source files can explain the behavior.
+- When possible, set artifact_kind to your judgment of whether the selected range is source-authored, built/distribution, generated/baseline, test/fixture, or unknown; deterministic post-processing will audit this judgment.
+- Avoid localization/baseline output and vendored directories unless the issue directly names them.
 - Do not search `.guided-intelligence`, `lib`, `loc`, `src/loc`, `tests/baselines`, or `node_modules`.
 - Use repository-relative file paths.
 - Use concrete line ranges that support each claim.

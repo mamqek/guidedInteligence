@@ -23,6 +23,7 @@ from services.retrieval.workspace.bm25 import build_index_from_repo, save_index
 from services.retrieval import workspace_llm
 from services.retrieval.workspace.bm25 import BM25SearchResult
 from services.retrieval.config import (
+    ConnectedSourceDocument,
     RetrievalEmbeddingConfig,
     RetrievalQdrantConfig,
     RunLLMConfig,
@@ -2140,6 +2141,191 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             )
             selected_paths = {item.metadata.get("path") for item in result.evidence}
             self.assertIn("src/compiler/checker.ts", selected_paths)
+
+    def test_external_source_full_flow_certifies_relevant_context_and_rejects_noise(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server(
+            [
+                {
+                    "queries": [
+                        {
+                            "source_key": "github_issues",
+                            "query": "checkout state confirmation owner",
+                            "reason": "The connected issue source may identify the owning runtime file.",
+                            "should_query": True,
+                        }
+                    ]
+                },
+                {
+                    "ranked_documents": [
+                        {
+                            "source_id": "github:issue-123",
+                            "relevance_score": 0.98,
+                            "decision": "accept",
+                            "reason": "Names the concrete owner file and behavior.",
+                            "contribution_type": "file",
+                            "adds_code_retrieval_signal": True,
+                            "currentness": "current",
+                            "confidence": "high",
+                            "context_use": True,
+                            "evidence_use": True,
+                        },
+                        {
+                            "source_id": "github:issue-999",
+                            "relevance_score": 0.05,
+                            "decision": "reject",
+                            "reason": "Roadmap note with overlapping words but no current code clue.",
+                            "contribution_type": "terminology_only",
+                            "adds_code_retrieval_signal": False,
+                            "currentness": "current",
+                            "confidence": "low",
+                            "context_use": False,
+                            "evidence_use": False,
+                        },
+                    ],
+                    "signals": {
+                        "retrieval_terms": [
+                            {
+                                "value": "checkout confirmation state owner",
+                                "source_ids": ["github:issue-123"],
+                            }
+                        ],
+                        "file_hints": [
+                            {
+                                "value": "src/runtime/checkout.ts",
+                                "source_ids": ["github:issue-123"],
+                            }
+                        ],
+                        "symbol_hints": [
+                            {
+                                "value": "resolveCheckoutConfirmation",
+                                "source_ids": ["github:issue-123"],
+                            }
+                        ],
+                        "suggested_subqueries": [
+                            {
+                                "value": "Where does checkout confirmation state get resolved?",
+                                "source_ids": ["github:issue-123"],
+                            }
+                        ],
+                    },
+                    "facts": [
+                        {
+                            "text": "Checkout confirmation behavior is owned by src/runtime/checkout.ts.",
+                            "source_ids": ["github:issue-123"],
+                        }
+                    ],
+                    "conflicts": [],
+                },
+                _step2_response(
+                    subqueries=[
+                        (
+                            "behavior_output",
+                            "where is resolveCheckoutConfirmation implemented for checkout confirmation state",
+                        )
+                    ]
+                ),
+                _late_synthesis_response(
+                    accepted_anchor_refs=["workspace:src/runtime/checkout.ts:L1-L5"],
+                ),
+                _late_synthesis_response(
+                    accepted_anchor_refs=["workspace:src/runtime/checkout.ts:L1-L5"],
+                ),
+                _late_synthesis_response(
+                    accepted_anchor_refs=["workspace:src/runtime/checkout.ts:L1-L5"],
+                ),
+            ]
+        ) as server_url:
+            root = Path(temp_dir)
+            repo = root / "repo"
+            index_dir = root / "index"
+            (repo / "src" / "runtime").mkdir(parents=True)
+            (repo / "src" / "runtime" / "checkout.ts").write_text(
+                "\n".join(
+                    [
+                        "export function resolveCheckoutConfirmation(state) {",
+                        "  if (state.paymentAuthorized && state.inventoryReserved) {",
+                        "    return 'confirmed';",
+                        "  }",
+                        "  return 'pending';",
+                        "}",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            (repo / "src" / "runtime" / "roadmap.ts").write_text(
+                "export const roadmap = 'checkout confirmation redesign someday';\n",
+                encoding="utf-8",
+            )
+            index = build_index_from_repo(repo_path=repo, commit="workspace", chunk_line_count=40, chunk_line_overlap=10)
+            save_index(index, index_dir)
+            relevant_issue = ConnectedSourceDocument(
+                source_category=SourceCategory.ISSUE_TRACKER,
+                source_key="github_issues",
+                source_id="github:issue-123",
+                title="Checkout confirmation stuck pending",
+                content="The current owner is src/runtime/checkout.ts and symbol resolveCheckoutConfirmation.",
+                metadata={"provider": "github", "source_key": "github_issues"},
+            )
+            noise_issue = ConnectedSourceDocument(
+                source_category=SourceCategory.ISSUE_TRACKER,
+                source_key="github_issues",
+                source_id="github:issue-999",
+                title="Checkout confirmation roadmap",
+                content="A speculative roadmap note about future checkout confirmation UX.",
+                metadata={"provider": "github", "source_key": "github_issues"},
+            )
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=str(repo),
+                    index_dir=str(index_dir),
+                    run_dir=str(root / "run"),
+                    llm_config=_llm_config(server_url),
+                    embedding_config=_embedding_config(),
+                    qdrant_config=_qdrant_config(),
+                    enable_indexing=False,
+                    enabled_sources=("source_code", "github_issues"),
+                    issue_tracker_documents=(relevant_issue, noise_issue),
+                    obsidian_vault_path=None,
+                )
+            )
+            (index_dir / "qdrant-sync-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "collection_name": stage.config.qdrant_config.collection_name,
+                        "document_count": len(index.documents),
+                        "index_signature": f"sig:{len(index.documents)}",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            state = ConversationState(
+                conversation_id="conv",
+                user_input="Explain why checkout confirmation stays pending.",
+                intent=UserIntent.UNDERSTAND_CODE,
+            )
+
+            with _fake_cgc(files=[{"path": "src/runtime/checkout.ts"}]):
+                result = stage.retrieve(state, _policy_result(state))
+
+            connected = result.retrieval_summary["connected_source_context"]
+            self.assertEqual(["github:issue-123"], connected["selected_context_ids"])
+            self.assertEqual(["github:issue-123"], connected["selected_evidence_ids"])
+            self.assertIn("src/runtime/checkout.ts", result.retrieval_summary["retrieval_plan"]["confirmed_file_hints"])
+            self.assertNotIn("github:issue-999", connected["selected_context_ids"])
+            self.assertNotIn("github:issue-999", connected["selected_evidence_ids"])
+
+            evidence_ids = {item.source_id for item in result.evidence}
+            evidence_paths = {item.metadata.get("path") for item in result.evidence}
+            self.assertIn("github:issue-123", evidence_ids)
+            self.assertNotIn("github:issue-999", evidence_ids)
+            self.assertIn("src/runtime/checkout.ts", evidence_paths)
+            self.assertNotIn("src/runtime/roadmap.ts", evidence_paths)
+
+            trace = (root / "run" / "retrieval-trace.jsonl").read_text(encoding="utf-8")
+            self.assertIn("connected_source_context_completed", trace)
+            self.assertIn("evidence_selected", trace)
+            self.assertIn("github:issue-123", trace)
+            self.assertIn("github:issue-999", trace)
 
     def test_obsidian_file_hints_are_role_scoped_not_global_narrowing(self) -> None:
         plan = _test_retrieval_plan(required_roles=("validation_checking",))

@@ -22,7 +22,19 @@ def resolve_codex_command(command: Sequence[str] | None = None) -> tuple[str, ..
 
 def _preferred_codex_executable() -> str:
     candidates = []
+    configured_path = os.environ.get("CODEX_CLI_PATH")
+    if configured_path:
+        candidates.append(Path(configured_path))
     home = Path.home()
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if os.name == "nt" and local_app_data:
+        codex_bin = Path(local_app_data) / "OpenAI" / "Codex" / "bin"
+        if codex_bin.is_dir():
+            candidates.extend(
+                path / "codex.exe"
+                for path in sorted(codex_bin.iterdir(), key=lambda path: path.stat().st_mtime, reverse=True)
+                if path.is_dir() and (path / "codex.exe").is_file()
+            )
     if os.name == "nt":
         candidates.append(home / ".codex" / ".sandbox-bin" / "codex.exe")
     else:

@@ -13,6 +13,16 @@ class LogEventType(str, Enum):
     RUN_STARTED = "run_started"
     #: Policy selected or rejected a guided turn.
     TURN_DECISION = "turn_decision"
+    #: Shadow semantic intent classification was attempted.
+    INTENT_CLASSIFICATION = "intent_classification"
+    #: Shadow semantic intent classification was normalized.
+    INTENT_NORMALIZATION = "intent_normalization"
+    #: Shadow semantic intent was compared with retrieval-side intent signals.
+    INTENT_AGREEMENT = "intent_agreement"
+    #: Shadow or active intent router produced a pipeline decision.
+    INTENT_ROUTING_DECISION = "intent_routing_decision"
+    #: Shadow assistance-mode router produced a mode decision.
+    INTENT_ASSISTANCE_DECISION = "intent_assistance_decision"
     #: Retrieval decided which source categories to consult and in what order.
     RETRIEVAL_PLAN = "retrieval_plan"
     #: Retrieval or context building selected concrete evidence items.

@@ -303,6 +303,18 @@ export const api = {
   runs: () => requestJson<{ runs: RunSummary[] }>("/runs"),
   run: (runId: string) => requestJson<RunDetail>(`/runs/${encodeURIComponent(runId)}`),
   trace: (runId: string) => requestJson<RunTrace>(`/runs/${encodeURIComponent(runId)}/trace`),
+  openSourceFile: (path: string) =>
+    requestJson<{ opened: boolean; path: string }>("/source/open", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ path }),
+    }),
+  openRunSourceFile: (runId: string, path: string) =>
+    requestJson<{ opened: boolean; path: string; vscode_url?: string }>(`/runs/${encodeURIComponent(runId)}/source/open`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ path }),
+    }),
   retrieve: (payload: { prompt: string; allowed_sources: string[]; run_id?: string }) =>
     requestJson<RunSummary>("/retrieve", {
       method: "POST",

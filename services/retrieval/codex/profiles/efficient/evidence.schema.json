@@ -32,6 +32,16 @@
           },
           "coverage_area": {
             "type": "string"
+          },
+          "artifact_kind": {
+            "type": "string",
+            "enum": [
+              "source_authoring_file",
+              "built_or_distribution_artifact",
+              "generated_or_baseline_artifact",
+              "test_or_fixture",
+              "unknown"
+            ]
           }
         },
         "required": [
@@ -40,7 +50,8 @@
           "line_end",
           "claim_supported",
           "why_relevant",
-          "coverage_area"
+          "coverage_area",
+          "artifact_kind"
         ],
         "additionalProperties": false
       }

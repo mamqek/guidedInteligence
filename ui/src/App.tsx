@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { api, AnswerEvaluation, AppConfig, EvidenceItem, Health, IndexEstimate, IndexPrepareJob, ProviderAuthState, RemoteMcpSource, RunDetail, RunSummary, RunTrace, UnderstandingCheck, WorkspaceEntry } from "./api";
 import { sourceLabels, sourceOrder } from "./constants";
 
@@ -510,6 +510,7 @@ function ConnectionsPanel({
   const githubRemoteEntries = [githubRemoteIssueEntry, githubRemotePullRequestEntry].filter((entry): entry is { source: RemoteMcpSource; index: number } => Boolean(entry));
   const otherRemoteMcpEntries = remoteMcpEntries.filter((entry) => entry.source.name !== "github-issues" && entry.source.name !== "github-prs");
   const githubRemoteScope = githubRemoteIssueEntry?.source.scope || githubRemotePullRequestEntry?.source.scope || health?.github_repository || "";
+  const githubRepoScope = parseGitHubRepoScope(githubRemoteScope);
   const githubRemoteSource = githubRemoteIssueEntry?.source || githubRemotePullRequestEntry?.source;
   const githubCardExpanded = Boolean(expandedRemoteCards.github);
   const githubEnabledParts = [
@@ -566,6 +567,13 @@ function ConnectionsPanel({
       setRemoteTestResults((current) => ({ ...current, [sourceName]: undefined as unknown as Record<string, unknown> }));
       setRemoteTestErrors((current) => ({ ...current, [sourceName]: "" }));
     }
+  }
+
+  function updateGitHubRepoScope(patch: Partial<{ owner: string; repo: string }>) {
+    const next = { ...githubRepoScope, ...patch };
+    updateRemoteMcpSources(githubRemoteEntries.map((entry) => entry.index), {
+      scope: formatGitHubRepoScope(next.owner, next.repo),
+    });
   }
 
   async function saveConnections() {
@@ -753,14 +761,27 @@ function ConnectionsPanel({
                 </div>
                 {githubCardExpanded && (
                   <div className="remoteMcpBody">
-                    <label className="fieldLabel">
-                      Scope
-                      <input
-                        value={githubRemoteScope}
-                        placeholder="owner/repo or org"
-                        onChange={(event) => updateRemoteMcpSources(githubRemoteEntries.map((entry) => entry.index), { scope: event.target.value })}
-                      />
-                    </label>
+                    <div className="formGrid two">
+                      <label className="fieldLabel">
+                        Repository owner
+                        <input
+                          value={githubRepoScope.owner}
+                          placeholder="microsoft"
+                          onChange={(event) => updateGitHubRepoScope({ owner: event.target.value })}
+                        />
+                      </label>
+                      <label className="fieldLabel">
+                        Repository name
+                        <input
+                          value={githubRepoScope.repo}
+                          placeholder="TypeScript"
+                          onChange={(event) => updateGitHubRepoScope({ repo: event.target.value })}
+                        />
+                      </label>
+                    </div>
+                    <p className="fieldHint">
+                      Repo scope: {githubRemoteScope || "not set"}
+                    </p>
                     <div className="sourceGrid">
                       {githubRemoteIssueEntry && (
                         <label className="checkRow">
@@ -1332,6 +1353,21 @@ function stripLegacyGitHubConnectionConfig(connections: AppConfig["connections"]
     github_fetch_pull_requests?: boolean;
   };
   return rest;
+}
+
+function parseGitHubRepoScope(scope: string): { owner: string; repo: string } {
+  const normalized = scope.trim().replace(/^https:\/\/github\.com\//i, "").replace(/^github\.com\//i, "").replace(/\.git$/i, "").replace(/^\/+|\/+$/g, "");
+  const [owner = "", repo = ""] = normalized.split("/");
+  return { owner, repo };
+}
+
+function formatGitHubRepoScope(owner: string, repo: string): string {
+  const cleanOwner = owner.trim().replace(/^\/+|\/+$/g, "");
+  const cleanRepo = repo.trim().replace(/^\/+|\/+$/g, "").replace(/\.git$/i, "");
+  if (!cleanOwner && !cleanRepo) return "";
+  if (!cleanRepo) return cleanOwner;
+  if (!cleanOwner) return cleanRepo;
+  return `${cleanOwner}/${cleanRepo}`;
 }
 
 function supportsFullContentFetch(source: RemoteMcpSource): boolean {
@@ -1922,22 +1958,41 @@ function GuidedResponsePanel({
   onSubmit: (answers: Record<string, string>) => void;
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [selectedSource, setSelectedSource] = useState<SelectedSource | null>(null);
 
   useEffect(() => {
     const next: Record<string, string> = {};
     for (const check of checks) next[check.id] = answers[check.id] || "";
     setAnswers(next);
+    setSelectedSource(null);
   }, [runDetail?.run_id]);
 
   const content = getResponseContent(runDetail);
   const canSubmit = checks.length > 0 && checks.every((check) => (answers[check.id] || "").trim()) && !loading && evaluations.length === 0;
+  const conceptDefinitions = getConceptDefinitions(runDetail);
+  const evidence = runDetail?.evidence || [];
   return (
     <section className="panel" id="guided-response">
       <div className="panelHeader">
         <h2>Guided Explanation</h2>
         <span className="panelMeta">{checks.length ? `${checks.length} checks` : "no checks"}</span>
       </div>
-      {content ? <div className="responseText">{renderMarkdown(content)}</div> : <p className="emptyText">Run retrieval to generate an explanation.</p>}
+      {content ? (
+        <div className="responseText">
+          {renderMarkdown(content, {
+            conceptDefinitions,
+            evidence,
+            onSourceLink: setSelectedSource,
+          })}
+        </div>
+      ) : <p className="emptyText">Run retrieval to generate an explanation.</p>}
+      {selectedSource && runDetail && (
+        <SourceSnippetPanel
+          runId={runDetail.run_id}
+          source={selectedSource}
+          onClose={() => setSelectedSource(null)}
+        />
+      )}
       {checks.length > 0 && (
         <div className="questionBox">
           <div className="questionHeader">
@@ -2039,7 +2094,21 @@ function TracePanel({ trace, state }: { trace: Array<Record<string, unknown>>; s
   );
 }
 
-function renderMarkdown(markdown: string): ReactNode[] {
+type MarkdownRenderContext = {
+  conceptDefinitions: ConceptDefinition[];
+  evidence: EvidenceItem[];
+  onSourceLink?: (source: SelectedSource) => void;
+};
+
+type SelectedSource = {
+  label: string;
+  href: string;
+  path: string;
+  lineRange: string;
+  evidence?: EvidenceItem;
+};
+
+function renderMarkdown(markdown: string, context: MarkdownRenderContext): ReactNode[] {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const nodes: ReactNode[] = [];
   let index = 0;
@@ -2064,7 +2133,7 @@ function renderMarkdown(markdown: string): ReactNode[] {
     const heading = /^(#{1,4})\s+(.+)$/.exec(trimmed);
     if (heading) {
       const level = heading[1].length;
-      const text = renderInlineMarkdown(heading[2]);
+      const text = renderInlineMarkdown(heading[2], context);
       if (level === 1) nodes.push(<h1 key={`h-${index}`}>{text}</h1>);
       else if (level === 2) nodes.push(<h2 key={`h-${index}`}>{text}</h2>);
       else nodes.push(<h3 key={`h-${index}`}>{text}</h3>);
@@ -2074,7 +2143,7 @@ function renderMarkdown(markdown: string): ReactNode[] {
     if (/^[-*]\s+/.test(trimmed)) {
       const items: ReactNode[] = [];
       while (index < lines.length && /^[-*]\s+/.test(lines[index].trim())) {
-        items.push(<li key={`li-${index}`}>{renderInlineMarkdown(lines[index].trim().replace(/^[-*]\s+/, ""))}</li>);
+        items.push(<li key={`li-${index}`}>{renderInlineMarkdown(lines[index].trim().replace(/^[-*]\s+/, ""), context)}</li>);
         index += 1;
       }
       nodes.push(<ul key={`ul-${index}`}>{items}</ul>);
@@ -2083,10 +2152,19 @@ function renderMarkdown(markdown: string): ReactNode[] {
     if (/^\d+[.)]\s+/.test(trimmed)) {
       const items: ReactNode[] = [];
       while (index < lines.length && /^\d+[.)]\s+/.test(lines[index].trim())) {
-        items.push(<li key={`oli-${index}`}>{renderInlineMarkdown(lines[index].trim().replace(/^\d+[.)]\s+/, ""))}</li>);
+        items.push(<li key={`oli-${index}`}>{renderInlineMarkdown(lines[index].trim().replace(/^\d+[.)]\s+/, ""), context)}</li>);
         index += 1;
       }
       nodes.push(<ol key={`ol-${index}`}>{items}</ol>);
+      continue;
+    }
+    if (isStandaloneMarkdownLink(trimmed)) {
+      const items: ReactNode[] = [];
+      while (index < lines.length && isStandaloneMarkdownLink(lines[index].trim())) {
+        items.push(<li key={`source-link-${index}`}>{renderInlineMarkdown(lines[index].trim(), context)}</li>);
+        index += 1;
+      }
+      nodes.push(<ul className="sourceLinkList" key={`source-links-${index}`}>{items}</ul>);
       continue;
     }
     const paragraph: string[] = [trimmed];
@@ -2102,22 +2180,170 @@ function renderMarkdown(markdown: string): ReactNode[] {
       paragraph.push(lines[index].trim());
       index += 1;
     }
-    nodes.push(<p key={`p-${index}`}>{renderInlineMarkdown(paragraph.join(" "))}</p>);
+    nodes.push(<p key={`p-${index}`}>{renderInlineMarkdown(paragraph.join(" "), context)}</p>);
   }
   return nodes;
 }
 
-function renderInlineMarkdown(text: string): ReactNode[] {
-  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).filter(Boolean);
+function renderInlineMarkdown(text: string, context: MarkdownRenderContext): ReactNode[] {
+  const parts = text.split(/(\[[^\]]+\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*)/g).filter(Boolean);
   return parts.map((part, index) => {
+    const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part);
+    if (link) {
+      return <SourceMarkdownLink label={link[1]} href={link[2]} context={context} key={index} />;
+    }
     if (part.startsWith("`") && part.endsWith("`")) {
-      return <code key={index}>{part.slice(1, -1)}</code>;
+      return <ConceptText text={part.slice(1, -1)} definitions={context.conceptDefinitions} code key={index} />;
     }
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
+      return <strong key={index}><ConceptText text={part.slice(2, -2)} definitions={context.conceptDefinitions} /></strong>;
     }
-    return part;
+    return <ConceptText text={part} definitions={context.conceptDefinitions} key={index} />;
   });
+}
+
+function isStandaloneMarkdownLink(text: string): boolean {
+  return /^\[[^\]]+\]\([^)]+\)$/.test(text.trim());
+}
+
+function SourceMarkdownLink({ label, href, context }: { label: string; href: string; context: MarkdownRenderContext }) {
+  const normalizedHref = href.replace(/^\.?\//, "");
+  const [path, anchor = ""] = normalizedHref.split("#", 2);
+  const lineLabel = anchor.replace(/^L/, "L");
+  const selectedSource = sourceFromHref(label, normalizedHref, context.evidence);
+  function openPanel(event: MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    context.onSourceLink?.(selectedSource);
+  }
+  return (
+    <a className="sourceMarkdownLink" href={normalizedHref} onClick={openPanel} title={`Preview ${path}${anchor ? ` at ${anchor}` : ""}`}>
+      <span className="sourceLinkLabel">{renderInlineMarkdown(label, context)}</span>
+      <span className="sourceLinkPath">{path}{lineLabel ? `:${lineLabel}` : ""}</span>
+    </a>
+  );
+}
+
+function SourceSnippetPanel({ runId, source, onClose }: { runId: string; source: SelectedSource; onClose: () => void }) {
+  const [opening, setOpening] = useState(false);
+  const [error, setError] = useState("");
+  const evidence = source.evidence;
+  async function openInVsCode() {
+    setOpening(true);
+    setError("");
+    try {
+      await api.openRunSourceFile(runId, source.href);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setOpening(false);
+    }
+  }
+  return (
+    <aside className="sourcePreviewPanel" aria-label="Source preview">
+      <div className="sourcePreviewHeader">
+        <div>
+          <strong>{source.label}</strong>
+          <span>{source.path}{source.lineRange ? `:${source.lineRange}` : ""}</span>
+        </div>
+        <button className="iconTextButton" type="button" onClick={onClose}>Close</button>
+      </div>
+      {evidence?.metadata?.claim_supported && <p className="sourcePreviewClaim">{evidence.metadata.claim_supported}</p>}
+      {evidence?.snippet ? (
+        <pre className="sourcePreviewCode">{evidence.snippet}</pre>
+      ) : (
+        <p className="emptyText">No selected snippet is available for this link, but the file can still be opened from the run workspace.</p>
+      )}
+      {error && <p className="errorText">{error}</p>}
+      <div className="sourcePreviewActions">
+        <button className="primaryButton" type="button" onClick={openInVsCode} disabled={opening}>
+          {opening ? "Opening..." : "Open in VS Code"}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function sourceFromHref(label: string, href: string, evidence: EvidenceItem[]): SelectedSource {
+  const [path, anchor = ""] = href.split("#", 2);
+  const lineRange = anchor.replace(/^L/, "L");
+  return {
+    label,
+    href,
+    path,
+    lineRange,
+    evidence: matchingEvidence(path, lineRange, evidence),
+  };
+}
+
+function matchingEvidence(path: string, lineRange: string, evidence: EvidenceItem[]): EvidenceItem | undefined {
+  const normalizedPath = path.replace(/\\/g, "/");
+  const exact = evidence.find((item) => {
+    const metadata = item.metadata || {};
+    return normalizeSourcePath(String(metadata.path || sourcePathFromId(item.source_id))) === normalizedPath
+      && String(metadata.line_range || sourceLineRangeFromId(item.source_id)) === lineRange;
+  });
+  if (exact) return exact;
+  return evidence.find((item) => normalizeSourcePath(String(item.metadata?.path || sourcePathFromId(item.source_id))) === normalizedPath);
+}
+
+function sourcePathFromId(sourceId: string): string {
+  const match = /^[^:]+:(.*):L\d+(?:-L\d+)?$/.exec(sourceId);
+  return match ? match[1] : "";
+}
+
+function sourceLineRangeFromId(sourceId: string): string {
+  const match = /:(L\d+(?:-L\d+)?)$/.exec(sourceId);
+  return match ? match[1] : "";
+}
+
+function normalizeSourcePath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\.?\//, "");
+}
+
+type ConceptDefinition = {
+  label: string;
+  description: string;
+  evidence_refs?: string[];
+};
+
+function ConceptText({ text, definitions, code = false }: { text: string; definitions: ConceptDefinition[]; code?: boolean }) {
+  const definitionMap = conceptDefinitionMap(definitions);
+  const pattern = conceptDefinitionPattern(definitions);
+  if (!pattern) {
+    return code ? <code>{text}</code> : <>{text}</>;
+  }
+  const parts = text.split(pattern).filter(Boolean);
+  const content = parts.map((part, index) => {
+    const definition = definitionMap.get(part);
+    if (!definition) return <span key={`${part}-${index}`}>{part}</span>;
+    return <ConceptTerm definition={definition} key={`${part}-${index}`} />;
+  });
+  return code ? <code>{content}</code> : <>{content}</>;
+}
+
+function ConceptTerm({ definition }: { definition: ConceptDefinition }) {
+  return (
+    <span className="conceptTerm" tabIndex={0}>
+      {definition.label}
+      <span className="conceptTooltip" role="tooltip">
+        {definition.description}
+      </span>
+    </span>
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function conceptDefinitionMap(definitions: ConceptDefinition[]): Map<string, ConceptDefinition> {
+  return new Map(definitions.map((definition) => [definition.label, definition]));
+}
+
+function conceptDefinitionPattern(definitions: ConceptDefinition[]): RegExp | undefined {
+  const labels = definitions.map((definition) => definition.label).filter(Boolean).sort((left, right) => right.length - left.length);
+  if (!labels.length) return undefined;
+  return new RegExp(`(${labels.map(escapeRegExp).join("|")})`, "g");
 }
 
 function getResponseContent(runDetail?: RunDetail): string {
@@ -2131,6 +2357,25 @@ function getUnderstandingChecks(runDetail?: RunDetail): UnderstandingCheck[] {
   const raw = metadata?.understanding_checks;
   if (!Array.isArray(raw)) return [];
   return raw.filter(isUnderstandingCheck);
+}
+
+function getConceptDefinitions(runDetail?: RunDetail): ConceptDefinition[] {
+  const response = getObject(runDetail?.result?.response_payload);
+  const metadata = getObject(response?.metadata);
+  const raw = metadata?.concept_definitions;
+  if (!Array.isArray(raw)) return [];
+  const definitions: ConceptDefinition[] = [];
+  for (const item of raw) {
+    const definition = getObject(item);
+    const label = typeof definition?.label === "string" ? definition.label.trim() : "";
+    const description = typeof definition?.description === "string" ? definition.description.trim() : "";
+    if (!label || !description) continue;
+    const evidenceRefs = Array.isArray(definition.evidence_refs)
+      ? definition.evidence_refs.filter((ref): ref is string => typeof ref === "string" && Boolean(ref.trim()))
+      : [];
+    definitions.push({ label, description, evidence_refs: evidenceRefs });
+  }
+  return definitions;
 }
 
 function getObject(value: unknown): Record<string, unknown> | undefined {

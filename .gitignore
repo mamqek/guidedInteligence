@@ -23,6 +23,9 @@ node_modules/
 # Generated Obsidian Hybrid Search index
 docs/obsidian/.obsidian-hybrid-search.db*
 
+# Local live connector certification artifacts
+tests/external_connectors/.artifacts/
+
 # Local CodeRepoQA issue corpora
 /vue/
 /TypeScript/

@@ -1,0 +1,1 @@
+"""External connector certification tests."""
