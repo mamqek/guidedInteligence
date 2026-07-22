@@ -376,7 +376,11 @@ class ConnectedSourceContextStage:
                         "Classify wording or vocabulary explanations with no implementation clue as terminology_only "
                         "and set adds_code_retrieval_signal to false. Mark self-described old, possibly obsolete, or "
                         "unverified material as currentness=uncertain and confidence=low; it may be reported as a "
-                        "conflict but must not guide current-code retrieval or become evidence."
+                        "conflict but must not guide current-code retrieval or become evidence. If two or more "
+                        "documents make incompatible concrete claims about the owner file, owner symbol, current "
+                        "behavior, or implementation status for the same user topic, you must add a conflicts entry "
+                        "that cites all conflicting source IDs. Do this even when you choose only one document for "
+                        "context_use. Do not promote both sides of an owner-file conflict as clean file_hints."
                     ),
                 },
                 {
@@ -757,15 +761,6 @@ def _validate_analysis(
     )[:max_selected_evidence]
     selected_set = set(selected_context_ids)
 
-    signals_payload = response.get("signals", {})
-    signals: dict[str, list[dict[str, Any]]] = {}
-    for name in ("retrieval_terms", "file_hints", "symbol_hints", "suggested_subqueries"):
-        signals[name] = _validated_supported_text_items(
-            signals_payload.get(name, ()) if isinstance(signals_payload, Mapping) else (),
-            known_ids=known_ids,
-            allowed_ids=selected_set,
-            value_key="value",
-        )[:12]
     facts = _validated_supported_text_items(
         response.get("facts", ()),
         known_ids=known_ids,
@@ -778,6 +773,23 @@ def _validate_analysis(
         allowed_ids=known_ids,
         value_key="description",
     )[:8]
+    conflicted_ids = {source_id for conflict in conflicts for source_id in conflict["source_ids"]}
+    signals_payload = response.get("signals", {})
+    signals: dict[str, list[dict[str, Any]]] = {}
+    for name in ("retrieval_terms", "file_hints", "symbol_hints", "suggested_subqueries"):
+        signal_values = _validated_supported_text_items(
+            signals_payload.get(name, ()) if isinstance(signals_payload, Mapping) else (),
+            known_ids=known_ids,
+            allowed_ids=selected_set,
+            value_key="value",
+        )[:12]
+        if name in {"file_hints", "symbol_hints", "suggested_subqueries"} and conflicted_ids:
+            signal_values = [
+                item
+                for item in signal_values
+                if not conflicted_ids.intersection(item["source_ids"])
+            ]
+        signals[name] = signal_values
     return {
         "ranked_documents": decisions,
         "selected_context_ids": selected_context_ids,

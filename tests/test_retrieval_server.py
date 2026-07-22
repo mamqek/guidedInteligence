@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from core.source_policy import SourceCategory
+from services.guidance.answer_evaluation import AnswerEvaluation
 from services.retrieval.server import RetrievalServerError, RuntimeState, _cgc_failure_message, _github_repository_from_remote_url, _local_ui_url, _oauth_redirect_uri, _safe_run_id, _sync_cgcignore
 
 
@@ -150,6 +151,7 @@ class RetrievalServerStateTests(unittest.TestCase):
                             }
                         ]
                     },
+                    "intent": {"shadow_mode": True, "router_mode": "pipeline_active", "assistance_mode": "active"},
                 }
             )
 
@@ -163,6 +165,9 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertEqual(config["connections"]["mcp_sources"][0]["env"]["GITHUB_TOKEN"], "secret")
             self.assertEqual(config["connections"]["mcp_sources"][0]["static_tool_arguments"]["repo"], "owner/repo")
             self.assertEqual(config["connections"]["mcp_sources"][0]["content_fields"], ["body"])
+            self.assertTrue(config["intent"]["shadow_mode"])
+            self.assertEqual(config["intent"]["router_mode"], "pipeline_active")
+            self.assertEqual(config["intent"]["assistance_mode"], "active")
 
     def test_old_enabled_source_categories_migrate_to_source_keys(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -523,6 +528,12 @@ class RetrievalServerStateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             state = RuntimeState(Path(temp_dir))
 
+            # COMPREHENSION_PLAN_FLOW: default web config preserves the current response pipeline.
+            self.assertEqual(state.get_config()["assistance"]["response_pipeline"], "current")
+            self.assertEqual(state.get_config()["assistance"]["mode"], "teach")
+            self.assertFalse(state.get_config()["intent"]["shadow_mode"])
+            self.assertEqual(state.get_config()["intent"]["router_mode"], "off")
+            self.assertEqual(state.get_config()["intent"]["assistance_mode"], "off")
             sources = state.get_config()["connections"]["remote_mcp_sources"]
             providers = {source["provider"] for source in sources}
             endpoints = {source["provider"]: source["endpoint_url"] for source in sources}
@@ -680,6 +691,118 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertEqual(runs[0]["run_id"], "run-1")
             self.assertEqual(runs[0]["coverage_status"], "partial")
             self.assertEqual(runs[0]["selected_count"], 1)
+
+    def test_comprehension_answer_evaluation_writes_followup_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            tool_root = root / "tool"
+            workspace = root / "workspace"
+            tool_root.mkdir()
+            workspace.mkdir()
+            (tool_root / ".env").write_text(VALID_ENV, encoding="utf-8")
+            state = RuntimeState(workspace, tool_root=tool_root)
+            run_dir = workspace / ".guided-intelligence" / "runs" / "run-1"
+            run_dir.mkdir(parents=True)
+            plan = {
+                "task_goal": "Understand validation.",
+                "answer_scope": "Explain validation.",
+                "assistance_mode": "teach",
+                "relevant_artifacts": [
+                    {
+                        "id": "a1",
+                        "path": "src/compiler/checker.ts",
+                        "line_range": "L10-L12",
+                        "role": "validation_checking",
+                        "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                        "claim_supported": "Checker validates semantics.",
+                    }
+                ],
+                "concepts": [
+                    {
+                        "id": "validation_checking",
+                        "name": "validation checking",
+                        "role": "core",
+                        "description": "Checker validates semantics.",
+                        "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                        "status": "grounded",
+                        "required_for_answer": True,
+                        "suggested_depth": "full",
+                    }
+                ],
+                "concept_dependencies": [],
+                "explanation_sequence": [],
+                "depth_policy": {
+                    "mode": "assumption_statement",
+                    "assumption_statement": "Assume basic code navigation.",
+                    "gate_required": False,
+                    "rationale": "",
+                },
+                "understanding_check": {
+                    "id": "q1",
+                    "type": "why",
+                    "question": "Why does validation matter?",
+                    "expected_points": ["It validates semantics."],
+                    "misconceptions": [],
+                    "hidden_hints": ["Look at checker.ts."],
+                    "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                    "concept_ids": ["validation_checking"],
+                },
+                "coverage_gaps": [],
+            }
+            (run_dir / "orchestration-result.json").write_text(
+                json.dumps(
+                    {
+                        "response_payload": {
+                            "metadata": {
+                                "response_pipeline": "comprehension_plan",
+                                "comprehension_plan": plan,
+                                "understanding_checks": [
+                                    {
+                                        "id": "q1",
+                                        "question": "Why does validation matter?",
+                                        "expected_answer_points": ["It validates semantics."],
+                                        "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                                    }
+                                ],
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            followup = type(
+                "Followup",
+                (),
+                {
+                    "to_dict": lambda self: {
+                        "next_turn": "repair",
+                        "markdown": "Repair the validation concept.",
+                        "comprehension_state": {"current_teaching_stage": "repair"},
+                    }
+                },
+            )()
+
+            with patch(
+                "services.retrieval.server.evaluate_answers",
+                return_value=(
+                    AnswerEvaluation(
+                        question_id="q1",
+                        status="partial",
+                        matched_points=(),
+                        missing_points=("It validates semantics.",),
+                        feedback="Partial.",
+                        next_turn="repair",
+                        repair_focus="validation concept",
+                    ),
+                ),
+            ), patch("services.retrieval.server.generate_followup", return_value=followup):
+                output = state.evaluate_run_answers("run-1", {"answers": {"q1": "It checks things."}})
+
+            self.assertEqual(output["comprehension_followup"]["next_turn"], "repair")
+            self.assertTrue((run_dir / "comprehension-followup.json").exists())
+            saved = json.loads((run_dir / "answer-evaluation.json").read_text(encoding="utf-8"))
+            self.assertEqual(saved["comprehension_followup"]["markdown"], "Repair the validation concept.")
 
     def test_safe_run_id_removes_path_characters(self) -> None:
         self.assertEqual(_safe_run_id("../bad run"), "bad-run")

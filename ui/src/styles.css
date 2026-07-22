@@ -1074,6 +1074,131 @@ select:focus {
   margin-top: 4px;
 }
 
+.sourceLinkList {
+  display: grid;
+  gap: 7px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.sourceLinkList li {
+  margin: 0;
+}
+
+.sourceMarkdownLink {
+  display: inline-grid;
+  max-width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #dbe3ee;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 7px 9px;
+  color: #164e63;
+  text-decoration: none;
+}
+
+.sourceMarkdownLink:hover,
+.sourceMarkdownLink:focus {
+  border-color: #75a7b7;
+  background: #f8fcfd;
+}
+
+.sourceLinkLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.sourceLinkPath {
+  min-width: 0;
+  border-left: 1px solid #e2e8f0;
+  padding-left: 8px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.sourcePreviewPanel {
+  margin-top: 12px;
+  border: 1px solid #b8d0dc;
+  border-radius: 8px;
+  background: #f8fcfd;
+  padding: 12px;
+}
+
+.sourcePreviewHeader {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.sourcePreviewHeader div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sourcePreviewHeader strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.sourcePreviewHeader span {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sourcePreviewClaim {
+  margin: 10px 0;
+  color: #334155;
+  font-size: 13px;
+}
+
+.sourcePreviewCode {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid #dbe3ee;
+  border-radius: 6px;
+  background: #111827;
+  color: #f8fafc;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sourcePreviewActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.iconTextButton {
+  border: 1px solid #dbe3ee;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 9px;
+}
+
+.iconTextButton:hover,
+.iconTextButton:focus {
+  border-color: #9bb4c1;
+  background: #f8fafc;
+}
+
 .responseText code {
   border: 1px solid #dbe3ee;
   border-radius: 4px;
@@ -1081,6 +1206,50 @@ select:focus {
   padding: 1px 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.92em;
+}
+
+.conceptTerm {
+  position: relative;
+  display: inline;
+  border-bottom: 1px dotted #2f6f7f;
+  color: #164e63;
+  cursor: help;
+  outline: none;
+}
+
+.conceptTerm:focus {
+  border-bottom-style: solid;
+}
+
+.conceptTooltip {
+  position: absolute;
+  z-index: 10;
+  left: 0;
+  bottom: calc(100% + 8px);
+  width: min(320px, 78vw);
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+  color: #1f2937;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  padding: 10px 11px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  visibility: hidden;
+  white-space: normal;
+}
+
+.conceptTerm:hover .conceptTooltip,
+.conceptTerm:focus .conceptTooltip {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
 }
 
 .markdownCode {

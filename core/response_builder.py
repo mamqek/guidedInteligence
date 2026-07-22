@@ -6,7 +6,10 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from core.logging_schema import LogEventType
 from core.models import ConversationState, EvidenceItem, PolicyResult, ResponsePayload, ResponsePlan, RetrievalResult, TurnType
+from services.response_generation.comprehension import generate_comprehension_explanation
 from services.response_generation.explanation import generate_explanation, prompt_template_id
+
+COMPREHENSION_PLAN_FLOW_MARKER = "COMPREHENSION_PLAN_FLOW"
 
 
 LINE_RANGE_PATTERN = re.compile(r":L(?P<start>\d+)(?:-L(?P<end>\d+))?$")
@@ -22,11 +25,17 @@ def render_response(
     *,
     state: ConversationState | None = None,
     llm_config: Any | None = None,
+    # COMPREHENSION_PLAN_FLOW: current remains the default; comprehension_plan routes to the separate experimental generator.
+    response_pipeline: str = "current",
+    # COMPREHENSION_PLAN_FLOW: mode-aware teaching behavior belongs to the separate comprehension-plan pipeline.
+    assistance_mode: str = "teach",
     log_event: Callable[[LogEventType, Mapping[str, object]], None] | None = None,
 ) -> ResponsePayload:
     evidence = tuple(retrieval_result.evidence if retrieval_result is not None else ())
     evidence_refs = tuple(item.source_id for item in evidence)
     metadata: dict[str, object] = dict(response_plan.notes)
+    if retrieval_result is not None and retrieval_result.retrieval_summary.get("artifact_trace"):
+        metadata["artifact_trace"] = retrieval_result.retrieval_summary["artifact_trace"]
     if response_plan.turn_type == TurnType.BOUNDARY:
         content = f"Boundary: {policy_result.reason}"
     else:
@@ -34,6 +43,8 @@ def render_response(
             retrieval_result,
             state=state,
             llm_config=llm_config,
+            response_pipeline=response_pipeline,
+            assistance_mode=assistance_mode,
             log_event=log_event,
         )
         metadata.update(generated_metadata)
@@ -51,6 +62,8 @@ def _render_explanation(
     *,
     state: ConversationState | None,
     llm_config: Any | None,
+    response_pipeline: str,
+    assistance_mode: str,
     log_event: Callable[[LogEventType, Mapping[str, object]], None] | None,
 ) -> tuple[str, tuple[str, ...], Mapping[str, object]]:
     if retrieval_result is None or state is None:
@@ -84,22 +97,38 @@ def _render_explanation(
                 LogEventType.RESPONSE_GENERATION_REQUESTED,
                 {
                     "prompt_template_id": prompt_template_id(),
+                    # COMPREHENSION_PLAN_FLOW: trace selected pipeline for side-by-side evaluation.
+                    "response_pipeline": response_pipeline,
+                    # COMPREHENSION_PLAN_FLOW: trace mode used by the new pipeline without affecting current generation.
+                    "assistance_mode": assistance_mode,
                     "coverage_status": retrieval_result.coverage_status,
                     "retrieval_sufficient": retrieval_result.sufficient,
                     "evidence_count": len(retrieval_result.evidence),
                 },
             )
-        generated = generate_explanation(
-            state=state,
-            retrieval_result=retrieval_result,
-            llm_config=llm_config,
-            log_event=_response_generation_log_adapter(log_event),
-        )
+        if response_pipeline == "comprehension_plan":
+            # COMPREHENSION_PLAN_FLOW: delegate to the separate plan-aware response generator.
+            generated = generate_comprehension_explanation(
+                state=state,
+                retrieval_result=retrieval_result,
+                llm_config=llm_config,
+                assistance_mode=assistance_mode,
+                log_event=_response_generation_log_adapter(log_event),
+            )
+        else:
+            generated = generate_explanation(
+                state=state,
+                retrieval_result=retrieval_result,
+                llm_config=llm_config,
+                log_event=_response_generation_log_adapter(log_event),
+            )
         if log_event is not None:
             log_event(
                 LogEventType.RESPONSE_GENERATION_RECEIVED,
                 {
                     "prompt_template_id": generated.prompt_template_id,
+                    # COMPREHENSION_PLAN_FLOW: included for trace filtering across current and experimental runs.
+                    "response_pipeline": response_pipeline,
                     "used_evidence_refs": list(generated.used_evidence_refs),
                     "render_notes": dict(generated.render_notes),
                     "understanding_checks": [check.to_dict() for check in generated.understanding_checks],
@@ -114,6 +143,13 @@ def _render_explanation(
                 "used_evidence_refs": list(generated.used_evidence_refs),
                 "render_notes": dict(generated.render_notes),
                 "understanding_checks": [check.to_dict() for check in generated.understanding_checks],
+                "concept_definitions": list(getattr(generated, "concept_definitions", ())),
+                # COMPREHENSION_PLAN_FLOW: persist selected pipeline and the plan only for the experimental route.
+                "response_pipeline": response_pipeline,
+                # COMPREHENSION_PLAN_FLOW: empty for current pipeline, typed plan payload for comprehension_plan.
+                "comprehension_plan": generated.comprehension_plan.to_dict()
+                if hasattr(generated, "comprehension_plan")
+                else {},
             },
         )
     except Exception as exc:

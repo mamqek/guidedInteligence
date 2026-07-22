@@ -58,6 +58,36 @@ class EvidenceItem:
 
 
 @dataclass(frozen=True)
+class RetrievalHints:
+    """Advisory intent metadata that can shape retrieval without being evidence."""
+
+    recommended_assistance_mode: str
+    retrieval_intents: tuple[Mapping[str, str], ...] = field(default_factory=tuple)
+    response_operation: str = ""
+    primary_expected_output: str = ""
+    expected_outputs: tuple[str, ...] = field(default_factory=tuple)
+    solution_pressure: str = ""
+    user_goals: tuple[str, ...] = field(default_factory=tuple)
+    explicit_targets: tuple[Mapping[str, str], ...] = field(default_factory=tuple)
+    confidence: float = 0.0
+    product_boundary: str = "explain_plan_suggest_only"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "recommended_assistance_mode": self.recommended_assistance_mode,
+            "retrieval_intents": [dict(item) for item in self.retrieval_intents],
+            "response_operation": self.response_operation,
+            "primary_expected_output": self.primary_expected_output,
+            "expected_outputs": list(self.expected_outputs),
+            "solution_pressure": self.solution_pressure,
+            "user_goals": list(self.user_goals),
+            "explicit_targets": [dict(item) for item in self.explicit_targets],
+            "confidence": self.confidence,
+            "product_boundary": self.product_boundary,
+        }
+
+
+@dataclass(frozen=True)
 class ConversationState:
     """Full policy-facing state for deciding the next orchestration action."""
 
@@ -66,6 +96,7 @@ class ConversationState:
     intent: UserIntent = UserIntent.UNKNOWN
     history: tuple[ConversationMessage, ...] = field(default_factory=tuple)
     evidence: tuple[EvidenceItem, ...] = field(default_factory=tuple)
+    retrieval_hints: RetrievalHints | None = None
 
 
 @dataclass(frozen=True)

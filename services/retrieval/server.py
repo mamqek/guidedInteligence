@@ -10,6 +10,7 @@ import secrets
 import socket
 import statistics
 import subprocess
+import sys
 import threading
 import time
 import urllib.error
@@ -26,7 +27,9 @@ from core.control_layer import ControlLayer
 from core.models import ConversationState, UserIntent
 from core.policy import PolicyStage
 from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, SourceCategory, SourcePolicy
+from services.comprehension import generate_followup
 from services.guidance.answer_evaluation import evaluate_answers
+from services.intent import SUPPORTED_ASSISTANCE_ROUTER_MODES, SUPPORTED_ROUTER_MODES
 from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, estimate_indexing_scope, load_index
 from services.retrieval.workspace.cgcignore import (
     CGCIGNORE_END,
@@ -89,6 +92,9 @@ DEFAULT_REMOTE_MCP_SOURCE_KEYS = (
     "google_drive",
 )
 DEFAULT_ALLOWED_SOURCE_KEYS = (*BUILTIN_SOURCE_KEYS, *DEFAULT_REMOTE_MCP_SOURCE_KEYS)
+COMPREHENSION_PLAN_FLOW_MARKER = "COMPREHENSION_PLAN_FLOW"
+SUPPORTED_RESPONSE_PIPELINES = ("current", "comprehension_plan")
+SUPPORTED_ASSISTANCE_MODES = ("teach", "work", "hybrid", "evaluation")
 RETRIEVAL_STAGE_WINDOWS: dict[str, tuple[int, int]] = {
     "index_cgc": (12, 36),
     "index_bm25_qdrant": (36, 46),
@@ -178,6 +184,10 @@ class RuntimeState:
             "runs_dir": str(self.runs_root),
             "github_repository": self.github_repository(),
             "retrieval_mode": _retrieval_mode(self.config),
+            # COMPREHENSION_PLAN_FLOW: surface the response pipeline separately from retrieval mode.
+            "response_pipeline": str(_assistance_settings(self.config).get("response_pipeline") or "current"),
+            # COMPREHENSION_PLAN_FLOW: assistance mode controls only the experimental comprehension-plan response path.
+            "assistance_mode": str(_assistance_settings(self.config).get("mode") or "teach"),
             "codex_prompt_profile": str(
                 _retrieval_settings(self.config).get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
             ),
@@ -977,6 +987,15 @@ class RuntimeState:
                 retrieval_stage=retrieval_stage,
                 logger=progress_logger,
                 response_llm_config=llm_config,
+                # COMPREHENSION_PLAN_FLOW: config-gated selector keeps the experimental pipeline opt-in.
+                response_pipeline=str(_assistance_settings(self.config).get("response_pipeline") or "current"),
+                # COMPREHENSION_PLAN_FLOW: mode is consumed only by comprehension-plan generation.
+                assistance_mode=str(_assistance_settings(self.config).get("mode") or "teach"),
+                # COMPREHENSION_PLAN_FLOW: bounded gap retrieval is opt-in and capped by assistance config.
+                max_gap_retrieval_passes=int(_assistance_settings(self.config).get("max_gap_retrieval_passes") or 0),
+                intent_shadow_enabled=bool(_intent_settings(self.config).get("shadow_mode", False)),
+                intent_router_mode=str(_intent_settings(self.config).get("router_mode") or "off"),
+                intent_assistance_mode=str(_intent_settings(self.config).get("assistance_mode") or "off"),
             )
             state = ConversationState(
                 conversation_id=run_id,
@@ -1140,6 +1159,22 @@ class RuntimeState:
             "run_id": run_id,
             "evaluations": [evaluation.to_dict() for evaluation in evaluations],
         }
+        if str(metadata.get("response_pipeline") or "") == "comprehension_plan":
+            # COMPREHENSION_PLAN_FLOW: only the experimental response pipeline generates repair/deepen follow-up turns.
+            plan = metadata.get("comprehension_plan", {})
+            if isinstance(plan, Mapping) and plan:
+                followup = generate_followup(
+                    comprehension_plan=plan,
+                    checks=tuple(item for item in checks if isinstance(item, Mapping)),
+                    evaluations=tuple(evaluation.to_dict() for evaluation in evaluations),
+                    answers={str(key): str(value) for key, value in answers.items()},
+                    llm_config=llm_config,
+                )
+                output["comprehension_followup"] = followup.to_dict()
+                (run_dir / "comprehension-followup.json").write_text(
+                    json.dumps(followup.to_dict(), indent=2, sort_keys=True),
+                    encoding="utf-8",
+                )
         (run_dir / "answer-evaluation.json").write_text(json.dumps(output, indent=2, sort_keys=True), encoding="utf-8")
         return output
 
@@ -1164,6 +1199,8 @@ class RuntimeState:
             "result": result,
             "evidence": _load_json(run_dir / "evidence-items.json", []),
             "answer_evaluation": _load_json(run_dir / "answer-evaluation.json", {}),
+            # COMPREHENSION_PLAN_FLOW: expose persisted repair/deepen response for experimental runs.
+            "comprehension_followup": _load_json(run_dir / "comprehension-followup.json", {}),
         }
 
     def run_trace(self, run_id: str) -> dict[str, Any]:
@@ -1173,6 +1210,38 @@ class RuntimeState:
             "retrieval_trace": _load_jsonl(run_dir / "retrieval-trace.jsonl"),
             "orchestration_trace": _load_jsonl(run_dir / "orchestration-trace.jsonl"),
         }
+
+    def open_source_file(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        return self._open_source_file_from_root(self.workspace_root, payload)
+
+    def open_run_source_file(self, run_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+        run_dir = self._run_dir(run_id)
+        if not run_dir.exists():
+            raise RetrievalServerError(f"Run not found: {run_id}", status=404)
+        return self._open_source_file_from_root(_run_workspace_root(run_dir) or self.workspace_root, payload)
+
+    def _open_source_file_from_root(self, source_root: Path, payload: Mapping[str, Any]) -> dict[str, Any]:
+        raw_path = str(payload.get("path") or "").strip().replace("\\", "/").lstrip("/")
+        if not raw_path:
+            raise RetrievalServerError("Missing source file path.", status=400)
+        line = ""
+        if "#" in raw_path:
+            raw_path, line = raw_path.split("#", 1)
+        candidate = (source_root / raw_path).resolve()
+        try:
+            candidate.relative_to(source_root)
+        except ValueError:
+            raise RetrievalServerError("Source file path must stay inside the workspace.", status=400)
+        if not candidate.is_file():
+            raise RetrievalServerError(f"Source file not found: {raw_path}", status=404)
+        vscode_url = _vscode_file_url(candidate, line)
+        if os.name == "nt":
+            os.startfile(vscode_url)  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", vscode_url])
+        else:
+            subprocess.Popen(["xdg-open", vscode_url])
+        return {"opened": True, "path": str(candidate), "vscode_url": vscode_url}
 
     def _run_dir(self, run_id: str) -> Path:
         safe = _safe_run_id(run_id)
@@ -1208,6 +1277,17 @@ class RuntimeState:
                 "codex_model": "gpt-5.4-mini",
                 "codex_prompt_profile": DEFAULT_CODEX_PROMPT_PROFILE,
                 "codex_timeout_seconds": 900,
+            },
+            # COMPREHENSION_PLAN_FLOW: separate response/teaching mode config; default preserves current behavior.
+            "assistance": {
+                "mode": "teach",
+                "response_pipeline": "current",
+                "max_gap_retrieval_passes": 0,
+            },
+            "intent": {
+                "shadow_mode": False,
+                "router_mode": "off",
+                "assistance_mode": "off",
             },
             "connected_context": {
                 "enabled": True,
@@ -1333,6 +1413,13 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if parsed.path == "/retrieve":
                 self._send_json(self.state.run_retrieval(payload), status=201)
+                return
+            if parsed.path == "/source/open":
+                self._send_json(self.state.open_source_file(payload))
+                return
+            run_source_match = re.fullmatch(r"/runs/([^/]+)/source/open", parsed.path)
+            if run_source_match:
+                self._send_json(self.state.open_run_source_file(run_source_match.group(1), payload))
                 return
             answer_match = re.fullmatch(r"/runs/([^/]+)/answers", parsed.path)
             if answer_match:
@@ -1703,6 +1790,33 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
         timeout_seconds = 900
     retrieval["codex_timeout_seconds"] = timeout_seconds
+    assistance = config.get("assistance")
+    if not isinstance(assistance, dict):
+        assistance = {}
+        config["assistance"] = assistance
+    # COMPREHENSION_PLAN_FLOW: normalize experimental response-pipeline config independently from retrieval settings.
+    assistance["mode"] = str(assistance.get("mode") or "teach").strip().lower()
+    if assistance["mode"] not in SUPPORTED_ASSISTANCE_MODES:
+        assistance["mode"] = "teach"
+    assistance["response_pipeline"] = str(assistance.get("response_pipeline") or "current").strip().lower()
+    if assistance["response_pipeline"] not in SUPPORTED_RESPONSE_PIPELINES:
+        assistance["response_pipeline"] = "current"
+    try:
+        max_gap_retrieval_passes = int(assistance.get("max_gap_retrieval_passes") or 0)
+    except (TypeError, ValueError):
+        max_gap_retrieval_passes = 0
+    assistance["max_gap_retrieval_passes"] = max(0, max_gap_retrieval_passes)
+    intent = config.get("intent")
+    if not isinstance(intent, dict):
+        intent = {}
+        config["intent"] = intent
+    intent["shadow_mode"] = _boolean_setting(intent.get("shadow_mode"), False)
+    intent["router_mode"] = str(intent.get("router_mode") or "off").strip().lower()
+    if intent["router_mode"] not in SUPPORTED_ROUTER_MODES:
+        intent["router_mode"] = "off"
+    intent["assistance_mode"] = str(intent.get("assistance_mode") or "off").strip().lower()
+    if intent["assistance_mode"] not in SUPPORTED_ASSISTANCE_ROUTER_MODES:
+        intent["assistance_mode"] = "off"
     indexing = config.get("indexing")
     if isinstance(indexing, dict):
         indexing.pop("include_paths", None)
@@ -1958,6 +2072,33 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
         raise RetrievalServerError("`retrieval.codex_timeout_seconds` must be an integer.") from exc
     if codex_timeout_seconds <= 0:
         raise RetrievalServerError("`retrieval.codex_timeout_seconds` must be greater than zero.")
+    assistance = payload.get("assistance", {})
+    if not isinstance(assistance, Mapping):
+        raise RetrievalServerError("`assistance` must be an object.")
+    # COMPREHENSION_PLAN_FLOW: validate new mode config without coupling it to retrieval mode.
+    if str(assistance.get("mode") or "teach") not in SUPPORTED_ASSISTANCE_MODES:
+        raise RetrievalServerError("`assistance.mode` must be one of: " + ", ".join(SUPPORTED_ASSISTANCE_MODES) + ".")
+    if str(assistance.get("response_pipeline") or "current") not in SUPPORTED_RESPONSE_PIPELINES:
+        raise RetrievalServerError(
+            "`assistance.response_pipeline` must be one of: " + ", ".join(SUPPORTED_RESPONSE_PIPELINES) + "."
+        )
+    try:
+        max_gap_retrieval_passes = int(assistance.get("max_gap_retrieval_passes") or 0)
+    except (TypeError, ValueError) as exc:
+        raise RetrievalServerError("`assistance.max_gap_retrieval_passes` must be an integer.") from exc
+    if max_gap_retrieval_passes < 0:
+        raise RetrievalServerError("`assistance.max_gap_retrieval_passes` must be zero or greater.")
+    intent = payload.get("intent", {})
+    if not isinstance(intent, Mapping):
+        raise RetrievalServerError("`intent` must be an object.")
+    if "shadow_mode" in intent and not _is_boolean_like(intent.get("shadow_mode")):
+        raise RetrievalServerError("`intent.shadow_mode` must be a boolean.")
+    if str(intent.get("router_mode") or "off") not in SUPPORTED_ROUTER_MODES:
+        raise RetrievalServerError("`intent.router_mode` must be one of: " + ", ".join(SUPPORTED_ROUTER_MODES) + ".")
+    if str(intent.get("assistance_mode") or "off") not in SUPPORTED_ASSISTANCE_ROUTER_MODES:
+        raise RetrievalServerError(
+            "`intent.assistance_mode` must be one of: " + ", ".join(SUPPORTED_ASSISTANCE_ROUTER_MODES) + "."
+        )
     if not isinstance(payload.get("enabled_sources", []), list):
         raise RetrievalServerError("`enabled_sources` must be an array.")
     unknown_sources = [
@@ -2002,9 +2143,42 @@ def _retrieval_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
     return retrieval if isinstance(retrieval, Mapping) else {}
 
 
+def _assistance_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    # COMPREHENSION_PLAN_FLOW: new flow settings live outside retrieval so Codex evidence gathering remains reusable.
+    assistance = config.get("assistance", {})
+    return assistance if isinstance(assistance, Mapping) else {}
+
+
+def _intent_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    intent = config.get("intent", {})
+    return intent if isinstance(intent, Mapping) else {}
+
+
 def _retrieval_mode(config: Mapping[str, Any]) -> str:
     mode = str(_retrieval_settings(config).get("mode") or RETRIEVAL_MODE_WORKSPACE).strip().lower()
     return mode if mode in {RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX} else RETRIEVAL_MODE_WORKSPACE
+
+
+def _boolean_setting(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    if value is None:
+        return default
+    return bool(value)
+
+
+def _is_boolean_like(value: Any) -> bool:
+    if isinstance(value, bool):
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on", "0", "false", "no", "off"}
+    return False
 
 
 def _allowed_source_keys_from_payload(payload: Mapping[str, Any], config: Mapping[str, Any]) -> tuple[str, ...]:
@@ -2847,6 +3021,34 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
         if isinstance(payload, dict):
             events.append(payload)
     return events
+
+
+def _run_workspace_root(run_dir: Path) -> Path | None:
+    for event in _load_jsonl(run_dir / "retrieval-trace.jsonl"):
+        payload = event.get("payload")
+        if not isinstance(payload, Mapping):
+            continue
+        workspace_root = str(payload.get("workspace_root") or "").strip()
+        if not workspace_root:
+            continue
+        path = Path(workspace_root).resolve()
+        if path.exists() and path.is_dir():
+            return path
+    result = _load_json(run_dir / "orchestration-result.json", {})
+    retrieval = result.get("retrieval_result") if isinstance(result, Mapping) else None
+    summary = retrieval.get("retrieval_summary") if isinstance(retrieval, Mapping) else None
+    workspace_root = str(summary.get("workspace_root") or "").strip() if isinstance(summary, Mapping) else ""
+    if workspace_root:
+        path = Path(workspace_root).resolve()
+        if path.exists() and path.is_dir():
+            return path
+    return None
+
+
+def _vscode_file_url(path: Path, line_fragment: str = "") -> str:
+    match = re.search(r"L(?P<line>\d+)", line_fragment or "")
+    line = f":{match.group('line')}" if match else ""
+    return f"vscode://file/{path.as_posix()}{line}"
 
 
 def _safe_run_id(value: str) -> str:
