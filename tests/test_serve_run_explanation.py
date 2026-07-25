@@ -46,7 +46,7 @@ class RunExplanationPageTests(unittest.TestCase):
                             "content": "# Bottom line\n\nSee [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
                             "metadata": {
                                 "generator": "llm_explanation",
-                                "prompt_template_id": "explanation_markdown_v2",
+                                "prompt_template_id": "comprehension_plan_explanation_v1",
                             },
                         },
                     }
@@ -74,7 +74,7 @@ class RunExplanationPageTests(unittest.TestCase):
             self.assertIn("function checkAbstractClass()", html)
             self.assertIn('class="promptCard"', html)
             self.assertNotIn("generator: llm_explanation", html)
-            self.assertNotIn("prompt: explanation_markdown_v2", html)
+            self.assertNotIn("prompt: comprehension_plan_explanation_v1", html)
             self.assertNotIn("Primary Source Trail", html)
             self.assertNotIn("How the compiler would represent abstract state", html)
 

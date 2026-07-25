@@ -56,6 +56,8 @@ def connected_source_context(
                 max_selected_context=ctx.config.connected_context_max_selected_context,
                 max_selected_evidence=ctx.config.connected_context_max_selected_evidence,
                 total_timeout_seconds=ctx.config.connected_context_timeout_seconds,
+                disclaimer_required_terms=ctx.config.connected_context_disclaimer_required_terms,
+                stale_block_terms=ctx.config.connected_context_stale_block_terms,
             ),
             log_event=lambda event_type, payload: ctx.trace.record(event_type, payload),
         )

@@ -182,6 +182,8 @@ class ConnectedSourceContextSettings:
     max_selected_context: int = 4
     max_selected_evidence: int = 2
     total_timeout_seconds: int = 45
+    disclaimer_required_terms: tuple[str, ...] = ("do not use",)
+    stale_block_terms: tuple[str, ...] = ("stale", "superseded", "outdated", "deprecated")
 
 
 class ConnectedSourceContextStage:
@@ -402,6 +404,8 @@ class ConnectedSourceContextStage:
             documents,
             max_selected_context=self.settings.max_selected_context,
             max_selected_evidence=self.settings.max_selected_evidence,
+            disclaimer_required_terms=self.settings.disclaimer_required_terms,
+            stale_block_terms=self.settings.stale_block_terms,
         )
         self._emit("connected_source_results_analyzed", validated)
         return {"analysis": validated}
@@ -681,8 +685,11 @@ def _validate_analysis(
     *,
     max_selected_context: int = 4,
     max_selected_evidence: int = 2,
+    disclaimer_required_terms: Sequence[str] = ("do not use",),
+    stale_block_terms: Sequence[str] = ("stale", "superseded", "outdated", "deprecated"),
 ) -> dict[str, Any]:
     known_ids = {document.source_id for document in documents}
+    documents_by_id = {document.source_id: document for document in documents}
     decisions: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     raw_decisions = response.get("ranked_documents", ())
@@ -721,6 +728,17 @@ def _validate_analysis(
         confidence = str(item.get("confidence", "low")).strip().lower()
         if confidence not in {"high", "medium", "low"}:
             confidence = "low"
+        disclaims_current_guidance = _disclaims_current_guidance(
+            documents_by_id[source_id],
+            required_terms=disclaimer_required_terms,
+            stale_terms=stale_block_terms,
+        )
+        if disclaims_current_guidance:
+            decision = "reject"
+            contribution_type = "none"
+            adds_code_retrieval_signal = False
+            currentness = "historical"
+            confidence = "high"
         context_use = (
             bool(item.get("context_use", False))
             and decision != "reject"
@@ -735,7 +753,7 @@ def _validate_analysis(
                 "source_id": source_id,
                 "relevance_score": max(0.0, min(1.0, float(item.get("relevance_score", 0.0) or 0.0))),
                 "decision": decision if decision in {"accept", "reject", "uncertain"} else "reject",
-                "reason": str(item.get("reason", "")).strip(),
+                "reason": _analysis_reason(item, disclaims_current_guidance=disclaims_current_guidance),
                 "contribution_type": contribution_type,
                 "adds_code_retrieval_signal": adds_code_retrieval_signal,
                 "currentness": currentness,
@@ -798,6 +816,36 @@ def _validate_analysis(
         "facts": facts,
         "conflicts": conflicts,
     }
+
+
+def _analysis_reason(item: Mapping[str, Any], *, disclaims_current_guidance: bool) -> str:
+    reason = str(item.get("reason", "")).strip()
+    if not disclaims_current_guidance:
+        return reason
+    suffix = "Document explicitly disclaims current guidance, so it was not promoted."
+    return f"{reason} {suffix}".strip()
+
+
+def _disclaims_current_guidance(
+    document: ConnectedSourceDocument,
+    *,
+    required_terms: Sequence[str] = ("do not use",),
+    stale_terms: Sequence[str] = ("stale", "superseded", "outdated", "deprecated"),
+) -> bool:
+    text = "\n".join(
+        (
+            document.title,
+            document.content,
+            json.dumps(document.metadata, sort_keys=True, default=str),
+        )
+    ).casefold()
+    required = tuple(term.casefold() for term in required_terms if term.strip())
+    stale = tuple(term.casefold() for term in stale_terms if term.strip())
+    if not required or not stale:
+        return False
+    if any(term not in text for term in required):
+        return False
+    return any(term in text for term in stale)
 
 
 def _validated_supported_text_items(

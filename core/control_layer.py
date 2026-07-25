@@ -21,20 +21,15 @@ from services.intent import (
     ASSISTANCE_MODE_ROUTER_OFF,
     IntentClassificationInput,
     NormalizedIntent,
-    PipelineRoutingDecision,
-    ROUTER_MODE_OFF,
     assess_intent_agreement,
     build_retrieval_hints,
     classify_intent,
     normalize_intent,
     route_assistance_mode_shadow,
-    route_pipeline_shadow,
 )
 from services.logging.store import JsonlLogger
 from services.retrieval.workspace import WorkspaceRetrievalStage
-from services.response_generation.explanation import prompt_template_id
-
-COMPREHENSION_PLAN_FLOW_MARKER = "COMPREHENSION_PLAN_FLOW"
+from services.response_generation.comprehension import prompt_template_id
 
 
 @dataclass(frozen=True)
@@ -45,14 +40,9 @@ class ControlLayer:
     retrieval_stage: WorkspaceRetrievalStage
     logger: JsonlLogger | None = None
     response_llm_config: Any | None = None
-    # COMPREHENSION_PLAN_FLOW: explicit selector keeps the experimental teaching pipeline separate from the current response flow.
-    response_pipeline: str = "current"
-    # COMPREHENSION_PLAN_FLOW: assistance mode is consumed only by the experimental comprehension-plan response pipeline.
     assistance_mode: str = "teach"
-    # COMPREHENSION_PLAN_FLOW: optional bounded evidence-gap retrieval for the experimental comprehension-plan pipeline.
     max_gap_retrieval_passes: int = 0
     intent_shadow_enabled: bool = False
-    intent_router_mode: str = ROUTER_MODE_OFF
     intent_assistance_mode: str = ASSISTANCE_MODE_ROUTER_OFF
     intent_llm_config: Any | None = None
 
@@ -79,7 +69,6 @@ class ControlLayer:
             )
 
         retrieval_result: RetrievalResult | None = None
-        effective_response_pipeline = self.response_pipeline
         if policy_result.allowed:
             if policy_result.retrieval_required:
                 self._record(
@@ -94,8 +83,7 @@ class ControlLayer:
                     },
                 )
                 retrieval_result = self.retrieval_stage.retrieve(retrieval_state, policy_result)
-                if self.response_pipeline == "comprehension_plan":
-                    # COMPREHENSION_PLAN_FLOW: one opt-in evidence-gap pass after normal retrieval; current pipeline is unchanged.
+                if self.max_gap_retrieval_passes > 0:
                     retrieval_result = retrieve_with_bounded_gap_pass(
                         retrieval_stage=self.retrieval_stage,
                         state=retrieval_state,
@@ -148,27 +136,12 @@ class ControlLayer:
                     )
                     if assistance_decision.applied:
                         effective_assistance_mode = assistance_decision.effective_assistance_mode
-                if self.intent_router_mode != ROUTER_MODE_OFF:
-                    routing_decision = route_pipeline_shadow(
-                        normalized_intent=normalized_intent,
-                        retrieval_result=retrieval_result,
-                        actual_response_pipeline=self.response_pipeline,
-                        effective_assistance_mode=_assistance_mode(effective_assistance_mode),
-                        router_mode=self.intent_router_mode,
-                    )
-                    self._record(
-                        LogEventType.INTENT_ROUTING_DECISION,
-                        state.conversation_id,
-                        routing_decision.to_dict(),
-                    )
-                    effective_response_pipeline = _effective_response_pipeline(self.response_pipeline, routing_decision)
         else:
             self._record(LogEventType.RETRIEVAL_PLAN, state.conversation_id, {"action": "blocked"})
 
         response_plan = _build_response_plan(policy_result, retrieval_result)
         response_plan = _with_response_mode_notes(
             response_plan,
-            response_pipeline=effective_response_pipeline,
             assistance_mode=effective_assistance_mode,
             retrieval_assistance_mode_hint=retrieval_assistance_mode_hint,
         )
@@ -193,7 +166,6 @@ class ControlLayer:
             response_plan,
             state=retrieval_state,
             llm_config=resolved_response_llm_config,
-            response_pipeline=effective_response_pipeline,
             assistance_mode=effective_assistance_mode,
             record_event=lambda event_type, payload: self._record(event_type, state.conversation_id, payload),
         )
@@ -236,7 +208,6 @@ class ControlLayer:
             user_prompt=state.user_input,
             current_assistance_mode=_assistance_mode(self.assistance_mode),
             current_turn_type=state.history[-1].turn_type.value if state.history and state.history[-1].turn_type else None,
-            selected_pipeline=self.response_pipeline,
             configured_default_mode=_assistance_mode(self.assistance_mode),
         )
         if llm_config is None:
@@ -296,16 +267,12 @@ def _build_response_plan(
 def _with_response_mode_notes(
     response_plan: ResponsePlan,
     *,
-    response_pipeline: str,
     assistance_mode: str,
     retrieval_assistance_mode_hint: str = "",
 ) -> ResponsePlan:
     if response_plan.turn_type == TurnType.BOUNDARY:
         return response_plan
     notes = dict(response_plan.notes)
-    # COMPREHENSION_PLAN_FLOW: persist selected pipeline without changing the current default pipeline.
-    notes["response_pipeline"] = response_pipeline
-    # COMPREHENSION_PLAN_FLOW: mode is inert in current pipeline and active in comprehension-plan pipeline.
     notes["assistance_mode"] = assistance_mode
     if retrieval_assistance_mode_hint:
         notes["retrieval_assistance_mode_hint"] = retrieval_assistance_mode_hint
@@ -327,12 +294,6 @@ def _assistance_mode(value: str) -> AssistanceMode:
     return AssistanceMode.HYBRID
 
 
-def _effective_response_pipeline(configured_pipeline: str, routing_decision: PipelineRoutingDecision) -> str:
-    if routing_decision.applied:
-        return routing_decision.effective_response_pipeline
-    return configured_pipeline
-
-
 def _render_response(
     policy_result: PolicyResult,
     retrieval_result: RetrievalResult | None,
@@ -340,7 +301,6 @@ def _render_response(
     *,
     state: ConversationState,
     llm_config: Any | None,
-    response_pipeline: str,
     assistance_mode: str,
     record_event,
 ) -> ResponsePayload:
@@ -350,7 +310,6 @@ def _render_response(
         response_plan,
         state=state,
         llm_config=llm_config,
-        response_pipeline=response_pipeline,
         assistance_mode=assistance_mode,
         log_event=record_event,
     )

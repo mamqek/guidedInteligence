@@ -151,7 +151,7 @@ class RetrievalServerStateTests(unittest.TestCase):
                             }
                         ]
                     },
-                    "intent": {"shadow_mode": True, "router_mode": "pipeline_active", "assistance_mode": "active"},
+                    "intent": {"shadow_mode": True, "assistance_mode": "active"},
                 }
             )
 
@@ -166,7 +166,7 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertEqual(config["connections"]["mcp_sources"][0]["static_tool_arguments"]["repo"], "owner/repo")
             self.assertEqual(config["connections"]["mcp_sources"][0]["content_fields"], ["body"])
             self.assertTrue(config["intent"]["shadow_mode"])
-            self.assertEqual(config["intent"]["router_mode"], "pipeline_active")
+            self.assertNotIn("router_mode", config["intent"])
             self.assertEqual(config["intent"]["assistance_mode"], "active")
 
     def test_old_enabled_source_categories_migrate_to_source_keys(self) -> None:
@@ -386,49 +386,52 @@ class RetrievalServerStateTests(unittest.TestCase):
                         request_host="127.0.0.1:8790",
                     )
 
-    def test_notion_oauth_uses_tool_configured_public_integration(self) -> None:
+    def test_notion_oauth_uses_hosted_mcp_discovery_and_dynamic_registration(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             workspace = root / "workspace"
             tool_root = root / "tool"
             workspace.mkdir()
             tool_root.mkdir()
-            (tool_root / ".env").write_text(
-                VALID_ENV
-                + "\nNOTION_OAUTH_CLIENT_ID=notion-client\nNOTION_OAUTH_CLIENT_SECRET=notion-secret\n",
-                encoding="utf-8",
-            )
+            (tool_root / ".env").write_text(VALID_ENV, encoding="utf-8")
             state = RuntimeState(workspace, tool_root=tool_root)
 
             with patch(
                 "services.retrieval.server._discover_oauth_metadata",
                 return_value={
-                    "authorization_endpoint": "https://unused.example/authorize",
-                    "token_endpoint": "https://unused.example/token",
+                    "authorization_endpoint": "https://mcp.notion.com/authorize",
+                    "token_endpoint": "https://mcp.notion.com/token",
+                    "registration_endpoint": "https://mcp.notion.com/register",
                     "resource": "https://mcp.notion.com/mcp",
                 },
-            ), patch("services.retrieval.server._register_oauth_client") as register:
+            ), patch(
+                "services.retrieval.server._register_oauth_client",
+                return_value={"client_id": "dynamic-notion-client", "pkce": True, "token_auth_method": "form"},
+            ) as register:
                 result = state.start_provider_oauth(
                     {"provider": "notion", "endpoint_url": "https://mcp.notion.com/mcp"},
                     request_host="127.0.0.1:8790",
                 )
 
-            self.assertIn("https://api.notion.com/v1/oauth/authorize?", result["authorize_url"])
-            self.assertIn("client_id=notion-client", result["authorize_url"])
-            self.assertIn("owner=user", result["authorize_url"])
-            self.assertNotIn("code_challenge", result["authorize_url"])
-            self.assertNotIn("resource=", result["authorize_url"])
-            register.assert_not_called()
+            self.assertIn("https://mcp.notion.com/authorize?", result["authorize_url"])
+            self.assertIn("client_id=dynamic-notion-client", result["authorize_url"])
+            self.assertIn("code_challenge", result["authorize_url"])
+            self.assertIn("resource=https%3A%2F%2Fmcp.notion.com%2Fmcp", result["authorize_url"])
+            self.assertNotIn("owner=user", result["authorize_url"])
+            register.assert_called_once()
+            self.assertEqual(
+                register.call_args.kwargs["redirect_uri"],
+                "http://127.0.0.1:8790/connections/provider-auth/callback",
+            )
 
             state_value = result["authorize_url"].split("state=", 1)[1].split("&", 1)[0]
-            with patch("services.retrieval.server._post_basic_json", return_value={"access_token": "oauth-token"}) as post_json:
+            with patch("services.retrieval.server._post_form_json", return_value={"access_token": "oauth-token"}) as post_form:
                 state.finish_provider_oauth({"state": [state_value], "code": ["code-1"]})
-            self.assertEqual(post_json.call_args.args[0], "https://api.notion.com/v1/oauth/token")
-            self.assertEqual(post_json.call_args.kwargs["username"], "notion-client")
-            self.assertEqual(post_json.call_args.kwargs["password"], "notion-secret")
-            self.assertEqual(post_json.call_args.args[1]["code"], "code-1")
+            self.assertEqual(post_form.call_args.args[0], "https://mcp.notion.com/token")
+            self.assertEqual(post_form.call_args.args[1]["client_id"], "dynamic-notion-client")
+            self.assertEqual(post_form.call_args.args[1]["code"], "code-1")
 
-    def test_notion_oauth_reports_missing_tool_level_client(self) -> None:
+    def test_notion_oauth_reports_missing_hosted_mcp_registration(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             workspace = root / "workspace"
@@ -445,7 +448,7 @@ class RetrievalServerStateTests(unittest.TestCase):
                     "resource": "https://mcp.notion.com/mcp",
                 },
             ):
-                with self.assertRaisesRegex(RetrievalServerError, "NOTION_OAUTH_CLIENT_ID"):
+                with self.assertRaisesRegex(RetrievalServerError, "dynamic client registration"):
                     state.start_provider_oauth(
                         {"provider": "notion", "endpoint_url": "https://mcp.notion.com/mcp"},
                         request_host="127.0.0.1:8790",
@@ -528,11 +531,10 @@ class RetrievalServerStateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             state = RuntimeState(Path(temp_dir))
 
-            # COMPREHENSION_PLAN_FLOW: default web config preserves the current response pipeline.
-            self.assertEqual(state.get_config()["assistance"]["response_pipeline"], "current")
+            self.assertNotIn("response_pipeline", state.get_config()["assistance"])
             self.assertEqual(state.get_config()["assistance"]["mode"], "teach")
             self.assertFalse(state.get_config()["intent"]["shadow_mode"])
-            self.assertEqual(state.get_config()["intent"]["router_mode"], "off")
+            self.assertNotIn("router_mode", state.get_config()["intent"])
             self.assertEqual(state.get_config()["intent"]["assistance_mode"], "off")
             sources = state.get_config()["connections"]["remote_mcp_sources"]
             providers = {source["provider"] for source in sources}
@@ -609,6 +611,10 @@ class RetrievalServerStateTests(unittest.TestCase):
             state.update_provider_auth({"provider": "notion", "auth_type": "bearer", "bearer_token": "token"})
             state.update_config(
                 {
+                    "connected_context": {
+                        "disclaimer_required_terms": ["avoid", "current"],
+                        "stale_block_terms": ["retired", "obsolete"],
+                    },
                     "connections": {
                         "remote_mcp_sources": [
                             {
@@ -637,6 +643,8 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertEqual(config.remote_mcp_connected_sources[0].bearer_token, "token")
             self.assertEqual(config.remote_mcp_connected_sources[0].min_score, 0.42)
             self.assertEqual(config.remote_mcp_connected_sources[0].score_fields, ("score", "relevance"))
+            self.assertEqual(config.connected_context_disclaimer_required_terms, ("avoid", "current"))
+            self.assertEqual(config.connected_context_stale_block_terms, ("retired", "obsolete"))
             saved_source = state.get_config()["connections"]["remote_mcp_sources"][2]
             self.assertEqual(saved_source["name"], "notion-pages")
             self.assertEqual(saved_source["bearer_token"], "")
@@ -754,7 +762,6 @@ class RetrievalServerStateTests(unittest.TestCase):
                     {
                         "response_payload": {
                             "metadata": {
-                                "response_pipeline": "comprehension_plan",
                                 "comprehension_plan": plan,
                                 "understanding_checks": [
                                     {

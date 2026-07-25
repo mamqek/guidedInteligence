@@ -24,10 +24,7 @@ from services.intent.normalizer import normalize_intent
 from services.intent.router import (
     ASSISTANCE_MODE_ROUTER_ACTIVE,
     ASSISTANCE_MODE_ROUTER_SHADOW,
-    ROUTER_MODE_PIPELINE_ACTIVE,
-    ROUTER_MODE_PIPELINE_SHADOW,
     route_assistance_mode_shadow,
-    route_pipeline_shadow,
 )
 from services.intent.schema import intent_response_format
 from core.models import EvidenceItem, RetrievalResult, UserIntent
@@ -320,126 +317,6 @@ class IntentClassifierTests(unittest.TestCase):
 
         self.assertEqual(agreement.agreement, "compatible")
         self.assertIn("explanation_context_compatible_with_codex_issue_type", agreement.notes)
-
-    def test_pipeline_shadow_router_selects_comprehension_for_teaching_multi_concept_evidence(self) -> None:
-        normalized = normalize_intent(
-            IntentClassification(
-                user_goals=(UserGoal.UNDERSTAND,),
-                response_operation=ResponseOperation.EXPLAIN,
-                turn_relation=TurnRelation.NEW_TASK,
-                recommended_assistance_mode=AssistanceMode.TEACH,
-                solution_pressure=SolutionPressure.NONE,
-                retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
-                primary_expected_output=ExpectedOutput.EXPLANATION,
-                expected_outputs=(ExpectedOutput.EXPLANATION,),
-                specificity=Specificity.MEDIUM,
-                explicit_targets=(),
-                confidence=0.9,
-                classification_basis=("User asks to understand a multi-step flow.",),
-            ),
-            user_prompt="Explain this flow.",
-        )
-        retrieval_result = RetrievalResult(
-            evidence=(
-                _evidence("workspace:a.ts:L1-L2", "input_parsing", "a.ts"),
-                _evidence("workspace:b.ts:L3-L4", "validation_checking", "b.ts"),
-                _evidence("workspace:c.ts:L5-L6", "diagnostics", "c.ts"),
-            ),
-            coverage_status="strong",
-            sufficient=True,
-        )
-
-        decision = route_pipeline_shadow(
-            normalized_intent=normalized,
-            retrieval_result=retrieval_result,
-            actual_response_pipeline="current",
-            effective_assistance_mode=AssistanceMode.TEACH,
-            router_mode=ROUTER_MODE_PIPELINE_SHADOW,
-        )
-
-        self.assertEqual(decision.proposed_response_pipeline, "comprehension_plan")
-        self.assertTrue(decision.would_change_pipeline)
-        self.assertFalse(decision.applied)
-        self.assertIn("teaching_mode_multi_concept_evidence", decision.routing_reasons)
-
-    def test_pipeline_active_router_applies_current_to_comprehension_only(self) -> None:
-        normalized = normalize_intent(
-            IntentClassification(
-                user_goals=(UserGoal.UNDERSTAND,),
-                response_operation=ResponseOperation.EXPLAIN,
-                turn_relation=TurnRelation.NEW_TASK,
-                recommended_assistance_mode=AssistanceMode.TEACH,
-                solution_pressure=SolutionPressure.NONE,
-                retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
-                primary_expected_output=ExpectedOutput.EXPLANATION,
-                expected_outputs=(ExpectedOutput.EXPLANATION,),
-                specificity=Specificity.MEDIUM,
-                explicit_targets=(),
-                confidence=0.9,
-                classification_basis=("User asks to understand a multi-step flow.",),
-            ),
-            user_prompt="Explain this flow.",
-        )
-        retrieval_result = RetrievalResult(
-            evidence=(
-                _evidence("workspace:a.ts:L1-L2", "input_parsing", "a.ts"),
-                _evidence("workspace:b.ts:L3-L4", "validation_checking", "b.ts"),
-                _evidence("workspace:c.ts:L5-L6", "diagnostics", "c.ts"),
-            ),
-            coverage_status="strong",
-            sufficient=True,
-        )
-
-        decision = route_pipeline_shadow(
-            normalized_intent=normalized,
-            retrieval_result=retrieval_result,
-            actual_response_pipeline="current",
-            effective_assistance_mode=AssistanceMode.TEACH,
-            router_mode=ROUTER_MODE_PIPELINE_ACTIVE,
-        )
-
-        self.assertEqual(decision.proposed_response_pipeline, "comprehension_plan")
-        self.assertEqual(decision.effective_response_pipeline, "comprehension_plan")
-        self.assertTrue(decision.applied)
-
-    def test_pipeline_shadow_router_keeps_current_for_work_mode_patch(self) -> None:
-        normalized = normalize_intent(
-            IntentClassification(
-                user_goals=(UserGoal.CHANGE,),
-                response_operation=ResponseOperation.PRODUCE,
-                turn_relation=TurnRelation.NEW_TASK,
-                recommended_assistance_mode=AssistanceMode.WORK,
-                solution_pressure=SolutionPressure.COMPLETE_SOLUTION,
-                retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.CHANGE_OR_IMPACT_PLANNING, "primary"),),
-                primary_expected_output=ExpectedOutput.PATCH,
-                expected_outputs=(ExpectedOutput.PATCH, ExpectedOutput.EXPLANATION),
-                specificity=Specificity.MEDIUM,
-                explicit_targets=(),
-                confidence=0.9,
-                classification_basis=("User asks for a patch.",),
-            ),
-            user_prompt="Implement the patch and explain it.",
-        )
-
-        decision = route_pipeline_shadow(
-            normalized_intent=normalized,
-            retrieval_result=RetrievalResult(
-                evidence=(
-                    _evidence("workspace:a.ts:L1-L2", "implementation_owner", "a.ts"),
-                    _evidence("workspace:b.ts:L3-L4", "validation_checking", "b.ts"),
-                    _evidence("workspace:c.ts:L5-L6", "diagnostics", "c.ts"),
-                ),
-                coverage_status="strong",
-                sufficient=True,
-            ),
-            actual_response_pipeline="current",
-            effective_assistance_mode=AssistanceMode.WORK,
-            router_mode=ROUTER_MODE_PIPELINE_SHADOW,
-        )
-
-        self.assertEqual(decision.proposed_response_pipeline, "current")
-        self.assertFalse(decision.would_change_pipeline)
-        self.assertIn("work_mode_patch_prefers_current_pipeline", decision.routing_reasons)
 
     def test_assistance_mode_shadow_logs_conflict_without_applying_recommendation(self) -> None:
         normalized = normalize_intent(

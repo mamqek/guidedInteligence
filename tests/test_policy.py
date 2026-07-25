@@ -11,12 +11,11 @@ from core.models import ConversationState, EvidenceItem, RetrievalResult, TurnTy
 from core.policy import PolicyStage
 from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, SourceCategory, SourcePolicy
 from core.violations import PolicyViolationType
-# COMPREHENSION_PLAN_FLOW: tests for the separate experimental response pipeline.
 from services.comprehension import build_comprehension_plan
 from services.comprehension.followup import build_comprehension_state
 from services.guidance.answer_evaluation import evaluate_answers
 from services.guidance.questions import build_question_contexts
-from services.response_generation.explanation import _classify_prompt_terms, _validate_generation_response, prompt_sources_path
+from services.response_generation.comprehension import _validate_response
 from services.retrieval.config import RunLLMConfig
 from step3_harness_scenarios import DEFAULT_STUB_EVIDENCE, SCENARIOS
 
@@ -69,7 +68,7 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertEqual(result.turn_type, TurnType.GUIDED_EXPLANATION)
         self.assertEqual(result.response_plan.turn_type, TurnType.GUIDED_EXPLANATION)
         self.assertEqual(result.response_plan.required_sections, ("generated_explanation", "understanding_checks"))
-        self.assertEqual(result.response_plan.notes["prompt_template_id"], "explanation_markdown_v2")
+        self.assertEqual(result.response_plan.notes["prompt_template_id"], "comprehension_plan_explanation_v1")
         self.assertEqual(len(self.retrieval.calls), 1)
         self.assertEqual(
             [event.event_type for event in self.logger.events],
@@ -210,7 +209,7 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 )
             )
 
-        self.assertEqual(result.response_plan.notes["response_pipeline"], "current")
+        self.assertNotIn("response_pipeline", result.response_plan.notes)
         event_types = [event.event_type for event in logger.events]
         self.assertIn(LogEventType.INTENT_CLASSIFICATION, event_types)
         self.assertIn(LogEventType.INTENT_NORMALIZATION, event_types)
@@ -240,7 +239,7 @@ class ControlLayerPolicyTests(unittest.TestCase):
                     "classification_basis": ["User asks to understand behavior."],
                 },
                 {
-                    "markdown": "# Bottom line\n\nThe checker owns the rule at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
+                    "markdown": "# Bottom line\n\nThe checker owns the rule at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12). It contains semantic validation and reports the relevant diagnostic.",
                     "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
                     "understanding_checks": [
                         {
@@ -314,7 +313,7 @@ class ControlLayerPolicyTests(unittest.TestCase):
                     "classification_basis": ["User asks to understand behavior."],
                 },
                 {
-                    "markdown": "# Bottom line\n\nThe checker owns the rule at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
+                    "markdown": "# Bottom line\n\nThe checker owns the rule in `checkClassLikeDeclaration` at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12). After the parser creates a class declaration, `checkClassLikeDeclaration` applies the semantic rule and reports the diagnostic.",
                     "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
                     "understanding_checks": [
                         {
@@ -406,7 +405,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 intent_shadow_enabled=True,
                 intent_assistance_mode="active",
                 assistance_mode="teach",
-                response_pipeline="current",
             )
             result = control_layer.run(
                 ConversationState(
@@ -418,7 +416,7 @@ class ControlLayerPolicyTests(unittest.TestCase):
 
         self.assertEqual(result.response_plan.notes["assistance_mode"], "teach")
         self.assertEqual(result.response_plan.notes["retrieval_assistance_mode_hint"], "work")
-        self.assertEqual(result.response_plan.notes["response_pipeline"], "current")
+        self.assertNotIn("response_pipeline", result.response_plan.notes)
         self.assertEqual(len(retrieval.calls), 1)
         self.assertIsNotNone(retrieval.calls[0][0].retrieval_hints)
         assistance_events = [event for event in logger.events if event.event_type == LogEventType.INTENT_ASSISTANCE_DECISION]
@@ -504,205 +502,22 @@ class ControlLayerPolicyTests(unittest.TestCase):
         assistance_events = [event for event in logger.events if event.event_type == LogEventType.INTENT_ASSISTANCE_DECISION]
         self.assertTrue(assistance_events[0].payload["applied"])
 
-    def test_pipeline_shadow_router_logs_decision_without_changing_pipeline(self) -> None:
-        retrieval = _StubRetrievalService(
-            RetrievalResult(
-                evidence=(
-                    EvidenceItem(
-                        source_category=SourceCategory.SOURCE_CODE,
-                        source_id="repo-pre:src/compiler/parser.ts:L1-L2",
-                        snippet="parse();",
-                        metadata={"path": "src/compiler/parser.ts", "coverage_area": "input_parsing"},
-                    ),
-                    EvidenceItem(
-                        source_category=SourceCategory.SOURCE_CODE,
-                        source_id="repo-pre:src/compiler/checker.ts:L10-L12",
-                        snippet="check();",
-                        metadata={"path": "src/compiler/checker.ts", "coverage_area": "validation_checking"},
-                    ),
-                    EvidenceItem(
-                        source_category=SourceCategory.SOURCE_CODE,
-                        source_id="repo-pre:src/compiler/diagnostics.ts:L20-L21",
-                        snippet="diagnose();",
-                        metadata={"path": "src/compiler/diagnostics.ts", "coverage_area": "diagnostics"},
-                    ),
-                ),
-                coverage_status="strong",
-                sufficient=True,
-                retrieval_summary={
-                    "source": "stub",
-                    "retrieval_plan": {"primary_intent": "behavior_explanation"},
-                },
-            )
-        )
-        logger = _InMemoryLogger()
-        with _fake_llm_server(
-            [
-                {
-                    "user_goals": ["understand"],
-                    "response_operation": "explain",
-                    "turn_relation": "new_task",
-                    "recommended_assistance_mode": "teach",
-                    "solution_pressure": "none",
-                    "retrieval_intents": [{"intent": "behavior_explanation", "priority": "primary"}],
-                    "primary_expected_output": "explanation",
-                    "expected_outputs": ["explanation"],
-                    "specificity": "medium",
-                    "explicit_targets": [],
-                    "confidence": 0.9,
-                    "classification_basis": ["User asks to understand a multi-step flow."],
-                },
-                {
-                    "markdown": "# Bottom line\n\nThe flow crosses parsing and checking at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
-                    "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                    "understanding_checks": [
-                        {
-                            "id": "q1",
-                            "role": "validation_checking",
-                            "question_type": "primary",
-                            "question": "Why is the checker part of this flow?",
-                            "expected_answer_points": ["It validates the parsed input."],
-                            "hint": "Connect parsing to validation.",
-                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                            "origin": "main retrieved role",
-                        }
-                    ],
-                    "render_notes": {"title": "Bottom line", "summary": "Flow spans roles."},
-                },
-            ]
-        ) as server_url:
-            control_layer = ControlLayer(
-                policy_stage=PolicyStage(),
-                retrieval_stage=retrieval,
-                logger=logger,
-                response_llm_config=_llm_config(server_url),
-                intent_shadow_enabled=True,
-                intent_router_mode="pipeline_shadow",
-                response_pipeline="current",
-                assistance_mode="teach",
-            )
-            result = control_layer.run(
-                ConversationState(
-                    conversation_id="test-pipeline-shadow-router",
-                    user_input="Explain this multi-step compiler flow.",
-                    intent=UserIntent.UNKNOWN,
-                )
-            )
-
-        self.assertEqual(result.response_plan.notes["response_pipeline"], "current")
-        routing_events = [event for event in logger.events if event.event_type == LogEventType.INTENT_ROUTING_DECISION]
-        self.assertEqual(len(routing_events), 1)
-        self.assertEqual(routing_events[0].payload["actual_response_pipeline"], "current")
-        self.assertEqual(routing_events[0].payload["proposed_response_pipeline"], "comprehension_plan")
-        self.assertTrue(routing_events[0].payload["would_change_pipeline"])
-
-    def test_pipeline_active_router_switches_current_to_comprehension_after_retrieval(self) -> None:
-        retrieval = _StubRetrievalService(
-            RetrievalResult(
-                evidence=(
-                    EvidenceItem(
-                        source_category=SourceCategory.SOURCE_CODE,
-                        source_id="repo-pre:src/compiler/parser.ts:L1-L2",
-                        snippet="parse();",
-                        metadata={"path": "src/compiler/parser.ts", "coverage_area": "input_parsing"},
-                    ),
-                    EvidenceItem(
-                        source_category=SourceCategory.SOURCE_CODE,
-                        source_id="repo-pre:src/compiler/checker.ts:L10-L12",
-                        snippet="check();",
-                        metadata={"path": "src/compiler/checker.ts", "coverage_area": "validation_checking"},
-                    ),
-                    EvidenceItem(
-                        source_category=SourceCategory.SOURCE_CODE,
-                        source_id="repo-pre:src/compiler/diagnostics.ts:L20-L21",
-                        snippet="diagnose();",
-                        metadata={"path": "src/compiler/diagnostics.ts", "coverage_area": "diagnostics"},
-                    ),
-                ),
-                coverage_status="strong",
-                sufficient=True,
-                retrieval_summary={"source": "stub"},
-            )
-        )
-        logger = _InMemoryLogger()
-        with _fake_llm_server(
-            [
-                {
-                    "user_goals": ["understand"],
-                    "response_operation": "explain",
-                    "turn_relation": "new_task",
-                    "recommended_assistance_mode": "teach",
-                    "solution_pressure": "none",
-                    "retrieval_intents": [{"intent": "behavior_explanation", "priority": "primary"}],
-                    "primary_expected_output": "explanation",
-                    "expected_outputs": ["explanation"],
-                    "specificity": "medium",
-                    "explicit_targets": [],
-                    "confidence": 0.9,
-                    "classification_basis": ["User asks to understand a multi-step flow."],
-                },
-                {
-                    "markdown": "# Plan answer\n\nThe plan route explains parsing and checking together at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
-                    "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                    "understanding_checks": [
-                        {
-                            "id": "q1",
-                            "role": "comprehension_plan",
-                            "question_type": "primary",
-                            "question": "Why does this flow require both parsing and checking?",
-                            "expected_answer_points": ["Parsing creates structure.", "Checking validates it."],
-                            "hint": "Connect the two responsibilities.",
-                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                            "origin": "comprehension plan",
-                        }
-                    ],
-                    "render_notes": {"title": "Plan answer", "summary": "Comprehension route used."},
-                },
-            ]
-        ) as server_url:
-            control_layer = ControlLayer(
-                policy_stage=PolicyStage(),
-                retrieval_stage=retrieval,
-                logger=logger,
-                response_llm_config=_llm_config(server_url),
-                intent_shadow_enabled=True,
-                intent_router_mode="pipeline_active",
-                response_pipeline="current",
-                assistance_mode="teach",
-                max_gap_retrieval_passes=1,
-            )
-            result = control_layer.run(
-                ConversationState(
-                    conversation_id="test-pipeline-active-router",
-                    user_input="Explain this multi-step compiler flow.",
-                    intent=UserIntent.UNKNOWN,
-                )
-            )
-
-        self.assertEqual(len(retrieval.calls), 1)
-        self.assertEqual(result.response_plan.notes["response_pipeline"], "comprehension_plan")
-        self.assertEqual(result.response_payload.metadata["response_pipeline"], "comprehension_plan")
-        routing_events = [event for event in logger.events if event.event_type == LogEventType.INTENT_ROUTING_DECISION]
-        self.assertEqual(routing_events[0].payload["actual_response_pipeline"], "current")
-        self.assertEqual(routing_events[0].payload["effective_response_pipeline"], "comprehension_plan")
-        self.assertTrue(routing_events[0].payload["applied"])
-
     def test_guided_explanation_uses_llm_generation_when_configured(self) -> None:
         retrieval = _StubRetrievalService(_retrieval_with_role_buckets())
         logger = _InMemoryLogger()
         with _fake_llm_server(
             [
                 {
-                    "markdown": "# Bottom line\n\nThe checker owns the rule at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
+                    "markdown": "# Bottom line\n\nThe checker owns the rule in `checkClassLikeDeclaration` at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12). After the parser creates a class declaration, `checkClassLikeDeclaration` applies the semantic rule and reports the diagnostic.",
                     "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
                     "understanding_checks": [
                         {
                             "id": "q1",
                             "role": "validation_checking",
                             "question_type": "primary",
-                            "question": "Why is this checker path the main place to verify the rule?",
-                            "expected_answer_points": ["It contains semantic validation.", "It reports the relevant diagnostic."],
-                            "hint": "Look for the code path that turns parsed declarations into an error.",
+                            "question": "Why does `checkClassLikeDeclaration` explain the diagnostic after the parser creates the class declaration?",
+                            "expected_answer_points": ["The parser creates the class declaration.", "`checkClassLikeDeclaration` reports the diagnostic."],
+                            "hint": "Connect the parser-created declaration to `checkClassLikeDeclaration`.",
                             "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
                             "origin": "main retrieved role",
                         }
@@ -734,24 +549,23 @@ class ControlLayerPolicyTests(unittest.TestCase):
             ("repo-pre:src/compiler/checker.ts:L10-L12",),
         )
         request_payload_events = [
-            event for event in logger.events if event.event_type == LogEventType.RESPONSE_GENERATION_REQUEST_PAYLOAD
+            event
+            for event in logger.events
+            if event.event_type == LogEventType.PROMPT_PAYLOAD
+            and event.payload.get("event_type") == "comprehension_generation_request_payload"
         ]
         self.assertEqual(len(request_payload_events), 1)
-        implementation_context = request_payload_events[0].payload["payload"]["implementation_context"]
-        request_payload = request_payload_events[0].payload["payload"]
-        self.assertEqual(request_payload["coverage_status"], "partial_context_coverage")
-        self.assertEqual(request_payload["retrieval_coverage_status"], "partial")
-        self.assertIn("not necessarily direct implementation", request_payload["coverage_meaning"])
-        self.assertIn("prompt_terms", request_payload)
-        self.assertEqual(implementation_context[0]["stage"], "checker")
-        self.assertEqual(implementation_context[0]["path"], "src/compiler/checker.ts")
-        self.assertEqual(implementation_context[0]["positive_claims"][0]["claim_strength"], "direct")
-        self.assertEqual(implementation_context[0]["next_inspection_targets"][0]["claim_strength"], "inspection_target")
+        request_payload = request_payload_events[0].payload["payload"]["payload"]
+        self.assertEqual(request_payload["coverage_status"], "partial")
+        self.assertFalse(request_payload["retrieval_sufficient"])
+        self.assertIn("comprehension_plan", request_payload)
+        self.assertEqual(request_payload["comprehension_plan"]["concepts"][0]["id"], "validation_checking")
+        self.assertEqual(request_payload["evidence"][0]["path"], "src/compiler/checker.ts")
+        self.assertIn("src/compiler/checker.ts", request_payload["concept_definition_targets"])
         self.assertIn(LogEventType.RESPONSE_GENERATION_REQUESTED, [event.event_type for event in logger.events])
         self.assertIn(LogEventType.RESPONSE_GENERATION_RECEIVED, [event.event_type for event in logger.events])
 
     def test_comprehension_plan_builder_uses_evidence_and_gaps(self) -> None:
-        # COMPREHENSION_PLAN_FLOW: verifies typed plan construction without changing retrieval.
         retrieval = _retrieval_with_role_buckets()
         plan = build_comprehension_plan(
             user_prompt="Explain abstract class handling.",
@@ -768,8 +582,7 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertTrue(plan.explanation_sequence)
         self.assertIsNone(plan.understanding_check)
 
-    def test_comprehension_plan_pipeline_is_opt_in_and_persists_plan(self) -> None:
-        # COMPREHENSION_PLAN_FLOW: verifies explicit opt-in routing to the separate plan-aware generator.
+    def test_comprehension_plan_persists_plan(self) -> None:
         retrieval = _StubRetrievalService(_retrieval_with_role_buckets())
         logger = _InMemoryLogger()
         with _fake_llm_server(
@@ -801,7 +614,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 retrieval_stage=retrieval,
                 logger=logger,
                 response_llm_config=_llm_config(server_url),
-                response_pipeline="comprehension_plan",
                 assistance_mode="teach",
             )
             result = control_layer.run(
@@ -813,7 +625,7 @@ class ControlLayerPolicyTests(unittest.TestCase):
             )
 
         metadata = result.response_payload.metadata
-        self.assertEqual(metadata["response_pipeline"], "comprehension_plan")
+        self.assertNotIn("response_pipeline", metadata)
         self.assertEqual(metadata["assistance_mode"], "teach")
         self.assertEqual(metadata["comprehension_plan"]["concepts"][0]["id"], "validation_checking")
         self.assertIn("Plan-based answer", result.response_payload.content)
@@ -827,7 +639,7 @@ class ControlLayerPolicyTests(unittest.TestCase):
             for event in logger.events
             if event.event_type == LogEventType.RESPONSE_GENERATION_REQUESTED
         ]
-        self.assertEqual(requested[0].payload["response_pipeline"], "comprehension_plan")
+        self.assertNotIn("response_pipeline", requested[0].payload)
 
     def test_comprehension_plan_rejects_retrieval_label_check_without_fallback(self) -> None:
         retrieval = _StubRetrievalService(_retrieval_with_role_buckets())
@@ -850,6 +662,20 @@ class ControlLayerPolicyTests(unittest.TestCase):
                     ],
                     "render_notes": {"title": "Plan-based answer", "summary": "Plan route used."},
                     "concept_definitions": [],
+                },
+                {
+                    "understanding_checks": [
+                        {
+                            "id": "q1",
+                            "role": "comprehension_plan",
+                            "question_type": "primary",
+                            "question": "Why does the main implementation behavior part matter here?",
+                            "expected_answer_points": ["It connects retrieved evidence."],
+                            "hint": "Use the retrieved evidence role.",
+                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                            "origin": "model_repaired",
+                        }
+                    ]
                 }
             ]
         ) as server_url:
@@ -858,7 +684,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 retrieval_stage=retrieval,
                 logger=_InMemoryLogger(),
                 response_llm_config=_llm_config(server_url),
-                response_pipeline="comprehension_plan",
                 assistance_mode="teach",
             )
             result = control_layer.run(
@@ -901,6 +726,23 @@ class ControlLayerPolicyTests(unittest.TestCase):
                     ],
                     "render_notes": {"title": "Plan-based answer", "summary": "Plan route used."},
                     "concept_definitions": [],
+                },
+                {
+                    "understanding_checks": [
+                        {
+                            "id": "q1",
+                            "role": "learner",
+                            "question_type": "why",
+                            "question": "Why would DataView fail under the default library target but work when ES6 is selected?",
+                            "expected_answer_points": [
+                                "The default library target uses lib.d.ts.",
+                                "DataView is declared in lib.es6.d.ts.",
+                            ],
+                            "hint": "Compare the default library target with the ES6 library target.",
+                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                            "origin": "model_repaired",
+                        }
+                    ]
                 }
             ]
         ) as server_url:
@@ -909,7 +751,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 retrieval_stage=retrieval,
                 logger=_InMemoryLogger(),
                 response_llm_config=_llm_config(server_url),
-                response_pipeline="comprehension_plan",
                 assistance_mode="teach",
             )
             result = control_layer.run(
@@ -923,8 +764,77 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertIn("Explanation generation failed", result.response_payload.content)
         self.assertIn("no valid model-generated understanding checks", result.response_payload.metadata["error"])
 
-    def test_comprehension_gap_retrieval_is_bounded_and_opt_in(self) -> None:
-        # COMPREHENSION_PLAN_FLOW: one optional gap pass can augment evidence before plan-aware generation.
+    def test_comprehension_plan_repairs_invalid_check_without_rewriting_explanation(self) -> None:
+        retrieval = _StubRetrievalService(_retrieval_with_role_buckets())
+        logger = _InMemoryLogger()
+        with _fake_llm_server(
+            [
+                {
+                    "markdown": (
+                        "# Plan-based answer\n\n"
+                        "The parser creates the class declaration, then `checkClassLikeDeclaration` validates "
+                        "the declaration and reports the diagnostic at "
+                        "[src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12)."
+                    ),
+                    "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                    "understanding_checks": [
+                        {
+                            "id": "q1",
+                            "role": "comprehension_plan",
+                            "question_type": "primary",
+                            "question": "Why does the main implementation behavior part matter here?",
+                            "expected_answer_points": ["It identifies the role.", "It connects retrieved evidence."],
+                            "hint": "Use the cited file and line range.",
+                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                            "origin": "model_generated",
+                        }
+                    ],
+                    "render_notes": {"title": "Plan-based answer", "summary": "Plan route used."},
+                    "concept_definitions": [],
+                },
+                {
+                    "understanding_checks": [
+                        {
+                            "id": "q1",
+                            "role": "learner",
+                            "question_type": "why",
+                            "question": "Why does `checkClassLikeDeclaration` explain the diagnostic after the parser creates the class declaration?",
+                            "expected_answer_points": [
+                                "The parser creates the class declaration.",
+                                "`checkClassLikeDeclaration` validates the declaration.",
+                                "`checkClassLikeDeclaration` reports the diagnostic.",
+                            ],
+                            "hint": "Connect the parser-created declaration to `checkClassLikeDeclaration`.",
+                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                            "origin": "model_repaired",
+                        }
+                    ]
+                },
+            ]
+        ) as server_url:
+            control_layer = ControlLayer(
+                policy_stage=PolicyStage(),
+                retrieval_stage=retrieval,
+                logger=logger,
+                response_llm_config=_llm_config(server_url),
+                assistance_mode="teach",
+            )
+            result = control_layer.run(
+                ConversationState(
+                    conversation_id="test-comprehension-plan-check-repair",
+                    user_input="Explain abstract class handling.",
+                    intent=UserIntent.UNDERSTAND_CODE,
+                )
+            )
+
+        self.assertIn("Plan-based answer", result.response_payload.content)
+        self.assertEqual(result.response_payload.metadata["understanding_checks"][0]["origin"], "model_repaired")
+        self.assertIn("checkClassLikeDeclaration", result.response_payload.metadata["understanding_checks"][0]["question"])
+        event_types = [event.payload.get("event_type") for event in logger.events if event.event_type == LogEventType.PROMPT_PAYLOAD]
+        self.assertIn("comprehension_understanding_check_repair_requested", event_types)
+        self.assertIn("comprehension_understanding_check_repair_received", event_types)
+
+    def test_comprehension_gap_retrieval_is_bounded_when_enabled(self) -> None:
         initial = _retrieval_with_role_buckets()
         gap_result = RetrievalResult(
             evidence=(
@@ -945,7 +855,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
             policy_stage=PolicyStage(),
             retrieval_stage=retrieval,
             logger=_InMemoryLogger(),
-            response_pipeline="comprehension_plan",
             max_gap_retrieval_passes=1,
         )
 
@@ -964,30 +873,7 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertTrue(gap_summary["performed"])
         self.assertEqual(gap_summary["requested_gaps"], ["input_parsing"])
 
-    def test_current_pipeline_does_not_run_comprehension_gap_retrieval(self) -> None:
-        # COMPREHENSION_PLAN_FLOW: current response pipeline remains isolated from the bounded gap pass.
-        retrieval = _StubRetrievalService((_retrieval_with_role_buckets(),))
-        control_layer = ControlLayer(
-            policy_stage=PolicyStage(),
-            retrieval_stage=retrieval,
-            logger=_InMemoryLogger(),
-            response_pipeline="current",
-            max_gap_retrieval_passes=1,
-        )
-
-        result = control_layer.run(
-            ConversationState(
-                conversation_id="test-current-no-gap",
-                user_input="Explain abstract class handling.",
-                intent=UserIntent.UNDERSTAND_CODE,
-            )
-        )
-
-        self.assertEqual(len(retrieval.calls), 1)
-        self.assertNotIn("comprehension_gap_retrieval", result.retrieval_result.retrieval_summary)
-
     def test_comprehension_state_marks_partial_answer_for_repair(self) -> None:
-        # COMPREHENSION_PLAN_FLOW: concept-level state is persisted by the experimental repair/deepen path.
         plan = build_comprehension_plan(
             user_prompt="Explain abstract class handling.",
             retrieval_result=_retrieval_with_role_buckets(),
@@ -1017,58 +903,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertEqual(familiarity["validation_checking"], "partial")
         self.assertIsNotNone(state.repair_plan)
 
-    def test_prompt_term_classification_separates_targets_examples_and_ignored_prose(self) -> None:
-        terms = _classify_prompt_terms(
-            "Explain the code context needed for this issue.\n\n"
-            "Title: Suggestion: abstract classes\n\n"
-            "Support an `abstract` keyword for classes and their methods\n\n"
-            "Examples:\n\n"
-            "``` TypeScript\n"
-            "abstract class Base {\n"
-            "    abstract getThing(): string;\n"
-            "    getOtherThing() { return 'hello'; }\n"
-            "}\n"
-            "class Derived1 extends Base { }\n"
-            "class Derived2 extends Base { getThing() { return 'hello'; } }\n"
-            "```\n"
-            "must either implement concrete getThing"
-        )
-
-        self.assertIn("abstract", terms["requested_target_terms"])
-        self.assertIn("abstract classes", terms["requested_target_terms"])
-        self.assertIn("abstract keyword", terms["requested_target_terms"])
-        self.assertIn("abstract methods", terms["requested_target_terms"])
-        self.assertIn("Base", terms["example_terms"])
-        self.assertIn("Derived1", terms["example_terms"])
-        self.assertIn("Derived2", terms["example_terms"])
-        self.assertIn("getThing", terms["example_terms"])
-        self.assertIn("getOtherThing", terms["example_terms"])
-        self.assertIn("support", terms["prose_terms_ignored_for_grounding"])
-        self.assertIn("examples", terms["prose_terms_ignored_for_grounding"])
-        self.assertIn("concrete", terms["prose_terms_ignored_for_grounding"])
-        self.assertIn("either", terms["prose_terms_ignored_for_grounding"])
-
-    def test_prompt_term_classification_handles_unclosed_fenced_code(self) -> None:
-        terms = _classify_prompt_terms(
-            "Title: Suggestion: abstract classes\n\n"
-            "Support an `abstract` keyword for classes and their methods\n\n"
-            "Examples:\n\n"
-            "``` TypeScript\n"
-            "abstract class Base {\n"
-            "    abstract getThing(): string;\n"
-            "    getOtherThing() { return 'hello'; }\n"
-            "}\n"
-            "class Derived1 extends Base { }\n"
-            "class Derived2 extends Base { getThing() { return 'hello'; } }\n"
-        )
-
-        self.assertIn("abstract keyword", terms["requested_target_terms"])
-        self.assertIn("Base", terms["example_terms"])
-        self.assertIn("Derived1", terms["example_terms"])
-        self.assertIn("Derived2", terms["example_terms"])
-        self.assertIn("getThing", terms["example_terms"])
-        self.assertIn("getOtherThing", terms["example_terms"])
-
     def test_guided_explanation_removes_leaked_answer_key_from_visible_markdown(self) -> None:
         retrieval = _StubRetrievalService(_retrieval_with_role_buckets())
         with _fake_llm_server(
@@ -1076,9 +910,9 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 {
                     "markdown": (
                         "# Bottom line\n\n"
-                        "The checker owns the rule at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).\n\n"
+                        "The checker owns the rule in `checkClassLikeDeclaration` at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12). After the parser creates a class declaration, `checkClassLikeDeclaration` applies the semantic rule and reports the diagnostic.\n\n"
                         "### Understanding check question\n"
-                        "Why is this checker path the main place to verify the rule?\n\n"
+                        "Why does `checkClassLikeDeclaration` explain the diagnostic after the parser creates the class declaration?\n\n"
                         "Expected answer points:\n"
                         "- It contains semantic validation.\n"
                         "- It reports the relevant diagnostic.\n"
@@ -1089,9 +923,9 @@ class ControlLayerPolicyTests(unittest.TestCase):
                             "id": "q1",
                             "role": "validation_checking",
                             "question_type": "primary",
-                            "question": "Why is this checker path the main place to verify the rule?",
-                            "expected_answer_points": ["It contains semantic validation.", "It reports the relevant diagnostic."],
-                            "hint": "Look for the code path that turns parsed declarations into an error.",
+                            "question": "Why does `checkClassLikeDeclaration` explain the diagnostic after the parser creates the class declaration?",
+                            "expected_answer_points": ["The parser creates the class declaration.", "`checkClassLikeDeclaration` reports the diagnostic."],
+                            "hint": "Connect the parser-created declaration to `checkClassLikeDeclaration`.",
                             "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
                             "origin": "main retrieved role",
                         }
@@ -1128,9 +962,9 @@ class ControlLayerPolicyTests(unittest.TestCase):
                         "# Where to inspect or add abstract support\n\n"
                         "The snippets do not show abstract handling in the current code.\n\n"
                         "## Parser\n"
-                        "The parser calls a modifier pipeline. However, it does not explicitly mention abstract.\n\n"
+                        "The parser calls a modifier pipeline before `checkClassLikeDeclaration`. However, it does not explicitly mention abstract.\n\n"
                         "## Checker\n"
-                        "The checker validates class declarations. However, it does not show abstract checks.\n\n"
+                        "The checker validates the class declaration in `checkClassLikeDeclaration`. However, it does not show abstract checks.\n\n"
                         "## What is not shown by these snippets\n"
                         "- No explicit abstract keyword handling.\n"
                     ),
@@ -1140,9 +974,9 @@ class ControlLayerPolicyTests(unittest.TestCase):
                             "id": "q1",
                             "role": "validation_checking",
                             "question_type": "primary",
-                            "question": "What does the checker snippet prove?",
-                            "expected_answer_points": ["It contains semantic validation."],
-                            "hint": "Look for the validation function.",
+                            "question": "Why would abstract handling need a checker change after parsing creates the class declaration?",
+                            "expected_answer_points": ["The parser creates the class declaration.", "`checkClassLikeDeclaration` validates class declarations."],
+                            "hint": "Connect the parser-created declaration to `checkClassLikeDeclaration`.",
                             "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
                             "origin": "main retrieved role",
                         }
@@ -1166,8 +1000,8 @@ class ControlLayerPolicyTests(unittest.TestCase):
             )
 
         self.assertIn("The snippets do not show abstract handling", result.response_payload.content)
-        self.assertIn("The parser calls a modifier pipeline.", result.response_payload.content)
-        self.assertIn("The checker validates class declarations.", result.response_payload.content)
+        self.assertIn("The parser calls a modifier pipeline before `checkClassLikeDeclaration`.", result.response_payload.content)
+        self.assertIn("The checker validates the class declaration in `checkClassLikeDeclaration`.", result.response_payload.content)
         self.assertNotIn("does not explicitly mention abstract", result.response_payload.content)
         self.assertNotIn("does not show abstract checks", result.response_payload.content)
         self.assertIn("No explicit abstract keyword handling", result.response_payload.content)
@@ -1305,8 +1139,13 @@ class ControlLayerPolicyTests(unittest.TestCase):
         retrieval = _retrieval_with_role_buckets()
         contexts = tuple(context.to_dict() for context in build_question_contexts(retrieval))
 
-        with self.assertRaisesRegex(RuntimeError, "no valid understanding checks"):
-            _validate_generation_response(
+        with self.assertRaisesRegex(RuntimeError, "no valid model-generated understanding checks"):
+            plan = build_comprehension_plan(
+                user_prompt="Explain abstract class handling.",
+                retrieval_result=retrieval,
+                assistance_mode="teach",
+            )
+            _validate_response(
                 {
                     "markdown": "# Bottom line\n\nThe checker owns the rule at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
                     "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
@@ -1325,8 +1164,96 @@ class ControlLayerPolicyTests(unittest.TestCase):
                     "render_notes": {"title": "Bottom line", "summary": "Checker enforces abstract rules."},
                 },
                 retrieval.evidence,
-                question_contexts=contexts,
+                plan,
             )
+
+    def test_understanding_check_validator_ignores_connective_words_in_answer_key(self) -> None:
+        retrieval = RetrievalResult(
+            evidence=(
+                EvidenceItem(
+                    source_category=SourceCategory.SOURCE_CODE,
+                    source_id="workspace:packages/vue-server-renderer/types/index.d.ts:L1-L44",
+                    snippet="export declare function createRenderer(options?: RendererOptions): Renderer;",
+                    rank=1,
+                    metadata={
+                        "path": "packages/vue-server-renderer/types/index.d.ts",
+                        "coverage_area": "published TypeScript declarations",
+                    },
+                ),
+                EvidenceItem(
+                    source_category=SourceCategory.SOURCE_CODE,
+                    source_id="workspace:src/server/webpack-plugin/client.js:L1-L69",
+                    snippet="export default class VueSSRClientPlugin { apply (compiler) {} }",
+                    rank=2,
+                    metadata={
+                        "path": "src/server/webpack-plugin/client.js",
+                        "coverage_area": "runtime client plugin implementation",
+                    },
+                ),
+                EvidenceItem(
+                    source_category=SourceCategory.SOURCE_CODE,
+                    source_id="workspace:build/config.js:L131-L135",
+                    snippet="dest: resolve('packages/vue-server-renderer/client-plugin.js')",
+                    rank=3,
+                    metadata={"path": "build/config.js", "coverage_area": "build pipeline and emitted package path"},
+                ),
+            ),
+            coverage_status="strong",
+            sufficient=True,
+        )
+        plan = build_comprehension_plan(
+            user_prompt="Explain the code context for vue-server-renderer/client-plugin declarations.",
+            retrieval_result=retrieval,
+            assistance_mode="teach",
+        )
+
+        result = _validate_response(
+            {
+                "markdown": (
+                    "The symptom is that TypeScript users lack type declarations for "
+                    "`vue-server-renderer/client-plugin`. The observed evidence is that "
+                    "`types/index.d.ts` does not declare the `client-plugin` subpath, while "
+                    "`client-plugin` exists as runtime code and build output. The cause is that "
+                    "the published TypeScript declaration file does not include declarations for "
+                    "that subpath."
+                ),
+                "used_evidence_refs": [
+                    "workspace:packages/vue-server-renderer/types/index.d.ts:L1-L44",
+                    "workspace:src/server/webpack-plugin/client.js:L1-L69",
+                    "workspace:build/config.js:L131-L135",
+                ],
+                "understanding_checks": [
+                    {
+                        "id": "check1",
+                        "role": "learner",
+                        "question_type": "why",
+                        "question": (
+                            "Why do TypeScript users currently lack type declarations for the "
+                            "`vue-server-renderer/client-plugin` subpath, despite it being a built "
+                            "and used part of the package?"
+                        ),
+                        "expected_answer_points": [
+                            "TypeScript users lack declarations for `vue-server-renderer/client-plugin`.",
+                            "The package's published declaration file `types/index.d.ts` does not declare any exports for the `client-plugin` subpath.",
+                            "Because the published TypeScript declaration file does not include declarations for the `client-plugin` subpath, even though the runtime code and build output exist.",
+                        ],
+                        "hint": "Compare the published declarations with the runtime module and build output.",
+                        "evidence_refs": [
+                            "workspace:packages/vue-server-renderer/types/index.d.ts:L1-L44",
+                            "workspace:src/server/webpack-plugin/client.js:L1-L69",
+                            "workspace:build/config.js:L131-L135",
+                        ],
+                        "origin": "model_generated",
+                    }
+                ],
+                "render_notes": {"title": "Client plugin declarations", "summary": "Explains the missing subpath type."},
+                "concept_definitions": [],
+            },
+            retrieval.evidence,
+            plan,
+        )
+
+        self.assertEqual(result.understanding_checks[0].question_type, "why")
 
     def test_answer_evaluation_uses_llm_schema(self) -> None:
         checks = [
@@ -1362,26 +1289,15 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertEqual(evaluations[0].status, "correct")
         self.assertEqual(evaluations[0].next_turn, "deepen")
 
-    def test_prompt_sources_note_is_checked_in(self) -> None:
-        content = prompt_sources_path().read_text(encoding="utf-8")
-        self.assertIn("digital.gov/guides/plain-language/principles/write-for-reader/", content)
-        self.assertIn("link.springer.com/article/10.1007/s10648-010-9145-4", content)
+    def test_comprehension_prompt_is_checked_in(self) -> None:
+        from services.response_generation.comprehension import PROMPT_PATH
 
-    def test_explanation_prompt_is_implementation_context_not_case_specific(self) -> None:
-        content = (prompt_sources_path().parent / "explanation.md").read_text(encoding="utf-8")
+        content = PROMPT_PATH.read_text(encoding="utf-8")
 
-        self.assertIn("implementation-context explanation", content)
-        self.assertIn("coverage of useful explanation context", content)
-        self.assertIn("implementation_context", content)
-        self.assertIn("prompt_terms_absent_from_evidence", content)
-        self.assertIn("### <Responsibility or Stage> (<path>)", content)
-        self.assertIn("Do not create a separate section just for code excerpts.", content)
-        self.assertIn("from the user's problem perspective", content)
-        self.assertIn("Do not summarize retrieval quality in the visible answer.", content)
-        self.assertIn("\"The retrieved code provides...\"", content)
-        self.assertIn("Start by answering the user's actual prompt in system-flow terms.", content)
-        self.assertNotIn("snippet-grounded explanation", content)
-        self.assertNotIn("Minimal code excerpts", content)
+        self.assertIn("generate a codebase explanation", content)
+        self.assertIn("symptom -> evidence -> cause", content)
+        self.assertIn("The visible markdown must already contain the answer path", content)
+        self.assertIn("not about evidence mechanics", content)
         self.assertNotIn("FORBIDDEN when exact feature tokens", content)
         self.assertNotIn("abstract", content.lower())
 
@@ -1412,7 +1328,17 @@ class _FakeLLMHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length", "0"))
         self.rfile.read(length)
+        if not self.response_payloads:
+            body = json.dumps({"error": "No fake LLM response payload queued."}).encode("utf-8")
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         content = self.response_payloads.pop(0)
+        if isinstance(content, dict) and "markdown" in content:
+            content.setdefault("concept_definitions", [])
         if not isinstance(content, str):
             content = json.dumps(content)
         body = json.dumps({"choices": [{"message": {"content": content}}]}).encode("utf-8")

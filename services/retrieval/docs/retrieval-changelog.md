@@ -919,7 +919,7 @@
   - pass those anchors to the explanation generator as `required_evidence`,
   - validate visible Markdown citation coverage after generation and append a short grounded note only when a required anchor is still not visibly cited.
 - Expected quality impact:
-  - keep the beginner-friendly narrative style of `explanation_markdown_v2`,
+  - keep the beginner-friendly narrative style of the explanation generator,
   - prevent exact diagnostic or direct error-path evidence from being retrieved but omitted from the final answer,
   - avoid redundant repair sections when an overlapping same-file citation already covers the required evidence.
 - Expected token impact:
