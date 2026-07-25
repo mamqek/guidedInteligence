@@ -43,7 +43,6 @@
   },
   "assistance": {
     "mode": "teach",
-    "response_pipeline": "comprehension_plan",
     "max_gap_retrieval_passes": 1
   },
   "connected_context": {

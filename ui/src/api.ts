@@ -120,6 +120,10 @@ export type AppConfig = {
     remote_mcp_sources?: RemoteMcpSource[];
     mcp_sources: McpSource[];
   };
+  connected_context?: {
+    disclaimer_required_terms?: string[];
+    stale_block_terms?: string[];
+  };
   ui: {
     default_prompt: string;
   };

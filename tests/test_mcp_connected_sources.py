@@ -10,7 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from core.models import ConversationState
+from core.models import ConversationState, EvidenceItem
 from core.source_policy import SourceCategory
 from services.retrieval.config import (
     ConnectedSourceDocument,
@@ -24,6 +24,8 @@ from services.retrieval.config import (
 from services.retrieval.workspace.connected_context import ConnectedSourceContextResult
 from services.retrieval.workspace.mcp import MCPConnectedSourceAdapter, RemoteMCPConnectedSourceAdapter
 from services.retrieval.workspace.mcp.adapters import _extract_records
+from services.retrieval.workspace.mcp.remote import _canonical_notion_identifier, _canonical_record_identifier
+from services.retrieval.workspace.pipeline.evidence_flow import drop_unhinted_late_connected_file_evidence
 from services.retrieval.server import RuntimeState
 from services.retrieval.workspace import WorkspaceRetrievalStage
 
@@ -31,6 +33,66 @@ from services.retrieval.workspace import WorkspaceRetrievalStage
 class MCPConnectedSourceTests(unittest.TestCase):
     def test_empty_search_envelope_does_not_become_document_record(self) -> None:
         self.assertEqual((), _extract_records({"total_count": 0, "incomplete_results": False}))
+
+    def test_notion_identifier_ignores_ui_pvs_query_param(self) -> None:
+        self.assertEqual(
+            "https://app.notion.com/p/3a566dec1cfa81c6a25ed89c37fb7a1c",
+            _canonical_notion_identifier("https://app.notion.com/p/3a566dec1cfa81c6a25ed89c37fb7a1c?pvs=1"),
+        )
+        self.assertEqual(
+            "https://app.notion.com/p/page-id?v=view-id",
+            _canonical_notion_identifier("https://app.notion.com/p/page-id?pvs=1&v=view-id"),
+        )
+
+    def test_notion_record_identifier_prefers_stable_page_id_over_url(self) -> None:
+        self.assertEqual(
+            "3a566dec-1cfa-81c6-a25e-d89c37fb7a1c",
+            _canonical_record_identifier(
+                "notion",
+                {
+                    "id": "3a566dec-1cfa-81c6-a25e-d89c37fb7a1c",
+                    "url": "https://app.notion.com/p/3a566dec1cfa81c6a25ed89c37fb7a1c?pvs=1",
+                },
+            ),
+        )
+        self.assertEqual(
+            "gi-notion-cert-codex-write-probe-2026-07-22",
+            _canonical_record_identifier(
+                "notion",
+                {
+                    "id": "3a566dec-1cfa-81c6-a25e-d89c37fb7a1c",
+                    "url": "https://app.notion.com/p/3a566dec1cfa81c6a25ed89c37fb7a1c?pvs=1",
+                },
+                title="GI-NOTION-CERT Codex Write Probe 2026-07-22",
+            ),
+        )
+
+    def test_unhinted_late_connected_file_evidence_is_dropped(self) -> None:
+        selected = drop_unhinted_late_connected_file_evidence(
+            [
+                EvidenceItem(
+                    source_category=SourceCategory.SOURCE_CODE,
+                    source_id="repo-pre:src/runtime/notionCert.ts:L1-L6",
+                    snippet="owner",
+                    metadata={"path": "src/runtime/notionCert.ts", "retrieval_path": "late_accepted_file_span"},
+                ),
+                EvidenceItem(
+                    source_category=SourceCategory.SOURCE_CODE,
+                    source_id="repo-pre:src/runtime/notionNoise.ts:L1-L1",
+                    snippet="noise",
+                    metadata={"path": "src/runtime/notionNoise.ts", "retrieval_path": "late_accepted_file_span"},
+                ),
+                EvidenceItem(
+                    source_category=SourceCategory.SOURCE_CODE,
+                    source_id="repo-pre:src/runtime/notionNoise.ts:FILE",
+                    snippet="noise file",
+                    metadata={"path": "src/runtime/notionNoise.ts", "retrieval_path": "local_in_file_refinement"},
+                ),
+            ],
+            connected_file_hints=("src/runtime/notionCert.ts",),
+        )
+
+        self.assertEqual(["repo-pre:src/runtime/notionCert.ts:L1-L6"], [item.source_id for item in selected])
 
     def test_adapter_normalizes_stdio_mcp_tool_results(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -124,6 +186,7 @@ class MCPConnectedSourceTests(unittest.TestCase):
 
             self.assertEqual(server.last_arguments["owner"], "owner")
             self.assertEqual(server.last_arguments["repo"], "repo")
+            self.assertEqual(server.last_arguments["mode"], "hybrid")
             self.assertEqual(server.last_arguments["query"], "parser bug is:issue")
             self.assertNotIn("scope", server.last_arguments)
         finally:
@@ -304,233 +367,6 @@ class MCPConnectedSourceTests(unittest.TestCase):
             self.assertEqual(documents[0].metadata["score"], "0.920000")
         finally:
             server.close()
-
-    def test_workspace_collects_mcp_connected_documents_for_allowed_sources(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            server = _write_fake_mcp_server(root)
-            stage = WorkspaceRetrievalStage(
-                WorkspaceRetrievalConfig(
-                    workspace_root=str(root / "repo"),
-                    index_dir=str(root / "index"),
-                    run_dir=str(root / "run"),
-                    llm_config=_llm_config(),
-                    embedding_config=_embedding_config(),
-                    qdrant_config=_qdrant_config(),
-                    mcp_connected_sources=(
-                        MCPConnectedSourceConfig(
-                            name="github",
-                            source_category=SourceCategory.ISSUE_TRACKER,
-                            source_key="github",
-                            command=sys.executable,
-                            args=(str(server),),
-                            query_tool_name="search_issues",
-                        ),
-                    ),
-                )
-            )
-            state = ConversationState(
-                conversation_id="conv",
-                user_input="Explain an abstract parser bug.",
-            )
-
-            documents = stage._connected_documents(state.user_input, (SourceCategory.ISSUE_TRACKER,))
-
-            self.assertEqual([document.source_id for document in documents], ["mcp:github:123"])
-            trace = (root / "run" / "retrieval-trace.jsonl").read_text(encoding="utf-8")
-            self.assertIn("mcp_connected_source_searched", trace)
-            registry = stage.config.source_registry()
-            issue_entry = next(entry for entry in registry if entry.category == SourceCategory.ISSUE_TRACKER)
-            self.assertTrue(issue_entry.queryable)
-            self.assertEqual(issue_entry.adapter_name, "connected_documents+mcp+remote_mcp")
-
-    def test_workspace_skips_mcp_sources_blocked_by_policy(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            server = _write_fake_mcp_server(root)
-            stage = WorkspaceRetrievalStage(
-                WorkspaceRetrievalConfig(
-                    workspace_root=str(root / "repo"),
-                    index_dir=str(root / "index"),
-                    llm_config=_llm_config(),
-                    embedding_config=_embedding_config(),
-                    qdrant_config=_qdrant_config(),
-                    enabled_sources=("source_code",),
-                    mcp_connected_sources=(
-                        MCPConnectedSourceConfig(
-                            name="github",
-                            source_category=SourceCategory.ISSUE_TRACKER,
-                            source_key="github",
-                            command=sys.executable,
-                            args=(str(server),),
-                            query_tool_name="search_issues",
-                        ),
-                    ),
-                )
-            )
-
-            documents = stage._connected_documents("parser bug", (SourceCategory.SOURCE_CODE,))
-
-            self.assertEqual(documents, ())
-
-    def test_workspace_collects_remote_mcp_documents_for_allowed_sources(self) -> None:
-        server = _FakeRemoteMCPServer()
-        try:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                root = Path(temp_dir)
-                stage = WorkspaceRetrievalStage(
-                    WorkspaceRetrievalConfig(
-                        workspace_root=str(root / "repo"),
-                        index_dir=str(root / "index"),
-                        run_dir=str(root / "run"),
-                        llm_config=_llm_config(),
-                        embedding_config=_embedding_config(),
-                        qdrant_config=_qdrant_config(),
-                        remote_mcp_connected_sources=(
-                            RemoteMCPConnectedSourceConfig(
-                                enabled=True,
-                                name="shortcut-stories",
-                                provider="shortcut",
-                                source_category=SourceCategory.ISSUE_TRACKER,
-                                source_key="shortcut",
-                                endpoint_url=server.url,
-                                query_tool_name="search_stories",
-                                min_score=0.5,
-                            ),
-                        ),
-                    )
-                )
-
-                documents = stage._connected_documents("parser story", (SourceCategory.ISSUE_TRACKER,))
-
-                self.assertEqual(len(documents), 1)
-                self.assertEqual(documents[0].metadata["adapter"], "remote_mcp")
-                trace = (root / "run" / "retrieval-trace.jsonl").read_text(encoding="utf-8")
-                self.assertIn("remote_mcp_connected_source_searched", trace)
-        finally:
-            server.close()
-
-    def test_workspace_filters_remote_mcp_by_source_key_not_category(self) -> None:
-        server = _FakeRemoteMCPServer()
-        try:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                root = Path(temp_dir)
-                stage = WorkspaceRetrievalStage(
-                    WorkspaceRetrievalConfig(
-                        workspace_root=str(root / "repo"),
-                        index_dir=str(root / "index"),
-                        run_dir=str(root / "run"),
-                        llm_config=_llm_config(),
-                        embedding_config=_embedding_config(),
-                        qdrant_config=_qdrant_config(),
-                        enabled_sources=("shortcut",),
-                        remote_mcp_connected_sources=(
-                            RemoteMCPConnectedSourceConfig(
-                                enabled=True,
-                                name="shortcut-stories",
-                                provider="shortcut",
-                                source_category=SourceCategory.ISSUE_TRACKER,
-                                source_key="shortcut",
-                                endpoint_url=server.url,
-                                query_tool_name="search_stories",
-                                min_score=0.5,
-                            ),
-                            RemoteMCPConnectedSourceConfig(
-                                enabled=True,
-                                name="jira-issues",
-                                provider="atlassian",
-                                source_category=SourceCategory.ISSUE_TRACKER,
-                                source_key="jira",
-                                endpoint_url=server.url,
-                                query_tool_name="search_stories",
-                                min_score=0.5,
-                            ),
-                        ),
-                    )
-                )
-
-                documents = stage._connected_documents("parser story", (SourceCategory.ISSUE_TRACKER,))
-
-                self.assertEqual(len(documents), 1)
-                self.assertEqual(documents[0].metadata["source_key"], "shortcut")
-                trace = (root / "run" / "retrieval-trace.jsonl").read_text(encoding="utf-8")
-                self.assertIn('"source_key": "shortcut"', trace)
-                self.assertNotIn('"source_key": "jira"', trace)
-        finally:
-            server.close()
-
-    def test_connected_context_routes_handles_by_source_key_without_category_gate(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            stage = WorkspaceRetrievalStage(
-                WorkspaceRetrievalConfig(
-                    workspace_root=str(root / "repo"),
-                    index_dir=str(root / "index"),
-                    llm_config=_llm_config(),
-                    embedding_config=_embedding_config(),
-                    qdrant_config=_qdrant_config(),
-                    enabled_sources=("shortcut",),
-                    remote_mcp_connected_sources=(
-                        RemoteMCPConnectedSourceConfig(
-                            enabled=True,
-                            name="shortcut-stories",
-                            provider="shortcut",
-                            source_category=SourceCategory.ISSUE_TRACKER,
-                            source_key="shortcut",
-                            endpoint_url="https://example.invalid/mcp",
-                            query_tool_name="search_stories",
-                        ),
-                        RemoteMCPConnectedSourceConfig(
-                            enabled=True,
-                            name="jira-issues",
-                            provider="atlassian",
-                            source_category=SourceCategory.ISSUE_TRACKER,
-                            source_key="jira",
-                            endpoint_url="https://example.invalid/mcp",
-                            query_tool_name="search_issues",
-                        ),
-                    ),
-                )
-            )
-
-            handles = stage._connected_source_handles((SourceCategory.SOURCE_CODE,))
-
-            self.assertEqual([handle.source_key for handle in handles], ["shortcut"])
-
-    def test_workspace_can_promote_connected_documents_to_evidence(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            stage = WorkspaceRetrievalStage(
-                WorkspaceRetrievalConfig(
-                    workspace_root=str(root / "repo"),
-                    index_dir=str(root / "index"),
-                    llm_config=_llm_config(),
-                    embedding_config=_embedding_config(),
-                    qdrant_config=_qdrant_config(),
-                )
-            )
-            document = ConnectedSourceDocument(
-                source_category=SourceCategory.ISSUE_TRACKER,
-                source_id="mcp:github:123",
-                title="Parser issue",
-                content="Issue body with reproduction details.",
-                metadata={"adapter": "mcp"},
-            )
-
-            evidence = stage._append_connected_source_evidence(
-                [],
-                connected_context=ConnectedSourceContextResult(
-                    documents=(document,),
-                    selected_context_ids=(document.source_id,),
-                    selected_evidence_ids=(document.source_id,),
-                ),
-                source_policy=(SourceCategory.ISSUE_TRACKER,),
-            )
-
-            self.assertEqual(len(evidence), 1)
-            self.assertEqual(evidence[0].source_id, "mcp:github:123")
-            self.assertEqual(evidence[0].source_category, SourceCategory.ISSUE_TRACKER)
-            self.assertEqual(evidence[0].metadata["retrieval_path"], "connected_source")
 
     def test_runtime_state_test_connection_returns_normalized_documents(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -944,4 +780,3 @@ def _qdrant_config() -> RetrievalQdrantConfig:
 
 if __name__ == "__main__":
     unittest.main()
-

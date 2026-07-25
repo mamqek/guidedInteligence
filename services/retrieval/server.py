@@ -29,7 +29,7 @@ from core.policy import PolicyStage
 from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, SourceCategory, SourcePolicy
 from services.comprehension import generate_followup
 from services.guidance.answer_evaluation import evaluate_answers
-from services.intent import SUPPORTED_ASSISTANCE_ROUTER_MODES, SUPPORTED_ROUTER_MODES
+from services.intent import SUPPORTED_ASSISTANCE_ROUTER_MODES
 from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, estimate_indexing_scope, load_index
 from services.retrieval.workspace.cgcignore import (
     CGCIGNORE_END,
@@ -41,6 +41,8 @@ from services.retrieval.workspace.cgcignore import (
 from services.logging.store import JsonlLogger
 from services.retrieval.config import (
     DEFAULT_CODEX_PROMPT_PROFILE,
+    DEFAULT_CONNECTED_CONTEXT_DISCLAIMER_REQUIRED_TERMS,
+    DEFAULT_CONNECTED_CONTEXT_STALE_BLOCK_TERMS,
     RETRIEVAL_MODE_CODEX,
     RETRIEVAL_MODE_WORKSPACE,
     SUPPORTED_CODEX_PROMPT_PROFILES,
@@ -92,8 +94,6 @@ DEFAULT_REMOTE_MCP_SOURCE_KEYS = (
     "google_drive",
 )
 DEFAULT_ALLOWED_SOURCE_KEYS = (*BUILTIN_SOURCE_KEYS, *DEFAULT_REMOTE_MCP_SOURCE_KEYS)
-COMPREHENSION_PLAN_FLOW_MARKER = "COMPREHENSION_PLAN_FLOW"
-SUPPORTED_RESPONSE_PIPELINES = ("current", "comprehension_plan")
 SUPPORTED_ASSISTANCE_MODES = ("teach", "work", "hybrid", "evaluation")
 RETRIEVAL_STAGE_WINDOWS: dict[str, tuple[int, int]] = {
     "index_cgc": (12, 36),
@@ -184,9 +184,6 @@ class RuntimeState:
             "runs_dir": str(self.runs_root),
             "github_repository": self.github_repository(),
             "retrieval_mode": _retrieval_mode(self.config),
-            # COMPREHENSION_PLAN_FLOW: surface the response pipeline separately from retrieval mode.
-            "response_pipeline": str(_assistance_settings(self.config).get("response_pipeline") or "current"),
-            # COMPREHENSION_PLAN_FLOW: assistance mode controls only the experimental comprehension-plan response path.
             "assistance_mode": str(_assistance_settings(self.config).get("mode") or "teach"),
             "codex_prompt_profile": str(
                 _retrieval_settings(self.config).get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
@@ -253,14 +250,14 @@ class RuntimeState:
             return {"ok": True, "provider": provider, "authorize_url": _local_ui_url(request_host, self.tool_root)}
 
         registration = _configured_provider_oauth_client(provider, self.tool_root)
+        redirect_uri = _oauth_redirect_uri(request_host, self.tool_root)
         if registration:
             auth_metadata = _provider_oauth_metadata(provider, endpoint_url, {})
         else:
             auth_metadata = _discover_oauth_metadata(endpoint_url)
-            registration = _register_oauth_client(auth_metadata, request_host, provider)
+            registration = _register_oauth_client(auth_metadata, redirect_uri=redirect_uri, provider=provider)
         verifier = _oauth_code_verifier()
         state = secrets.token_urlsafe(32)
-        redirect_uri = _oauth_redirect_uri(request_host, self.tool_root)
         challenge = _oauth_code_challenge(verifier)
         client_id = str(registration.get("client_id") or "")
         if not client_id:
@@ -275,8 +272,6 @@ class RuntimeState:
         if registration.get("pkce", True):
             auth_params["code_challenge"] = challenge
             auth_params["code_challenge_method"] = "S256"
-        if provider == "notion":
-            auth_params["owner"] = "user"
         scope = str(registration.get("scope") or payload.get("oauth_scope") or "").strip()
         if scope:
             auth_params["scope"] = scope
@@ -987,14 +982,9 @@ class RuntimeState:
                 retrieval_stage=retrieval_stage,
                 logger=progress_logger,
                 response_llm_config=llm_config,
-                # COMPREHENSION_PLAN_FLOW: config-gated selector keeps the experimental pipeline opt-in.
-                response_pipeline=str(_assistance_settings(self.config).get("response_pipeline") or "current"),
-                # COMPREHENSION_PLAN_FLOW: mode is consumed only by comprehension-plan generation.
                 assistance_mode=str(_assistance_settings(self.config).get("mode") or "teach"),
-                # COMPREHENSION_PLAN_FLOW: bounded gap retrieval is opt-in and capped by assistance config.
                 max_gap_retrieval_passes=int(_assistance_settings(self.config).get("max_gap_retrieval_passes") or 0),
                 intent_shadow_enabled=bool(_intent_settings(self.config).get("shadow_mode", False)),
-                intent_router_mode=str(_intent_settings(self.config).get("router_mode") or "off"),
                 intent_assistance_mode=str(_intent_settings(self.config).get("assistance_mode") or "off"),
             )
             state = ConversationState(
@@ -1132,6 +1122,22 @@ class RuntimeState:
             connected_context_max_selected_context=int(connected_context.get("max_selected_context") or 4),
             connected_context_max_selected_evidence=int(connected_context.get("max_selected_evidence") or 2),
             connected_context_timeout_seconds=int(connected_context.get("timeout_seconds") or 45),
+            connected_context_disclaimer_required_terms=tuple(
+                _string_list(
+                    connected_context.get(
+                        "disclaimer_required_terms",
+                        list(DEFAULT_CONNECTED_CONTEXT_DISCLAIMER_REQUIRED_TERMS),
+                    )
+                )
+            ),
+            connected_context_stale_block_terms=tuple(
+                _string_list(
+                    connected_context.get(
+                        "stale_block_terms",
+                        list(DEFAULT_CONNECTED_CONTEXT_STALE_BLOCK_TERMS),
+                    )
+                )
+            ),
             remote_mcp_connected_sources=_configured_remote_mcp_sources(self.config, self.provider_auth()),
             mcp_connected_sources=_configured_mcp_sources(self.config),
         )
@@ -1159,22 +1165,20 @@ class RuntimeState:
             "run_id": run_id,
             "evaluations": [evaluation.to_dict() for evaluation in evaluations],
         }
-        if str(metadata.get("response_pipeline") or "") == "comprehension_plan":
-            # COMPREHENSION_PLAN_FLOW: only the experimental response pipeline generates repair/deepen follow-up turns.
-            plan = metadata.get("comprehension_plan", {})
-            if isinstance(plan, Mapping) and plan:
-                followup = generate_followup(
-                    comprehension_plan=plan,
-                    checks=tuple(item for item in checks if isinstance(item, Mapping)),
-                    evaluations=tuple(evaluation.to_dict() for evaluation in evaluations),
-                    answers={str(key): str(value) for key, value in answers.items()},
-                    llm_config=llm_config,
-                )
-                output["comprehension_followup"] = followup.to_dict()
-                (run_dir / "comprehension-followup.json").write_text(
-                    json.dumps(followup.to_dict(), indent=2, sort_keys=True),
-                    encoding="utf-8",
-                )
+        plan = metadata.get("comprehension_plan", {})
+        if isinstance(plan, Mapping) and plan:
+            followup = generate_followup(
+                comprehension_plan=plan,
+                checks=tuple(item for item in checks if isinstance(item, Mapping)),
+                evaluations=tuple(evaluation.to_dict() for evaluation in evaluations),
+                answers={str(key): str(value) for key, value in answers.items()},
+                llm_config=llm_config,
+            )
+            output["comprehension_followup"] = followup.to_dict()
+            (run_dir / "comprehension-followup.json").write_text(
+                json.dumps(followup.to_dict(), indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
         (run_dir / "answer-evaluation.json").write_text(json.dumps(output, indent=2, sort_keys=True), encoding="utf-8")
         return output
 
@@ -1199,7 +1203,6 @@ class RuntimeState:
             "result": result,
             "evidence": _load_json(run_dir / "evidence-items.json", []),
             "answer_evaluation": _load_json(run_dir / "answer-evaluation.json", {}),
-            # COMPREHENSION_PLAN_FLOW: expose persisted repair/deepen response for experimental runs.
             "comprehension_followup": _load_json(run_dir / "comprehension-followup.json", {}),
         }
 
@@ -1278,15 +1281,12 @@ class RuntimeState:
                 "codex_prompt_profile": DEFAULT_CODEX_PROMPT_PROFILE,
                 "codex_timeout_seconds": 900,
             },
-            # COMPREHENSION_PLAN_FLOW: separate response/teaching mode config; default preserves current behavior.
             "assistance": {
                 "mode": "teach",
-                "response_pipeline": "current",
                 "max_gap_retrieval_passes": 0,
             },
             "intent": {
                 "shadow_mode": False,
-                "router_mode": "off",
                 "assistance_mode": "off",
             },
             "connected_context": {
@@ -1300,6 +1300,8 @@ class RuntimeState:
                 "max_selected_context": 4,
                 "max_selected_evidence": 2,
                 "timeout_seconds": 45,
+                "disclaimer_required_terms": list(DEFAULT_CONNECTED_CONTEXT_DISCLAIMER_REQUIRED_TERMS),
+                "stale_block_terms": list(DEFAULT_CONNECTED_CONTEXT_STALE_BLOCK_TERMS),
             },
             "ui": {
                 "default_prompt": "Explain where abstract class parsing and validation happen.",
@@ -1794,13 +1796,10 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(assistance, dict):
         assistance = {}
         config["assistance"] = assistance
-    # COMPREHENSION_PLAN_FLOW: normalize experimental response-pipeline config independently from retrieval settings.
     assistance["mode"] = str(assistance.get("mode") or "teach").strip().lower()
     if assistance["mode"] not in SUPPORTED_ASSISTANCE_MODES:
         assistance["mode"] = "teach"
-    assistance["response_pipeline"] = str(assistance.get("response_pipeline") or "current").strip().lower()
-    if assistance["response_pipeline"] not in SUPPORTED_RESPONSE_PIPELINES:
-        assistance["response_pipeline"] = "current"
+    assistance.pop("response_pipeline", None)
     try:
         max_gap_retrieval_passes = int(assistance.get("max_gap_retrieval_passes") or 0)
     except (TypeError, ValueError):
@@ -1811,15 +1810,25 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
         intent = {}
         config["intent"] = intent
     intent["shadow_mode"] = _boolean_setting(intent.get("shadow_mode"), False)
-    intent["router_mode"] = str(intent.get("router_mode") or "off").strip().lower()
-    if intent["router_mode"] not in SUPPORTED_ROUTER_MODES:
-        intent["router_mode"] = "off"
+    intent.pop("router_mode", None)
     intent["assistance_mode"] = str(intent.get("assistance_mode") or "off").strip().lower()
     if intent["assistance_mode"] not in SUPPORTED_ASSISTANCE_ROUTER_MODES:
         intent["assistance_mode"] = "off"
     indexing = config.get("indexing")
     if isinstance(indexing, dict):
         indexing.pop("include_paths", None)
+    connected_context = config.get("connected_context")
+    if not isinstance(connected_context, dict):
+        connected_context = {}
+        config["connected_context"] = connected_context
+    connected_context["disclaimer_required_terms"] = _normalize_string_list_setting(
+        connected_context.get("disclaimer_required_terms"),
+        DEFAULT_CONNECTED_CONTEXT_DISCLAIMER_REQUIRED_TERMS,
+    )
+    connected_context["stale_block_terms"] = _normalize_string_list_setting(
+        connected_context.get("stale_block_terms"),
+        DEFAULT_CONNECTED_CONTEXT_STALE_BLOCK_TERMS,
+    )
     connections = config.get("connections")
     if not isinstance(connections, dict):
         connections = {}
@@ -1873,6 +1882,21 @@ def _normalize_remote_mcp_sources(value: Any) -> list[dict[str, Any]]:
                 custom_sources.append(custom)
     normalized = [_strip_remote_mcp_credentials(by_name[name]) for name in ordered_names if name]
     normalized.extend(_strip_remote_mcp_credentials(source) for source in custom_sources)
+    return normalized
+
+
+def _normalize_string_list_setting(value: Any, defaults: tuple[str, ...]) -> list[str]:
+    if isinstance(value, str):
+        raw_values = value.split(",")
+    elif isinstance(value, list):
+        raw_values = value
+    else:
+        raw_values = list(defaults)
+    normalized: list[str] = []
+    for item in raw_values:
+        text = str(item).strip()
+        if text and text not in normalized:
+            normalized.append(text)
     return normalized
 
 
@@ -2075,13 +2099,8 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
     assistance = payload.get("assistance", {})
     if not isinstance(assistance, Mapping):
         raise RetrievalServerError("`assistance` must be an object.")
-    # COMPREHENSION_PLAN_FLOW: validate new mode config without coupling it to retrieval mode.
     if str(assistance.get("mode") or "teach") not in SUPPORTED_ASSISTANCE_MODES:
         raise RetrievalServerError("`assistance.mode` must be one of: " + ", ".join(SUPPORTED_ASSISTANCE_MODES) + ".")
-    if str(assistance.get("response_pipeline") or "current") not in SUPPORTED_RESPONSE_PIPELINES:
-        raise RetrievalServerError(
-            "`assistance.response_pipeline` must be one of: " + ", ".join(SUPPORTED_RESPONSE_PIPELINES) + "."
-        )
     try:
         max_gap_retrieval_passes = int(assistance.get("max_gap_retrieval_passes") or 0)
     except (TypeError, ValueError) as exc:
@@ -2093,12 +2112,19 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
         raise RetrievalServerError("`intent` must be an object.")
     if "shadow_mode" in intent and not _is_boolean_like(intent.get("shadow_mode")):
         raise RetrievalServerError("`intent.shadow_mode` must be a boolean.")
-    if str(intent.get("router_mode") or "off") not in SUPPORTED_ROUTER_MODES:
-        raise RetrievalServerError("`intent.router_mode` must be one of: " + ", ".join(SUPPORTED_ROUTER_MODES) + ".")
     if str(intent.get("assistance_mode") or "off") not in SUPPORTED_ASSISTANCE_ROUTER_MODES:
         raise RetrievalServerError(
             "`intent.assistance_mode` must be one of: " + ", ".join(SUPPORTED_ASSISTANCE_ROUTER_MODES) + "."
         )
+    connected_context = payload.get("connected_context", {})
+    if not isinstance(connected_context, Mapping):
+        raise RetrievalServerError("`connected_context` must be an object.")
+    for key in ("disclaimer_required_terms", "stale_block_terms"):
+        value = connected_context.get(key)
+        if value is not None and not isinstance(value, list):
+            raise RetrievalServerError(f"`connected_context.{key}` must be an array.")
+        if isinstance(value, list) and not _string_list(value):
+            raise RetrievalServerError(f"`connected_context.{key}` must contain only strings.")
     if not isinstance(payload.get("enabled_sources", []), list):
         raise RetrievalServerError("`enabled_sources` must be an array.")
     unknown_sources = [
@@ -2144,7 +2170,6 @@ def _retrieval_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 def _assistance_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
-    # COMPREHENSION_PLAN_FLOW: new flow settings live outside retrieval so Codex evidence gathering remains reusable.
     assistance = config.get("assistance", {})
     return assistance if isinstance(assistance, Mapping) else {}
 
@@ -2389,7 +2414,15 @@ def _discover_oauth_metadata(endpoint_url: str) -> dict[str, Any]:
 
 
 def _oauth_challenge_from_endpoint(endpoint_url: str) -> dict[str, str]:
-    request = urllib.request.Request(endpoint_url, method="GET")
+    request = urllib.request.Request(
+        endpoint_url,
+        headers={
+            "Accept": "application/json, text/event-stream",
+            "MCP-Protocol-Version": "2024-11-05",
+            "User-Agent": "guided-intelligence-retrieval/1.0",
+        },
+        method="GET",
+    )
     try:
         with urllib.request.urlopen(request, timeout=15):
             raise RetrievalServerError("Remote MCP endpoint did not request OAuth authentication.", status=400)
@@ -2443,7 +2476,7 @@ def _configured_provider_oauth_client(provider: str, tool_root: Path) -> dict[st
         {
             key: value
             for key, value in os.environ.items()
-            if key.startswith("GITHUB_OAUTH_") or key.startswith("NOTION_OAUTH_") or key.startswith("GUIDED_INTELLIGENCE_")
+            if key.startswith("GITHUB_OAUTH_") or key.startswith("GUIDED_INTELLIGENCE_")
         }
     )
     normalized_provider = provider.strip().lower()
@@ -2454,12 +2487,6 @@ def _configured_provider_oauth_client(provider: str, tool_root: Path) -> dict[st
         if not client_id:
             return None
         return {"client_id": client_id, "client_secret": client_secret, "scope": scope, "pkce": True, "token_auth_method": "form"}
-    if normalized_provider == "notion":
-        client_id = str(values.get("NOTION_OAUTH_CLIENT_ID") or values.get("GUIDED_INTELLIGENCE_NOTION_OAUTH_CLIENT_ID") or "").strip()
-        client_secret = str(values.get("NOTION_OAUTH_CLIENT_SECRET") or values.get("GUIDED_INTELLIGENCE_NOTION_OAUTH_CLIENT_SECRET") or "").strip()
-        if not client_id:
-            return None
-        return {"client_id": client_id, "client_secret": client_secret, "pkce": False, "token_auth_method": "basic_json"}
     return None
 
 
@@ -2484,18 +2511,10 @@ def _provider_oauth_metadata(provider: str, endpoint_url: str, discovered: Mappi
             "resource": "",
             "mcp_resource": endpoint_url,
         }
-    if normalized_provider == "notion":
-        return {
-            "authorization_endpoint": "https://api.notion.com/v1/oauth/authorize",
-            "token_endpoint": "https://api.notion.com/v1/oauth/token",
-            "resource": "",
-            "include_resource": False,
-            "mcp_resource": endpoint_url,
-        }
     return dict(discovered)
 
 
-def _register_oauth_client(auth_metadata: Mapping[str, Any], request_host: str, provider: str) -> dict[str, Any]:
+def _register_oauth_client(auth_metadata: Mapping[str, Any], *, redirect_uri: str, provider: str) -> dict[str, Any]:
     registration_endpoint = str(auth_metadata.get("registration_endpoint") or "").strip()
     if not registration_endpoint:
         normalized_provider = provider.strip().lower()
@@ -2503,14 +2522,7 @@ def _register_oauth_client(auth_metadata: Mapping[str, Any], request_host: str, 
             raise RetrievalServerError(
                 "GitHub browser connect requires one tool-level OAuth app. Add GITHUB_OAUTH_CLIENT_ID and "
                 "GITHUB_OAUTH_CLIENT_SECRET to the tool .env. GitHub callback URL: "
-                f"{_oauth_redirect_uri(request_host)}",
-                status=502,
-            )
-        if normalized_provider == "notion":
-            raise RetrievalServerError(
-                "Notion browser connect requires one tool-level public OAuth integration. Add NOTION_OAUTH_CLIENT_ID and "
-                "NOTION_OAUTH_CLIENT_SECRET to the tool .env. Notion redirect URI: "
-                f"{_oauth_redirect_uri(request_host)}",
+                f"{redirect_uri}",
                 status=502,
             )
         raise RetrievalServerError(
@@ -2519,7 +2531,7 @@ def _register_oauth_client(auth_metadata: Mapping[str, Any], request_host: str, 
         )
     payload = {
         "client_name": f"Guided Intelligence {provider}",
-        "redirect_uris": [_oauth_redirect_uri(request_host)],
+        "redirect_uris": [redirect_uri],
         "grant_types": ["authorization_code"],
         "response_types": ["code"],
         "token_endpoint_auth_method": "none",
@@ -2590,7 +2602,13 @@ def _oauth_code_challenge(verifier: str) -> str:
 
 
 def _get_json(url: str) -> dict[str, Any]:
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "guided-intelligence-retrieval/1.0",
+        },
+    )
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             payload = json.loads(response.read().decode("utf-8"))
@@ -2608,7 +2626,16 @@ def _get_json(url: str) -> dict[str, Any]:
 
 def _post_json(url: str, payload: Mapping[str, Any]) -> dict[str, Any]:
     raw = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(url, data=raw, headers={"Content-Type": "application/json", "Accept": "application/json"}, method="POST")
+    request = urllib.request.Request(
+        url,
+        data=raw,
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "guided-intelligence-retrieval/1.0",
+        },
+        method="POST",
+    )
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             response_payload = json.loads(response.read().decode("utf-8"))
@@ -2626,7 +2653,16 @@ def _post_json(url: str, payload: Mapping[str, Any]) -> dict[str, Any]:
 
 def _post_form_json(url: str, payload: Mapping[str, str]) -> dict[str, Any]:
     raw = urlencode(payload).encode("utf-8")
-    request = urllib.request.Request(url, data=raw, headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"}, method="POST")
+    request = urllib.request.Request(
+        url,
+        data=raw,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+            "User-Agent": "guided-intelligence-retrieval/1.0",
+        },
+        method="POST",
+    )
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             response_payload = json.loads(response.read().decode("utf-8"))
@@ -2671,7 +2707,12 @@ def _post_basic_json(url: str, payload: Mapping[str, str], *, username: str, pas
     request = urllib.request.Request(
         url,
         data=raw,
-        headers={"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Basic {credentials}"},
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Basic {credentials}",
+            "User-Agent": "guided-intelligence-retrieval/1.0",
+        },
         method="POST",
     )
     try:

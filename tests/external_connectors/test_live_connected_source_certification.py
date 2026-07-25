@@ -36,6 +36,14 @@ def _obsidian_enabled() -> bool:
     return os.environ.get("GI_LIVE_OBSIDIAN_CERT") == "1"
 
 
+def _notion_enabled() -> bool:
+    return os.environ.get("GI_LIVE_NOTION_CERT") == "1"
+
+
+def _github_enabled() -> bool:
+    return os.environ.get("GI_LIVE_GITHUB_CERT") == "1"
+
+
 def _load_json(path: Path) -> dict[str, object]:
     if not path.exists():
         return {}
@@ -57,8 +65,8 @@ def _source_text(candidate: dict[str, object]) -> str:
 
 def _extract_note_owner_signal(candidate: dict[str, object]) -> tuple[str, str]:
     text = _source_text(candidate)
-    file_match = re.search(r"canonical_file\s*:\s*`?([a-z0-9_./\\-]+\.[a-z0-9_]+)`?", text)
-    symbol_match = re.search(r"symbol\s*:\s*`?([a-z0-9_./\\-]+)`?", text)
+    file_match = re.search(r"(?:canonical_file|owner file)\s*:\s*`?([a-z0-9_./\\-]+\.[a-z0-9_]+)`?", text)
+    symbol_match = re.search(r"(?:symbol|owner function)\s*:\s*`?([a-z0-9_./\\-]+)`?", text)
     return (
         file_match.group(1).replace("\\", "/") if file_match else "",
         symbol_match.group(1) if symbol_match else "",
@@ -338,6 +346,481 @@ class _dynamic_llm_server:
 
 
 class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
+    def test_live_github_source_is_used_as_context_evidence_and_guides_owner_resolution(self) -> None:
+        if not _github_enabled():
+            self.skipTest("Set GI_LIVE_GITHUB_CERT=1 to run live GitHub connected-source certification.")
+
+        root = Path(__file__).resolve().parents[2]
+        app_config = _load_json(root / ".guided-intelligence" / "config.json")
+        provider_auth = _load_json(root / ".guided-intelligence" / "provider-auth.json")
+        sources = _configured_remote_mcp_sources(app_config, provider_auth)
+        issue_source = next(
+            (
+                item
+                for item in sources
+                if item.provider == "github"
+                and (item.name == "github-issues" or item.source_key == "github_issues")
+            ),
+            None,
+        )
+        pr_source = next(
+            (
+                item
+                for item in sources
+                if item.provider == "github"
+                and (item.name == "github-prs" or item.source_key == "github_pull_requests")
+            ),
+            None,
+        )
+        if issue_source is None:
+            self.fail("No enabled live hosted GitHub MCP issue source found in .guided-intelligence/config.json.")
+        if pr_source is None:
+            self.fail("No enabled live hosted GitHub MCP PR source found in .guided-intelligence/config.json.")
+        self.assertEqual("https://api.githubcopilot.com/mcp/", issue_source.endpoint_url)
+        self.assertEqual("https://api.githubcopilot.com/mcp/", pr_source.endpoint_url)
+        self.assertEqual("oauth", issue_source.auth_type)
+        self.assertEqual("oauth", pr_source.auth_type)
+        self.assertEqual("search_issues", issue_source.query_tool_name)
+        self.assertEqual("search_pull_requests", pr_source.query_tool_name)
+        if not issue_source.oauth_access_token or not pr_source.oauth_access_token:
+            self.fail("Live GitHub source requires an OAuth access token in .guided-intelligence/provider-auth.json.")
+
+        marker = "GI-GITHUB-CERT-CODEX-WRITE-PROBE"
+        fixture_repo = "mamqek/guided-intelligence-retrieval-fixtures"
+        good_issue_title = "GI-GITHUB-CERT Good Owner Probe 2026-07-23"
+        bad_issue_title = "GI-GITHUB-CERT Stale Wrong Owner Probe 2026-07-23"
+        good_pr_title = "GI-GITHUB-PR-CERT Good Owner Probe 2026-07-23"
+        bad_pr_title = "GI-GITHUB-PR-CERT Stale Wrong Owner Behavior Probe 2026-07-23"
+        file_hint = "src/runtime/githubCert.ts"
+        symbol_hint = "resolveGitHubCertification"
+        bad_file_hint = "src/runtime/githubLegacyCert.ts"
+        bad_symbol_hint = "resolveLegacyGitHubCertification"
+        noise_file = "src/runtime/githubNoise.ts"
+        noise_symbol = "resolveUnrelatedGitHubBehavior"
+        self.assertEqual(fixture_repo, issue_source.scope)
+        self.assertEqual(fixture_repo, pr_source.scope)
+        cert_issue_source = replace(
+            issue_source,
+            result_limit=max(issue_source.result_limit, 10),
+            static_tool_arguments={
+                **dict(issue_source.static_tool_arguments),
+                "mode": "hybrid",
+            },
+        )
+        cert_pr_source = replace(
+            pr_source,
+            result_limit=max(pr_source.result_limit, 10),
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            repo = temp_root / "repo"
+            source_file = repo / file_hint
+            source_file.parent.mkdir(parents=True)
+            source_file.write_text(
+                "\n".join(
+                    [
+                        "export function resolveGitHubCertification(state) {",
+                        "  if (state.hostedMcpRetrievedProbe && state.ownerHintResolved) {",
+                        "    return 'certified';",
+                        "  }",
+                        "  return 'pending';",
+                        "}",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            (repo / noise_file).write_text(
+                f"export function {noise_symbol}() {{ return 'ignore'; }}\n",
+                encoding="utf-8",
+            )
+            index_dir = temp_root / "index"
+            index = build_index_from_repo(repo_path=repo, commit="github-cert", chunk_line_count=40, chunk_line_overlap=10)
+            save_index(index, index_dir)
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=str(repo),
+                    index_dir=str(index_dir),
+                    run_dir=str(temp_root / "run"),
+                    llm_config=load_retrieval_llm_config(root / ".env"),
+                    embedding_config=load_retrieval_embedding_config(root / ".env"),
+                    qdrant_config=RetrievalQdrantConfig(
+                        url="http://example.test:6333",
+                        collection_name="github-connected-source-cert",
+                    ),
+                    enable_indexing=False,
+                    enabled_sources=("source_code", cert_issue_source.source_key, cert_pr_source.source_key),
+                    remote_mcp_connected_sources=(cert_issue_source, cert_pr_source),
+                    connected_context_timeout_seconds=max(60, issue_source.timeout_seconds + 30, pr_source.timeout_seconds + 30),
+                    obsidian_vault_path=None,
+                )
+            )
+            (index_dir / "qdrant-sync-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "collection_name": stage.config.qdrant_config.collection_name,
+                        "document_count": len(index.documents),
+                        "index_signature": f"sig:{len(index.documents)}",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            state = ConversationState(
+                conversation_id="live-github-source-cert",
+                user_input=f"Explain {marker} owner behavior.",
+                intent=UserIntent.UNDERSTAND_CODE,
+            )
+
+            result = stage.retrieve(state, _policy_result(state))
+
+            self.assertIn(
+                "connected_source_context",
+                result.retrieval_summary,
+                msg=json.dumps(result.retrieval_summary, indent=2, sort_keys=True),
+            )
+            connected = result.retrieval_summary["connected_source_context"]
+            github_documents = [
+                document
+                for document in connected["documents"]
+                if document.get("provider") == "github" or document.get("source_id", "").startswith("remote-mcp:github:")
+            ]
+            self.assertTrue(
+                all(document.get("metadata", {}).get("mcp_tool") in {"search_issues", "search_pull_requests"} for document in github_documents),
+                msg=json.dumps(github_documents, indent=2, sort_keys=True),
+            )
+            issue_documents = [
+                document
+                for document in github_documents
+                if document.get("metadata", {}).get("mcp_tool") == "search_issues"
+            ]
+            pr_documents = [
+                document
+                for document in github_documents
+                if document.get("metadata", {}).get("mcp_tool") == "search_pull_requests"
+            ]
+            self.assertTrue(issue_documents, msg=json.dumps(github_documents, indent=2, sort_keys=True))
+            self.assertTrue(pr_documents, msg=json.dumps(github_documents, indent=2, sort_keys=True))
+            good_documents = [
+                document
+                for document in github_documents
+                if good_issue_title.casefold() in _source_text(document)
+                or good_pr_title.casefold() in _source_text(document)
+                or file_hint.casefold() in _source_text(document)
+                or symbol_hint.casefold() in _source_text(document)
+            ]
+            bad_documents = [
+                document
+                for document in github_documents
+                if bad_issue_title.casefold() in _source_text(document)
+                or bad_pr_title.casefold() in _source_text(document)
+                or bad_file_hint.casefold() in _source_text(document)
+                or bad_symbol_hint.casefold() in _source_text(document)
+            ]
+            self.assertTrue(good_documents, msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertTrue(bad_documents, msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertTrue(
+                any(good_issue_title.casefold() in _source_text(document) for document in good_documents),
+                msg=json.dumps(good_documents, indent=2, sort_keys=True),
+            )
+            self.assertTrue(
+                any(good_pr_title.casefold() in _source_text(document) for document in good_documents),
+                msg=json.dumps(good_documents, indent=2, sort_keys=True),
+            )
+            self.assertTrue(
+                any(bad_issue_title.casefold() in _source_text(document) for document in bad_documents),
+                msg=json.dumps(bad_documents, indent=2, sort_keys=True),
+            )
+            self.assertTrue(
+                any(bad_pr_title.casefold() in _source_text(document) for document in bad_documents),
+                msg=json.dumps(bad_documents, indent=2, sort_keys=True),
+            )
+            good_ids = {str(document["source_id"]) for document in good_documents}
+            bad_ids = {str(document["source_id"]) for document in bad_documents}
+            selected_context_ids = set(connected["selected_context_ids"])
+            selected_evidence_ids = set(connected["selected_evidence_ids"])
+            self.assertTrue(good_ids & selected_context_ids, msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertTrue(good_ids & selected_evidence_ids, msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertFalse(bad_ids & selected_context_ids, msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertFalse(bad_ids & selected_evidence_ids, msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertIn(file_hint, connected.get("file_hints", ()), msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertIn(symbol_hint, connected.get("symbol_hints", ()), msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertNotIn(bad_file_hint, connected.get("file_hints", ()), msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertNotIn(bad_symbol_hint, connected.get("symbol_hints", ()), msg=json.dumps(connected, indent=2, sort_keys=True))
+
+            evidence_ids = {item.source_id for item in result.evidence}
+            evidence_paths = {item.metadata.get("path") for item in result.evidence}
+            selected_github_ref = next(iter(good_ids & evidence_ids), "")
+            self.assertTrue(selected_github_ref, msg=json.dumps([item.to_dict() for item in result.evidence], indent=2, sort_keys=True))
+            self.assertFalse(bad_ids & evidence_ids, msg=json.dumps([item.to_dict() for item in result.evidence], indent=2, sort_keys=True))
+            self.assertNotIn(noise_file, evidence_paths, msg=json.dumps([item.to_dict() for item in result.evidence], indent=2, sort_keys=True))
+
+            response_events: list[tuple[str, dict[str, object]]] = []
+
+            def record_response_event(event_type, payload) -> None:
+                response_events.append((str(getattr(event_type, "value", event_type)), dict(payload)))
+
+            policy_result = _policy_result(state)
+            response = render_response(
+                policy_result,
+                result,
+                ResponsePlan(
+                    turn_type=policy_result.turn_type,
+                    required_sections=("generated_explanation", "understanding_checks"),
+                    must_include_evidence=True,
+                    notes={
+                        "coverage_status": result.coverage_status,
+                        "retrieval_sufficient": result.sufficient,
+                    },
+                ),
+                state=state,
+                llm_config=load_retrieval_llm_config(root / ".env"),
+                assistance_mode="teach",
+                log_event=record_response_event,
+            )
+
+            self.assertNotIn("Explanation generation failed", response.content, msg=response.content)
+            used_evidence_refs = tuple(response.metadata.get("used_evidence_refs", ()))
+            self.assertIn(selected_github_ref, used_evidence_refs, msg=response.content)
+            self.assertFalse(bad_ids.intersection(used_evidence_refs), msg=response.content)
+            self.assertFalse(any(noise_file in ref for ref in used_evidence_refs), msg=response.content)
+            self.assertIn(file_hint, response.content, msg=response.content)
+            self.assertIn(symbol_hint, response.content, msg=response.content)
+            self.assertNotIn(noise_file, response.content, msg=response.content)
+            self.assertNotIn(noise_symbol, response.content, msg=response.content)
+            self.assertNotIn(bad_file_hint, response.content, msg=response.content)
+            self.assertNotIn(bad_symbol_hint, response.content, msg=response.content)
+            response_request_payloads = _response_request_payloads(response_events)
+            self.assertTrue(response_request_payloads, msg=json.dumps(response_events, indent=2, default=str))
+            self.assertTrue(
+                _payload_contains_evidence_ref(response_request_payloads, selected_github_ref),
+                msg=json.dumps(response_request_payloads, indent=2, sort_keys=True),
+            )
+            _write_certification_artifact(
+                name="github_latest_response",
+                response_content=response.content,
+                retrieval_summary=dict(result.retrieval_summary),
+                response_metadata=response.metadata,
+            )
+
+    def test_live_notion_source_is_used_as_context_evidence_and_guides_owner_resolution(self) -> None:
+        if not _notion_enabled():
+            self.skipTest("Set GI_LIVE_NOTION_CERT=1 to run live Notion connected-source certification.")
+
+        root = Path(__file__).resolve().parents[2]
+        app_config = _load_json(root / ".guided-intelligence" / "config.json")
+        provider_auth = _load_json(root / ".guided-intelligence" / "provider-auth.json")
+        sources = _configured_remote_mcp_sources(app_config, provider_auth)
+        source = next(
+            (
+                item
+                for item in sources
+                if item.provider == "notion"
+                and (item.name == "notion-pages" or item.source_key == "notion")
+            ),
+            None,
+        )
+        if source is None:
+            self.fail("No enabled live hosted Notion MCP source found in .guided-intelligence/config.json.")
+        self.assertEqual("https://mcp.notion.com/mcp", source.endpoint_url)
+        self.assertEqual("oauth", source.auth_type)
+        if not source.oauth_access_token:
+            self.fail("Live Notion source requires an OAuth access token in .guided-intelligence/provider-auth.json.")
+
+        marker = "GI-NOTION-CERT-CODEX-WRITE-PROBE"
+        title = "GI-NOTION-CERT Codex Write Probe 2026-07-22"
+        page_url = "https://app.notion.com/p/3a566dec1cfa81c6a25ed89c37fb7a1c"
+        page_id = "3a566dec-1cfa-81c6-a25e-d89c37fb7a1c"
+        file_hint = "src/runtime/notionCert.ts"
+        symbol_hint = "resolveNotionCertification"
+        bad_title = "GI-NOTION-CERT Stale Wrong Owner Probe 2026-07-22"
+        bad_page_id = "3a666dec-1cfa-8120-8695-ce95def934bd"
+        bad_file_hint = "src/runtime/notionLegacyCert.ts"
+        bad_symbol_hint = "resolveLegacyNotionCertification"
+        noise_file = "src/runtime/notionNoise.ts"
+        noise_symbol = "resolveUnrelatedNotionBehavior"
+        cert_source = replace(
+            source,
+            result_limit=max(source.result_limit, 10),
+            enrich_limit=max(source.enrich_limit, 10),
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            repo = temp_root / "repo"
+            source_file = repo / file_hint
+            source_file.parent.mkdir(parents=True)
+            source_file.write_text(
+                "\n".join(
+                    [
+                        "export function resolveNotionCertification(state) {",
+                        "  if (state.hostedMcpRetrievedProbe && state.ownerHintResolved) {",
+                        "    return 'certified';",
+                        "  }",
+                        "  return 'pending';",
+                        "}",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            (repo / noise_file).write_text(
+                f"export function {noise_symbol}() {{ return 'ignore'; }}\n",
+                encoding="utf-8",
+            )
+            index_dir = temp_root / "index"
+            index = build_index_from_repo(repo_path=repo, commit="notion-cert", chunk_line_count=40, chunk_line_overlap=10)
+            save_index(index, index_dir)
+            stage = WorkspaceRetrievalStage(
+                WorkspaceRetrievalConfig(
+                    workspace_root=str(repo),
+                    index_dir=str(index_dir),
+                    run_dir=str(temp_root / "run"),
+                    llm_config=load_retrieval_llm_config(root / ".env"),
+                    embedding_config=load_retrieval_embedding_config(root / ".env"),
+                    qdrant_config=RetrievalQdrantConfig(
+                        url="http://example.test:6333",
+                        collection_name="notion-connected-source-cert",
+                    ),
+                    enable_indexing=False,
+                    enabled_sources=("source_code", cert_source.source_key),
+                    remote_mcp_connected_sources=(cert_source,),
+                    connected_context_timeout_seconds=max(60, source.timeout_seconds + 30),
+                    obsidian_vault_path=None,
+                )
+            )
+            (index_dir / "qdrant-sync-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "collection_name": stage.config.qdrant_config.collection_name,
+                        "document_count": len(index.documents),
+                        "index_signature": f"sig:{len(index.documents)}",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            state = ConversationState(
+                conversation_id="live-notion-source-cert",
+                user_input=f"Explain {marker} owner behavior.",
+                intent=UserIntent.UNDERSTAND_CODE,
+            )
+
+            result = stage.retrieve(state, _policy_result(state))
+
+            self.assertIn(
+                "connected_source_context",
+                result.retrieval_summary,
+                msg=json.dumps(result.retrieval_summary, indent=2, sort_keys=True),
+            )
+            connected = result.retrieval_summary["connected_source_context"]
+            self.assertGreaterEqual(
+                len(connected["documents"]),
+                1,
+                msg=json.dumps(connected, indent=2, sort_keys=True),
+            )
+            notion_documents = [
+                document
+                for document in connected["documents"]
+                if document.get("provider") == "notion" or document.get("source_id", "").startswith("remote-mcp:notion:")
+            ]
+            good_documents = [
+                document
+                for document in notion_documents
+                if title.casefold() in _source_text(document)
+                or page_id.casefold() in _source_text(document)
+                or page_id.replace("-", "").casefold() in _source_text(document)
+                or file_hint.casefold() in _source_text(document)
+                or symbol_hint.casefold() in _source_text(document)
+            ]
+            self.assertTrue(good_documents, msg=json.dumps(connected, indent=2, sort_keys=True))
+            bad_documents = [
+                document
+                for document in notion_documents
+                if bad_title.casefold() in _source_text(document)
+                or bad_page_id.casefold() in _source_text(document)
+                or bad_page_id.replace("-", "").casefold() in _source_text(document)
+                or bad_file_hint.casefold() in _source_text(document)
+                or bad_symbol_hint.casefold() in _source_text(document)
+            ]
+            self.assertTrue(bad_documents, msg=json.dumps(connected, indent=2, sort_keys=True))
+            good_ids = {str(document["source_id"]) for document in good_documents}
+            bad_ids = {str(document["source_id"]) for document in bad_documents}
+            selected_context_ids = set(connected["selected_context_ids"])
+            selected_evidence_ids = set(connected["selected_evidence_ids"])
+            self.assertTrue(good_ids & selected_context_ids, msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertTrue(good_ids & selected_evidence_ids, msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertFalse(bad_ids & selected_context_ids, msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertFalse(bad_ids & selected_evidence_ids, msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertIn(file_hint, connected.get("file_hints", ()), msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertIn(symbol_hint, connected.get("symbol_hints", ()), msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertNotIn(bad_file_hint, connected.get("file_hints", ()), msg=json.dumps(connected, indent=2, sort_keys=True))
+            self.assertNotIn(bad_symbol_hint, connected.get("symbol_hints", ()), msg=json.dumps(connected, indent=2, sort_keys=True))
+
+            evidence_ids = {item.source_id for item in result.evidence}
+            evidence_paths = {item.metadata.get("path") for item in result.evidence}
+            selected_notion_ref = next(iter(good_ids & evidence_ids), "")
+            self.assertTrue(selected_notion_ref, msg=json.dumps([item.to_dict() for item in result.evidence], indent=2, sort_keys=True))
+            self.assertFalse(bad_ids & evidence_ids, msg=json.dumps([item.to_dict() for item in result.evidence], indent=2, sort_keys=True))
+            self.assertNotIn(noise_file, evidence_paths, msg=json.dumps([item.to_dict() for item in result.evidence], indent=2, sort_keys=True))
+            plan_file_hints = result.retrieval_summary.get("retrieval_plan", {}).get("confirmed_file_hints", ())
+            self.assertTrue(
+                file_hint in plan_file_hints or file_hint in evidence_paths,
+                msg=json.dumps(
+                    {
+                        "evidence": [item.to_dict() for item in result.evidence],
+                        "retrieval_summary": result.retrieval_summary,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                ),
+            )
+
+            response_events: list[tuple[str, dict[str, object]]] = []
+
+            def record_response_event(event_type, payload) -> None:
+                response_events.append((str(getattr(event_type, "value", event_type)), dict(payload)))
+
+            policy_result = _policy_result(state)
+            response = render_response(
+                policy_result,
+                result,
+                ResponsePlan(
+                    turn_type=policy_result.turn_type,
+                    required_sections=("generated_explanation", "understanding_checks"),
+                    must_include_evidence=True,
+                    notes={
+                        "coverage_status": result.coverage_status,
+                        "retrieval_sufficient": result.sufficient,
+                    },
+                ),
+                state=state,
+                llm_config=load_retrieval_llm_config(root / ".env"),
+                assistance_mode="teach",
+                log_event=record_response_event,
+            )
+
+            self.assertNotIn("Explanation generation failed", response.content, msg=response.content)
+            used_evidence_refs = tuple(response.metadata.get("used_evidence_refs", ()))
+            self.assertIn(selected_notion_ref, used_evidence_refs, msg=response.content)
+            self.assertFalse(bad_ids.intersection(used_evidence_refs), msg=response.content)
+            self.assertFalse(any(noise_file in ref for ref in used_evidence_refs), msg=response.content)
+            self.assertIn(file_hint, response.content, msg=response.content)
+            self.assertIn(symbol_hint, response.content, msg=response.content)
+            self.assertNotIn(noise_file, response.content, msg=response.content)
+            self.assertNotIn(noise_symbol, response.content, msg=response.content)
+            self.assertNotIn(bad_file_hint, response.content, msg=response.content)
+            self.assertNotIn(bad_symbol_hint, response.content, msg=response.content)
+            response_request_payloads = _response_request_payloads(response_events)
+            self.assertTrue(response_request_payloads, msg=json.dumps(response_events, indent=2, default=str))
+            self.assertTrue(
+                _payload_contains_evidence_ref(response_request_payloads, selected_notion_ref),
+                msg=json.dumps(response_request_payloads, indent=2, sort_keys=True),
+            )
+            _write_certification_artifact(
+                name="notion_latest_response",
+                response_content=response.content,
+                retrieval_summary=dict(result.retrieval_summary),
+                response_metadata=response.metadata,
+            )
+
     def test_live_obsidian_source_is_used_as_context_evidence_and_filters_noise(self) -> None:
         if not _obsidian_enabled():
             self.skipTest("Set GI_LIVE_OBSIDIAN_CERT=1 to run live Obsidian connected-source certification.")
@@ -457,7 +940,6 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                 ),
                 state=state,
                 llm_config=load_retrieval_llm_config(root / ".env"),
-                response_pipeline="current",
                 assistance_mode="teach",
                 log_event=record_response_event,
             )
@@ -608,7 +1090,6 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                 ),
                 state=state,
                 llm_config=load_retrieval_llm_config(root / ".env"),
-                response_pipeline="current",
                 assistance_mode="teach",
             )
             self.assertNotIn("Explanation generation failed", response.content, msg=response.content)

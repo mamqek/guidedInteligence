@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any, Mapping
 
@@ -158,7 +160,7 @@ class RemoteMCPConnectedSourceAdapter:
         if isinstance(record, Mapping):
             record_type = _record_type(self._provider_key(), record) or "unknown"
             title = _first_field(record, self.config.title_fields) or _first_field(record, ("object", "type")) or f"{self.config.name} result {index + 1}"
-            identifier = _record_identifier(record) or str(index + 1)
+            identifier = _canonical_record_identifier(self.config.provider, record, title=str(title)) or str(index + 1)
             search_content = _first_field(record, self.config.content_fields)
             fetched_content = _payload_text(fetch_payload) if fetch_payload is not None else ""
             content = fetched_content or search_content or json.dumps(record, sort_keys=True)
@@ -214,6 +216,8 @@ class RemoteMCPConnectedSourceAdapter:
         if self.config.provider == "github":
             query_text = self._github_query(query)
             self._apply_github_scope(arguments)
+            if self.config.query_tool_name == "search_issues":
+                arguments.setdefault("mode", "hybrid")
         elif self.config.scope:
             arguments.setdefault("scope", self.config.scope)
         arguments[self.config.query_argument_name] = query_text
@@ -600,7 +604,7 @@ def _feature_key_for_record_type(record_type: str) -> str:
 def _notion_identifier(record: Any) -> str:
     if not isinstance(record, Mapping):
         return ""
-    for field in ("url", "public_url", "id", "page_id", "database_id", "data_source_id", "source_id"):
+    for field in ("id", "page_id", "database_id", "data_source_id", "source_id", "url", "public_url"):
         value = record.get(field)
         if value is None or isinstance(value, (Mapping, list, tuple)):
             continue
@@ -635,6 +639,41 @@ def _record_identifier(record: Any) -> str:
         if text:
             return text
     return ""
+
+
+def _canonical_record_identifier(provider: str, record: Any, *, title: str = "") -> str:
+    if provider == "notion":
+        slug = _notion_title_slug(title)
+        if slug:
+            return slug
+    identifier = _notion_identifier(record) if provider == "notion" else _record_identifier(record)
+    if provider != "notion" or not identifier:
+        return identifier
+    return _canonical_notion_identifier(identifier)
+
+
+def _notion_title_slug(title: str) -> str:
+    normalized = re.sub(r"[^a-zA-Z0-9]+", "-", title.strip()).strip("-").lower()
+    return normalized[:120]
+
+
+def _canonical_notion_identifier(identifier: str) -> str:
+    parsed = urllib.parse.urlsplit(identifier)
+    if not parsed.scheme or not parsed.netloc:
+        return identifier
+    query = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    filtered_query = tuple((key, value) for key, value in query if key != "pvs")
+    if len(filtered_query) == len(query):
+        return identifier
+    return urllib.parse.urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            urllib.parse.urlencode(filtered_query),
+            parsed.fragment,
+        )
+    )
 
 
 def _payload_text(payload: Any) -> str:

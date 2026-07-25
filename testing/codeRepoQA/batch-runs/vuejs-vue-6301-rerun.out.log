@@ -1,0 +1,5 @@
+
+> coderepoqa:evaluate:codex:efficient
+> .venv\Scripts\python.exe testing/codeRepoQA/run_case.py evaluate-case --run-config configs/testing/codex-efficient.json --issue-json testing/codeRepoQA/corpus/cases/vuejs-vue-6301/issue.json
+
+C:\Programming\guidedInteligence_testcases\vuejs-vue-6301\runs\run-20260725T104113Z

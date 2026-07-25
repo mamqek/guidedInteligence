@@ -25,14 +25,9 @@ from services.intent.router import (
     ASSISTANCE_MODE_ROUTER_OFF,
     ASSISTANCE_MODE_ROUTER_SHADOW,
     AssistanceModeDecision,
-    PipelineRoutingDecision,
     ROUTER_MODE_OFF,
-    ROUTER_MODE_PIPELINE_ACTIVE,
-    ROUTER_MODE_PIPELINE_SHADOW,
     SUPPORTED_ASSISTANCE_ROUTER_MODES,
-    SUPPORTED_ROUTER_MODES,
     route_assistance_mode_shadow,
-    route_pipeline_shadow,
 )
 
 __all__ = [
@@ -47,17 +42,13 @@ __all__ = [
     "IntentAgreement",
     "IntentStageResult",
     "NormalizedIntent",
-    "PipelineRoutingDecision",
     "PRODUCT_BOUNDARY_EXPLAIN_PLAN_SUGGEST_ONLY",
     "ROUTER_MODE_OFF",
-    "ROUTER_MODE_PIPELINE_ACTIVE",
-    "ROUTER_MODE_PIPELINE_SHADOW",
     "RankedRetrievalIntent",
     "ResponseOperation",
     "RetrievalIntent",
     "SolutionPressure",
     "Specificity",
-    "SUPPORTED_ROUTER_MODES",
     "SUPPORTED_ASSISTANCE_ROUTER_MODES",
     "TargetReference",
     "TargetType",
@@ -68,5 +59,4 @@ __all__ = [
     "build_retrieval_hints",
     "normalize_intent",
     "route_assistance_mode_shadow",
-    "route_pipeline_shadow",
 ]

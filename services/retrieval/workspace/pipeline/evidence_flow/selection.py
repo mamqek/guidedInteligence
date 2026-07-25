@@ -166,6 +166,28 @@ def append_connected_source_evidence(
     return expanded
 
 
+def drop_unhinted_late_connected_file_evidence(
+    selected: Sequence[EvidenceItem],
+    *,
+    connected_file_hints: Sequence[str],
+) -> list[EvidenceItem]:
+    hinted_paths = {path.replace("\\", "/").lstrip("/") for path in connected_file_hints if path}
+    if not hinted_paths:
+        return list(selected)
+    filtered: list[EvidenceItem] = []
+    for item in selected:
+        path = str(item.metadata.get("path", "")).replace("\\", "/").lstrip("/")
+        if (
+            item.source_category == SourceCategory.SOURCE_CODE
+            and item.metadata.get("retrieval_path") in {"late_accepted_file_span", "local_in_file_refinement"}
+            and path
+            and path not in hinted_paths
+        ):
+            continue
+        filtered.append(item)
+    return filtered
+
+
 def evidence_item_from_source_ref(ref: str, *, workspace_root: str, rank: int, role: str = "") -> EvidenceItem | None:
     match = re.match(r"^repo-pre:(?P<path>.+):L(?P<start>\d+)-L(?P<end>\d+)$", ref)
     if match is None:

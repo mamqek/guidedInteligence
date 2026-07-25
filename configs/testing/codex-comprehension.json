@@ -1,6 +1,5 @@
 {
   "retrieval_mode": "codex",
-  "response_pipeline": "comprehension_plan",
   "assistance_mode": "teach",
   "max_gap_retrieval_passes": 1,
   "test_root": "C:/Programming/guidedInteligence_testcases",

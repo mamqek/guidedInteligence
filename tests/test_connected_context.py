@@ -4,6 +4,7 @@ import unittest
 
 from core.source_policy import SourceCategory
 from services.retrieval.workspace.connected_context import (
+    ConnectedSourceContextSettings,
     ConnectedSourceContextStage,
     ConnectedSourceHandle,
 )
@@ -182,6 +183,75 @@ class ConnectedSourceContextStageTests(unittest.TestCase):
 
         self.assertEqual((), result.selected_context_ids)
         self.assertEqual((), result.selected_evidence_ids)
+
+    def test_explicit_stale_guidance_is_blocked_even_when_model_marks_current(self) -> None:
+        analysis = _analysis("notion:stale", accept=True)
+        analysis["signals"]["file_hints"] = [
+            {"value": "src/runtime/notionLegacyCert.ts", "source_ids": ["notion:stale"]}
+        ]
+        responses = iter((_query_plan("notion"), analysis))
+        result = ConnectedSourceContextStage(
+            llm_config=_llm_config(),
+            complete_json_fn=lambda *args, **kwargs: next(responses),
+        ).run(
+            prompt="Explain certification owner behavior",
+            prompt_evidence={},
+            sources=(
+                ConnectedSourceHandle(
+                    "notion",
+                    "notion",
+                    "Notion",
+                    lambda query: (
+                        _document(
+                            "notion:stale",
+                            source_key="notion",
+                            content=(
+                                "This is stale/superseded connector-cert data.\n"
+                                "Do not use as current owner guidance.\n"
+                                "owner file: `src/runtime/notionLegacyCert.ts`"
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        self.assertEqual((), result.selected_context_ids)
+        self.assertEqual((), result.selected_evidence_ids)
+        self.assertEqual((), result.file_hints)
+        self.assertEqual((), result.facts)
+
+    def test_configured_empty_stale_terms_disable_deterministic_guidance_block(self) -> None:
+        analysis = _analysis("notion:stale", accept=True)
+        responses = iter((_query_plan("notion"), analysis))
+        result = ConnectedSourceContextStage(
+            llm_config=_llm_config(),
+            settings=ConnectedSourceContextSettings(stale_block_terms=()),
+            complete_json_fn=lambda *args, **kwargs: next(responses),
+        ).run(
+            prompt="Explain certification owner behavior",
+            prompt_evidence={},
+            sources=(
+                ConnectedSourceHandle(
+                    "notion",
+                    "notion",
+                    "Notion",
+                    lambda query: (
+                        _document(
+                            "notion:stale",
+                            source_key="notion",
+                            content=(
+                                "This is stale/superseded connector-cert data.\n"
+                                "Do not use as current owner guidance."
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        self.assertEqual(("notion:stale",), result.selected_context_ids)
+        self.assertEqual(("notion:stale",), result.selected_evidence_ids)
 
     def test_provider_failure_is_isolated_from_successful_source(self) -> None:
         def fail(_query: str):

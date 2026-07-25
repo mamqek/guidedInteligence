@@ -1,0 +1,9 @@
+
+> coderepoqa:batch:codex:efficient
+> .venv\Scripts\python.exe testing/codeRepoQA/run_case.py evaluate-batch --run-config configs/testing/codex-efficient.json --issue-json testing/codeRepoQA/corpus/cases/vuejs-vue-10803/issue.json --issue-json testing/codeRepoQA/corpus/cases/microsoft-TypeScript-2953/issue.json --issue-json testing/codeRepoQA/corpus/cases/pandas-dev-pandas-10068/issue.json --issue-json testing/codeRepoQA/corpus/cases/vuejs-vue-6301/issue.json --issue-json testing/codeRepoQA/corpus/cases/microsoft-TypeScript-45713/issue.json
+
+C:\Programming\guidedInteligence_testcases\vuejs-vue-10803\runs\run-20260723T211643Z
+C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-2953\runs\run-20260723T212014Z
+C:\Programming\guidedInteligence_testcases\pandas-dev-pandas-10068\runs\run-20260723T212217Z
+C:\Programming\guidedInteligence_testcases\vuejs-vue-6301\runs\run-20260723T212542Z
+C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-45713\runs\run-20260723T212733Z

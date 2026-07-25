@@ -19,6 +19,8 @@ RETRIEVAL_MODE_WORKSPACE = "workspace"
 RETRIEVAL_MODE_CODEX = "codex"
 SUPPORTED_RETRIEVAL_MODES = (RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX)
 DEFAULT_CODEX_PROMPT_PROFILE = "efficient"
+DEFAULT_CONNECTED_CONTEXT_DISCLAIMER_REQUIRED_TERMS = ("do not use",)
+DEFAULT_CONNECTED_CONTEXT_STALE_BLOCK_TERMS = ("stale", "superseded", "outdated", "deprecated")
 SUPPORTED_CODEX_PROMPT_PROFILES = (DEFAULT_CODEX_PROMPT_PROFILE, "responsibility-complete")
 SUPPORTED_RETRIEVAL_LLM_API_STYLES = ("openai_chat_completions",)
 SUPPORTED_RETRIEVAL_EMBEDDING_API_STYLES = ("openai_embeddings",)
@@ -426,6 +428,8 @@ class WorkspaceRetrievalConfig:
     connected_context_max_selected_context: int = 4
     connected_context_max_selected_evidence: int = 2
     connected_context_timeout_seconds: int = 45
+    connected_context_disclaimer_required_terms: tuple[str, ...] = DEFAULT_CONNECTED_CONTEXT_DISCLAIMER_REQUIRED_TERMS
+    connected_context_stale_block_terms: tuple[str, ...] = DEFAULT_CONNECTED_CONTEXT_STALE_BLOCK_TERMS
     objective_role_selection_enabled: bool = False
     connected_source_adapters: Mapping[str, bool] = field(
         default_factory=lambda: {

@@ -40,7 +40,7 @@ from services.retrieval.config import (
     load_retrieval_llm_config,
     load_retrieval_qdrant_config,
 )
-from services.intent import SUPPORTED_ASSISTANCE_ROUTER_MODES, SUPPORTED_ROUTER_MODES
+from services.intent import SUPPORTED_ASSISTANCE_ROUTER_MODES
 from services.retrieval.codex.cli import resolve_codex_command
 from services.retrieval.codex.provider import CodexRetrievalStage
 from services.retrieval.workspace import WorkspaceRetrievalStage
@@ -50,8 +50,6 @@ DEFAULT_TEST_ROOT = Path(r"C:\Programming\guidedInteligence_testcases")
 BATCH_RUNS_ROOT = ROOT / "testing" / "codeRepoQA" / "batch-runs"
 CORPUS_CASES_ROOT = ROOT / "testing" / "codeRepoQA" / "corpus" / "cases"
 WORKSPACE_STATE_DIR = ".guided-intelligence"
-COMPREHENSION_PLAN_FLOW_MARKER = "COMPREHENSION_PLAN_FLOW"
-SUPPORTED_RESPONSE_PIPELINES = ("current", "comprehension_plan")
 SUPPORTED_ASSISTANCE_MODES = ("teach", "work", "hybrid", "evaluation")
 CODE_PATH_PATTERN = re.compile(r"\b(?:[\w.-]+/)+[\w.-]+\.(?:[A-Za-z0-9]+)\b|\b[\w.-]+\.(?:ts|tsx|js|jsx|py|java|go|rs|cs|cpp|c|h|json|md|txt)\b")
 IDENTIFIER_PATTERN = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`|\b([A-Z][A-Za-z0-9_]{2,})\b")
@@ -191,14 +189,9 @@ def run_case(
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE,
     codex_timeout_seconds: int = 900,
     objective_role_selection_enabled: bool = False,
-    # COMPREHENSION_PLAN_FLOW: opt-in response pipeline for side-by-side testing with the same retrieval path.
-    response_pipeline: str = "current",
-    # COMPREHENSION_PLAN_FLOW: mode-aware behavior is consumed only by the comprehension-plan response pipeline.
     assistance_mode: str = "teach",
-    # COMPREHENSION_PLAN_FLOW: opt-in bounded follow-up retrieval for missing plan concepts.
     max_gap_retrieval_passes: int = 0,
     intent_shadow_enabled: bool = False,
-    intent_router_mode: str = "off",
     intent_assistance_mode: str = "off",
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
@@ -243,14 +236,9 @@ def run_case(
         retrieval_stage=retrieval_stage,
         logger=logger,
         response_llm_config=llm_config,
-        # COMPREHENSION_PLAN_FLOW: keep current CodeRepoQA behavior unless run config selects comprehension_plan.
-        response_pipeline=response_pipeline,
-        # COMPREHENSION_PLAN_FLOW: pass through experimental teaching mode for plan-aware generation.
         assistance_mode=assistance_mode,
-        # COMPREHENSION_PLAN_FLOW: bounded gap retrieval remains disabled unless selected in run config.
         max_gap_retrieval_passes=max_gap_retrieval_passes,
         intent_shadow_enabled=intent_shadow_enabled,
-        intent_router_mode=intent_router_mode,
         intent_assistance_mode=intent_assistance_mode,
     )
     result = control_layer.run(state)
@@ -308,14 +296,9 @@ def evaluate_case(
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE,
     codex_timeout_seconds: int = 900,
     objective_role_selection_enabled: bool = False,
-    # COMPREHENSION_PLAN_FLOW: opt-in response pipeline for separate-mode benchmark runs.
-    response_pipeline: str = "current",
-    # COMPREHENSION_PLAN_FLOW: experimental assistance mode for comprehension-plan runs.
     assistance_mode: str = "teach",
-    # COMPREHENSION_PLAN_FLOW: optional single evidence-gap pass for separate-mode evaluation.
     max_gap_retrieval_passes: int = 0,
     intent_shadow_enabled: bool = False,
-    intent_router_mode: str = "off",
     intent_assistance_mode: str = "off",
 ) -> Path:
     issue_path = Path(issue_json)
@@ -384,11 +367,9 @@ def evaluate_case(
         codex_prompt_profile=codex_prompt_profile,
         codex_timeout_seconds=codex_timeout_seconds,
         objective_role_selection_enabled=objective_role_selection_enabled,
-        response_pipeline=response_pipeline,
         assistance_mode=assistance_mode,
         max_gap_retrieval_passes=max_gap_retrieval_passes,
         intent_shadow_enabled=intent_shadow_enabled,
-        intent_router_mode=intent_router_mode,
         intent_assistance_mode=intent_assistance_mode,
     )
     _write_run_metadata(
@@ -407,11 +388,9 @@ def evaluate_case(
         codex_model=codex_model,
         codex_prompt_profile=codex_prompt_profile,
         objective_role_selection_enabled=objective_role_selection_enabled,
-        response_pipeline=response_pipeline,
         assistance_mode=assistance_mode,
         max_gap_retrieval_passes=max_gap_retrieval_passes,
         intent_shadow_enabled=intent_shadow_enabled,
-        intent_router_mode=intent_router_mode,
         intent_assistance_mode=intent_assistance_mode,
     )
     return run_dir
@@ -600,11 +579,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-            response_pipeline=_response_pipeline_from_config(run_config),
             assistance_mode=_assistance_mode_from_config(run_config),
             max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
             intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
-            intent_router_mode=_intent_router_mode_from_config(run_config),
             intent_assistance_mode=_intent_assistance_mode_from_config(run_config),
         )
         return 0
@@ -629,11 +606,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-            response_pipeline=_response_pipeline_from_config(run_config),
             assistance_mode=_assistance_mode_from_config(run_config),
             max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
             intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
-            intent_router_mode=_intent_router_mode_from_config(run_config),
             intent_assistance_mode=_intent_assistance_mode_from_config(run_config),
         )
         print(str(run_dir))
@@ -662,11 +637,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
                 objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-                response_pipeline=_response_pipeline_from_config(run_config),
                 assistance_mode=_assistance_mode_from_config(run_config),
                 max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
                 intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
-                intent_router_mode=_intent_router_mode_from_config(run_config),
                 intent_assistance_mode=_intent_assistance_mode_from_config(run_config),
             )
             print(str(run_dir))
@@ -720,11 +693,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         ),
                         codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
                         objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-                        response_pipeline=_response_pipeline_from_config(run_config),
                         assistance_mode=_assistance_mode_from_config(run_config),
                         max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
                         intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
-                        intent_router_mode=_intent_router_mode_from_config(run_config),
                         intent_assistance_mode=_intent_assistance_mode_from_config(run_config),
                     )
                     artifact_dir = _copy_batch_artifacts(batch_dir, case_issue_json, retrieval_mode, run_dir)
@@ -826,16 +797,7 @@ def _config_bool(config: Mapping[str, Any], key: str, default: bool) -> bool:
     return bool(value)
 
 
-def _response_pipeline_from_config(config: Mapping[str, Any]) -> str:
-    # COMPREHENSION_PLAN_FLOW: validate experimental response pipeline in config, separate from retrieval_mode.
-    value = str(config.get("response_pipeline") or "current").strip().lower()
-    if value not in SUPPORTED_RESPONSE_PIPELINES:
-        raise ValueError("response_pipeline must be one of: " + ", ".join(SUPPORTED_RESPONSE_PIPELINES))
-    return value
-
-
 def _assistance_mode_from_config(config: Mapping[str, Any]) -> str:
-    # COMPREHENSION_PLAN_FLOW: validate teaching mode used by the comprehension-plan response path.
     value = str(config.get("assistance_mode") or "teach").strip().lower()
     if value not in SUPPORTED_ASSISTANCE_MODES:
         raise ValueError("assistance_mode must be one of: " + ", ".join(SUPPORTED_ASSISTANCE_MODES))
@@ -843,7 +805,6 @@ def _assistance_mode_from_config(config: Mapping[str, Any]) -> str:
 
 
 def _max_gap_retrieval_passes_from_config(config: Mapping[str, Any]) -> int:
-    # COMPREHENSION_PLAN_FLOW: cap the experimental bounded gap pass through reusable run config.
     try:
         value = int(config.get("max_gap_retrieval_passes") or 0)
     except (TypeError, ValueError) as exc:
@@ -858,14 +819,6 @@ def _intent_shadow_enabled_from_config(config: Mapping[str, Any]) -> bool:
     if isinstance(intent, Mapping):
         return _config_bool(intent, "shadow_mode", False)
     return _config_bool(config, "intent_shadow_enabled", False)
-
-
-def _intent_router_mode_from_config(config: Mapping[str, Any]) -> str:
-    intent = config.get("intent")
-    value = str(intent.get("router_mode") if isinstance(intent, Mapping) else config.get("intent_router_mode") or "off").strip().lower()
-    if value not in SUPPORTED_ROUTER_MODES:
-        raise ValueError("intent.router_mode must be one of: " + ", ".join(SUPPORTED_ROUTER_MODES))
-    return value
 
 
 def _intent_assistance_mode_from_config(config: Mapping[str, Any]) -> str:
@@ -1026,14 +979,9 @@ def _write_run_metadata(
     codex_model: str,
     codex_prompt_profile: str,
     objective_role_selection_enabled: bool,
-    # COMPREHENSION_PLAN_FLOW: record separate response pipeline for evaluation comparisons.
-    response_pipeline: str,
-    # COMPREHENSION_PLAN_FLOW: record mode used by the experimental teaching path.
     assistance_mode: str,
-    # COMPREHENSION_PLAN_FLOW: record bounded gap retrieval cap for evaluation comparisons.
     max_gap_retrieval_passes: int,
     intent_shadow_enabled: bool,
-    intent_router_mode: str,
     intent_assistance_mode: str,
 ) -> None:
     metadata = {
@@ -1050,14 +998,9 @@ def _write_run_metadata(
         "codex_model": codex_model if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
         "codex_prompt_profile": codex_prompt_profile if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
         "objective_role_selection_enabled": objective_role_selection_enabled,
-        # COMPREHENSION_PLAN_FLOW: keep response mode visible in run artifacts independent of retrieval mode.
-        "response_pipeline": response_pipeline,
-        # COMPREHENSION_PLAN_FLOW: mode is meaningful for comprehension_plan and harmless for current.
         "assistance_mode": assistance_mode,
-        # COMPREHENSION_PLAN_FLOW: records whether the optional bounded gap pass was enabled.
         "max_gap_retrieval_passes": max_gap_retrieval_passes,
         "intent_shadow_enabled": intent_shadow_enabled,
-        "intent_router_mode": intent_router_mode,
         "intent_assistance_mode": intent_assistance_mode,
         "resolution": {
             "strategy": resolution.strategy,

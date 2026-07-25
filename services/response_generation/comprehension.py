@@ -14,8 +14,10 @@ from services.llm.json_completion import complete_json
 
 
 PROMPT_TEMPLATE_ID = "comprehension_plan_explanation_v1"
+CHECK_REPAIR_PROMPT_TEMPLATE_ID = "comprehension_understanding_check_repair_v1"
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 PROMPT_PATH = PROMPTS_DIR / "comprehension_plan_explanation.md"
+CHECK_REPAIR_PROMPT_PATH = PROMPTS_DIR / "comprehension_understanding_check_repair.md"
 RETRIEVAL_LABEL_QUESTION_PATTERN = re.compile(
     r"\b(?:evidence|retrieved|coverage|role)\b"
     r"|main implementation behavior"
@@ -32,8 +34,9 @@ RETRIEVAL_LABEL_QUESTION_PATTERN = re.compile(
     r"|\bpart matter\b",
     re.IGNORECASE,
 )
+
 LEAKED_METADATA_SECTION_PATTERN = re.compile(
-    r"(?ims)^\s*(?:---\s*\n\s*)?#{1,6}\s+(?:Concept Definitions|Understanding Check)\s*$.*\Z"
+    r"(?ims)^\s*(?:---\s*\n\s*)?#{1,6}\s+(?:Concept Definitions|Understanding Checks?|Understanding Check Question)\s*$.*\Z"
 )
 
 
@@ -99,7 +102,17 @@ def generate_comprehension_explanation(
         retrieval_result.evidence,
         plan,
         concept_definition_targets=concept_definition_targets,
+        repair_llm_config=llm_config,
+        repair_context={
+            "user_prompt": state.user_input,
+            "assistance_mode": assistance_mode,
+            "coverage_status": retrieval_result.coverage_status,
+            "retrieval_sufficient": retrieval_result.sufficient,
+            "comprehension_plan": plan.to_dict(),
+            "evidence": [_compact_evidence(item) for item in retrieval_result.evidence[:8]],
+        },
         log_event=log_event,
+        log_warning=log_warning,
     )
     if log_event is not None:
         log_event(
@@ -123,7 +136,10 @@ def _validate_response(
     plan: ComprehensionPlan,
     *,
     concept_definition_targets: Sequence[str] = (),
+    repair_llm_config: Any | None = None,
+    repair_context: Mapping[str, Any] | None = None,
     log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
+    log_warning: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> ComprehensionGenerationResult:
     markdown = _sanitize_comprehension_markdown(str(response.get("markdown") or "").strip())
     if not markdown:
@@ -134,13 +150,43 @@ def _validate_response(
         ref_text = str(ref).strip()
         if ref_text in allowed_refs and ref_text not in used_refs:
             used_refs.append(ref_text)
-    checks = _checks_from_response(
+    checks, rejected, raw_count = _collect_checks_from_response(
         response.get("understanding_checks"),
         markdown=markdown,
         plan=plan,
         allowed_refs=allowed_refs,
-        log_event=log_event,
     )
+    if not checks and repair_llm_config is not None:
+        if log_event is not None:
+            log_event(
+                "comprehension_understanding_checks_rejected",
+                {
+                    "rejected": rejected[:5],
+                    "raw_count": raw_count,
+                    "repair_attempted": True,
+                },
+            )
+        checks = _repair_understanding_checks(
+            markdown=markdown,
+            rejected=rejected,
+            allowed_refs=allowed_refs,
+            plan=plan,
+            repair_context=repair_context or {},
+            llm_config=repair_llm_config,
+            log_event=log_event,
+            log_warning=log_warning,
+        )
+    if not checks:
+        if log_event is not None:
+            log_event(
+                "comprehension_understanding_checks_rejected",
+                {
+                    "rejected": rejected[:5],
+                    "raw_count": raw_count,
+                    "repair_attempted": False,
+                },
+            )
+        raise RuntimeError("Comprehension explanation generation returned no valid model-generated understanding checks.")
     concept_definitions = _concept_definitions_from_response(
         response.get("concept_definitions"),
         markdown=markdown,
@@ -176,7 +222,93 @@ def _sanitize_comprehension_markdown(markdown: str) -> str:
     for original, replacement in replacements.items():
         sanitized = re.sub(re.escape(original), replacement, sanitized, flags=re.IGNORECASE)
     sanitized = LEAKED_METADATA_SECTION_PATTERN.sub("", sanitized).rstrip()
+    sanitized = _dedupe_repeated_absence_caveats(sanitized)
     return sanitized
+
+
+def _dedupe_repeated_absence_caveats(markdown: str) -> str:
+    absence_markers = (
+        "does not show",
+        "do not show",
+        "does not explicitly",
+        "do not explicitly",
+        "not explicitly",
+        "not shown",
+        "not confirm",
+        "not confirmed",
+        "no explicit",
+    )
+    output: list[str] = []
+    seen_absence_terms: set[str] = set()
+    in_final_absence_section = False
+    for line in markdown.splitlines():
+        normalized_heading = line.strip().strip("#").strip().lower()
+        if normalized_heading.startswith("what is not shown") or normalized_heading.startswith("not shown"):
+            in_final_absence_section = True
+            output.append(line)
+            continue
+        if line.lstrip().startswith("#"):
+            in_final_absence_section = False
+        if in_final_absence_section or not line.strip():
+            output.append(line)
+            continue
+        kept_sentences: list[str] = []
+        for sentence in _split_sentences_preserving_punctuation(line):
+            lowered = sentence.lower()
+            if any(marker in lowered for marker in absence_markers):
+                terms = _absence_caveat_terms(lowered)
+                if terms and terms & seen_absence_terms:
+                    continue
+                seen_absence_terms.update(terms)
+            kept_sentences.append(sentence)
+        cleaned_line = "".join(kept_sentences).strip()
+        if cleaned_line:
+            output.append(cleaned_line)
+    return "\n".join(output).strip()
+
+
+def _split_sentences_preserving_punctuation(text: str) -> list[str]:
+    if not text:
+        return []
+    parts = re.split(r"(?<=[.!?])(\s+)", text)
+    sentences: list[str] = []
+    current = ""
+    for part in parts:
+        current += part
+        if re.search(r"[.!?]\s*$", current):
+            sentences.append(current)
+            current = ""
+    if current:
+        sentences.append(current)
+    return sentences
+
+
+def _absence_caveat_terms(text: str) -> set[str]:
+    stop_words = {
+        "the",
+        "this",
+        "that",
+        "these",
+        "those",
+        "snippet",
+        "snippets",
+        "current",
+        "code",
+        "show",
+        "shows",
+        "shown",
+        "mention",
+        "explicitly",
+        "explicit",
+        "handling",
+        "checks",
+        "support",
+    }
+    return {
+        token
+        for token in re.findall(r"\b[A-Za-z][A-Za-z0-9_]{3,}\b", text)
+        if token not in stop_words
+    }
 
 
 def _concept_definitions_from_response(
@@ -271,6 +403,33 @@ def _checks_from_response(
     allowed_refs: set[str],
     log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
 ) -> tuple[UnderstandingCheck, ...]:
+    checks, rejected, raw_count = _collect_checks_from_response(
+        value,
+        markdown=markdown,
+        plan=plan,
+        allowed_refs=allowed_refs,
+    )
+    if checks:
+        return checks
+    if log_event is not None:
+        log_event(
+            "comprehension_understanding_checks_rejected",
+            {
+                "rejected": rejected[:5],
+                "raw_count": raw_count,
+                "repair_attempted": False,
+            },
+        )
+    raise RuntimeError("Comprehension explanation generation returned no valid model-generated understanding checks.")
+
+
+def _collect_checks_from_response(
+    value: Any,
+    *,
+    markdown: str,
+    plan: ComprehensionPlan,
+    allowed_refs: set[str],
+) -> tuple[tuple[UnderstandingCheck, ...], list[dict[str, Any]], int]:
     checks: list[UnderstandingCheck] = []
     rejected: list[dict[str, Any]] = []
     if isinstance(value, list):
@@ -304,16 +463,90 @@ def _checks_from_response(
                 )
             )
     if checks:
-        return tuple(checks[:3])
+        return tuple(checks[:3]), rejected, len(value) if isinstance(value, list) else 0
+    return (), rejected, len(value) if isinstance(value, list) else 0
+
+
+def _repair_understanding_checks(
+    *,
+    markdown: str,
+    rejected: Sequence[Mapping[str, Any]],
+    allowed_refs: set[str],
+    plan: ComprehensionPlan,
+    repair_context: Mapping[str, Any],
+    llm_config: Any,
+    log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
+    log_warning: Callable[[Mapping[str, Any]], None] | None = None,
+) -> tuple[UnderstandingCheck, ...]:
+    payload = {
+        "user_prompt": repair_context.get("user_prompt", ""),
+        "assistance_mode": repair_context.get("assistance_mode", ""),
+        "coverage_status": repair_context.get("coverage_status", ""),
+        "retrieval_sufficient": repair_context.get("retrieval_sufficient", False),
+        "generated_markdown": markdown,
+        "rejected_checks": [dict(item) for item in rejected[:5]],
+        "allowed_refs": sorted(allowed_refs),
+        "comprehension_plan": repair_context.get("comprehension_plan") or plan.to_dict(),
+        "evidence": list(repair_context.get("evidence") or ()),
+        "repair_rules": {
+            "return_only_understanding_checks": True,
+            "do_not_rewrite_markdown": True,
+            "question_must_be_answerable_from_generated_markdown": True,
+            "avoid_retrieval_or_evidence_label_wording": True,
+            "test_semantic_chain": "symptom -> observed evidence -> cause",
+        },
+    }
     if log_event is not None:
         log_event(
-            "comprehension_understanding_checks_rejected",
+            "comprehension_understanding_check_repair_requested",
             {
-                "rejected": rejected[:5],
-                "raw_count": len(value) if isinstance(value, list) else 0,
+                "prompt_template_id": CHECK_REPAIR_PROMPT_TEMPLATE_ID,
+                "rejected_count": len(rejected),
+                "allowed_ref_count": len(allowed_refs),
+                "payload": payload,
             },
         )
-    raise RuntimeError("Comprehension explanation generation returned no valid model-generated understanding checks.")
+    response = complete_json(
+        llm_config,
+        (
+            {"role": "system", "content": CHECK_REPAIR_PROMPT_PATH.read_text(encoding="utf-8")},
+            {"role": "user", "content": json.dumps(payload, sort_keys=True)},
+        ),
+        response_format=_check_repair_response_format(),
+        log_warning=log_warning,
+        log_event=log_event,
+    )
+    checks, repair_rejected, raw_count = _collect_checks_from_response(
+        response.get("understanding_checks"),
+        markdown=markdown,
+        plan=plan,
+        allowed_refs=allowed_refs,
+    )
+    if log_event is not None:
+        log_event(
+            "comprehension_understanding_check_repair_received",
+            {
+                "prompt_template_id": CHECK_REPAIR_PROMPT_TEMPLATE_ID,
+                "accepted_count": len(checks),
+                "raw_count": raw_count,
+                "rejected": repair_rejected[:5],
+            },
+        )
+    if checks:
+        return tuple(
+            UnderstandingCheck(
+                id=check.id,
+                role=check.role,
+                question_type=check.question_type,
+                question=check.question,
+                expected_answer_points=check.expected_answer_points,
+                hint=check.hint,
+                evidence_refs=check.evidence_refs,
+                origin="model_repaired",
+            )
+            for check in checks
+        )
+    return ()
 
 
 def _uses_retrieval_label_wording(text: str) -> bool:
@@ -367,6 +600,8 @@ def _term_is_supported(term: str, explanation_terms: set[str]) -> bool:
 def _semantic_check_terms(text: str) -> set[str]:
     normalized_text = text.replace("`", "")
     terms: set[str] = set()
+    for match in re.findall(r"`([A-Za-z_][A-Za-z0-9_]*)`", text):
+        terms.add(match.casefold())
     for match in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+\b", normalized_text):
         terms.add(match.casefold())
     for match in re.findall(r"\b[A-Z][A-Za-z0-9_]*\b", normalized_text):
@@ -379,6 +614,58 @@ def _semantic_check_terms(text: str) -> set[str]:
         terms.add(match.replace(" ", "-").casefold())
     for match in re.findall(r"\b(?:default|target|targets|library|libraries|compiler|compile|compilation|missing|fail|fails|failure|present|absent|declared|declaration|selects|includes|excludes)\b", normalized_text, flags=re.IGNORECASE):
         terms.add(match.casefold())
+    terms -= {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "because",
+        "been",
+        "being",
+        "but",
+        "by",
+        "can",
+        "currently",
+        "despite",
+        "do",
+        "does",
+        "even",
+        "for",
+        "from",
+        "has",
+        "have",
+        "in",
+        "into",
+        "is",
+        "it",
+        "its",
+        "lack",
+        "lacks",
+        "not",
+        "of",
+        "or",
+        "part",
+        "some",
+        "the",
+        "this",
+        "that",
+        "these",
+        "those",
+        "though",
+        "to",
+        "users",
+        "with",
+        "why",
+        "how",
+        "what",
+        "when",
+        "where",
+        "which",
+        "who",
+        "bottom",
+        "however",
+    }
     return terms
 
 
@@ -460,6 +747,52 @@ def _response_format() -> Mapping[str, Any]:
                     },
                 },
                 "required": ["markdown", "used_evidence_refs", "understanding_checks", "render_notes", "concept_definitions"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _check_repair_response_format() -> Mapping[str, Any]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "comprehension_understanding_check_repair",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "understanding_checks": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 3,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "role": {"type": "string"},
+                                "question_type": {"type": "string"},
+                                "question": {"type": "string"},
+                                "expected_answer_points": {"type": "array", "items": {"type": "string"}},
+                                "hint": {"type": "string"},
+                                "evidence_refs": {"type": "array", "items": {"type": "string"}},
+                                "origin": {"type": "string"},
+                            },
+                            "required": [
+                                "id",
+                                "role",
+                                "question_type",
+                                "question",
+                                "expected_answer_points",
+                                "hint",
+                                "evidence_refs",
+                                "origin",
+                            ],
+                            "additionalProperties": False,
+                        },
+                    }
+                },
+                "required": ["understanding_checks"],
                 "additionalProperties": False,
             },
         },

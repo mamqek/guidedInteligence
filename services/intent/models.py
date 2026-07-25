@@ -148,7 +148,6 @@ class IntentClassificationInput:
     previous_response_summary: str | None = None
     last_understanding_check: str | None = None
     last_answer_evaluation: str | None = None
-    selected_pipeline: str | None = None
     configured_default_mode: AssistanceMode = AssistanceMode.HYBRID
 
     def to_dict(self) -> dict[str, Any]:
@@ -161,7 +160,6 @@ class IntentClassificationInput:
             "previous_response_summary": self.previous_response_summary,
             "last_understanding_check": self.last_understanding_check,
             "last_answer_evaluation": self.last_answer_evaluation,
-            "selected_pipeline": self.selected_pipeline,
             "configured_default_mode": self.configured_default_mode.value,
         }
 

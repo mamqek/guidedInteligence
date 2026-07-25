@@ -569,6 +569,21 @@ function ConnectionsPanel({
     }
   }
 
+  function updateConnectedContextTerms(key: "disclaimer_required_terms" | "stale_block_terms", value: string) {
+    if (!config.data) return;
+    setConfig({
+      data: {
+        ...config.data,
+        connected_context: {
+          ...(config.data.connected_context || {}),
+          [key]: commaSeparatedToList(value),
+        },
+      },
+      loading: false,
+    });
+    setSaveError("");
+  }
+
   function updateGitHubRepoScope(patch: Partial<{ owner: string; repo: string }>) {
     const next = { ...githubRepoScope, ...patch };
     updateRemoteMcpSources(githubRemoteEntries.map((entry) => entry.index), {
@@ -741,6 +756,26 @@ function ConnectionsPanel({
           <div className="sectionHeader">
             <h3>Hosted MCP connectors</h3>
             <p>Remote MCP uses provider-hosted endpoints. It never falls back to local command MCP.</p>
+          </div>
+          <div className="formGrid two">
+            <label className="fieldLabel">
+              Required disclaimer terms
+              <input
+                value={listToCommaSeparated(config.data?.connected_context?.disclaimer_required_terms || ["do not use"])}
+                placeholder="do not use"
+                onChange={(event) => updateConnectedContextTerms("disclaimer_required_terms", event.target.value)}
+              />
+              <span className="fieldHint">All terms must appear before a document can be blocked as stale guidance.</span>
+            </label>
+            <label className="fieldLabel">
+              Stale block terms
+              <input
+                value={listToCommaSeparated(config.data?.connected_context?.stale_block_terms || ["stale", "superseded", "outdated", "deprecated"])}
+                placeholder="stale, superseded, outdated, deprecated"
+                onChange={(event) => updateConnectedContextTerms("stale_block_terms", event.target.value)}
+              />
+              <span className="fieldHint">At least one term must appear with the disclaimer terms to block current guidance.</span>
+            </label>
           </div>
           <div className="remoteMcpGrid">
             {githubRemoteSource && (
@@ -947,7 +982,7 @@ function ConnectionsPanel({
                     />
                   </label>
                       </div>
-                      {source.features && Object.keys(source.features).length > 0 && (
+                      {showsFeatureToggles(source) && source.features && Object.keys(source.features).length > 0 && (
                         <div className="featureToggleRow">
                           {Object.entries(source.features).map(([feature, enabled]) => (
                             <label className="checkRow" key={feature}>
@@ -1270,11 +1305,13 @@ function connectionFieldHelp(provider: string): Array<{ name: string; descriptio
     { name: "Scope", description: "Narrows provider search, such as owner/repo, organization, workspace, project, channel, space, or folder." },
     { name: "Result limit", description: "Maximum search results requested from the provider for one retrieval query." },
     { name: "Minimum score", description: "Drops provider results below this relevance score when the provider returns scores." },
-    { name: "Feature toggles", description: "Choose which provider object types can be searched or fetched." },
     { name: "Fetch full content for top search hits", description: "For supported providers, fetches richer content for the highest-ranked search results." },
     { name: "Full-content fetch limit", description: "Caps how many top hits are enriched with full content." },
     { name: "MCP query/fetch tool and endpoint", description: "Advanced provider MCP details. These are normally predefined and should only be changed when the provider changes its tool names or endpoint." },
   ];
+  if (provider !== "notion") {
+    fields.splice(3, 0, { name: "Feature toggles", description: "Choose which provider object types can be searched or fetched when the provider adapter supports reliable filtering." });
+  }
   if (provider === "shortcut") {
     fields.splice(1, 0, { name: "Shortcut API token", description: "Personal Shortcut API token used to authorize the hosted MCP connection. Saved at the tool level." });
   }
@@ -1372,6 +1409,10 @@ function formatGitHubRepoScope(owner: string, repo: string): string {
 
 function supportsFullContentFetch(source: RemoteMcpSource): boolean {
   return ["notion", "atlassian", "shortcut", "linear", "slack", "google_drive"].includes(source.provider);
+}
+
+function showsFeatureToggles(source: RemoteMcpSource): boolean {
+  return source.provider !== "notion";
 }
 
 function requiresConfiguredQueryTool(source: RemoteMcpSource): boolean {
@@ -1730,6 +1771,19 @@ function InfoDialog({ help, onClose }: { help: SourceHelp; onClose: () => void }
 
 function linesToList(value: string): string[] {
   return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+}
+
+function listToCommaSeparated(value: string[]): string {
+  return value.join(", ");
+}
+
+function commaSeparatedToList(value: string): string[] {
+  const output: string[] = [];
+  for (const item of value.split(",")) {
+    const text = item.trim();
+    if (text && !output.includes(text)) output.push(text);
+  }
+  return output;
 }
 
 function numberOrDefault(value: string, fallback: number): number {

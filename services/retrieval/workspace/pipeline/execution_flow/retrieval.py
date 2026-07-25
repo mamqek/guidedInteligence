@@ -23,6 +23,7 @@ from services.retrieval.workspace.pipeline.execution_flow.run_outcomes import (
 from services.retrieval.workspace.pipeline.evidence_flow import (
     append_accepted_decision_evidence as _append_accepted_decision_evidence,
     append_connected_source_evidence as _append_connected_source_evidence,
+    drop_unhinted_late_connected_file_evidence as _drop_unhinted_late_connected_file_evidence,
     select_evidence_items as _select_evidence_items,
 )
 from services.retrieval.workspace.pipeline.file_level import (
@@ -367,6 +368,10 @@ def run_workspace_retrieval(
         buckets=required_buckets + supporting_buckets,
         source_policy=policy_result.allowed_sources,
         workspace_root=ctx.config.workspace_root,
+    )
+    selected = _drop_unhinted_late_connected_file_evidence(
+        selected,
+        connected_file_hints=connected_context.file_hints,
     )
     selected = _append_connected_source_evidence(
         selected,
