@@ -15,7 +15,11 @@ from services.comprehension import build_comprehension_plan
 from services.comprehension.followup import build_comprehension_state
 from services.guidance.answer_evaluation import evaluate_answers
 from services.guidance.questions import build_question_contexts
-from services.response_generation.comprehension import _validate_response
+from services.response_generation.comprehension import (
+    _next_check_requirement,
+    _next_checks_from_response,
+    _validate_response,
+)
 from services.retrieval.config import RunLLMConfig
 from step3_harness_scenarios import DEFAULT_STUB_EVIDENCE, SCENARIOS
 
@@ -83,6 +87,87 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 LogEventType.RUN_COMPLETED,
             ],
         )
+
+    def test_next_checks_from_response_keeps_structured_items_without_text_bucketing(self) -> None:
+        checks = _next_checks_from_response(
+            [
+                {
+                    "scenario": "reported environment",
+                    "action": "Reproduce the sample with the exact Python, pandas, and PyTables versions from the issue.",
+                    "if_result": "It only fails with those versions.",
+                    "then_interpretation": "This points to a version compatibility issue.",
+                },
+                {
+                    "scenario": "dependency version",
+                    "action": "Run the same sample with a newer PyTables version.",
+                    "if_result": "The sample passes.",
+                    "then_interpretation": "The likely root cause is PyTables behavior fixed later.",
+                },
+                {
+                    "scenario": "dependency version",
+                    "action": "Try another newer PyTables release.",
+                    "if_result": "The sample passes.",
+                    "then_interpretation": "This repeats the same scenario and should be ignored.",
+                },
+                {
+                    "scenario": "public API path",
+                    "action": "Run the sample with format='table' explicitly and compare it with append=False.",
+                    "if_result": "The error still occurs or is avoided depending on format specification.",
+                    "then_interpretation": "The structured parser should not classify or reject based on this wording.",
+                },
+            ]
+        )
+
+        self.assertEqual(
+            [check["action"] for check in checks],
+            [
+                "Reproduce the sample with the exact Python, pandas, and PyTables versions from the issue.",
+                "Run the same sample with a newer PyTables version.",
+                "Run the sample with format='table' explicitly and compare it with append=False.",
+            ],
+        )
+        self.assertEqual(
+            [check["scenario"] for check in checks],
+            ["reported environment", "dependency version", "public API path"],
+        )
+
+    def test_next_check_requirement_uses_retrieval_uncertainty_not_markdown_phrases(self) -> None:
+        retrieval_result = RetrievalResult(
+            evidence=DEFAULT_STUB_EVIDENCE,
+            coverage_status="strong",
+            sufficient=True,
+            retrieval_summary={"uncertainties": ["External dependency behavior was not covered by selected source evidence."]},
+        )
+        plan = build_comprehension_plan(
+            user_prompt="Explain the external handoff.",
+            retrieval_result=retrieval_result,
+            assistance_mode="teach",
+        )
+
+        requirement = _next_check_requirement(plan=plan, retrieval_result=retrieval_result)
+
+        self.assertTrue(requirement["required"])
+        self.assertEqual(requirement["mode"], "bounded_inference")
+        self.assertEqual(requirement["min_checks"], 2)
+
+    def test_next_check_requirement_is_empty_for_direct_sufficient_retrieval(self) -> None:
+        retrieval_result = RetrievalResult(
+            evidence=DEFAULT_STUB_EVIDENCE,
+            coverage_status="strong",
+            sufficient=True,
+            retrieval_summary={"source": "stub"},
+        )
+        plan = build_comprehension_plan(
+            user_prompt="Explain direct evidence.",
+            retrieval_result=retrieval_result,
+            assistance_mode="teach",
+        )
+
+        requirement = _next_check_requirement(plan=plan, retrieval_result=retrieval_result)
+
+        self.assertFalse(requirement["required"])
+        self.assertEqual(requirement["mode"], "direct")
+        self.assertEqual(requirement["min_checks"], 0)
 
     def test_missing_llm_config_returns_explicit_error_response(self) -> None:
         result = self.control_layer.run(
@@ -708,6 +793,13 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 {
                     "markdown": "# Plan-based answer\n\nThe checker validates abstract class rules at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
                     "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                    "answer_flow": {
+                        "symptom": "The issue asks about abstract class rules.",
+                        "evidence": "The checker validates abstract class rules.",
+                        "cause": "The checker is the relevant implementation point for this explanation.",
+                        "tested_concepts": ["checker", "abstract class rules"],
+                        "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                    },
                     "understanding_checks": [
                         {
                             "id": "q1",
@@ -722,6 +814,12 @@ class ControlLayerPolicyTests(unittest.TestCase):
                             "hint": "Compare the default library target with the ES6 library target.",
                             "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
                             "origin": "model_generated",
+                            "tested_concepts": ["DataView", "default library target", "ES6 library"],
+                            "answer_point_map": [
+                                {"kind": "symptom", "point": "The default library target uses lib.d.ts."},
+                                {"kind": "evidence", "point": "DataView is declared in lib.es6.d.ts."},
+                                {"kind": "cause", "point": "Selecting ES6 changes the library declarations loaded by the compiler."},
+                            ],
                         }
                     ],
                     "render_notes": {"title": "Plan-based answer", "summary": "Plan route used."},
@@ -741,6 +839,12 @@ class ControlLayerPolicyTests(unittest.TestCase):
                             "hint": "Compare the default library target with the ES6 library target.",
                             "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
                             "origin": "model_repaired",
+                            "tested_concepts": ["DataView", "default library target", "ES6 library"],
+                            "answer_point_map": [
+                                {"kind": "symptom", "point": "The default library target uses lib.d.ts."},
+                                {"kind": "evidence", "point": "DataView is declared in lib.es6.d.ts."},
+                                {"kind": "cause", "point": "DataView is declared in lib.es6.d.ts."},
+                            ],
                         }
                     ]
                 }
@@ -777,6 +881,13 @@ class ControlLayerPolicyTests(unittest.TestCase):
                         "[src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12)."
                     ),
                     "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                    "answer_flow": {
+                        "symptom": "The parser creates the class declaration.",
+                        "evidence": "`checkClassLikeDeclaration` validates the declaration.",
+                        "cause": "`checkClassLikeDeclaration` reports the diagnostic.",
+                        "tested_concepts": ["checkClassLikeDeclaration", "class declaration"],
+                        "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                    },
                     "understanding_checks": [
                         {
                             "id": "q1",
@@ -807,6 +918,12 @@ class ControlLayerPolicyTests(unittest.TestCase):
                             "hint": "Connect the parser-created declaration to `checkClassLikeDeclaration`.",
                             "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
                             "origin": "model_repaired",
+                            "tested_concepts": ["checkClassLikeDeclaration", "class declaration"],
+                            "answer_point_map": [
+                                {"kind": "symptom", "point": "The parser creates the class declaration."},
+                                {"kind": "evidence", "point": "`checkClassLikeDeclaration` validates the declaration."},
+                                {"kind": "cause", "point": "`checkClassLikeDeclaration` reports the diagnostic."},
+                            ],
                         }
                     ]
                 },
@@ -1149,6 +1266,13 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 {
                     "markdown": "# Bottom line\n\nThe checker owns the rule at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
                     "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                    "answer_flow": {
+                        "symptom": "The issue asks where semantic class rules are handled.",
+                        "evidence": "The checker owns the relevant rule.",
+                        "cause": "The checker is the implementation point for the semantic rule.",
+                        "tested_concepts": ["checker", "semantic class rules"],
+                        "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                    },
                     "understanding_checks": [
                         {
                             "id": "q1",
@@ -1222,6 +1346,21 @@ class ControlLayerPolicyTests(unittest.TestCase):
                     "workspace:src/server/webpack-plugin/client.js:L1-L69",
                     "workspace:build/config.js:L131-L135",
                 ],
+                "answer_flow": {
+                    "symptom": "TypeScript users lack declarations for `vue-server-renderer/client-plugin`.",
+                    "evidence": "The package's published declaration file `types/index.d.ts` does not declare any exports for the `client-plugin` subpath.",
+                    "cause": "Because the published TypeScript declaration file does not include declarations for the `client-plugin` subpath, even though the runtime code and build output exist.",
+                    "tested_concepts": [
+                        "published TypeScript declarations",
+                        "vue-server-renderer/client-plugin",
+                        "client-plugin subpath",
+                    ],
+                    "evidence_refs": [
+                        "workspace:packages/vue-server-renderer/types/index.d.ts:L1-L44",
+                        "workspace:src/server/webpack-plugin/client.js:L1-L69",
+                        "workspace:build/config.js:L131-L135",
+                    ],
+                },
                 "understanding_checks": [
                     {
                         "id": "check1",
@@ -1244,6 +1383,25 @@ class ControlLayerPolicyTests(unittest.TestCase):
                             "workspace:build/config.js:L131-L135",
                         ],
                         "origin": "model_generated",
+                        "tested_concepts": [
+                            "published TypeScript declarations",
+                            "vue-server-renderer/client-plugin",
+                            "client-plugin subpath",
+                        ],
+                        "answer_point_map": [
+                            {
+                                "kind": "symptom",
+                                "point": "TypeScript users lack declarations for `vue-server-renderer/client-plugin`.",
+                            },
+                            {
+                                "kind": "evidence",
+                                "point": "The package's published declaration file `types/index.d.ts` does not declare any exports for the `client-plugin` subpath.",
+                            },
+                            {
+                                "kind": "cause",
+                                "point": "Because the published TypeScript declaration file does not include declarations for the `client-plugin` subpath, even though the runtime code and build output exist.",
+                            },
+                        ],
                     }
                 ],
                 "render_notes": {"title": "Client plugin declarations", "summary": "Explains the missing subpath type."},
@@ -1254,6 +1412,61 @@ class ControlLayerPolicyTests(unittest.TestCase):
         )
 
         self.assertEqual(result.understanding_checks[0].question_type, "why")
+
+    def test_understanding_checks_reject_generic_question_not_derived_from_answer_flow(self) -> None:
+        retrieval = _retrieval_with_role_buckets()
+        plan = build_comprehension_plan(
+            user_prompt="Explain abstract class handling.",
+            retrieval_result=retrieval,
+            assistance_mode="teach",
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "no valid model-generated understanding checks"):
+            _validate_response(
+                {
+                    "markdown": (
+                        "The symptom is an abstract class diagnostic. The checker evidence shows "
+                        "`checkClassLikeDeclaration` validates the declaration. The cause is that "
+                        "`checkClassLikeDeclaration` reports the diagnostic."
+                    ),
+                    "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                    "answer_flow": {
+                        "symptom": "The issue reports an abstract class diagnostic.",
+                        "evidence": "`checkClassLikeDeclaration` validates the class declaration.",
+                        "cause": "`checkClassLikeDeclaration` reports the diagnostic.",
+                        "tested_concepts": ["checkClassLikeDeclaration", "class declaration"],
+                        "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                    },
+                    "understanding_checks": [
+                        {
+                            "id": "q1",
+                            "role": "learner",
+                            "question_type": "why",
+                            "question": "Why does the reported behavior happen?",
+                            "expected_answer_points": [
+                                "The issue reports an abstract class diagnostic.",
+                                "`checkClassLikeDeclaration` validates the class declaration.",
+                                "`checkClassLikeDeclaration` reports the diagnostic.",
+                            ],
+                            "hint": "Connect the class declaration validation to the diagnostic.",
+                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
+                            "origin": "model_generated",
+                            "tested_concepts": ["checkClassLikeDeclaration", "class declaration"],
+                            "answer_point_map": [
+                                {"kind": "symptom", "point": "The issue reports an abstract class diagnostic."},
+                                {"kind": "evidence", "point": "`checkClassLikeDeclaration` validates the class declaration."},
+                                {"kind": "cause", "point": "`checkClassLikeDeclaration` reports the diagnostic."},
+                            ],
+                        }
+                    ],
+                    "render_notes": {"title": "Abstract class diagnostic", "summary": "Explains checker validation."},
+                    "concept_definitions": [],
+                    "source_attributions": [],
+                    "next_checks": [],
+                },
+                retrieval.evidence,
+                plan,
+            )
 
     def test_answer_evaluation_uses_llm_schema(self) -> None:
         checks = [
@@ -1290,14 +1503,19 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertEqual(evaluations[0].next_turn, "deepen")
 
     def test_comprehension_prompt_is_checked_in(self) -> None:
-        from services.response_generation.comprehension import PROMPT_PATH
+        from services.response_generation.comprehension import _compose_generation_prompt
 
-        content = PROMPT_PATH.read_text(encoding="utf-8")
+        content = _compose_generation_prompt(next_check_requirement={"required": True})
+        direct_content = _compose_generation_prompt(next_check_requirement={"required": False})
 
         self.assertIn("generate a codebase explanation", content)
         self.assertIn("symptom -> evidence -> cause", content)
-        self.assertIn("The visible markdown must already contain the answer path", content)
+        self.assertIn("Do not add a visible \"Answer path\" section", content)
         self.assertIn("not about evidence mechanics", content)
+        self.assertIn("Use this object shape", content)
+        self.assertIn('"answer_point_map"', content)
+        self.assertIn('"then_interpretation"', content)
+        self.assertNotIn("Next checks:", direct_content)
         self.assertNotIn("FORBIDDEN when exact feature tokens", content)
         self.assertNotIn("abstract", content.lower())
 
@@ -1339,6 +1557,7 @@ class _FakeLLMHandler(BaseHTTPRequestHandler):
         content = self.response_payloads.pop(0)
         if isinstance(content, dict) and "markdown" in content:
             content.setdefault("concept_definitions", [])
+            _add_test_check_grounding(content)
         if not isinstance(content, str):
             content = json.dumps(content)
         body = json.dumps({"choices": [{"message": {"content": content}}]}).encode("utf-8")
@@ -1350,6 +1569,54 @@ class _FakeLLMHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args) -> None:
         return
+
+
+def _add_test_check_grounding(content: dict[str, object]) -> None:
+    checks = content.get("understanding_checks")
+    if not isinstance(checks, list):
+        return
+    first_points: list[str] = []
+    first_refs: list[str] = []
+    first_concepts: list[str] = []
+    for check in checks:
+        if not isinstance(check, dict):
+            continue
+        check.setdefault("tested_concepts", ["checker"])
+        points = check.get("expected_answer_points")
+        if not isinstance(points, list) or not points:
+            continue
+        mapped_points = [str(point) for point in points if str(point).strip()]
+        if not mapped_points:
+            continue
+        while len(mapped_points) < 3:
+            mapped_points.append(mapped_points[-1])
+        check.setdefault(
+            "answer_point_map",
+            [
+                {"kind": "symptom", "point": mapped_points[0]},
+                {"kind": "evidence", "point": mapped_points[1]},
+                {"kind": "cause", "point": mapped_points[2]},
+            ],
+        )
+        if not first_points:
+            first_points = mapped_points[:3]
+            refs = check.get("evidence_refs")
+            if isinstance(refs, list):
+                first_refs = [str(ref) for ref in refs if str(ref).strip()]
+            concepts = check.get("tested_concepts")
+            if isinstance(concepts, list):
+                first_concepts = [str(concept) for concept in concepts if str(concept).strip()]
+    if first_points and first_refs:
+        content.setdefault(
+            "answer_flow",
+            {
+                "symptom": first_points[0],
+                "evidence": first_points[1],
+                "cause": first_points[2],
+                "tested_concepts": first_concepts or ["checker"],
+                "evidence_refs": first_refs,
+            },
+        )
 
 
 class _fake_llm_server:

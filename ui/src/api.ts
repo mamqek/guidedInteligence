@@ -207,6 +207,22 @@ export type UnderstandingCheck = {
   hint: string;
   evidence_refs: string[];
   origin: string;
+  tested_concepts: string[];
+  answer_point_map: { kind: "symptom" | "evidence" | "cause"; point: string }[];
+};
+
+export type SourceAttribution = {
+  quote: string;
+  source_kind: string;
+  source_ref: string;
+  note: string;
+};
+
+export type NextCheck = {
+  scenario: string;
+  action: string;
+  if_result: string;
+  then_interpretation: string;
 };
 
 export type AnswerEvaluation = {

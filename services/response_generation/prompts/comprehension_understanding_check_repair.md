@@ -1,19 +1,7 @@
 You repair only the understanding check for an already generated codebase explanation.
 
-Do not rewrite, summarize, or improve the explanation markdown. Use the supplied generated markdown as fixed source material.
+Use `rejected_checks` as the previous generated checks plus the validation reasons that made them unusable. Repair those checks when the core idea is good; replace a check only when the rejected version tests the wrong proposition or cannot be made valid.
 
-Return one to three replacement understanding checks in JSON.
+Use the supplied `answer_flow` as the canonical symptom/evidence/cause path. The repaired check's `expected_answer_points`, `answer_point_map`, and `tested_concepts` must copy from `answer_flow` exactly as described in the shared contract.
 
-Rules:
-
-- The question must test the semantic chain taught by the generated markdown: symptom -> observed evidence -> cause.
-- The answer must be reachable from the generated markdown without adding new repository facts.
-- Use concrete file, function, module, class, or package names from the markdown when useful.
-- Do not ask about retrieval mechanics, evidence labels, coverage labels, role names, cited lines, or why a part matters.
-- Do not ask a generic component-role question such as "What role does this file play?"
-- `expected_answer_points` should mirror the answer path in the markdown.
-- `evidence_refs` must be chosen from `allowed_refs`.
-- If the previous checks were rejected, avoid repeating their rejected wording.
-- Set `origin` to `model_repaired`.
-
-Return valid JSON only.
+Return one to three replacement understanding checks in JSON. Set `origin` to `model_repaired`.

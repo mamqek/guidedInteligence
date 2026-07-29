@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
-import { api, AnswerEvaluation, AppConfig, EvidenceItem, Health, IndexEstimate, IndexPrepareJob, ProviderAuthState, RemoteMcpSource, RunDetail, RunSummary, RunTrace, UnderstandingCheck, WorkspaceEntry } from "./api";
+import { api, AnswerEvaluation, AppConfig, EvidenceItem, Health, IndexEstimate, IndexPrepareJob, NextCheck, ProviderAuthState, RemoteMcpSource, RunDetail, RunSummary, RunTrace, SourceAttribution, UnderstandingCheck, WorkspaceEntry } from "./api";
 import { sourceLabels, sourceOrder } from "./constants";
 
 type LoadState<T> = {
@@ -2024,6 +2024,8 @@ function GuidedResponsePanel({
   const content = getResponseContent(runDetail);
   const canSubmit = checks.length > 0 && checks.every((check) => (answers[check.id] || "").trim()) && !loading && evaluations.length === 0;
   const conceptDefinitions = getConceptDefinitions(runDetail);
+  const sourceAttributions = getSourceAttributions(runDetail);
+  const nextChecks = getNextChecks(runDetail);
   const evidence = runDetail?.evidence || [];
   return (
     <section className="panel" id="guided-response">
@@ -2035,6 +2037,7 @@ function GuidedResponsePanel({
         <div className="responseText">
           {renderMarkdown(content, {
             conceptDefinitions,
+            sourceAttributions,
             evidence,
             onSourceLink: setSelectedSource,
           })}
@@ -2047,6 +2050,7 @@ function GuidedResponsePanel({
           onClose={() => setSelectedSource(null)}
         />
       )}
+      {nextChecks.length > 0 && <NextChecksBox checks={nextChecks} />}
       {checks.length > 0 && (
         <div className="questionBox">
           <div className="questionHeader">
@@ -2093,6 +2097,22 @@ function GuidedResponsePanel({
         </div>
       )}
     </section>
+  );
+}
+
+function NextChecksBox({ checks }: { checks: NextCheck[] }) {
+  return (
+    <div className="nextChecksBox">
+      <h3>Next Checks</h3>
+      {checks.map((check, index) => (
+        <article className="nextCheckCard" key={`${check.action}-${index}`}>
+          <small>{check.scenario}</small>
+          <strong>Run/check: {check.action}</strong>
+          <p><span>Expected result to look for:</span> {check.if_result}</p>
+          <p><span>What that would mean:</span> {check.then_interpretation}</p>
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -2150,6 +2170,7 @@ function TracePanel({ trace, state }: { trace: Array<Record<string, unknown>>; s
 
 type MarkdownRenderContext = {
   conceptDefinitions: ConceptDefinition[];
+  sourceAttributions: SourceAttribution[];
   evidence: EvidenceItem[];
   onSourceLink?: (source: SelectedSource) => void;
 };
@@ -2247,12 +2268,12 @@ function renderInlineMarkdown(text: string, context: MarkdownRenderContext): Rea
       return <SourceMarkdownLink label={link[1]} href={link[2]} context={context} key={index} />;
     }
     if (part.startsWith("`") && part.endsWith("`")) {
-      return <ConceptText text={part.slice(1, -1)} definitions={context.conceptDefinitions} code key={index} />;
+      return <ConceptText text={part.slice(1, -1)} definitions={context.conceptDefinitions} sourceAttributions={context.sourceAttributions} code key={index} />;
     }
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={index}><ConceptText text={part.slice(2, -2)} definitions={context.conceptDefinitions} /></strong>;
+      return <strong key={index}><ConceptText text={part.slice(2, -2)} definitions={context.conceptDefinitions} sourceAttributions={context.sourceAttributions} /></strong>;
     }
-    return <ConceptText text={part} definitions={context.conceptDefinitions} key={index} />;
+    return <ConceptText text={part} definitions={context.conceptDefinitions} sourceAttributions={context.sourceAttributions} key={index} />;
   });
 }
 
@@ -2360,7 +2381,18 @@ type ConceptDefinition = {
   evidence_refs?: string[];
 };
 
-function ConceptText({ text, definitions, code = false }: { text: string; definitions: ConceptDefinition[]; code?: boolean }) {
+function ConceptText({ text, definitions, sourceAttributions = [], code = false }: { text: string; definitions: ConceptDefinition[]; sourceAttributions?: SourceAttribution[]; code?: boolean }) {
+  const sourceMap = sourceAttributionMap(sourceAttributions);
+  const sourcePattern = sourceAttributionPattern(sourceAttributions);
+  if (sourcePattern) {
+    const parts = text.split(sourcePattern).filter(Boolean);
+    const content = parts.map((part, index) => {
+      const attribution = sourceMap.get(part);
+      if (attribution) return <SourceAttributionTerm attribution={attribution} key={`${part}-${index}`} />;
+      return <ConceptText text={part} definitions={definitions} sourceAttributions={[]} code={false} key={`${part}-${index}`} />;
+    });
+    return code ? <code>{content}</code> : <>{content}</>;
+  }
   const definitionMap = conceptDefinitionMap(definitions);
   const pattern = conceptDefinitionPattern(definitions);
   if (!pattern) {
@@ -2373,6 +2405,20 @@ function ConceptText({ text, definitions, code = false }: { text: string; defini
     return <ConceptTerm definition={definition} key={`${part}-${index}`} />;
   });
   return code ? <code>{content}</code> : <>{content}</>;
+}
+
+function SourceAttributionTerm({ attribution }: { attribution: SourceAttribution }) {
+  const source = attribution.source_ref || attribution.source_kind;
+  const note = attribution.note || source;
+  return (
+    <span className="sourceAttributionTerm" tabIndex={0}>
+      {attribution.quote}
+      <span className="sourceAttributionTooltip" role="tooltip">
+        <strong>{source}</strong>
+        <span>{note}</span>
+      </span>
+    </span>
+  );
 }
 
 function ConceptTerm({ definition }: { definition: ConceptDefinition }) {
@@ -2398,6 +2444,16 @@ function conceptDefinitionPattern(definitions: ConceptDefinition[]): RegExp | un
   const labels = definitions.map((definition) => definition.label).filter(Boolean).sort((left, right) => right.length - left.length);
   if (!labels.length) return undefined;
   return new RegExp(`(${labels.map(escapeRegExp).join("|")})`, "g");
+}
+
+function sourceAttributionMap(attributions: SourceAttribution[]): Map<string, SourceAttribution> {
+  return new Map(attributions.map((attribution) => [attribution.quote, attribution]));
+}
+
+function sourceAttributionPattern(attributions: SourceAttribution[]): RegExp | undefined {
+  const quotes = attributions.map((attribution) => attribution.quote).filter(Boolean).sort((left, right) => right.length - left.length);
+  if (!quotes.length) return undefined;
+  return new RegExp(`(${quotes.map(escapeRegExp).join("|")})`, "g");
 }
 
 function getResponseContent(runDetail?: RunDetail): string {
@@ -2432,6 +2488,42 @@ function getConceptDefinitions(runDetail?: RunDetail): ConceptDefinition[] {
   return definitions;
 }
 
+function getSourceAttributions(runDetail?: RunDetail): SourceAttribution[] {
+  const response = getObject(runDetail?.result?.response_payload);
+  const metadata = getObject(response?.metadata);
+  const raw = metadata?.source_attributions;
+  if (!Array.isArray(raw)) return [];
+  const attributions: SourceAttribution[] = [];
+  for (const item of raw) {
+    const attribution = getObject(item);
+    const quote = typeof attribution?.quote === "string" ? attribution.quote.trim() : "";
+    const sourceKind = typeof attribution?.source_kind === "string" ? attribution.source_kind.trim() : "";
+    const sourceRef = typeof attribution?.source_ref === "string" ? attribution.source_ref.trim() : "";
+    const note = typeof attribution?.note === "string" ? attribution.note.trim() : "";
+    if (!quote || !sourceKind) continue;
+    attributions.push({ quote, source_kind: sourceKind, source_ref: sourceRef, note });
+  }
+  return attributions;
+}
+
+function getNextChecks(runDetail?: RunDetail): NextCheck[] {
+  const response = getObject(runDetail?.result?.response_payload);
+  const metadata = getObject(response?.metadata);
+  const raw = metadata?.next_checks;
+  if (!Array.isArray(raw)) return [];
+  const checks: NextCheck[] = [];
+  for (const item of raw) {
+    const check = getObject(item);
+    const scenario = typeof check?.scenario === "string" ? check.scenario.trim() : "";
+    const action = typeof check?.action === "string" ? check.action.trim() : "";
+    const ifResult = typeof check?.if_result === "string" ? check.if_result.trim() : "";
+    const thenInterpretation = typeof check?.then_interpretation === "string" ? check.then_interpretation.trim() : "";
+    if (!scenario || !action || !ifResult || !thenInterpretation) continue;
+    checks.push({ scenario, action, if_result: ifResult, then_interpretation: thenInterpretation });
+  }
+  return checks;
+}
+
 function getObject(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 }
@@ -2447,6 +2539,8 @@ function isUnderstandingCheck(value: unknown): value is UnderstandingCheck {
       typeof item.hint === "string" &&
       Array.isArray(item.expected_answer_points) &&
       Array.isArray(item.evidence_refs) &&
-      typeof item.origin === "string",
+      typeof item.origin === "string" &&
+      Array.isArray(item.tested_concepts) &&
+      Array.isArray(item.answer_point_map),
   );
 }
