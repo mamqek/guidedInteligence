@@ -109,7 +109,11 @@ def _render_explanation(
                     "prompt_template_id": generated.prompt_template_id,
                     "used_evidence_refs": list(generated.used_evidence_refs),
                     "render_notes": dict(generated.render_notes),
+                    "answer_flow": dict(generated.answer_flow),
                     "understanding_checks": [check.to_dict() for check in generated.understanding_checks],
+                    "source_attributions": list(getattr(generated, "source_attributions", ())),
+                    "next_checks": list(getattr(generated, "next_checks", ())),
+                    "next_check_requirement": dict(getattr(generated, "next_check_requirement", {}) or {}),
                 },
             )
         return (
@@ -120,8 +124,12 @@ def _render_explanation(
                 "prompt_template_id": generated.prompt_template_id,
                 "used_evidence_refs": list(generated.used_evidence_refs),
                 "render_notes": dict(generated.render_notes),
+                "answer_flow": dict(generated.answer_flow),
                 "understanding_checks": [check.to_dict() for check in generated.understanding_checks],
                 "concept_definitions": list(getattr(generated, "concept_definitions", ())),
+                "source_attributions": list(getattr(generated, "source_attributions", ())),
+                "next_checks": list(getattr(generated, "next_checks", ())),
+                "next_check_requirement": dict(getattr(generated, "next_check_requirement", {}) or {}),
                 "comprehension_plan": generated.comprehension_plan.to_dict(),
             },
         )

@@ -11,6 +11,7 @@
 - Do not silently fall back from an LLM-backed stage to a deterministic surrogate.
 - If a stage requires an LLM and no LLM configuration is available, fail immediately.
 - If an LLM-backed stage fails at runtime, return an explicit error response or surface the failure directly; do not substitute a hardcoded explanation.
+- Do not keep legacy fallback behavior beside a replacement implementation unless the user explicitly asks for a compatibility path. Hidden fallback branches make debugging ambiguous and leave the code harder to reason about; replace the old path cleanly.
 
 ## Tool Rerun Requests
 
