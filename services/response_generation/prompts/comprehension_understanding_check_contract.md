@@ -20,6 +20,8 @@ Return checks only in the `understanding_checks` JSON field, not in the markdown
 
 Each understanding check must be derived from this same `answer_flow`; do not invent a separate path for the question. Build the question around the concrete symptom or tested concept from `answer_flow`, then let the expected answer explain the evidence and cause.
 
+The check object still includes `expected_answer_points` and `answer_point_map` for API compatibility, but those fields are mirrors of `answer_flow`, not another place to restate or reinterpret the answer.
+
 Use this check object shape:
 
 ```json
