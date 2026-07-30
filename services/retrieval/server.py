@@ -461,15 +461,8 @@ class RuntimeState:
             indexing = {}
         retrieval_mode = _retrieval_mode(self.config)
         exclude_paths = _string_list(indexing.get("exclude_paths", []))
-        chunk_line_count = 40
-        chunk_line_overlap = 10
-        estimate = estimate_indexing_scope(
-            self.workspace_root,
-            exclude_paths=tuple(exclude_paths),
-            chunk_line_count=chunk_line_count,
-            chunk_line_overlap=chunk_line_overlap,
-        )
         if retrieval_mode == RETRIEVAL_MODE_CODEX:
+            estimate = {"file_count": 0, "total_bytes": 0, "estimated_chunks": 0, "sample_paths": []}
             return {
                 **estimate,
                 **_index_time_estimate(estimate),
@@ -480,6 +473,14 @@ class RuntimeState:
                 "index_status_detail": "Codex retrieval mode uses the selected workspace directly and skips local indexing.",
                 "index_last_built_at": "",
             }
+        chunk_line_count = 40
+        chunk_line_overlap = 10
+        estimate = estimate_indexing_scope(
+            self.workspace_root,
+            exclude_paths=tuple(exclude_paths),
+            chunk_line_count=chunk_line_count,
+            chunk_line_overlap=chunk_line_overlap,
+        )
         readiness = self._index_readiness(
             estimate=estimate,
             exclude_paths=tuple(exclude_paths),

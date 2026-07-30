@@ -115,6 +115,24 @@ class ControlLayerPolicyTests(unittest.TestCase):
                     "if_result": "The error still occurs or is avoided depending on format specification.",
                     "then_interpretation": "The structured parser should not classify or reject based on this wording.",
                 },
+                {
+                    "scenario": "Inspect HDFStore append metadata initialization",
+                    "action": "Add debug prints or logs in HDFStore.append to verify metadata setup before calling PyTables.",
+                    "if_result": "Metadata is correctly initialized before PyTables calls.",
+                    "then_interpretation": "This is too low-level for a normal next check and should be ignored.",
+                },
+                {
+                    "scenario": "Verify extension probing call counts",
+                    "action": "Modify module resolution code to log or count statSync calls for each extension.",
+                    "if_result": "The logs show which extensions were checked.",
+                    "then_interpretation": "This is instrumentation rather than a normal user-facing check.",
+                },
+                {
+                    "scenario": "Measure stat calls from implementation changes",
+                    "action": "Modify the resolver to measure statSync calls while resolving node_modules.",
+                    "if_result": "The measured calls decrease.",
+                    "then_interpretation": "This is an internal measurement change rather than a normal check.",
+                },
             ]
         )
 
@@ -148,7 +166,8 @@ class ControlLayerPolicyTests(unittest.TestCase):
 
         self.assertTrue(requirement["required"])
         self.assertEqual(requirement["mode"], "bounded_inference")
-        self.assertEqual(requirement["min_checks"], 2)
+        self.assertEqual(requirement["min_checks"], 1)
+        self.assertEqual(requirement["target_checks"], 2)
 
     def test_next_check_requirement_is_empty_for_direct_sufficient_retrieval(self) -> None:
         retrieval_result = RetrievalResult(

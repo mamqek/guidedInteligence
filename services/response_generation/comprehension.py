@@ -498,9 +498,15 @@ def _source_attributions_from_response(
 
 
 def _next_checks_from_response(value: Any) -> tuple[Mapping[str, str], ...]:
+    checks, _rejected = _collect_next_checks_from_response(value)
+    return checks
+
+
+def _collect_next_checks_from_response(value: Any) -> tuple[tuple[Mapping[str, str], ...], tuple[Mapping[str, str], ...]]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
+        return (), ()
     checks: list[dict[str, str]] = []
+    rejected: list[dict[str, str]] = []
     seen_actions: set[str] = set()
     seen_scenarios: set[str] = set()
     for item in value:
@@ -512,9 +518,13 @@ def _next_checks_from_response(value: Any) -> tuple[Mapping[str, str], ...]:
         then_interpretation = str(item.get("then_interpretation") or "").strip()
         if not scenario or not action or not if_result or not then_interpretation:
             continue
+        if _is_low_level_next_check(scenario=scenario, action=action):
+            rejected.append({"reason": "low_level_next_check", "scenario": scenario[:120], "action": action[:320]})
+            continue
         action_key = " ".join(action.casefold().split())
         scenario_key = " ".join(scenario.casefold().split())
         if action_key in seen_actions or scenario_key in seen_scenarios:
+            rejected.append({"reason": "duplicate_next_check", "scenario": scenario[:120], "action": action[:320]})
             continue
         checks.append(
             {
@@ -528,7 +538,25 @@ def _next_checks_from_response(value: Any) -> tuple[Mapping[str, str], ...]:
         seen_scenarios.add(scenario_key)
         if len(checks) >= 4:
             break
-    return tuple(checks)
+    return tuple(checks), tuple(rejected)
+
+
+def _is_low_level_next_check(*, scenario: str, action: str) -> bool:
+    text = f"{scenario}\n{action}".casefold()
+    return bool(
+        re.search(r"\bmetadata\b", text)
+        or re.search(r"\bdebug(?:ger|ging)?\b", text)
+        or re.search(r"\bbreakpoints?\b", text)
+        or re.search(r"\binstrument(?:ation|ing)?\b", text)
+        or re.search(r"\b(?:add|modify|insert|replace|instrument)\b.*\blog(?:s|ging)?\b", text)
+        or re.search(r"\bmodify\b.*\b(?:measure|count)\b.*\b(?:calls?|stat(?:sync)?)\b", text)
+        or re.search(r"\b(?:measure|count)\b.*\b(?:stat(?:sync)?|internal)\s+calls?\b", text)
+        or re.search(r"\btemporary\s+(?:diagnostic\s+)?log(?:ging|s)?\b", text)
+        or re.search(r"\bdebug\s+prints?\b", text)
+        or re.search(r"\bruntime\s+object\s+state\b", text)
+        or re.search(r"\bbinary\s+file\b", text)
+        or re.search(r"\bfile-format\s+investigation\b", text)
+    )
 
 
 def _answer_flow_from_response(value: Any, *, allowed_refs: set[str]) -> Mapping[str, Any]:
@@ -557,7 +585,8 @@ def _next_check_requirement(*, plan: ComprehensionPlan, retrieval_result: Retrie
         return {
             "mode": "bounded_inference",
             "required": True,
-            "min_checks": 2,
+            "min_checks": 1,
+            "target_checks": 2,
             "reason": "The retrieval result reports unresolved uncertainty outside the selected evidence.",
             "signals": {"uncertainties": list(uncertainties[:4])},
         }
@@ -586,10 +615,15 @@ def _coerce_next_check_requirement(value: Any) -> Mapping[str, Any]:
         parsed_min = int(min_checks)
     except (TypeError, ValueError):
         parsed_min = 0
+    try:
+        parsed_target = int(value.get("target_checks"))
+    except (TypeError, ValueError):
+        parsed_target = parsed_min
     return {
         "mode": str(value.get("mode") or "direct"),
         "required": bool(value.get("required")),
         "min_checks": max(0, min(parsed_min, 4)),
+        "target_checks": max(0, min(parsed_target, 4)),
         "reason": str(value.get("reason") or ""),
         "signals": value.get("signals") if isinstance(value.get("signals"), Mapping) else {},
     }
@@ -684,19 +718,15 @@ def _collect_checks_from_response(
                 rejected.append({"reason": "not_mapping"})
                 continue
             refs = tuple(ref for ref in _string_tuple(item.get("evidence_refs")) if ref in allowed_refs)
-            points = _string_tuple(item.get("expected_answer_points"))
             tested_concepts = _string_tuple(item.get("tested_concepts"))
-            answer_point_map = _answer_point_map_from_response(item.get("answer_point_map"))
             question = str(item.get("question") or "").strip()
             hint = str(item.get("hint") or "").strip()
-            if not refs or not points or not question or not hint:
+            if not refs or not question or not hint:
                 rejected.append({"reason": "missing_required_fields", "question": question[:200]})
                 continue
             grounding_error = _check_grounding_contract(
                 question=question,
                 tested_concepts=tested_concepts,
-                answer_point_map=answer_point_map,
-                expected_points=points,
                 plan=plan,
                 markdown=markdown,
                 answer_flow=answer_flow,
@@ -713,12 +743,12 @@ def _collect_checks_from_response(
                     role=str(item.get("role") or "comprehension_plan").strip(),
                     question_type=str(item.get("question_type") or "primary").strip(),
                     question=question[:600],
-                    expected_answer_points=points[:4],
+                    expected_answer_points=_answer_flow_expected_points(answer_flow),
                     hint=hint[:500],
                     evidence_refs=refs[:4],
                     origin="model_generated",
                     tested_concepts=tested_concepts[:6],
-                    answer_point_map=answer_point_map[:4],
+                    answer_point_map=_answer_flow_answer_point_map(answer_flow),
                 )
             )
     if checks:
@@ -822,15 +852,18 @@ def _repair_next_checks(
     log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
     log_warning: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> tuple[Mapping[str, str], ...]:
+    accepted_next_checks, rejected_next_checks = _collect_next_checks_from_response(generated_next_checks)
     payload = {
         "user_prompt": repair_context.get("user_prompt", ""),
         "coverage_status": repair_context.get("coverage_status", ""),
         "retrieval_sufficient": repair_context.get("retrieval_sufficient", False),
         "generated_markdown": markdown,
         "generated_next_checks": generated_next_checks if isinstance(generated_next_checks, list) else [],
+        "accepted_next_checks": list(accepted_next_checks),
+        "rejected_next_checks": [dict(item) for item in rejected_next_checks],
         "evidence": list(repair_context.get("evidence") or ()),
         "next_check_requirement": repair_context.get("next_check_requirement") or {},
-        "task": "Return only concrete next checks required by next_check_requirement.",
+        "task": "Keep accepted_next_checks when useful and replace rejected_next_checks with different feasible checks until next_check_requirement.min_checks is satisfied.",
     }
     if log_event is not None:
         log_event(
@@ -981,26 +1014,34 @@ def _uses_retrieval_label_wording(text: str) -> bool:
     return bool(RETRIEVAL_LABEL_QUESTION_PATTERN.search(text))
 
 
-def _answer_point_map_from_response(value: Any) -> tuple[Mapping[str, str], ...]:
-    if not isinstance(value, list):
-        return ()
-    mapped: list[dict[str, str]] = []
-    for item in value:
-        if not isinstance(item, Mapping):
-            continue
-        kind = str(item.get("kind") or "").strip().casefold()
-        point = str(item.get("point") or "").strip()
-        if kind and point:
-            mapped.append({"kind": kind, "point": point})
-    return tuple(mapped)
+def _answer_flow_expected_points(answer_flow: Mapping[str, Any]) -> tuple[str, ...]:
+    return tuple(
+        point
+        for point in (
+            str(answer_flow.get("symptom") or "").strip(),
+            str(answer_flow.get("evidence") or "").strip(),
+            str(answer_flow.get("cause") or "").strip(),
+        )
+        if point
+    )
+
+
+def _answer_flow_answer_point_map(answer_flow: Mapping[str, Any]) -> tuple[Mapping[str, str], ...]:
+    return tuple(
+        {"kind": kind, "point": point}
+        for kind, point in (
+            ("symptom", str(answer_flow.get("symptom") or "").strip()),
+            ("evidence", str(answer_flow.get("evidence") or "").strip()),
+            ("cause", str(answer_flow.get("cause") or "").strip()),
+        )
+        if point
+    )
 
 
 def _check_grounding_contract(
     *,
     question: str,
     tested_concepts: Sequence[str],
-    answer_point_map: Sequence[Mapping[str, str]],
-    expected_points: Sequence[str],
     plan: ComprehensionPlan,
     markdown: str,
     answer_flow: Mapping[str, Any],
@@ -1018,35 +1059,6 @@ def _check_grounding_contract(
         return "tested_concept_not_in_answer_flow"
     if not _question_names_answer_flow_term(question=question, answer_flow=answer_flow):
         return "question_not_about_answer_flow"
-    if not answer_point_map:
-        return "missing_answer_point_map"
-    expected_set = {_normalize_contract_text(point) for point in expected_points}
-    flow_points_by_kind = {
-        "symptom": _normalize_contract_text(str(answer_flow.get("symptom") or "")),
-        "evidence": _normalize_contract_text(str(answer_flow.get("evidence") or "")),
-        "cause": _normalize_contract_text(str(answer_flow.get("cause") or "")),
-    }
-    flow_set = {point for point in flow_points_by_kind.values() if point}
-    if expected_set != flow_set:
-        return "expected_points_do_not_match_answer_flow"
-    mapped_kinds: set[str] = set()
-    mapped_points: set[str] = set()
-    for item in answer_point_map:
-        kind = str(item.get("kind") or "").strip().casefold()
-        point = str(item.get("point") or "").strip()
-        if kind not in {"symptom", "evidence", "cause"}:
-            return "invalid_answer_point_kind"
-        normalized_point = _normalize_contract_text(point)
-        if normalized_point not in expected_set:
-            return "answer_point_map_mismatch"
-        if normalized_point != flow_points_by_kind.get(kind):
-            return "answer_point_map_kind_mismatch"
-        mapped_kinds.add(kind)
-        mapped_points.add(normalized_point)
-    if mapped_kinds != {"symptom", "evidence", "cause"}:
-        return "incomplete_answer_point_map"
-    if not expected_set.issubset(mapped_points):
-        return "unmapped_expected_answer_point"
     return ""
 
 
