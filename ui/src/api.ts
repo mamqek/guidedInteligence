@@ -9,6 +9,9 @@ export type Health = {
   embedding_configured: boolean;
   runs_dir: string;
   index_estimate?: IndexEstimate;
+  retrieval_mode?: "workspace" | "codex";
+  codex_prompt_profile?: string;
+  assistance_mode?: string;
   qdrant_reachable?: boolean;
   qdrant_status_detail?: string;
   github_repository?: string;
@@ -114,6 +117,7 @@ export type AppConfig = {
     mode: "workspace" | "codex";
     codex_command: string[];
     codex_model: string;
+    codex_prompt_profile?: string;
     codex_timeout_seconds: number;
   };
   connections: {
@@ -132,6 +136,7 @@ export type AppConfig = {
 export type RunSummary = {
   run_id: string;
   run_dir: string;
+  title?: string;
   prompt: string;
   status?: string;
   phase?: string;
@@ -144,6 +149,7 @@ export type RunSummary = {
   progress_percent?: number;
   progress_message?: string;
   progress_logs?: string[];
+  retry_count?: number;
   created_at?: string;
   completed_at?: string;
   elapsed_seconds?: number | null;
@@ -196,6 +202,25 @@ export type IndexPrepareJob = {
   document_count: number;
   index_estimate: IndexEstimate;
   logs: string[];
+};
+
+export type CodexModelOption = {
+  slug: string;
+  display_name: string;
+  description: string;
+  default_reasoning_level: string;
+  supported_reasoning_levels: { effort: string; description: string }[];
+  visibility: string;
+  supported_in_api: boolean;
+  priority: number | null;
+  additional_speed_tiers: string[];
+};
+
+export type CodexModelsResponse = {
+  ok: boolean;
+  command: string[];
+  models: CodexModelOption[];
+  stderr?: string;
 };
 
 export type UnderstandingCheck = {
@@ -295,6 +320,7 @@ export const api = {
       body: JSON.stringify({ start_path }),
     }),
   indexEstimate: () => requestJson<IndexEstimate>("/index/estimate"),
+  codexModels: () => requestJson<CodexModelsResponse>("/codex/models"),
   prepareIndex: () =>
     requestJson<IndexPrepareJob>("/index/prepare", {
       method: "POST",

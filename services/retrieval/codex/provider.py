@@ -158,7 +158,8 @@ class CodexRetrievalStage:
                 "selected_count": len(evidence),
                 "relevant_files": _string_list(payload.get("relevant_files", [])),
                 "profile_output": profile_output,
-                "uncertainties": _string_list(payload.get("uncertainties", [])),
+                "answer_blocking_uncertainties": _string_list(payload.get("answer_blocking_uncertainties", [])),
+                "scope_notes": _string_list(payload.get("scope_notes", [])),
                 "usage": usage,
                 "retrieval_hints": retrieval_hints,
                 "artifact_trace": artifact_trace,
@@ -177,7 +178,8 @@ class CodexRetrievalStage:
                 "prompt_summary": str(payload.get("prompt_summary") or ""),
                 "relevant_files": _string_list(payload.get("relevant_files", [])),
                 "profile_output": profile_output,
-                "uncertainties": _string_list(payload.get("uncertainties", [])),
+                "answer_blocking_uncertainties": _string_list(payload.get("answer_blocking_uncertainties", [])),
+                "scope_notes": _string_list(payload.get("scope_notes", [])),
                 "selected_count": len(evidence),
                 "stop_reason": "codex_evidence_selected" if evidence else "codex_returned_no_usable_evidence",
                 "started_at": started_at.isoformat(),
@@ -688,5 +690,5 @@ def _string_list(value: Any) -> list[str]:
 
 
 def _profile_output(payload: Mapping[str, Any]) -> dict[str, Any]:
-    shared_fields = {"prompt_summary", "relevant_files", "evidence", "uncertainties"}
+    shared_fields = {"prompt_summary", "relevant_files", "evidence", "answer_blocking_uncertainties", "scope_notes"}
     return {str(key): value for key, value in payload.items() if str(key) not in shared_fields}

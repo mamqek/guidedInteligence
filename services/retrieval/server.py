@@ -190,6 +190,45 @@ class RuntimeState:
             ),
         }
 
+    def codex_models(self) -> dict[str, Any]:
+        retrieval_settings = _retrieval_settings(self.config)
+        command = [
+            *resolve_codex_command(_string_list(retrieval_settings.get("codex_command", ["codex"]))),
+            "debug",
+            "models",
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=str(self.workspace_root),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+            )
+        except FileNotFoundError as exc:
+            raise RetrievalServerError(f"Codex command was not found: {command[0]}", status=404) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise RetrievalServerError("Codex model catalog request timed out.", status=504) from exc
+        except OSError as exc:
+            raise RetrievalServerError(f"Codex model catalog request failed: {exc}", status=502) from exc
+        stdout = completed.stdout.strip()
+        stderr = completed.stderr.strip()
+        if completed.returncode != 0:
+            detail = stderr or stdout or f"exit code {completed.returncode}"
+            raise RetrievalServerError(f"Codex model catalog request failed: {detail}", status=502)
+        try:
+            catalog = json.loads(stdout)
+        except json.JSONDecodeError as exc:
+            raise RetrievalServerError("Codex model catalog response was not valid JSON.", status=502) from exc
+        return {
+            "ok": True,
+            "command": command,
+            "models": _codex_model_options(catalog),
+            "stderr": stderr,
+        }
+
     def github_repository(self) -> str:
         try:
             completed = subprocess.run(
@@ -994,6 +1033,17 @@ class RuntimeState:
                 intent=UserIntent.UNDERSTAND_CODE,
             )
             result = control.run(state)
+            retry_count = 0
+            if _response_generation_timed_out(result.to_dict()):
+                retry_count = 1
+                self._update_run_progress(
+                    run_dir,
+                    phase="generation",
+                    percent=92,
+                    message="Explanation generation timed out; retrying retrieval once.",
+                    log="Explanation generation timed out; retrying retrieval once.",
+                )
+                result = control.run(state)
             result_payload = result.to_dict()
             (run_dir / "orchestration-result.json").write_text(
                 json.dumps(result_payload, indent=2, sort_keys=True),
@@ -1006,6 +1056,13 @@ class RuntimeState:
             )
             completed_at = datetime.now(timezone.utc)
             metadata = _load_json(run_dir / "run-metadata.json", {})
+            logs = list(metadata.get("progress_logs", [])) if isinstance(metadata.get("progress_logs"), list) else []
+            final_generation_error = _response_generation_error(result_payload)
+            final_generation_timeout = _response_generation_timed_out(result_payload)
+            if retry_count and not final_generation_error:
+                logs.append("Retry completed successfully.")
+            if retry_count and final_generation_timeout:
+                logs.append("Retry also timed out; showing explicit explanation error.")
             metadata.update(
                 {
                     "run_id": run_id,
@@ -1014,13 +1071,15 @@ class RuntimeState:
                     "completed_at": completed_at.isoformat(),
                     "elapsed_seconds": round((completed_at - started_at).total_seconds(), 2),
                     "progress_percent": 100,
-                    "progress_message": "Explanation complete.",
+                    "progress_message": _response_generation_progress_message(final_generation_error, retry_count=retry_count),
                     "workspace_root": str(self.workspace_root),
                     "prompt": prompt,
                     "allowed_sources": list(allowed_source_keys),
                     "run_dir": str(run_dir),
                     "index_estimate": indexing_estimate,
                     "progress_active_stage": {},
+                    "retry_count": retry_count,
+                    "progress_logs": logs[-8:],
                 }
             )
             (run_dir / "run-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
@@ -1325,6 +1384,9 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path == "/config":
                 self._send_json(self.state.get_config())
                 return
+            if parsed.path == "/codex/models":
+                self._send_json(self.state.codex_models())
+                return
             if parsed.path == "/workspaces":
                 self._send_json({"workspaces": self.state.list_workspaces()})
                 return
@@ -1593,6 +1655,31 @@ def _progress_update_for_stage_completion(
         "elapsed_seconds": round(effective_seconds, 2),
     }
     return stage_key, max(window_start, window_end - 1), message, f"{message.rstrip('.')}{_duration_suffix(observed_seconds)}.", timeline_event
+
+
+def _response_generation_timed_out(result_payload: Mapping[str, Any]) -> bool:
+    error = _response_generation_error(result_payload)
+    return "timed out" in error.casefold() or "timeout" in error.casefold()
+
+
+def _response_generation_error(result_payload: Mapping[str, Any]) -> str:
+    response = result_payload.get("response_payload")
+    if not isinstance(response, Mapping):
+        return ""
+    metadata = response.get("metadata")
+    if not isinstance(metadata, Mapping):
+        return ""
+    return str(metadata.get("error") or "")
+
+
+def _response_generation_progress_message(error: str, *, retry_count: int) -> str:
+    if not error:
+        return "Explanation complete."
+    if retry_count and ("timed out" in error.casefold() or "timeout" in error.casefold()):
+        return "Explanation generation timed out after retry."
+    if retry_count:
+        return f"Explanation generation failed after retry: {error}"
+    return f"Explanation generation failed: {error}"
 
 
 def _elapsed_seconds_from_payload(payload: Mapping[str, Any]) -> float | None:
@@ -2233,6 +2320,50 @@ def _is_source_category_value(value: str) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _codex_model_options(catalog: Any) -> list[dict[str, Any]]:
+    if not isinstance(catalog, Mapping):
+        return []
+    raw_models = catalog.get("models")
+    if not isinstance(raw_models, list):
+        return []
+    models: list[dict[str, Any]] = []
+    for item in raw_models:
+        if not isinstance(item, Mapping):
+            continue
+        slug = str(item.get("slug") or "").strip()
+        if not slug:
+            continue
+        reasoning_levels: list[dict[str, str]] = []
+        raw_levels = item.get("supported_reasoning_levels")
+        if isinstance(raw_levels, list):
+            for level in raw_levels:
+                if not isinstance(level, Mapping):
+                    continue
+                effort = str(level.get("effort") or "").strip()
+                if not effort:
+                    continue
+                reasoning_levels.append(
+                    {
+                        "effort": effort,
+                        "description": str(level.get("description") or "").strip(),
+                    }
+                )
+        models.append(
+            {
+                "slug": slug,
+                "display_name": str(item.get("display_name") or slug).strip(),
+                "description": str(item.get("description") or "").strip(),
+                "default_reasoning_level": str(item.get("default_reasoning_level") or "").strip(),
+                "supported_reasoning_levels": reasoning_levels,
+                "visibility": str(item.get("visibility") or "").strip(),
+                "supported_in_api": bool(item.get("supported_in_api")),
+                "priority": item.get("priority") if isinstance(item.get("priority"), int) else None,
+                "additional_speed_tiers": _plain_string_list(item.get("additional_speed_tiers")),
+            }
+        )
+    return sorted(models, key=lambda model: (model.get("priority") is None, model.get("priority") or 9999, str(model.get("slug") or "")))
 
 
 def _string_list(value: Any) -> list[str]:
@@ -2939,6 +3070,7 @@ def _run_summary_from_payload(run_id: str, run_dir: Path, result: Mapping[str, A
         return {
             "run_id": run_id,
             "run_dir": str(run_dir),
+            "title": "",
             "prompt": str(metadata.get("prompt") or ""),
             "status": str(metadata.get("status") or "running"),
             "phase": str(metadata.get("phase") or "indexing"),
@@ -2951,16 +3083,20 @@ def _run_summary_from_payload(run_id: str, run_dir: Path, result: Mapping[str, A
             "progress_percent": display_percent,
             "progress_message": str(metadata.get("progress_message") or ""),
             "progress_logs": _plain_string_list(metadata.get("progress_logs", [])),
+            "retry_count": int(metadata.get("retry_count") or 0),
             **metrics,
         }
     retrieval = result.get("retrieval_result") if isinstance(result.get("retrieval_result"), Mapping) else {}
     summary = retrieval.get("retrieval_summary") if isinstance(retrieval.get("retrieval_summary"), Mapping) else {}
     response = result.get("response_payload") if isinstance(result.get("response_payload"), Mapping) else {}
+    response_metadata = response.get("metadata") if isinstance(response.get("metadata"), Mapping) else {}
+    render_notes = response_metadata.get("render_notes") if isinstance(response_metadata.get("render_notes"), Mapping) else {}
     plan = summary.get("retrieval_plan") if isinstance(summary.get("retrieval_plan"), Mapping) else {}
     metrics = _run_metrics(run_dir, metadata)
     return {
         "run_id": run_id,
         "run_dir": str(run_dir),
+        "title": str(render_notes.get("title") or ""),
         "prompt": str(plan.get("raw_prompt") or metadata.get("prompt") or ""),
         "status": str(metadata.get("status") or "complete"),
         "phase": str(metadata.get("phase") or "complete"),
@@ -2973,6 +3109,7 @@ def _run_summary_from_payload(run_id: str, run_dir: Path, result: Mapping[str, A
         "progress_percent": display_percent if str(metadata.get("status") or "") == "running" else int(metadata.get("progress_percent") or 100),
         "progress_message": str(metadata.get("progress_message") or ""),
         "progress_logs": _plain_string_list(metadata.get("progress_logs", [])),
+        "retry_count": int(metadata.get("retry_count") or 0),
         **metrics,
     }
 
