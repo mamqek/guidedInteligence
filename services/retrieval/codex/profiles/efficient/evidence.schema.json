@@ -56,7 +56,13 @@
         "additionalProperties": false
       }
     },
-    "uncertainties": {
+    "answer_blocking_uncertainties": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scope_notes": {
       "type": "array",
       "items": {
         "type": "string"
@@ -67,7 +73,8 @@
     "prompt_summary",
     "relevant_files",
     "evidence",
-    "uncertainties"
+    "answer_blocking_uncertainties",
+    "scope_notes"
   ],
   "additionalProperties": false
 }

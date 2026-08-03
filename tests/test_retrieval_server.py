@@ -8,7 +8,18 @@ from unittest.mock import patch
 
 from core.source_policy import SourceCategory
 from services.guidance.answer_evaluation import AnswerEvaluation
-from services.retrieval.server import RetrievalServerError, RuntimeState, _cgc_failure_message, _github_repository_from_remote_url, _local_ui_url, _oauth_redirect_uri, _safe_run_id, _sync_cgcignore
+from services.retrieval.server import (
+    RetrievalServerError,
+    RuntimeState,
+    _cgc_failure_message,
+    _github_repository_from_remote_url,
+    _local_ui_url,
+    _oauth_redirect_uri,
+    _response_generation_progress_message,
+    _response_generation_timed_out,
+    _safe_run_id,
+    _sync_cgcignore,
+)
 
 
 VALID_ENV = "\n".join(
@@ -28,6 +39,39 @@ VALID_ENV = "\n".join(
 
 
 class RetrievalServerStateTests(unittest.TestCase):
+    def test_response_generation_timeout_detector_reads_response_metadata_error(self) -> None:
+        self.assertTrue(
+            _response_generation_timed_out(
+                {
+                    "response_payload": {
+                        "metadata": {
+                            "error": "LLM request failed: The read operation timed out",
+                        },
+                    },
+                }
+            )
+        )
+        self.assertFalse(
+            _response_generation_timed_out(
+                {
+                    "response_payload": {
+                        "metadata": {
+                            "error": "Comprehension explanation generation returned no valid answer_flow.",
+                        },
+                    },
+                }
+            )
+        )
+        self.assertEqual(_response_generation_progress_message("", retry_count=1), "Explanation complete.")
+        self.assertEqual(
+            _response_generation_progress_message("LLM request failed: The read operation timed out", retry_count=1),
+            "Explanation generation timed out after retry.",
+        )
+        self.assertEqual(
+            _response_generation_progress_message("Comprehension explanation generation returned no valid answer_flow.", retry_count=1),
+            "Explanation generation failed after retry: Comprehension explanation generation returned no valid answer_flow.",
+        )
+
     def test_oauth_callback_return_url_points_to_local_ui(self) -> None:
         self.assertEqual(_local_ui_url("127.0.0.1:8790"), "http://127.0.0.1:5173/#connections")
 

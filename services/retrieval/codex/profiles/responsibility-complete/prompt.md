@@ -15,7 +15,7 @@ Mode-aware retrieval guidance:
 - If recommended_assistance_mode is `teach`, prefer enough role-diverse evidence to explain dependencies, adjacent responsibilities, and why the behavior works.
 - If recommended_assistance_mode is `work`, prefer tighter implementation-owner evidence and direct supporting context, still only for explanation/planning.
 - If recommended_assistance_mode is `evaluation`, prefer evidence tied to the concept, previous check, or answer being evaluated.
-- If evidence is weak or missing, report gaps and uncertainty; do not compensate by guessing.
+- If evidence is weak or missing, report gaps and answer-blocking uncertainty; do not compensate by guessing.
 
 Investigation process:
 1. Classify the issue and extract concrete behavior, symbols, error text, configuration values, and subsystem clues from the visible packet.
@@ -30,7 +30,7 @@ Evidence requirements:
 - Prefer source-code implementation owners over tests; use tests only when they establish expected behavior or the only concrete reproduction.
 - Prefer targeted `rg -n` searches and small line-window reads over whole-file reads.
 - Prefer source authoring files over generated/emitted files. Use generated/emitted files only when the issue directly names them, they are the runtime/user-visible artifact being explained, or source inputs are absent.
-- If you select generated/emitted files because source inputs are absent, include a coverage_gaps or uncertainties entry explaining that limitation.
+- If you select generated/emitted files because source inputs are absent and that limits the answer, include a coverage_gaps or answer_blocking_uncertainties entry explaining that limitation.
 - Do not select bundled/generated CLI output such as `bin/*.js` as implementation evidence when corresponding source files can explain the behavior.
 - When possible, set artifact_kind to your judgment of whether the selected range is source-authored, built/distribution, generated/baseline, test/fixture, or unknown; deterministic post-processing will audit this judgment.
 - Avoid localization/baseline output and vendored directories unless the issue directly names them.
@@ -41,7 +41,10 @@ Evidence requirements:
 - Select 2-6 evidence items when available; avoid multiple items that prove the same responsibility.
 - Set file_role=implementation_owner only when the selected code owns or directly controls the behavior, not merely because it calls nearby code.
 - Set relevance=primary only for evidence required to explain the issue's core behavior.
-- Use low confidence, coverage_gaps, and uncertainties instead of guessing.
+- Use low confidence, coverage_gaps, and answer_blocking_uncertainties instead of guessing.
+- Put limitations that can change the user-facing answer in answer_blocking_uncertainties.
+- Put non-blocking investigation caveats in scope_notes. Scope notes are for branches you did not inspect, external sources you did not use, or adjacent implementation details that are not needed to answer the user question from the selected evidence.
+- Do not put a caveat in answer_blocking_uncertainties when the selected repository evidence is sufficient for the requested explanation and the caveat only describes optional extra scope.
 
 Sanitized issue packet:
 {{USER_PROMPT}}

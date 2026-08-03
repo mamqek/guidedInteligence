@@ -174,7 +174,14 @@
         "additionalProperties": false
       }
     },
-    "uncertainties": {
+    "answer_blocking_uncertainties": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 6
+    },
+    "scope_notes": {
       "type": "array",
       "items": {
         "type": "string"
@@ -188,7 +195,8 @@
     "relevant_files",
     "evidence",
     "coverage_gaps",
-    "uncertainties"
+    "answer_blocking_uncertainties",
+    "scope_notes"
   ],
   "additionalProperties": false
 }

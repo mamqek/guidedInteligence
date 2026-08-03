@@ -25,6 +25,7 @@ REPAIR_COMMON_PROMPT_PATH = PROMPTS_DIR / "comprehension_repair_common.md"
 CHECK_REPAIR_PROMPT_PATH = PROMPTS_DIR / "comprehension_understanding_check_repair.md"
 NEXT_CHECK_REPAIR_PROMPT_PATH = PROMPTS_DIR / "comprehension_next_checks_repair.md"
 SOURCE_ATTRIBUTION_REPAIR_PROMPT_PATH = PROMPTS_DIR / "comprehension_source_attribution_repair.md"
+EXPLANATION_EVIDENCE_LIMIT = 12
 RETRIEVAL_LABEL_QUESTION_PATTERN = re.compile(
     r"\b(?:retrieved|coverage)\b"
     r"|main implementation behavior"
@@ -54,6 +55,9 @@ LEAKED_CONCEPT_HEADING_SECTION_PATTERN = re.compile(
 LEAKED_UNDERSTANDING_CHECK_SECTION_PATTERN = re.compile(
     r"(?ims)^\s*(?:---\s*\n\s*)?#{1,6}\s+Understanding checks?:?\s*$.*\Z"
 )
+LEAKED_INLINE_UNDERSTANDING_CHECK_PATTERN = re.compile(
+    r"(?ims)(?:\n\s*---\s*)?\n\s*(?:\*\*)?Understanding checks?(?:\*\*)?\s*:\s*.*\Z"
+)
 LEAKED_NEXT_CHECKS_PATTERN = re.compile(
     r"(?ims)^\s*(?:---\s*\n\s*)?(?:#{1,6}\s*)?Next checks\s*:\s*$.*\Z"
 )
@@ -63,6 +67,16 @@ LEAKED_ANSWER_PATH_PATTERN = re.compile(
 LEAKED_BOLD_CONCEPT_DEFINITIONS_PATTERN = re.compile(
     r"(?ims)^\s*(?:---\s*\n\s*)?(?:\*\*Concept definitions:\*\*|Concept definitions:|\[Concept definitions\]|Key terms:)\s*$\n(?:\s*[-*]\s+.*(?:\n|$))+"
 )
+LEAKED_STRUCTURED_MARKDOWN_FENCE_PATTERN = re.compile(
+    r"(?ims)\n?\s*```(?:json|concept_definitions|source_attributions|metadata)?\s*\n\s*(?:\{|\[|concept_definitions\b|source_attributions\b|metadata\b).*?\n\s*```\s*"
+)
+UNCITED_IMPLEMENTATION_RECAP_PATTERN = re.compile(
+    r"(?is)^(?:in summary|overall|this design|this layered design|this chain|this flow|together),?\s+.*"
+)
+IMPLEMENTATION_RECAP_TERMS_PATTERN = re.compile(
+    r"\b(?:backend|frontend|function|prompt|validat(?:e|es|ion)|repair|response builder|metadata|UI|renders?|next[_ -]?checks?|next_check_requirement|contract|retrieval results?|model output|JSON field|code)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -71,6 +85,7 @@ class ComprehensionGenerationResult:
     used_evidence_refs: tuple[str, ...]
     render_notes: Mapping[str, str]
     answer_flow: Mapping[str, Any]
+    story_flow: tuple[Mapping[str, Any], ...]
     understanding_checks: tuple[UnderstandingCheck, ...]
     comprehension_plan: ComprehensionPlan
     concept_definitions: tuple[Mapping[str, Any], ...] = ()
@@ -94,7 +109,8 @@ def generate_comprehension_explanation(
         retrieval_result=retrieval_result,
         assistance_mode=assistance_mode,
     )
-    concept_definition_targets = _concept_definition_targets(state.user_input, retrieval_result.evidence[:8])
+    explanation_evidence = tuple(retrieval_result.evidence[:EXPLANATION_EVIDENCE_LIMIT])
+    concept_definition_targets = _concept_definition_targets(state.user_input, explanation_evidence)
     next_check_requirement = _next_check_requirement(plan=plan, retrieval_result=retrieval_result)
     payload = {
         "user_prompt": state.user_input,
@@ -104,11 +120,8 @@ def generate_comprehension_explanation(
         "comprehension_plan": plan.to_dict(),
         "next_check_requirement": next_check_requirement,
         "concept_definition_targets": concept_definition_targets,
-        "evidence": [_compact_evidence(item) for item in retrieval_result.evidence[:8]],
-        "citation_rules": {
-            "allowed_refs": [item.source_id for item in retrieval_result.evidence[:8]],
-            "allowed_links": [_evidence_link(item) for item in retrieval_result.evidence[:8]],
-        },
+        "evidence": [_compact_evidence(item) for item in explanation_evidence],
+        "allowed_evidence_refs": [item.source_id for item in explanation_evidence],
     }
     if log_event is not None:
         log_event(
@@ -141,7 +154,7 @@ def generate_comprehension_explanation(
             "retrieval_sufficient": retrieval_result.sufficient,
             "comprehension_plan": plan.to_dict(),
             "next_check_requirement": next_check_requirement,
-            "evidence": [_compact_evidence(item) for item in retrieval_result.evidence[:8]],
+            "evidence": [_compact_evidence(item) for item in explanation_evidence],
         },
         log_event=log_event,
         log_warning=log_warning,
@@ -194,18 +207,34 @@ def _validate_response(
     log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
     log_warning: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> ComprehensionGenerationResult:
-    markdown = _sanitize_comprehension_markdown(str(response.get("markdown") or "").strip())
-    if not markdown:
-        raise RuntimeError("Comprehension explanation generation returned empty markdown.")
     allowed_refs = {item.source_id for item in evidence}
-    used_refs: list[str] = []
-    for ref in response.get("used_evidence_refs", ()):
-        ref_text = str(ref).strip()
-        if ref_text in allowed_refs and ref_text not in used_refs:
-            used_refs.append(ref_text)
     answer_flow = _answer_flow_from_response(response.get("answer_flow"), allowed_refs=allowed_refs)
     if not answer_flow:
         raise RuntimeError("Comprehension explanation generation returned no valid answer_flow.")
+    story_flow = _story_flow_from_response(
+        response.get("story_flow"),
+        allowed_refs=allowed_refs,
+    )
+    if not story_flow:
+        raise RuntimeError("Comprehension explanation generation returned no valid story_flow.")
+    if not any(
+        _string_tuple(sentence.get("evidence_refs"))
+        for stage in story_flow
+        for sentence in stage.get("sentences", ())
+        if isinstance(sentence, Mapping)
+    ):
+        raise RuntimeError("Comprehension explanation generation returned story_flow without evidence-backed stages.")
+    used_refs: list[str] = []
+    for stage in story_flow:
+        for sentence in stage.get("sentences", ()):
+            if not isinstance(sentence, Mapping):
+                continue
+            for ref in _string_tuple(sentence.get("evidence_refs")):
+                if ref not in used_refs:
+                    used_refs.append(ref)
+    markdown = _sanitize_comprehension_markdown(_render_story_flow_markdown(story_flow, evidence=evidence))
+    if not markdown:
+        raise RuntimeError("Comprehension explanation generation returned empty story_flow prose.")
     checks, rejected, raw_count = _collect_checks_from_response(
         response.get("understanding_checks"),
         markdown=markdown,
@@ -297,6 +326,7 @@ def _validate_response(
         used_evidence_refs=tuple(used_refs) or tuple(item.source_id for item in evidence[:4]),
         render_notes=render_notes,
         answer_flow=answer_flow,
+        story_flow=story_flow,
         understanding_checks=checks,
         comprehension_plan=plan,
         concept_definitions=concept_definitions,
@@ -321,16 +351,45 @@ def _sanitize_comprehension_markdown(markdown: str) -> str:
     sanitized = LEAKED_SOURCE_ATTRIBUTIONS_PATTERN.sub("", sanitized).rstrip()
     sanitized = LEAKED_CONCEPT_HEADING_SECTION_PATTERN.sub("", sanitized).rstrip()
     sanitized = LEAKED_UNDERSTANDING_CHECK_SECTION_PATTERN.sub("", sanitized).rstrip()
+    sanitized = LEAKED_INLINE_UNDERSTANDING_CHECK_PATTERN.sub("", sanitized).rstrip()
     sanitized = LEAKED_NEXT_CHECKS_PATTERN.sub("", sanitized).rstrip()
     sanitized = LEAKED_BOLD_CONCEPT_DEFINITIONS_PATTERN.sub("", sanitized).rstrip()
     sanitized = LEAKED_METADATA_SECTION_PATTERN.sub("", sanitized).rstrip()
+    sanitized = LEAKED_STRUCTURED_MARKDOWN_FENCE_PATTERN.sub("", sanitized).rstrip()
     sanitized = re.sub(
         r"(?im)^\s*Concept definitions are provided[^.\n]*(?:\.\s*)?$",
         "",
         sanitized,
     ).rstrip()
+    sanitized = _strip_trailing_uncited_implementation_recap(sanitized)
     sanitized = _dedupe_repeated_absence_caveats(sanitized)
     return sanitized
+
+
+def _strip_trailing_uncited_implementation_recap(markdown: str) -> str:
+    paragraphs = re.split(r"(\n\s*\n)", markdown.rstrip())
+    while len(paragraphs) >= 1:
+        paragraph = paragraphs[-1].strip()
+        separator_count = 0
+        while len(paragraphs) >= 2 and not paragraph:
+            paragraphs.pop()
+            paragraph = paragraphs[-1].strip() if paragraphs else ""
+            separator_count += 1
+        if not paragraph:
+            break
+        if (
+            UNCITED_IMPLEMENTATION_RECAP_PATTERN.search(paragraph)
+            and IMPLEMENTATION_RECAP_TERMS_PATTERN.search(paragraph)
+            and not re.search(r"\[[^\]]+\]\([^)]+\)", paragraph)
+        ):
+            paragraphs.pop()
+            if paragraphs and re.fullmatch(r"\n\s*\n", paragraphs[-1]):
+                paragraphs.pop()
+            continue
+        if separator_count:
+            break
+        break
+    return "".join(paragraphs).rstrip()
 
 
 def _dedupe_repeated_absence_caveats(markdown: str) -> str:
@@ -497,6 +556,116 @@ def _source_attributions_from_response(
     return tuple(attributions)
 
 
+def _story_flow_from_response(
+    value: Any,
+    *,
+    allowed_refs: set[str],
+) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    stages: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, Mapping):
+            continue
+        stage = str(item.get("stage") or "").strip()
+        relation = str(item.get("relation_to_answer_flow") or "").strip()
+        raw_sentences = item.get("sentences")
+        if (
+            not stage
+            or relation not in {"symptom", "evidence", "cause", "bridge"}
+            or not isinstance(raw_sentences, Sequence)
+            or isinstance(raw_sentences, (str, bytes))
+        ):
+            continue
+        sentences: list[dict[str, Any]] = []
+        for raw_sentence in raw_sentences:
+            if not isinstance(raw_sentence, Mapping):
+                continue
+            text = str(raw_sentence.get("text") or "").strip()
+            kind = str(raw_sentence.get("kind") or "").strip()
+            refs = tuple(ref for ref in _string_tuple(raw_sentence.get("evidence_refs")) if ref in allowed_refs)
+            if not text:
+                continue
+            if kind == "code_claim":
+                if not refs:
+                    continue
+            elif kind == "connective":
+                refs = ()
+            else:
+                continue
+            sentences.append(
+                {
+                    "text": text[:700],
+                    "kind": kind,
+                    "evidence_refs": list(refs[:4]),
+                }
+            )
+            if len(sentences) >= 6:
+                break
+        if not sentences:
+            continue
+        key = stage.casefold()
+        if key in seen:
+            continue
+        stages.append(
+            {
+                "stage": stage[:80],
+                "relation_to_answer_flow": relation[:40],
+                "sentences": sentences,
+            }
+        )
+        seen.add(key)
+        if len(stages) >= 8:
+            break
+    relations = [str(stage.get("relation_to_answer_flow") or "") for stage in stages]
+    opening_sentences = stages[0].get("sentences", ()) if stages else ()
+    if (
+        not relations
+        or relations[0] != "symptom"
+        or relations[-1] != "cause"
+        or "evidence" not in relations
+        or not opening_sentences
+        or any(
+            not isinstance(sentence, Mapping)
+            or str(sentence.get("kind") or "") != "connective"
+            or bool(_string_tuple(sentence.get("evidence_refs")))
+            for sentence in opening_sentences
+        )
+    ):
+        return ()
+    return tuple(stages)
+
+
+def _render_story_flow_markdown(
+    story_flow: Sequence[Mapping[str, Any]],
+    *,
+    evidence: Sequence[EvidenceItem],
+) -> str:
+    evidence_by_ref = {item.source_id: item for item in evidence}
+    paragraphs: list[str] = []
+    for stage in story_flow:
+        rendered_sentences: list[str] = []
+        for sentence in stage.get("sentences", ()):
+            if not isinstance(sentence, Mapping):
+                continue
+            text = str(sentence.get("text") or "").strip()
+            if not text:
+                continue
+            links: list[str] = []
+            for ref in _string_tuple(sentence.get("evidence_refs")):
+                evidence_item = evidence_by_ref.get(ref)
+                if evidence_item is None:
+                    continue
+                link = _evidence_link(evidence_item)
+                if link not in links:
+                    links.append(link)
+            rendered_sentences.append(f"{text} {' '.join(links)}".strip())
+        if rendered_sentences:
+            paragraphs.append(" ".join(rendered_sentences))
+    return "\n\n".join(paragraphs).strip()
+
+
 def _next_checks_from_response(value: Any) -> tuple[Mapping[str, str], ...]:
     checks, _rejected = _collect_next_checks_from_response(value)
     return checks
@@ -580,15 +749,16 @@ def _answer_flow_from_response(value: Any, *, allowed_refs: set[str]) -> Mapping
 
 def _next_check_requirement(*, plan: ComprehensionPlan, retrieval_result: RetrievalResult) -> dict[str, Any]:
     summary = retrieval_result.retrieval_summary if isinstance(retrieval_result.retrieval_summary, Mapping) else {}
-    uncertainties = _string_tuple(summary.get("uncertainties"))
-    if uncertainties:
+    answer_blocking_uncertainties = _string_tuple(summary.get("answer_blocking_uncertainties"))
+    scope_notes = _string_tuple(summary.get("scope_notes"))
+    if answer_blocking_uncertainties:
         return {
             "mode": "bounded_inference",
             "required": True,
             "min_checks": 1,
             "target_checks": 2,
-            "reason": "The retrieval result reports unresolved uncertainty outside the selected evidence.",
-            "signals": {"uncertainties": list(uncertainties[:4])},
+            "reason": "The retrieval result reports unresolved uncertainty that can affect the user-facing answer.",
+            "signals": {"answer_blocking_uncertainties": list(answer_blocking_uncertainties[:4])},
         }
     if not retrieval_result.evidence:
         return {
@@ -602,8 +772,8 @@ def _next_check_requirement(*, plan: ComprehensionPlan, retrieval_result: Retrie
         "mode": "direct",
         "required": False,
         "min_checks": 0,
-        "reason": "Selected evidence is sufficient and no unresolved retrieval uncertainty was reported.",
-        "signals": {},
+        "reason": "Selected evidence is sufficient and no answer-blocking retrieval uncertainty was reported.",
+        "signals": {"scope_notes": list(scope_notes[:4])} if scope_notes else {},
     }
 
 
@@ -1202,8 +1372,6 @@ def _response_format() -> Mapping[str, Any]:
             "schema": {
                 "type": "object",
                 "properties": {
-                    "markdown": {"type": "string"},
-                    "used_evidence_refs": {"type": "array", "items": {"type": "string"}},
                     "answer_flow": {
                         "type": "object",
                         "properties": {
@@ -1215,6 +1383,46 @@ def _response_format() -> Mapping[str, Any]:
                         },
                         "required": ["symptom", "evidence", "cause", "tested_concepts", "evidence_refs"],
                         "additionalProperties": False,
+                    },
+                    "story_flow": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "stage": {"type": "string"},
+                                "relation_to_answer_flow": {
+                                    "type": "string",
+                                    "enum": ["symptom", "evidence", "cause", "bridge"],
+                                },
+                                "sentences": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "text": {"type": "string"},
+                                            "kind": {"type": "string", "enum": ["code_claim", "connective"]},
+                                            "evidence_refs": {
+                                                "type": "array",
+                                                "items": {"type": "string"},
+                                                "maxItems": 4,
+                                            },
+                                        },
+                                        "required": ["text", "kind", "evidence_refs"],
+                                        "additionalProperties": False,
+                                    },
+                                },
+                            },
+                            "required": [
+                                "stage",
+                                "relation_to_answer_flow",
+                                "sentences",
+                            ],
+                            "additionalProperties": False,
+                        },
                     },
                     "understanding_checks": {
                         "type": "array",
@@ -1332,9 +1540,8 @@ def _response_format() -> Mapping[str, Any]:
                     },
                 },
                 "required": [
-                    "markdown",
-                    "used_evidence_refs",
                     "answer_flow",
+                    "story_flow",
                     "understanding_checks",
                     "render_notes",
                     "concept_definitions",

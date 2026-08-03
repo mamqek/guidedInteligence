@@ -18,6 +18,7 @@ from services.guidance.questions import build_question_contexts
 from services.response_generation.comprehension import (
     _next_check_requirement,
     _next_checks_from_response,
+    _sanitize_comprehension_markdown,
     _validate_response,
 )
 from services.retrieval.config import RunLLMConfig
@@ -88,6 +89,18 @@ class ControlLayerPolicyTests(unittest.TestCase):
             ],
         )
 
+    def test_sanitize_comprehension_markdown_removes_inline_understanding_check_leak(self) -> None:
+        markdown = (
+            "The explanation teaches the code path.\n\n"
+            "This paragraph should stay.\n\n"
+            "---\n\n"
+            "Understanding check: Why does this behavior happen?"
+        )
+
+        sanitized = _sanitize_comprehension_markdown(markdown)
+
+        self.assertEqual(sanitized, "The explanation teaches the code path.\n\nThis paragraph should stay.")
+
     def test_next_checks_from_response_keeps_structured_items_without_text_bucketing(self) -> None:
         checks = _next_checks_from_response(
             [
@@ -149,12 +162,12 @@ class ControlLayerPolicyTests(unittest.TestCase):
             ["reported environment", "dependency version", "public API path"],
         )
 
-    def test_next_check_requirement_uses_retrieval_uncertainty_not_markdown_phrases(self) -> None:
+    def test_next_check_requirement_uses_answer_blocking_uncertainty(self) -> None:
         retrieval_result = RetrievalResult(
             evidence=DEFAULT_STUB_EVIDENCE,
             coverage_status="strong",
             sufficient=True,
-            retrieval_summary={"uncertainties": ["External dependency behavior was not covered by selected source evidence."]},
+            retrieval_summary={"answer_blocking_uncertainties": ["External dependency behavior was not covered by selected source evidence."]},
         )
         plan = build_comprehension_plan(
             user_prompt="Explain the external handoff.",
@@ -168,6 +181,30 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertEqual(requirement["mode"], "bounded_inference")
         self.assertEqual(requirement["min_checks"], 1)
         self.assertEqual(requirement["target_checks"], 2)
+
+    def test_next_check_requirement_ignores_scope_notes_when_retrieval_is_sufficient(self) -> None:
+        retrieval_result = RetrievalResult(
+            evidence=DEFAULT_STUB_EVIDENCE,
+            coverage_status="strong",
+            sufficient=True,
+            retrieval_summary={
+                "scope_notes": [
+                    "The upstream producer of a diagnostic field was not inspected, but the selected consumer evidence answers the prompt."
+                ]
+            },
+        )
+        plan = build_comprehension_plan(
+            user_prompt="Explain direct evidence with a non-blocking scope note.",
+            retrieval_result=retrieval_result,
+            assistance_mode="teach",
+        )
+
+        requirement = _next_check_requirement(plan=plan, retrieval_result=retrieval_result)
+
+        self.assertFalse(requirement["required"])
+        self.assertEqual(requirement["mode"], "direct")
+        self.assertEqual(requirement["min_checks"], 0)
+        self.assertEqual(requirement["signals"]["scope_notes"][0], retrieval_result.retrieval_summary["scope_notes"][0])
 
     def test_next_check_requirement_is_empty_for_direct_sufficient_retrieval(self) -> None:
         retrieval_result = RetrievalResult(

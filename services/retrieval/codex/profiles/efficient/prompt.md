@@ -15,13 +15,13 @@ Mode-aware retrieval guidance:
 - If recommended_assistance_mode is `teach`, prefer enough role-diverse evidence to explain dependencies, adjacent responsibilities, and why the behavior works.
 - If recommended_assistance_mode is `work`, prefer tighter implementation-owner evidence and direct supporting context, still only for explanation/planning.
 - If recommended_assistance_mode is `evaluation`, prefer evidence tied to the concept, previous check, or answer being evaluated.
-- If evidence is weak or missing, report gaps and uncertainty; do not compensate by guessing.
+- If evidence is weak or missing, report answer-blocking uncertainty; do not compensate by guessing.
 
 Evidence requirements:
 - Prefer source-code implementation files over tests unless tests are essential.
 - Prefer targeted `rg -n` searches and small line-window reads over whole-file reads.
 - Prefer source authoring files over generated/emitted files. Use generated/emitted files only when the issue directly names them, they are the runtime/user-visible artifact being explained, or source inputs are absent.
-- If you select generated/emitted files because source inputs are absent, include an uncertainty explaining that limitation.
+- If you select generated/emitted files because source inputs are absent and that limits the answer, include an answer_blocking_uncertainties entry explaining that limitation.
 - Do not select bundled/generated CLI output such as `bin/*.js` as implementation evidence when corresponding source files can explain the behavior.
 - When possible, set artifact_kind to your judgment of whether the selected range is source-authored, built/distribution, generated/baseline, test/fixture, or unknown; deterministic post-processing will audit this judgment.
 - Avoid localization/baseline output and vendored directories unless the issue directly names them.
@@ -30,7 +30,9 @@ Evidence requirements:
 - Use concrete line ranges that support each claim.
 - Each claim_supported must be directly grounded in the file and line range.
 - Select the smallest evidence set that can support later explanation generation.
-- Put uncertainty in uncertainties instead of guessing.
+- Put limitations that can change the user-facing answer in answer_blocking_uncertainties instead of guessing.
+- Put non-blocking investigation caveats in scope_notes. Scope notes are for branches you did not inspect, external sources you did not use, or adjacent implementation details that are not needed to answer the user question from the selected evidence.
+- Do not put a caveat in answer_blocking_uncertainties when the selected repository evidence is sufficient for the requested explanation and the caveat only describes optional extra scope.
 
 Sanitized issue packet:
 {{USER_PROMPT}}

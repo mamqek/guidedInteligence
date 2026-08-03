@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
-import { api, AnswerEvaluation, AppConfig, EvidenceItem, Health, IndexEstimate, IndexPrepareJob, NextCheck, ProviderAuthState, RemoteMcpSource, RunDetail, RunSummary, RunTrace, SourceAttribution, UnderstandingCheck, WorkspaceEntry } from "./api";
+import { api, AnswerEvaluation, AppConfig, CodexModelOption, EvidenceItem, Health, IndexEstimate, IndexPrepareJob, NextCheck, ProviderAuthState, RemoteMcpSource, RunDetail, RunSummary, RunTrace, SourceAttribution, UnderstandingCheck, WorkspaceEntry } from "./api";
 import { sourceLabels, sourceOrder } from "./constants";
 
 type LoadState<T> = {
@@ -182,6 +182,16 @@ export function App() {
     }
   }
 
+  function startNewChat() {
+    setSelectedRunId("");
+    setRunDetail({ loading: false });
+    setTrace({ loading: false });
+    setAnswerError("");
+    setAnswerLoading(false);
+    setRunError("");
+    setActiveRun(undefined);
+  }
+
   const currentEvidence = runDetail.data?.evidence || [];
   const currentTrace = trace.data ? [...trace.data.orchestration_trace, ...trace.data.retrieval_trace] : [];
   const currentChecks = getUnderstandingChecks(runDetail.data);
@@ -229,36 +239,39 @@ export function App() {
 
         {activePage === "chat" && (
           <section className="chatPage">
-            <RunPanel
-              prompt={prompt}
-              setPrompt={setPrompt}
-              allowedSources={allowedSources}
-              setAllowedSources={setAllowedSources}
-              config={config.data}
-              runLoading={runLoading}
-              runError={runError}
-              blocked={questionsPending}
-              indexEstimate={indexEstimate.data}
-              indexPrepareLoading={indexPrepareLoading}
-              indexPrepareMessage={indexPrepareMessage}
-              indexPrepareJob={indexPrepareJob}
-              progressMessage={chatProgress}
-              progressPercent={chatProgressPercent}
-              progressLogs={chatProgressLogs}
-              onPrepareIndex={prepareIndex}
-              onConfigureIndexing={() => setActivePage("workspace")}
-              onSubmit={submitRun}
-            />
+            <div className="chatMainColumn">
+              <RunPanel
+                prompt={prompt}
+                setPrompt={setPrompt}
+                allowedSources={allowedSources}
+                setAllowedSources={setAllowedSources}
+                config={config.data}
+                runLoading={runLoading}
+                runError={runError}
+                blocked={questionsPending}
+                indexEstimate={indexEstimate.data}
+                indexPrepareLoading={indexPrepareLoading}
+                indexPrepareMessage={indexPrepareMessage}
+                indexPrepareJob={indexPrepareJob}
+                progressMessage={chatProgress}
+                progressPercent={chatProgressPercent}
+                progressLogs={chatProgressLogs}
+                onPrepareIndex={prepareIndex}
+                onConfigureIndexing={() => setActivePage("workspace")}
+                onStartNewChat={startNewChat}
+                onSubmit={submitRun}
+              />
+              <GuidedResponsePanel
+                runDetail={runDetail.data}
+                checks={currentChecks}
+                evaluations={currentEvaluations}
+                loading={answerLoading}
+                error={answerError}
+                onSubmit={submitAnswers}
+              />
+            </div>
             <RunSummaryPanel runs={runs} selectedRunId={selectedRunId} setSelectedRunId={setSelectedRunId} runDetail={runDetail} />
-            <GuidedResponsePanel
-              runDetail={runDetail.data}
-              checks={currentChecks}
-              evaluations={currentEvaluations}
-              loading={answerLoading}
-              error={answerError}
-              onSubmit={submitAnswers}
-            />
-            <EvidencePanel evidence={currentEvidence} sourceCounts={sourceCounts} />
+            <EvidencePanel runId={runDetail.data?.run_id} evidence={currentEvidence} sourceCounts={sourceCounts} />
             <TracePanel trace={currentTrace} state={trace} />
           </section>
         )}
@@ -291,7 +304,14 @@ export function App() {
 }
 
 function StatusStrip({ health }: { health: LoadState<Health> }) {
-  const items = [
+  const isCodexMode = health.data?.retrieval_mode === "codex";
+  const items = isCodexMode ? [
+    ["Service", health.data?.status === "ok"],
+    [".env", health.data?.env_exists],
+    ["LLM", health.data?.llm_configured],
+    ["Codex", true],
+    [health.data?.codex_prompt_profile ? `Profile: ${health.data.codex_prompt_profile}` : "Codex profile", Boolean(health.data?.codex_prompt_profile)],
+  ] as const : [
     ["Service", health.data?.status === "ok"],
     [".env", health.data?.env_exists],
     ["LLM", health.data?.llm_configured],
@@ -307,7 +327,7 @@ function StatusStrip({ health }: { health: LoadState<Health> }) {
         </span>
       ))}
       {health.error && <span className="statusError">{health.error}</span>}
-      {health.data?.qdrant_configured && !health.data?.qdrant_reachable && (
+      {!isCodexMode && health.data?.qdrant_configured && !health.data?.qdrant_reachable && (
         <span className="statusError">{health.data.qdrant_status_detail}</span>
       )}
     </section>
@@ -332,9 +352,11 @@ function RunPanel(props: {
   progressLogs: string[];
   onPrepareIndex: () => void;
   onConfigureIndexing: () => void;
+  onStartNewChat: () => void;
   onSubmit: () => void;
 }) {
   const sourceOptions = runSourceOptions(props.config);
+  const isCodexMode = props.config?.retrieval?.mode === "codex";
   const [help, setHelp] = useState<SourceHelp | null>(null);
   function toggleSource(source: string) {
     if (props.allowedSources.includes(source)) {
@@ -347,7 +369,12 @@ function RunPanel(props: {
     <section className="panel" id="run">
       <div className="panelHeader">
         <h2>Chat + Retrieval</h2>
-        <span className="panelMeta">real pipeline run</span>
+        <div className="panelHeaderActions">
+          <button className="textButton compactButton" type="button" disabled={props.runLoading || props.indexPrepareLoading} onClick={props.onStartNewChat}>
+            New chat
+          </button>
+          <span className="panelMeta">real pipeline run</span>
+        </div>
       </div>
       <textarea value={props.prompt} onChange={(event) => props.setPrompt(event.target.value)} rows={7} />
       {props.progressMessage && <ChatProgressLine message={props.progressMessage} percent={props.progressPercent} logs={props.progressLogs} />}
@@ -364,7 +391,7 @@ function RunPanel(props: {
       </div>
       {help && <InfoDialog help={help} onClose={() => setHelp(null)} />}
       {props.blocked && <p className="noticeText">Answer the current understanding checks before starting another run.</p>}
-      {props.indexEstimate?.enable_indexing && props.indexEstimate.file_count > 0 && (
+      {!isCodexMode && props.indexEstimate?.enable_indexing && props.indexEstimate.file_count > 0 && (
         <div className={props.indexPrepareLoading ? "indexNotice running" : props.indexEstimate.index_ready ? "indexNotice ready" : "indexNotice"}>
           <div className="indexNoticeText">
             <strong>
@@ -398,7 +425,7 @@ function RunPanel(props: {
           </button>
         </div>
       )}
-      {props.indexPrepareMessage && <p className="noticeText">{props.indexPrepareMessage}</p>}
+      {!isCodexMode && props.indexPrepareMessage && <p className="noticeText">{props.indexPrepareMessage}</p>}
       {props.runError && <p className="errorText">{props.runError}</p>}
       <button className="primaryButton" type="button" disabled={!props.prompt.trim() || props.runLoading || props.blocked || props.indexPrepareLoading} onClick={props.onSubmit}>
         {props.runLoading ? "Running..." : "Run retrieval"}
@@ -1505,6 +1532,7 @@ function WorkspaceIndexPanel({
   const [browsing, setBrowsing] = useState(false);
   const [openingWorkspace, setOpeningWorkspace] = useState(false);
   const [browseError, setBrowseError] = useState("");
+  const [codexModels, setCodexModels] = useState<LoadState<CodexModelOption[]>>({ loading: false });
   useEffect(() => {
     setWorkspaceRoot(health?.workspace_root || "");
   }, [health?.workspace_root]);
@@ -1568,7 +1596,26 @@ function WorkspaceIndexPanel({
 
   const indexing = config.data?.indexing;
   const retrieval = config.data?.retrieval;
+  const isCodexMode = retrieval?.mode === "codex";
   const selectedWorkspaceValue = workspaces.data?.some((workspace) => workspace.workspace_root === workspaceRoot) ? workspaceRoot : "";
+  useEffect(() => {
+    if (!isCodexMode) {
+      setCodexModels({ loading: false });
+      return;
+    }
+    let cancelled = false;
+    setCodexModels((current) => ({ data: current.data, loading: true }));
+    api.codexModels()
+      .then((result) => {
+        if (!cancelled) setCodexModels({ data: result.models, loading: false });
+      })
+      .catch((error) => {
+        if (!cancelled) setCodexModels({ error: error instanceof Error ? error.message : String(error), loading: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCodexMode, health?.workspace_root]);
 
   async function openSelectedWorkspace() {
     if (!workspaceRoot.trim()) return;
@@ -1631,7 +1678,7 @@ function WorkspaceIndexPanel({
       <section className="panel" id="indexing-settings">
         <div className="panelHeader">
           <h2>Retrieval Settings</h2>
-          <button className="textButton" type="button" onClick={refreshBase}>Refresh estimate</button>
+          {!isCodexMode && <button className="textButton" type="button" onClick={refreshBase}>Refresh estimate</button>}
         </div>
         {retrieval && (
           <>
@@ -1643,20 +1690,55 @@ function WorkspaceIndexPanel({
               </select>
             </label>
             {retrieval.mode === "codex" && (
-              <div className="indexSummary">
-                <Metric label="Codex model" value={retrieval.codex_model || "gpt-5.4-nano"} />
-                <Metric label="Timeout" value={`${retrieval.codex_timeout_seconds || 900}s`} />
-              </div>
+              <>
+                <label className="fieldLabel" title="The model passed to Codex for evidence retrieval runs. Model options are loaded from the local Codex model catalog.">
+                  Codex model
+                  <select
+                    value={retrieval.codex_model || ""}
+                    disabled={codexModels.loading || !codexModels.data?.length}
+                    onChange={(event) => updateRetrieval({ codex_model: event.target.value })}
+                  >
+                    {codexModelOptions(codexModels.data, retrieval.codex_model).map((model) => (
+                      <option key={model.slug} value={model.slug}>
+                        {model.display_name || model.slug}
+                        {model.default_reasoning_level ? ` (${model.default_reasoning_level})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {codexModels.loading && <p className="noticeText">Loading Codex models...</p>}
+                {codexModels.error && <p className="errorText">Could not load Codex models: {codexModels.error}</p>}
+                <div className="indexSummary">
+                  <Metric
+                    label="Prompt profile"
+                    value={retrieval.codex_prompt_profile || health?.codex_prompt_profile || "efficient"}
+                    description="Prompt profile controls the Codex evidence-gathering prompt contract. The efficient profile is the lower-cost baseline used for CodeRepoQA-style code evidence retrieval."
+                  />
+                  <Metric label="Timeout" value={`${retrieval.codex_timeout_seconds || 900}s`} description="Maximum time allowed for one Codex evidence retrieval run." />
+                  <Metric
+                    label="Indexing"
+                    value="Skipped"
+                    description="Codex mode asks Codex to inspect the selected workspace directly, so local BM25, embeddings, Qdrant, and CGC index preparation are not used."
+                  />
+                </div>
+              </>
+            )}
+            {retrieval.mode === "codex" && (
+              <p
+                className="noticeText"
+                title="Codex mode asks Codex to inspect the selected workspace directly, so local BM25, embeddings, Qdrant, and CGC index preparation are not used."
+              >
+                Codex mode reads the selected workspace directly and does not use BM25, embeddings, Qdrant, or CGC indexing.
+              </p>
             )}
           </>
         )}
-        {indexing && (
+        {!isCodexMode && indexing && (
           <>
             <label className="checkRow">
               <input
                 type="checkbox"
                 checked={indexing.enable_indexing}
-                disabled={retrieval?.mode === "codex"}
                 onChange={(event) => updateIndexing({ enable_indexing: event.target.checked })}
               />
               <span>Allow indexing when missing or stale</span>
@@ -1671,7 +1753,7 @@ function WorkspaceIndexPanel({
             </label>
           </>
         )}
-        {estimate.data && (
+        {!isCodexMode && estimate.data && (
           <div className="indexSummary">
             <Metric label="Files" value={formatCount(estimate.data.file_count)} />
             <Metric label="Chunks est." value={formatCount(estimate.data.estimated_chunks)} />
@@ -1680,13 +1762,13 @@ function WorkspaceIndexPanel({
             <Metric label="CGC skip ext." value={formatCgcSkipEstimateDuration(estimate.data)} />
           </div>
         )}
-        {estimate.data?.index_estimate_notes?.map((note) => (
+        {!isCodexMode && estimate.data?.index_estimate_notes?.map((note) => (
           <p className="noticeText" key={note}>{note}</p>
         ))}
         <button className="primaryButton" type="button" disabled={!config.data || saving} onClick={saveIndexing}>
           {saving ? "Saving..." : "Save retrieval settings"}
         </button>
-        {estimate.error && <p className="errorText">{estimate.error}</p>}
+        {!isCodexMode && estimate.error && <p className="errorText">{estimate.error}</p>}
         {config.error && <p className="errorText">{config.error}</p>}
       </section>
     </>
@@ -1773,6 +1855,28 @@ function linesToList(value: string): string[] {
   return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 }
 
+function codexModelOptions(models: CodexModelOption[] | undefined, currentModel: string | undefined): CodexModelOption[] {
+  const current = (currentModel || "").trim();
+  const visible = (models || []).filter((model) => model.visibility !== "hide" || model.slug === current);
+  if (current && !visible.some((model) => model.slug === current)) {
+    return [
+      {
+        slug: current,
+        display_name: current,
+        description: "Configured Codex model.",
+        default_reasoning_level: "",
+        supported_reasoning_levels: [],
+        visibility: "configured",
+        supported_in_api: false,
+        priority: null,
+        additional_speed_tiers: [],
+      },
+      ...visible,
+    ];
+  }
+  return visible;
+}
+
 function listToCommaSeparated(value: string[]): string {
   return value.join(", ");
 }
@@ -1836,17 +1940,19 @@ function RunSummaryPanel({ runs, selectedRunId, setSelectedRunId, runDetail }: {
   const selectedRunExists = Boolean(selectedRunId && (runs.data || []).some((run) => run.run_id === selectedRunId));
   const selected = selectedRunExists && runDetail.data?.run_id === selectedRunId ? runDetail.data : undefined;
   return (
-    <section className="panel">
+    <section className="panel historyPanel">
       <div className="panelHeader">
         <h2>Run History</h2>
         <span className="panelMeta">{runs.data?.length || 0} runs</span>
       </div>
       <div className="runList">
-        {(runs.data || []).slice(0, 5).map((run) => {
+        {(runs.data || []).map((run) => {
           const timestamp = formatRunTimestamp(run.run_id);
+          const label = run.title || run.prompt || run.run_id;
           return (
             <button className={run.run_id === selectedRunId ? "runRow selected" : "runRow"} type="button" onClick={() => setSelectedRunId(run.run_id)} key={run.run_id}>
               <span className="runIdentity">
+                <span className="runTitle">{label}</span>
                 <span className="runId">{run.run_id}</span>
                 {timestamp && <span className="runTimestamp">{timestamp}</span>}
               </span>
@@ -1879,9 +1985,9 @@ function RunSummaryPanel({ runs, selectedRunId, setSelectedRunId, runDetail }: {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, description }: { label: string; value: string; description?: string }) {
   return (
-    <div className="metric">
+    <div className={description ? "metric metricWithTooltip" : "metric"} title={description}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
@@ -2012,13 +2118,13 @@ function GuidedResponsePanel({
   onSubmit: (answers: Record<string, string>) => void;
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [selectedSource, setSelectedSource] = useState<SelectedSource | null>(null);
+  const [expandedSourceHref, setExpandedSourceHref] = useState("");
 
   useEffect(() => {
     const next: Record<string, string> = {};
     for (const check of checks) next[check.id] = answers[check.id] || "";
     setAnswers(next);
-    setSelectedSource(null);
+    setExpandedSourceHref("");
   }, [runDetail?.run_id]);
 
   const content = getResponseContent(runDetail);
@@ -2039,17 +2145,12 @@ function GuidedResponsePanel({
             conceptDefinitions,
             sourceAttributions,
             evidence,
-            onSourceLink: setSelectedSource,
+            runId: runDetail?.run_id,
+            expandedSourceHref,
+            onSourceLink: (source) => setExpandedSourceHref((current) => current === source.href ? "" : source.href),
           })}
         </div>
       ) : <p className="emptyText">Run retrieval to generate an explanation.</p>}
-      {selectedSource && runDetail && (
-        <SourceSnippetPanel
-          runId={runDetail.run_id}
-          source={selectedSource}
-          onClose={() => setSelectedSource(null)}
-        />
-      )}
       {nextChecks.length > 0 && <NextChecksBox checks={nextChecks} />}
       {checks.length > 0 && (
         <div className="questionBox">
@@ -2061,11 +2162,6 @@ function GuidedResponsePanel({
             const evaluation = evaluations.find((item) => item.question_id === check.id);
             return (
               <article className="questionCard" key={check.id}>
-                <div className="questionMeta">
-                  <span>{check.question_type}</span>
-                  <strong>{check.role}</strong>
-                  <small>{check.origin}</small>
-                </div>
                 <p>{check.question}</p>
                 <textarea
                   rows={4}
@@ -2103,22 +2199,30 @@ function GuidedResponsePanel({
 function NextChecksBox({ checks }: { checks: NextCheck[] }) {
   return (
     <div className="nextChecksBox">
-      <h3>Next Checks</h3>
+      <h3>Suggested checks</h3>
       {checks.map((check, index) => (
         <article className="nextCheckCard" key={`${check.action}-${index}`}>
-          <small>{check.scenario}</small>
-          <strong>Run/check: {check.action}</strong>
-          <p><span>Expected result to look for:</span> {check.if_result}</p>
-          <p><span>What that would mean:</span> {check.then_interpretation}</p>
+          <h4>{check.scenario}</h4>
+          <p className="nextCheckAction">{check.action}</p>
+          <dl>
+            <div>
+              <dt>Look for</dt>
+              <dd>{check.if_result}</dd>
+            </div>
+            <div>
+              <dt>Means</dt>
+              <dd>{check.then_interpretation}</dd>
+            </div>
+          </dl>
         </article>
       ))}
     </div>
   );
 }
 
-function EvidencePanel({ evidence, sourceCounts }: { evidence: EvidenceItem[]; sourceCounts: Map<string, number> }) {
+function EvidencePanel({ runId, evidence, sourceCounts }: { runId?: string; evidence: EvidenceItem[]; sourceCounts: Map<string, number> }) {
   return (
-    <section className="panel" id="evidence">
+    <section className="panel evidencePanel" id="evidence">
       <div className="panelHeader">
         <h2>Evidence</h2>
         <span className="panelMeta">{evidence.length} selected</span>
@@ -2130,13 +2234,7 @@ function EvidencePanel({ evidence, sourceCounts }: { evidence: EvidenceItem[]; s
       </div>
       <div className="evidenceList">
         {evidence.map((item) => (
-          <article className="evidenceCard" key={item.source_id}>
-            <div className="evidenceMeta">
-              <span>{item.metadata?.coverage_area || item.source_category}</span>
-              <strong>{item.source_id}</strong>
-            </div>
-            <pre>{item.snippet}</pre>
-          </article>
+          <EvidenceCard item={item} runId={runId} key={item.source_id} />
         ))}
         {!evidence.length && <p className="emptyText">Run retrieval to inspect selected code and connected-source evidence.</p>}
       </div>
@@ -2144,9 +2242,84 @@ function EvidencePanel({ evidence, sourceCounts }: { evidence: EvidenceItem[]; s
   );
 }
 
+function EvidenceCard({ item, runId, source }: { item?: EvidenceItem; runId?: string; source?: SelectedSource }) {
+  const [expanded, setExpanded] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [error, setError] = useState("");
+  const evidence = item || source?.evidence;
+  const title = source ? "" : evidence?.metadata?.coverage_area || evidence?.source_category || "Source evidence";
+  const sourceId = source ? `${source.path}${source.lineRange ? `:${source.lineRange}` : ""}` : evidence?.source_id || source?.href || "";
+  const openPath = source?.href || (evidence ? evidenceHrefFromItem(evidence) : "");
+  const snippet = evidence?.snippet || "";
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [expanded]);
+
+  async function openInVsCode() {
+    if (!runId || !openPath) return;
+    setOpening(true);
+    setError("");
+    try {
+      await api.openRunSourceFile(runId, openPath);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  return (
+    <article className="evidenceCard">
+      <div className="evidenceCardHeader">
+        <div className="evidenceMeta">
+          {title && <span>{title}</span>}
+          <strong>{sourceId}</strong>
+        </div>
+        <div className="evidenceCardActions">
+          <button className="textButton compactButton" type="button" onClick={() => setExpanded(true)} disabled={!snippet}>
+            Expand
+          </button>
+          <button className="textButton compactButton" type="button" onClick={openInVsCode} disabled={!runId || !openPath || opening}>
+            {opening ? "Opening..." : "Open in VS Code"}
+          </button>
+        </div>
+      </div>
+      {evidence?.metadata?.claim_supported && <p className="evidenceCardClaim">{evidence.metadata.claim_supported}</p>}
+      {snippet ? (
+        <pre>{snippet}</pre>
+      ) : (
+        <p className="emptyText">No selected snippet is available for this source.</p>
+      )}
+      {error && <p className="errorText">{error}</p>}
+      {expanded && (
+        <div className="dialogOverlay" role="presentation" onClick={() => setExpanded(false)}>
+          <article className="evidenceDialog" role="dialog" aria-modal="true" aria-labelledby="evidence-dialog-title" onClick={(event) => event.stopPropagation()}>
+            <div className="dialogHeader">
+              <div className="evidenceMeta">
+                {title && <span>{title}</span>}
+                <h3 id="evidence-dialog-title">{sourceId}</h3>
+              </div>
+              <button className="textButton compactButton" type="button" onClick={() => setExpanded(false)}>
+                Close
+              </button>
+            </div>
+            <pre className="evidenceDialogCode">{snippet}</pre>
+          </article>
+        </div>
+      )}
+    </article>
+  );
+}
+
 function TracePanel({ trace, state }: { trace: Array<Record<string, unknown>>; state: LoadState<RunTrace> }) {
   return (
-    <section className="panel" id="trace">
+    <section className="panel tracePanel" id="trace">
       <div className="panelHeader">
         <h2>Trace</h2>
         <span className="panelMeta">{trace.length} events</span>
@@ -2172,6 +2345,8 @@ type MarkdownRenderContext = {
   conceptDefinitions: ConceptDefinition[];
   sourceAttributions: SourceAttribution[];
   evidence: EvidenceItem[];
+  runId?: string;
+  expandedSourceHref?: string;
   onSourceLink?: (source: SelectedSource) => void;
 };
 
@@ -2224,10 +2399,20 @@ function renderMarkdown(markdown: string, context: MarkdownRenderContext): React
       nodes.push(<ul key={`ul-${index}`}>{items}</ul>);
       continue;
     }
-    if (/^\d+[.)]\s+/.test(trimmed)) {
+    if (isOrderedListLine(trimmed)) {
       const items: ReactNode[] = [];
-      while (index < lines.length && /^\d+[.)]\s+/.test(lines[index].trim())) {
-        items.push(<li key={`oli-${index}`}>{renderInlineMarkdown(lines[index].trim().replace(/^\d+[.)]\s+/, ""), context)}</li>);
+      while (index < lines.length) {
+        const itemLine = lines[index].trim();
+        if (!itemLine) {
+          const nextLine = nextNonEmptyLine(lines, index + 1);
+          if (nextLine && isOrderedListLine(nextLine)) {
+            index += 1;
+            continue;
+          }
+          break;
+        }
+        if (!isOrderedListLine(itemLine)) break;
+        items.push(<li key={`oli-${index}`}>{renderInlineMarkdown(itemLine.replace(/^\d+[.)]\s+/, ""), context)}</li>);
         index += 1;
       }
       nodes.push(<ol key={`ol-${index}`}>{items}</ol>);
@@ -2236,10 +2421,10 @@ function renderMarkdown(markdown: string, context: MarkdownRenderContext): React
     if (isStandaloneMarkdownLink(trimmed)) {
       const items: ReactNode[] = [];
       while (index < lines.length && isStandaloneMarkdownLink(lines[index].trim())) {
-        items.push(<li key={`source-link-${index}`}>{renderInlineMarkdown(lines[index].trim(), context)}</li>);
+        items.push(<span className="sourceChipItem" key={`source-link-${index}`}>{renderInlineMarkdown(normalizeStandaloneMarkdownLink(lines[index].trim()), context)}</span>);
         index += 1;
       }
-      nodes.push(<ul className="sourceLinkList" key={`source-links-${index}`}>{items}</ul>);
+      nodes.push(<div className="sourceChipGroup" key={`source-links-${index}`}>{items}</div>);
       continue;
     }
     const paragraph: string[] = [trimmed];
@@ -2278,63 +2463,48 @@ function renderInlineMarkdown(text: string, context: MarkdownRenderContext): Rea
 }
 
 function isStandaloneMarkdownLink(text: string): boolean {
-  return /^\[[^\]]+\]\([^)]+\)$/.test(text.trim());
+  return /^\[[^\]]+\]\([^)]+\)\.?$/.test(text.trim());
+}
+
+function normalizeStandaloneMarkdownLink(text: string): string {
+  return text.trim().replace(/\.$/, "");
+}
+
+function isOrderedListLine(text: string): boolean {
+  return /^\d+[.)]\s+/.test(text);
+}
+
+function nextNonEmptyLine(lines: string[], startIndex: number): string {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    const trimmed = lines[index].trim();
+    if (trimmed) return trimmed;
+  }
+  return "";
 }
 
 function SourceMarkdownLink({ label, href, context }: { label: string; href: string; context: MarkdownRenderContext }) {
   const normalizedHref = href.replace(/^\.?\//, "");
   const [path, anchor = ""] = normalizedHref.split("#", 2);
-  const lineLabel = anchor.replace(/^L/, "L");
   const selectedSource = sourceFromHref(label, normalizedHref, context.evidence);
+  const expanded = context.expandedSourceHref === selectedSource.href;
   function openPanel(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
     context.onSourceLink?.(selectedSource);
   }
   return (
-    <a className="sourceMarkdownLink" href={normalizedHref} onClick={openPanel} title={`Preview ${path}${anchor ? ` at ${anchor}` : ""}`}>
-      <span className="sourceLinkLabel">{renderInlineMarkdown(label, context)}</span>
-      <span className="sourceLinkPath">{path}{lineLabel ? `:${lineLabel}` : ""}</span>
-    </a>
-  );
-}
-
-function SourceSnippetPanel({ runId, source, onClose }: { runId: string; source: SelectedSource; onClose: () => void }) {
-  const [opening, setOpening] = useState(false);
-  const [error, setError] = useState("");
-  const evidence = source.evidence;
-  async function openInVsCode() {
-    setOpening(true);
-    setError("");
-    try {
-      await api.openRunSourceFile(runId, source.href);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setOpening(false);
-    }
-  }
-  return (
-    <aside className="sourcePreviewPanel" aria-label="Source preview">
-      <div className="sourcePreviewHeader">
-        <div>
-          <strong>{source.label}</strong>
-          <span>{source.path}{source.lineRange ? `:${source.lineRange}` : ""}</span>
-        </div>
-        <button className="iconTextButton" type="button" onClick={onClose}>Close</button>
-      </div>
-      {evidence?.metadata?.claim_supported && <p className="sourcePreviewClaim">{evidence.metadata.claim_supported}</p>}
-      {evidence?.snippet ? (
-        <pre className="sourcePreviewCode">{evidence.snippet}</pre>
-      ) : (
-        <p className="emptyText">No selected snippet is available for this link, but the file can still be opened from the run workspace.</p>
+    <span className={expanded ? "sourceMarkdownItem expanded" : "sourceMarkdownItem"}>
+      <a
+        className={expanded ? "sourceMarkdownLink expanded" : "sourceMarkdownLink"}
+        href={normalizedHref}
+        onClick={openPanel}
+        title={`Preview ${path}${anchor ? ` at ${anchor}` : ""}`}
+      >
+        <span className="sourceLinkLabel">{renderInlineMarkdown(label, context)}</span>
+      </a>
+      {expanded && context.runId && (
+        <EvidenceCard runId={context.runId} source={selectedSource} />
       )}
-      {error && <p className="errorText">{error}</p>}
-      <div className="sourcePreviewActions">
-        <button className="primaryButton" type="button" onClick={openInVsCode} disabled={opening}>
-          {opening ? "Opening..." : "Open in VS Code"}
-        </button>
-      </div>
-    </aside>
+    </span>
   );
 }
 
@@ -2359,6 +2529,13 @@ function matchingEvidence(path: string, lineRange: string, evidence: EvidenceIte
   });
   if (exact) return exact;
   return evidence.find((item) => normalizeSourcePath(String(item.metadata?.path || sourcePathFromId(item.source_id))) === normalizedPath);
+}
+
+function evidenceHrefFromItem(item: EvidenceItem): string {
+  const metadata = item.metadata || {};
+  const path = normalizeSourcePath(String(metadata.path || sourcePathFromId(item.source_id)));
+  const lineRange = String(metadata.line_range || sourceLineRangeFromId(item.source_id));
+  return path ? `${path}${lineRange ? `#${lineRange}` : ""}` : "";
 }
 
 function sourcePathFromId(sourceId: string): string {
@@ -2458,7 +2635,15 @@ function sourceAttributionPattern(attributions: SourceAttribution[]): RegExp | u
 
 function getResponseContent(runDetail?: RunDetail): string {
   const response = getObject(runDetail?.result?.response_payload);
-  return String(response?.content || "");
+  return stripLeakedCheckMarkdown(String(response?.content || ""));
+}
+
+function stripLeakedCheckMarkdown(content: string): string {
+  return content
+    .replace(/(?:\n\s*---\s*)?\n\s*(?:\*\*)?Understanding checks?(?:\*\*)?\s*:\s*[\s\S]*$/i, "")
+    .replace(/(?:\n\s*---\s*)?\n\s*(?:#{1,6}\s*)?Understanding checks?\s*:?\s*[\s\S]*$/i, "")
+    .replace(/(?:\n\s*---\s*)?\n\s*(?:#{1,6}\s*)?Next checks?\s*:?\s*[\s\S]*$/i, "")
+    .trim();
 }
 
 function getUnderstandingChecks(runDetail?: RunDetail): UnderstandingCheck[] {
