@@ -20,6 +20,12 @@ dist/
 # Node tooling used by the local Obsidian search adapter
 node_modules/
 
+# Local code-graph indexes and generated runtime state
+.codegraph/
+.codegraphcontext/
+.guided-intelligence/
+.tmp/
+
 # Generated Obsidian Hybrid Search index
 docs/obsidian/.obsidian-hybrid-search.db*
 
@@ -30,3 +36,6 @@ tests/external_connectors/.artifacts/
 /vue/
 /TypeScript/
 /pandas/
+
+# Generated CodeRepoQA run workspaces
+/testing/codeRepoQA/runs/

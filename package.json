@@ -25,9 +25,15 @@
     "web:preview": "vite preview --config ui/vite.config.ts",
     "obsidian:index": "set OBSIDIAN_VAULT_PATH=docs/obsidian&& obsidian-hybrid-search --db docs/obsidian/.obsidian-hybrid-search.db reindex",
     "obsidian:status": "set OBSIDIAN_VAULT_PATH=docs/obsidian&& obsidian-hybrid-search --db docs/obsidian/.obsidian-hybrid-search.db status",
-    "obsidian:search": "set OBSIDIAN_VAULT_PATH=docs/obsidian&& obsidian-hybrid-search --db docs/obsidian/.obsidian-hybrid-search.db search"
+    "obsidian:search": "set OBSIDIAN_VAULT_PATH=docs/obsidian&& obsidian-hybrid-search --db docs/obsidian/.obsidian-hybrid-search.db search",
+    "codegraph:init": "set CODEGRAPH_TELEMETRY=0&& codegraph init .",
+    "codegraph:index": "set CODEGRAPH_TELEMETRY=0&& codegraph index .",
+    "codegraph:sync": "set CODEGRAPH_TELEMETRY=0&& codegraph sync .",
+    "codegraph:status": "set CODEGRAPH_TELEMETRY=0&& codegraph status .",
+    "codegraph:explore": "set CODEGRAPH_TELEMETRY=0&& codegraph explore --path ."
   },
   "dependencies": {
+    "@colbymchenry/codegraph": "1.5.0",
     "@dagrejs/dagre": "^3.1.0",
     "@xyflow/react": "^12.11.2",
     "obsidian-hybrid-search": "0.13.5",
