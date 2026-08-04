@@ -1262,6 +1262,7 @@ class RuntimeState:
             **_run_summary_from_payload(run_id, run_dir, result),
             "result": result,
             "evidence": _load_json(run_dir / "evidence-items.json", []),
+            "evidence_connections": _run_evidence_connections(result),
             "answer_evaluation": _load_json(run_dir / "answer-evaluation.json", {}),
             "comprehension_followup": _load_json(run_dir / "comprehension-followup.json", {}),
         }
@@ -3111,6 +3112,21 @@ def _run_summary_from_payload(run_id: str, run_dir: Path, result: Mapping[str, A
         "progress_logs": _plain_string_list(metadata.get("progress_logs", [])),
         "retry_count": int(metadata.get("retry_count") or 0),
         **metrics,
+    }
+
+
+def _run_evidence_connections(result: Mapping[str, Any]) -> dict[str, Any]:
+    retrieval = result.get("retrieval_result") if isinstance(result.get("retrieval_result"), Mapping) else {}
+    summary = retrieval.get("retrieval_summary") if isinstance(retrieval.get("retrieval_summary"), Mapping) else {}
+    graph = summary.get("evidence_connections")
+    if not isinstance(graph, Mapping):
+        return {"version": 1, "connections": []}
+    connections = graph.get("connections")
+    if not isinstance(connections, list):
+        return {"version": 1, "connections": []}
+    return {
+        "version": int(graph.get("version") or 1),
+        "connections": _deepcopy_json(connections),
     }
 
 

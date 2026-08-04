@@ -1,0 +1,17 @@
+Evidence connection requirements:
+- Assign every selected evidence item a unique, short `evidence_id` such as `ev1`, `ev2`, or `frontend-renderer`.
+- After selecting the final evidence set, describe how those selected items participate in the same implementation or data flow in `evidence_connections`.
+- Connections describe semantic code relationships, not the order in which files were discovered.
+- Use only evidence IDs present in the final `evidence` array. Never connect an item to itself.
+- Add a connection when the selected ranges directly establish a dependency, control-flow handoff, data-flow handoff, configuration relationship, validation relationship, or rendering relationship.
+- A connection may be `inferred` only when the two selected ranges strongly imply the handoff but do not directly show the complete boundary. State that missing boundary in the description and lower confidence accordingly.
+- Use `direct` only when the selected source and target ranges themselves expose the named call, shared field, imported dependency, configuration read, validation handoff, or render handoff. If any connecting boundary is missing, use `inferred`; an inferred connection cannot have high confidence.
+- A matching field or concept name by itself does not make a cross-function or cross-layer connection direct. If an intermediate return value, caller, transport, or consumer is omitted from the selected ranges, mark the edge inferred and identify that omitted boundary.
+- For an end-to-end flow question, select concise bridge evidence when it exists in the repository so the graph does not split into unexplained components. Leave components disconnected only when they are genuinely independent or the bridge is unavailable.
+- Do not broaden an evidence range merely to make the graph connected. Keep each range focused on the claim it supports; use another small evidence item for a distinct bridge when needed.
+- For a question about one end-to-end process, prioritize continuity between major stages over secondary detail inside one stage. Before returning, verify that the selected connections form one traversable flow; if they do not, either replace lower-priority evidence with a concise bridge or explain the unavailable bridge in `scope_notes`.
+- Prefer a small connected flow over pairwise edges between every item. Do not repeat the same relationship in different words.
+- Leave genuinely unrelated evidence disconnected rather than inventing a relationship.
+- `label` is a short edge label. `description` explains what moves or depends on what and why the two selected ranges establish that relationship.
+- Write labels and descriptions for the user. Name files, symbols, fields, or data; never expose retrieval-local IDs such as `ev1` in either field.
+- This object is retrieval metadata for a graph view. Do not turn it into a user-facing explanation.

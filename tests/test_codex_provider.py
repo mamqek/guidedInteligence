@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from core.models import EvidenceItem
 from services.retrieval.codex.cli import resolve_codex_command
 from services.retrieval.codex.provider import (
     CodexRetrievalError,
@@ -14,6 +15,7 @@ from services.retrieval.codex.provider import (
     _codex_path_prefixes,
     _codex_coverage_status,
     _codex_prompt,
+    _evidence_connections_from_payload,
     _evidence_from_payload,
     _enrich_codex_evidence_artifacts,
     load_codex_prompt_profile,
@@ -37,10 +39,9 @@ class CodexProviderTests(unittest.TestCase):
         self.assertIn("Prefer source authoring files over generated/emitted files", prompt)
         self.assertIn("Do not select bundled/generated CLI output", prompt)
         self.assertIn("deterministic post-processing will audit this judgment", prompt)
-        self.assertEqual(
-            schema["required"],
-            ["prompt_summary", "relevant_files", "evidence", "uncertainties"],
-        )
+        self.assertIn("evidence_connections", schema["required"])
+        self.assertIn("evidence_id", schema["properties"]["evidence"]["items"]["required"])
+        self.assertIn("Evidence connection requirements", prompt)
         self.assertIn("artifact_kind", schema["properties"]["evidence"]["items"]["properties"])
 
     def test_responsibility_complete_profile_owns_expanded_prompt_and_schema(self) -> None:
@@ -58,7 +59,7 @@ class CodexProviderTests(unittest.TestCase):
         self.assertIn("at least one primary item is a likely implementation owner", prompt)
         self.assertIn('"recommended_assistance_mode": "work"', prompt)
         self.assertIn("Treat these hints as planning metadata, not evidence", prompt)
-        self.assertIn("include a coverage_gaps or uncertainties entry explaining that limitation", prompt)
+        self.assertIn("include a coverage_gaps or answer_blocking_uncertainties entry explaining that limitation", prompt)
         self.assertIn("Do not select bundled/generated CLI output", prompt)
         self.assertIn("deterministic post-processing will audit this judgment", prompt)
         self.assertIn("issue_analysis", required)
@@ -68,6 +69,92 @@ class CodexProviderTests(unittest.TestCase):
         self.assertIn("relevance", item_schema["required"])
         self.assertIn("confidence", item_schema["required"])
         self.assertIn("implementation_owner", item_schema["properties"]["file_role"]["enum"])
+        self.assertIn("evidence_connections", required)
+        self.assertIn("evidence_id", item_schema["required"])
+
+    def test_evidence_connections_are_remapped_to_selected_source_refs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "src" / "flow.py"
+            source.parent.mkdir()
+            source.write_text("first()\nsecond()\n", encoding="utf-8")
+            payload = {
+                "evidence": [
+                    {
+                        "evidence_id": "entry",
+                        "file": "src/flow.py",
+                        "line_start": 1,
+                        "line_end": 1,
+                        "claim_supported": "The flow starts here.",
+                        "why_relevant": "Entry point.",
+                        "coverage_area": "entry",
+                    },
+                    {
+                        "evidence_id": "target",
+                        "file": "src/flow.py",
+                        "line_start": 2,
+                        "line_end": 2,
+                        "claim_supported": "The flow continues here.",
+                        "why_relevant": "Target.",
+                        "coverage_area": "target",
+                    },
+                ],
+                "evidence_connections": [
+                    {
+                        "source_evidence_id": "entry",
+                        "target_evidence_id": "target",
+                        "relationship_kind": "control_flow",
+                        "label": "calls",
+                        "description": "The entry invokes the target.",
+                        "grounding": "direct",
+                        "confidence": "high",
+                    }
+                ],
+            }
+            evidence = _evidence_from_payload(payload, workspace_root=root)
+            graph = _evidence_connections_from_payload(payload, evidence=evidence)
+
+        self.assertEqual(graph["version"], 1)
+        self.assertEqual(graph["connections"][0]["source_ref"], "workspace:src/flow.py:L1-L1")
+        self.assertEqual(graph["connections"][0]["target_ref"], "workspace:src/flow.py:L2-L2")
+
+    def test_evidence_connections_drop_dangling_self_and_duplicate_edges(self) -> None:
+        evidence = (
+            EvidenceItem(
+                source_category="source_code",
+                source_id="workspace:a.py:L1-L2",
+                snippet="a()",
+                metadata={"evidence_id": "a"},
+            ),
+            EvidenceItem(
+                source_category="source_code",
+                source_id="workspace:b.py:L1-L2",
+                snippet="b()",
+                metadata={"evidence_id": "b"},
+            ),
+        )
+        valid = {
+            "source_evidence_id": "a",
+            "target_evidence_id": "b",
+            "relationship_kind": "data_flow",
+            "label": "passes data",
+            "description": "A passes structured data to B.",
+            "grounding": "inferred",
+            "confidence": "high",
+        }
+        payload = {
+            "evidence_connections": [
+                valid,
+                dict(valid),
+                {**valid, "target_evidence_id": "a"},
+                {**valid, "target_evidence_id": "missing"},
+            ]
+        }
+
+        graph = _evidence_connections_from_payload(payload, evidence=evidence)
+
+        self.assertEqual(len(graph["connections"]), 1)
+        self.assertEqual(graph["connections"][0]["confidence"], "medium")
 
     def test_unknown_profile_fails_explicitly(self) -> None:
         with self.assertRaisesRegex(CodexRetrievalError, "Unknown Codex prompt profile"):
