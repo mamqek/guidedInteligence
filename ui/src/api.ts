@@ -269,9 +269,25 @@ export type EvidenceItem = {
   metadata?: Record<string, string>;
 };
 
+export type EvidenceConnection = {
+  source_ref: string;
+  target_ref: string;
+  relationship_kind: "dependency" | "control_flow" | "data_flow" | "configuration" | "validation" | "rendering" | "other";
+  label: string;
+  description: string;
+  grounding: "direct" | "inferred";
+  confidence: "high" | "medium" | "low";
+};
+
+export type EvidenceConnectionsGraph = {
+  version: number;
+  connections: EvidenceConnection[];
+};
+
 export type RunDetail = RunSummary & {
   result: Record<string, unknown>;
   evidence: EvidenceItem[];
+  evidence_connections?: EvidenceConnectionsGraph;
   answer_evaluation?: {
     run_id?: string;
     evaluations?: AnswerEvaluation[];

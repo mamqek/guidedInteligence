@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
-import { api, AnswerEvaluation, AppConfig, CodexModelOption, EvidenceItem, Health, IndexEstimate, IndexPrepareJob, NextCheck, ProviderAuthState, RemoteMcpSource, RunDetail, RunSummary, RunTrace, SourceAttribution, UnderstandingCheck, WorkspaceEntry } from "./api";
+import dagre from "@dagrejs/dagre";
+import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge, type Node } from "@xyflow/react";
+import { api, AnswerEvaluation, AppConfig, CodexModelOption, EvidenceConnection, EvidenceConnectionsGraph, EvidenceItem, Health, IndexEstimate, IndexPrepareJob, NextCheck, ProviderAuthState, RemoteMcpSource, RunDetail, RunSummary, RunTrace, SourceAttribution, UnderstandingCheck, WorkspaceEntry } from "./api";
 import { sourceLabels, sourceOrder } from "./constants";
 
 type LoadState<T> = {
@@ -271,6 +273,7 @@ export function App() {
               />
             </div>
             <RunSummaryPanel runs={runs} selectedRunId={selectedRunId} setSelectedRunId={setSelectedRunId} runDetail={runDetail} />
+            <EvidenceGraphPanel graph={runDetail.data?.evidence_connections} evidence={currentEvidence} />
             <EvidencePanel runId={runDetail.data?.run_id} evidence={currentEvidence} sourceCounts={sourceCounts} />
             <TracePanel trace={currentTrace} state={trace} />
           </section>
@@ -2218,6 +2221,152 @@ function NextChecksBox({ checks }: { checks: NextCheck[] }) {
       ))}
     </div>
   );
+}
+
+const EVIDENCE_GRAPH_NODE_WIDTH = 250;
+const EVIDENCE_GRAPH_NODE_HEIGHT = 92;
+
+const evidenceConnectionColors: Record<EvidenceConnection["relationship_kind"], string> = {
+  dependency: "#475569",
+  control_flow: "#047857",
+  data_flow: "#2563eb",
+  configuration: "#7c3aed",
+  validation: "#b45309",
+  rendering: "#be123c",
+  other: "#64748b",
+};
+
+function EvidenceGraphPanel({ graph, evidence }: { graph?: EvidenceConnectionsGraph; evidence: EvidenceItem[] }) {
+  const connections = graph?.connections || [];
+  const [selectedEdgeId, setSelectedEdgeId] = useState("");
+  const activeEdgeId = selectedEdgeId || (connections.length ? "connection-0" : "");
+  const selectedConnection = connections[Number(activeEdgeId.replace("connection-", ""))] || connections[0];
+  const evidenceByRef = useMemo(() => new Map(evidence.map((item) => [item.source_id, item])), [evidence]);
+  const flow = useMemo(
+    () => evidenceGraphElements(connections, evidenceByRef, activeEdgeId),
+    [connections, evidenceByRef, activeEdgeId],
+  );
+
+  useEffect(() => setSelectedEdgeId(""), [graph]);
+
+  if (!connections.length || !flow.nodes.length) return null;
+  const source = selectedConnection ? evidenceByRef.get(selectedConnection.source_ref) : undefined;
+  const target = selectedConnection ? evidenceByRef.get(selectedConnection.target_ref) : undefined;
+  return (
+    <section className="panel evidenceGraphPanel" id="evidence-flow">
+      <div className="panelHeader">
+        <h2>Evidence Flow</h2>
+        <span className="panelMeta">{flow.nodes.length} nodes · {flow.edges.length} connections</span>
+      </div>
+      <div className="evidenceGraphCanvas">
+        <ReactFlow
+          nodes={flow.nodes}
+          edges={flow.edges}
+          defaultViewport={{ x: 26, y: 120, zoom: 0.72 }}
+          minZoom={0.2}
+          maxZoom={1.5}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background color="#d7dee9" gap={22} size={1} />
+          <MiniMap pannable zoomable nodeColor="#557a70" maskColor="rgba(226, 232, 240, 0.5)" />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+      </div>
+      {selectedConnection && (
+        <article className="evidenceConnectionDetail">
+          <div className="evidenceConnectionTitle">
+            <span style={{ backgroundColor: evidenceConnectionColors[selectedConnection.relationship_kind] }}>
+              {formatConnectionKind(selectedConnection.relationship_kind)}
+            </span>
+            <h3>{selectedConnection.label}</h3>
+          </div>
+          <p>{selectedConnection.description}</p>
+          <div className="evidenceConnectionRoute">
+            <code>{evidenceNodePath(source, selectedConnection.source_ref)}</code>
+            <span aria-hidden="true">→</span>
+            <code>{evidenceNodePath(target, selectedConnection.target_ref)}</code>
+          </div>
+          <dl className="evidenceConnectionMeta">
+            <div><dt>Grounding</dt><dd>{selectedConnection.grounding}</dd></div>
+            <div><dt>Confidence</dt><dd>{selectedConnection.confidence}</dd></div>
+            <div><dt>Relationship</dt><dd>{formatConnectionKind(selectedConnection.relationship_kind)}</dd></div>
+          </dl>
+        </article>
+      )}
+    </section>
+  );
+}
+
+function evidenceGraphElements(
+  connections: EvidenceConnection[],
+  evidenceByRef: Map<string, EvidenceItem>,
+  activeEdgeId: string,
+): { nodes: Node[]; edges: Edge[] } {
+  const validConnections = connections.filter(
+    (connection) => evidenceByRef.has(connection.source_ref) && evidenceByRef.has(connection.target_ref),
+  );
+  const nodeRefs = [...new Set(validConnections.flatMap((connection) => [connection.source_ref, connection.target_ref]))];
+  const graph = new dagre.graphlib.Graph();
+  graph.setDefaultEdgeLabel(() => ({}));
+  graph.setGraph({ rankdir: "LR", ranksep: 105, nodesep: 42, marginx: 24, marginy: 24 });
+  for (const ref of nodeRefs) graph.setNode(ref, { width: EVIDENCE_GRAPH_NODE_WIDTH, height: EVIDENCE_GRAPH_NODE_HEIGHT });
+  validConnections.forEach((connection, index) => graph.setEdge(connection.source_ref, connection.target_ref, { index }));
+  dagre.layout(graph);
+
+  const nodes: Node[] = nodeRefs.map((ref) => {
+    const item = evidenceByRef.get(ref)!;
+    const position = graph.node(ref);
+    const path = String(item.metadata?.path || sourcePathFromId(item.source_id));
+    const lineRange = String(item.metadata?.line_range || "");
+    const role = String(item.metadata?.coverage_area || "Source evidence");
+    return {
+      id: ref,
+      position: { x: position.x - EVIDENCE_GRAPH_NODE_WIDTH / 2, y: position.y - EVIDENCE_GRAPH_NODE_HEIGHT / 2 },
+      data: {
+        label: (
+          <div className="evidenceGraphNodeLabel" title={String(item.metadata?.claim_supported || "")}>
+            <strong>{role}</strong>
+            <span>{path}</span>
+            <small>{lineRange}</small>
+          </div>
+        ),
+      },
+      style: { width: EVIDENCE_GRAPH_NODE_WIDTH, minHeight: EVIDENCE_GRAPH_NODE_HEIGHT },
+    };
+  });
+  const edges: Edge[] = validConnections.map((connection, index) => {
+    const id = `connection-${index}`;
+    const color = evidenceConnectionColors[connection.relationship_kind];
+    const active = id === activeEdgeId;
+    return {
+      id,
+      source: connection.source_ref,
+      target: connection.target_ref,
+      label: connection.label,
+      markerEnd: { type: MarkerType.ArrowClosed, color },
+      style: { stroke: color, strokeWidth: active ? 3 : 2 },
+      labelStyle: { fill: "#1f2937", fontSize: 12, fontWeight: active ? 750 : 650 },
+      labelBgStyle: { fill: "#ffffff", fillOpacity: 0.94 },
+      labelBgPadding: [6, 4],
+      labelBgBorderRadius: 4,
+      animated: false,
+    };
+  });
+  return { nodes, edges };
+}
+
+function evidenceNodePath(item: EvidenceItem | undefined, fallback: string): string {
+  if (!item) return fallback;
+  const path = String(item.metadata?.path || sourcePathFromId(item.source_id));
+  const lineRange = String(item.metadata?.line_range || "");
+  return `${path}${lineRange ? `:${lineRange}` : ""}`;
+}
+
+function formatConnectionKind(value: EvidenceConnection["relationship_kind"]): string {
+  return value.replaceAll("_", " ");
 }
 
 function EvidencePanel({ runId, evidence, sourceCounts }: { runId?: string; evidence: EvidenceItem[]; sourceCounts: Map<string, number> }) {

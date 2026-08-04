@@ -14,8 +14,11 @@ from services.retrieval.config import SUPPORTED_CODEX_PROMPT_PROFILES, Workspace
 
 
 CODEX_PROMPT_PROFILES_DIR = Path(__file__).resolve().parent / "profiles"
+SHARED_CONNECTION_PROMPT_PATH = CODEX_PROMPT_PROFILES_DIR / "shared" / "evidence_connections.prompt.md"
+SHARED_CONNECTION_SCHEMA_PATH = CODEX_PROMPT_PROFILES_DIR / "shared" / "evidence_connections.schema.json"
 USER_PROMPT_PLACEHOLDER = "{{USER_PROMPT}}"
 RETRIEVAL_HINTS_PLACEHOLDER = "{{RETRIEVAL_HINTS_JSON}}"
+EVIDENCE_CONNECTIONS_PLACEHOLDER = "{{EVIDENCE_CONNECTIONS_CONTRACT}}"
 
 
 class CodexRetrievalError(RuntimeError):
@@ -138,6 +141,7 @@ class CodexRetrievalStage:
         workspace_root = Path(self.config.workspace_root)
         evidence = _evidence_from_payload(payload, workspace_root=workspace_root)
         evidence, artifact_trace = _enrich_codex_evidence_artifacts(evidence, workspace_root=workspace_root)
+        evidence_connections = _evidence_connections_from_payload(payload, evidence=evidence)
         profile_output = _profile_output(payload)
         usage = _codex_usage(completed.stdout, completed.stderr)
         if artifact_trace:
@@ -163,6 +167,7 @@ class CodexRetrievalStage:
                 "usage": usage,
                 "retrieval_hints": retrieval_hints,
                 "artifact_trace": artifact_trace,
+                "evidence_connections": evidence_connections,
             },
         )
         coverage_status = _codex_coverage_status(evidence, artifact_trace)
@@ -190,6 +195,7 @@ class CodexRetrievalStage:
                 "usage": usage,
                 "retrieval_hints": retrieval_hints,
                 "artifact_trace": _artifact_trace_summary(artifact_trace),
+                "evidence_connections": evidence_connections,
             },
             failures_or_fallbacks=() if evidence else ("codex_returned_no_usable_evidence",),
         )
@@ -222,6 +228,8 @@ def load_codex_prompt_profile(profile_name: str) -> tuple[str, dict[str, Any]]:
     try:
         template = prompt_path.read_text(encoding="utf-8")
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        connection_prompt = SHARED_CONNECTION_PROMPT_PATH.read_text(encoding="utf-8")
+        connection_schema = json.loads(SHARED_CONNECTION_SCHEMA_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise CodexRetrievalError(f"Could not load Codex prompt profile `{normalized}`.") from exc
     if template.count(USER_PROMPT_PLACEHOLDER) != 1:
@@ -232,9 +240,45 @@ def load_codex_prompt_profile(profile_name: str) -> tuple[str, dict[str, Any]]:
         raise CodexRetrievalError(
             f"Codex prompt profile `{normalized}` must contain at most one {RETRIEVAL_HINTS_PLACEHOLDER} placeholder."
         )
+    if template.count(EVIDENCE_CONNECTIONS_PLACEHOLDER) != 1:
+        raise CodexRetrievalError(
+            f"Codex prompt profile `{normalized}` must contain exactly one "
+            f"{EVIDENCE_CONNECTIONS_PLACEHOLDER} placeholder."
+        )
     if not isinstance(schema, Mapping):
         raise CodexRetrievalError(f"Codex prompt profile `{normalized}` schema must be a JSON object.")
-    return template.rstrip() + "\n", dict(schema)
+    if not isinstance(connection_schema, Mapping):
+        raise CodexRetrievalError("Shared Codex evidence-connection schema must be a JSON object.")
+    merged_schema = _merge_evidence_connection_schema(dict(schema), connection_schema)
+    merged_template = template.replace(EVIDENCE_CONNECTIONS_PLACEHOLDER, connection_prompt.strip()).rstrip() + "\n"
+    return merged_template, merged_schema
+
+
+def _merge_evidence_connection_schema(
+    schema: dict[str, Any],
+    connection_schema: Mapping[str, Any],
+) -> dict[str, Any]:
+    evidence_schema = schema.get("properties", {}).get("evidence", {})
+    item_schema = evidence_schema.get("items", {}) if isinstance(evidence_schema, Mapping) else {}
+    item_extension = connection_schema.get("evidence_item", {})
+    response_extension = connection_schema.get("response", {})
+    if not all(isinstance(value, Mapping) for value in (item_schema, item_extension, response_extension)):
+        raise CodexRetrievalError("Codex evidence-connection schema cannot be merged into the selected profile.")
+
+    item_properties = item_schema.get("properties")
+    schema_properties = schema.get("properties")
+    if not isinstance(item_properties, dict) or not isinstance(schema_properties, dict):
+        raise CodexRetrievalError("Codex profile schema is missing object properties required for connections.")
+    extension_item_properties = item_extension.get("properties", {})
+    extension_response_properties = response_extension.get("properties", {})
+    if not isinstance(extension_item_properties, Mapping) or not isinstance(extension_response_properties, Mapping):
+        raise CodexRetrievalError("Shared Codex evidence-connection properties are invalid.")
+
+    item_properties.update(extension_item_properties)
+    item_schema["required"] = list(dict.fromkeys((*item_schema.get("required", ()), *item_extension.get("required", ()))))
+    schema_properties.update(extension_response_properties)
+    schema["required"] = list(dict.fromkeys((*schema.get("required", ()), *response_extension.get("required", ()))))
+    return schema
 
 
 def _codex_prompt(
@@ -381,6 +425,74 @@ def _evidence_from_payload(payload: Mapping[str, Any], *, workspace_root: Path) 
         if len(evidence) >= 10:
             break
     return tuple(evidence)
+
+
+def _evidence_connections_from_payload(
+    payload: Mapping[str, Any],
+    *,
+    evidence: Sequence[EvidenceItem],
+) -> dict[str, Any]:
+    raw_connections = payload.get("evidence_connections")
+    if not isinstance(raw_connections, Sequence) or isinstance(raw_connections, (str, bytes)):
+        return {"version": 1, "connections": []}
+
+    id_counts: dict[str, int] = {}
+    evidence_by_id: dict[str, EvidenceItem] = {}
+    for item in evidence:
+        evidence_id = str(item.metadata.get("evidence_id") or "").strip()
+        if not evidence_id:
+            continue
+        id_counts[evidence_id] = id_counts.get(evidence_id, 0) + 1
+        evidence_by_id[evidence_id] = item
+    valid_ids = {evidence_id for evidence_id, count in id_counts.items() if count == 1}
+
+    allowed_kinds = {
+        "dependency",
+        "control_flow",
+        "data_flow",
+        "configuration",
+        "validation",
+        "rendering",
+        "other",
+    }
+    accepted: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for raw in raw_connections:
+        if not isinstance(raw, Mapping):
+            continue
+        source_id = str(raw.get("source_evidence_id") or "").strip()
+        target_id = str(raw.get("target_evidence_id") or "").strip()
+        if source_id not in valid_ids or target_id not in valid_ids or source_id == target_id:
+            continue
+        kind = str(raw.get("relationship_kind") or "").strip().lower()
+        label = str(raw.get("label") or "").strip()
+        description = str(raw.get("description") or "").strip()
+        grounding = str(raw.get("grounding") or "").strip().lower()
+        confidence = str(raw.get("confidence") or "").strip().lower()
+        if kind not in allowed_kinds or not label or not description:
+            continue
+        if grounding not in {"direct", "inferred"} or confidence not in {"high", "medium", "low"}:
+            continue
+        if grounding == "inferred" and confidence == "high":
+            confidence = "medium"
+        key = (source_id, target_id, kind)
+        if key in seen:
+            continue
+        seen.add(key)
+        accepted.append(
+            {
+                "source_ref": evidence_by_id[source_id].source_id,
+                "target_ref": evidence_by_id[target_id].source_id,
+                "relationship_kind": kind,
+                "label": label[:100],
+                "description": description[:500],
+                "grounding": grounding,
+                "confidence": confidence,
+            }
+        )
+        if len(accepted) >= 16:
+            break
+    return {"version": 1, "connections": accepted}
 
 
 def _enrich_codex_evidence_artifacts(

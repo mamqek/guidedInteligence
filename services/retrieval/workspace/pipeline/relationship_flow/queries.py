@@ -34,6 +34,8 @@ def protocol_relationship_seed_texts(retrieval_plan: WorkspaceRetrievalPlan | No
 
 
 def anchor_symbol_relation_query(anchor_path: str, candidate_path: str) -> str:
+    # TECH DEBT: This is textual substring matching, not a verified symbol-reference edge.
+    # Replace it with native CGC/SCIP relationships before reusing or extending this path.
     anchor_value = cypher_string(cypher_relative_path(anchor_path))
     candidate_value = cypher_string(candidate_path)
     return (

@@ -28,14 +28,16 @@
     "obsidian:search": "set OBSIDIAN_VAULT_PATH=docs/obsidian&& obsidian-hybrid-search --db docs/obsidian/.obsidian-hybrid-search.db search"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.1.0",
+    "@xyflow/react": "^12.11.2",
     "obsidian-hybrid-search": "0.13.5",
     "react": "^19.2.1",
     "react-dom": "^19.2.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^5.1.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
     "typescript": "^5.9.3",
     "vite": "^7.2.7"
   }

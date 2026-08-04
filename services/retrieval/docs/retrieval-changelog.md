@@ -1,5 +1,38 @@
 # Retrieval Changelog
 
+## 2026-08-04
+
+### Added: Codex Evidence Connection Graph
+
+- Intended stage boundary:
+  - Codex retrieval assigns stable retrieval-local IDs to selected evidence and returns semantic connections between those selected items,
+  - deterministic post-processing drops dangling, self-referential, and duplicate edges and remaps local IDs to persisted evidence source refs,
+  - the connection graph remains in `retrieval_summary` and the run-detail API; it is not included in explanation-generation prompts or response metadata,
+  - the frontend renders this retrieval-only object as an interactive evidence-flow graph.
+- Expected quality impact:
+  - expose cross-file data, control, configuration, validation, and rendering relationships that CGC/SCIP did not resolve reliably,
+  - keep graph descriptions grounded and user-readable while allowing inferred edges only when an omitted boundary is stated,
+  - preserve the existing explanation pipeline without making graph metadata part of its story or question generation.
+- Expected token impact:
+  - the connection schema itself is small, but end-to-end continuity can make Codex inspect bridge code that compact evidence retrieval previously skipped,
+  - accepted runs used materially more retrieval tokens than the comparable pre-graph run, so this feature carries a measurable retrieval-cost regression.
+- Known regression risks:
+  - Codex can over-search to make a graph connected or broaden evidence ranges to capture a bridge,
+  - semantic edges are model-produced claims rather than compiler-proven relationships,
+  - a single end-to-end question can still produce disconnected components unless continuity is explicitly checked,
+  - graph quality must not be treated as evidence that explanation quality improved, because the graph is intentionally excluded from explanation generation.
+- Real-run comparison for the Next-check end-to-end prompt:
+  - pre-graph `run-20260803T223100Z-b784110f`: `coverage_status=strong`, `sufficient=true`, 9 selected items, retrieval input plus output `223,809`, uncached input plus output `44,609`.
+  - accepted graph run `run-20260804-evidence-graph-e`: `coverage_status=strong`, `sufficient=true`, 7/7 nodes connected by 6 edges, retrieval input plus output `1,211,380`, uncached input plus output `122,868`.
+  - accepted graph run `run-20260804-evidence-graph-f`: `coverage_status=strong`, `sufficient=true`, 10/10 nodes connected by 9 edges, retrieval input plus output `781,229`, uncached input plus output `81,325`.
+  - both accepted graphs formed one traversable decision-to-UI flow, used readable labels, and marked the omitted transport/return boundary as `inferred / medium` rather than direct.
+  - orchestration traces for both accepted runs contained no `evidence_connections` or `source_evidence_id` fields in explanation-generation events.
+- Verification:
+  - `.venv\Scripts\python.exe -m unittest tests.test_codex_provider tests.test_retrieval_server` passed 48 tests.
+  - `npm run web:build` passed.
+  - live `/retrieve` runs E and F completed through the efficient Codex profile with `coverage_status=strong` and `sufficient=true`.
+  - desktop and mobile browser checks confirmed 10 rendered nodes, 9 rendered edges, selectable edge details, no page-width overflow, and no browser console errors.
+
 ## 2026-07-12
 
 ### Changed: Adaptive Loop Support-Subquery Promotion
