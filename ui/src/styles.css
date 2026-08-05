@@ -856,6 +856,9 @@ select:focus {
 
 .sectionHeader h3 {
   margin: 0;
+  font-size: 16px;
+  font-weight: 760;
+  letter-spacing: 0;
 }
 
 .sectionHeader p {
@@ -941,6 +944,9 @@ select:focus {
 
 .remoteMcpHeader h4 {
   margin: 0;
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: 0;
 }
 
 .remoteMcpHeader p {
@@ -1071,6 +1077,13 @@ select:focus {
   border-radius: 6px;
   padding: 10px;
   background: var(--panel-soft);
+}
+
+.connectionTile h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: 0;
 }
 
 .connectionTile p {

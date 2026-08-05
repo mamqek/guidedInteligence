@@ -2823,6 +2823,7 @@ class RetrievalLLMConfigTests(unittest.TestCase):
 
         def fake_run(command, **kwargs):
             seen["command"] = command
+            seen["input"] = kwargs.get("input")
             seen["timeout"] = kwargs.get("timeout")
             output_path = Path(command[command.index("-o") + 1])
             output_path.write_text(json.dumps({"ok": True}), encoding="utf-8")
@@ -2856,6 +2857,8 @@ class RetrievalLLMConfigTests(unittest.TestCase):
         self.assertEqual(response, {"ok": True})
         self.assertIn("exec", seen["command"])
         self.assertIn("--output-schema", seen["command"])
+        self.assertEqual(seen["command"][-1], "-")
+        self.assertIn("Return ok.", seen["input"])
         self.assertEqual(seen["timeout"], 17)
 
     def test_run_case_help_no_longer_exposes_llm_cli_flags(self) -> None:

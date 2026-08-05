@@ -29,7 +29,6 @@ from core.policy import PolicyStage
 from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, SourceCategory, SourcePolicy
 from services.comprehension import generate_followup
 from services.guidance.answer_evaluation import evaluate_answers
-from services.intent import SUPPORTED_ASSISTANCE_ROUTER_MODES
 from services.llm.json_completion import complete_json
 from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, estimate_indexing_scope, load_index
 from services.logging.store import JsonlLogger
@@ -91,7 +90,6 @@ DEFAULT_REMOTE_MCP_SOURCE_KEYS = (
     "google_drive",
 )
 DEFAULT_ALLOWED_SOURCE_KEYS = (*BUILTIN_SOURCE_KEYS, *DEFAULT_REMOTE_MCP_SOURCE_KEYS)
-SUPPORTED_ASSISTANCE_MODES = ("teach", "work", "hybrid", "evaluation")
 RETRIEVAL_STAGE_WINDOWS: dict[str, tuple[int, int]] = {
     "index_cgc": (12, 36),
     "index_bm25_qdrant": (36, 46),
@@ -192,7 +190,6 @@ class RuntimeState:
             "runs_dir": str(self.runs_root),
             "github_repository": self.github_repository(),
             "retrieval_mode": _retrieval_mode(self.config),
-            "assistance_mode": str(_assistance_settings(self.config).get("mode") or "teach"),
             "codex_prompt_profile": str(
                 _retrieval_settings(self.config).get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
             ),
@@ -1229,10 +1226,8 @@ class RuntimeState:
                 retrieval_stage=retrieval_stage,
                 logger=progress_logger,
                 response_llm_config=generation_llm_config,
-                assistance_mode=str(_assistance_settings(self.config).get("mode") or "teach"),
-                max_gap_retrieval_passes=int(_assistance_settings(self.config).get("max_gap_retrieval_passes") or 0),
+                max_gap_retrieval_passes=int(_retrieval_settings(self.config).get("max_gap_retrieval_passes") or 0),
                 intent_shadow_enabled=bool(_intent_settings(self.config).get("shadow_mode", False)),
-                intent_assistance_mode=str(_intent_settings(self.config).get("assistance_mode") or "off"),
                 evidence_graph_builder=lambda retrieval_result, graph_state, record_event: build_evidence_graph(
                     retrieval_result,
                     workspace_root=self.workspace_root,
@@ -1625,6 +1620,7 @@ class RuntimeState:
                 "workspace_model": "",
                 "codex_prompt_profile": DEFAULT_CODEX_PROMPT_PROFILE,
                 "codex_timeout_seconds": 900,
+                "max_gap_retrieval_passes": 0,
             },
             "generation": {
                 "provider": "api",
@@ -1633,13 +1629,8 @@ class RuntimeState:
                 "max_tokens": 800,
                 "timeout_seconds": 30,
             },
-            "assistance": {
-                "mode": "teach",
-                "max_gap_retrieval_passes": 0,
-            },
             "intent": {
                 "shadow_mode": False,
-                "assistance_mode": "off",
             },
             "connected_context": {
                 "enabled": True,
@@ -2267,28 +2258,18 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
         generation_timeout_seconds = 30
     generation["timeout_seconds"] = max(1, generation_timeout_seconds)
-    assistance = config.get("assistance")
-    if not isinstance(assistance, dict):
-        assistance = {}
-        config["assistance"] = assistance
-    assistance["mode"] = str(assistance.get("mode") or "teach").strip().lower()
-    if assistance["mode"] not in SUPPORTED_ASSISTANCE_MODES:
-        assistance["mode"] = "teach"
-    assistance.pop("response_pipeline", None)
+    config.pop("assistance", None)
     try:
-        max_gap_retrieval_passes = int(assistance.get("max_gap_retrieval_passes") or 0)
+        max_gap_retrieval_passes = int(retrieval.get("max_gap_retrieval_passes") or 0)
     except (TypeError, ValueError):
         max_gap_retrieval_passes = 0
-    assistance["max_gap_retrieval_passes"] = max(0, max_gap_retrieval_passes)
+    retrieval["max_gap_retrieval_passes"] = max(0, max_gap_retrieval_passes)
     intent = config.get("intent")
     if not isinstance(intent, dict):
         intent = {}
         config["intent"] = intent
     intent["shadow_mode"] = _boolean_setting(intent.get("shadow_mode"), False)
     intent.pop("router_mode", None)
-    intent["assistance_mode"] = str(intent.get("assistance_mode") or "off").strip().lower()
-    if intent["assistance_mode"] not in SUPPORTED_ASSISTANCE_ROUTER_MODES:
-        intent["assistance_mode"] = "off"
     indexing = config.get("indexing")
     if isinstance(indexing, dict):
         indexing.pop("include_paths", None)
@@ -2594,26 +2575,17 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
     codex_connection = connections.get("codex", {})
     if codex_connection is not None and not isinstance(codex_connection, Mapping):
         raise RetrievalServerError("`connections.codex` must be an object.")
-    assistance = payload.get("assistance", {})
-    if not isinstance(assistance, Mapping):
-        raise RetrievalServerError("`assistance` must be an object.")
-    if str(assistance.get("mode") or "teach") not in SUPPORTED_ASSISTANCE_MODES:
-        raise RetrievalServerError("`assistance.mode` must be one of: " + ", ".join(SUPPORTED_ASSISTANCE_MODES) + ".")
     try:
-        max_gap_retrieval_passes = int(assistance.get("max_gap_retrieval_passes") or 0)
+        max_gap_retrieval_passes = int(retrieval.get("max_gap_retrieval_passes") or 0)
     except (TypeError, ValueError) as exc:
-        raise RetrievalServerError("`assistance.max_gap_retrieval_passes` must be an integer.") from exc
+        raise RetrievalServerError("`retrieval.max_gap_retrieval_passes` must be an integer.") from exc
     if max_gap_retrieval_passes < 0:
-        raise RetrievalServerError("`assistance.max_gap_retrieval_passes` must be zero or greater.")
+        raise RetrievalServerError("`retrieval.max_gap_retrieval_passes` must be zero or greater.")
     intent = payload.get("intent", {})
     if not isinstance(intent, Mapping):
         raise RetrievalServerError("`intent` must be an object.")
     if "shadow_mode" in intent and not _is_boolean_like(intent.get("shadow_mode")):
         raise RetrievalServerError("`intent.shadow_mode` must be a boolean.")
-    if str(intent.get("assistance_mode") or "off") not in SUPPORTED_ASSISTANCE_ROUTER_MODES:
-        raise RetrievalServerError(
-            "`intent.assistance_mode` must be one of: " + ", ".join(SUPPORTED_ASSISTANCE_ROUTER_MODES) + "."
-        )
     connected_context = payload.get("connected_context", {})
     if not isinstance(connected_context, Mapping):
         raise RetrievalServerError("`connected_context` must be an object.")
@@ -2670,11 +2642,6 @@ def _retrieval_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
 def _generation_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
     generation = config.get("generation", {})
     return generation if isinstance(generation, Mapping) else {}
-
-
-def _assistance_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
-    assistance = config.get("assistance", {})
-    return assistance if isinstance(assistance, Mapping) else {}
 
 
 def _intent_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:

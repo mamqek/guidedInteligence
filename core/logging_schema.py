@@ -21,8 +21,6 @@ class LogEventType(str, Enum):
     INTENT_AGREEMENT = "intent_agreement"
     #: Shadow or active intent router produced a pipeline decision.
     INTENT_ROUTING_DECISION = "intent_routing_decision"
-    #: Shadow assistance-mode router produced a mode decision.
-    INTENT_ASSISTANCE_DECISION = "intent_assistance_decision"
     #: Retrieval decided which source categories to consult and in what order.
     RETRIEVAL_PLAN = "retrieval_plan"
     #: Retrieval or context building selected concrete evidence items.

@@ -1,6 +1,5 @@
 {
   "retrieval_mode": "codex",
-  "assistance_mode": "teach",
   "max_gap_retrieval_passes": 1,
   "test_root": "C:/Programming/guidedInteligence_testcases",
   "shared_repo_root": "C:/Programming/guidedInteligence_testcases/_repos",

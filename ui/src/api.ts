@@ -15,7 +15,6 @@ export type Health = {
   index_estimate?: IndexEstimate;
   retrieval_mode?: "workspace" | "codex";
   codex_prompt_profile?: string;
-  assistance_mode?: string;
   qdrant_reachable?: boolean;
   qdrant_status_detail?: string;
   github_repository?: string;

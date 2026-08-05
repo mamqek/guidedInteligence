@@ -50,7 +50,6 @@ def build_comprehension_plan(
     *,
     user_prompt: str,
     retrieval_result: RetrievalResult,
-    assistance_mode: str = "teach",
 ) -> ComprehensionPlan:
     evidence = tuple(retrieval_result.evidence[:8])
     artifacts = _artifacts_from_evidence(evidence)
@@ -61,12 +60,11 @@ def build_comprehension_plan(
     return ComprehensionPlan(
         task_goal=_task_goal(user_prompt, retrieval_result.retrieval_summary),
         answer_scope=_answer_scope(retrieval_result),
-        assistance_mode=assistance_mode,
         relevant_artifacts=artifacts,
         concepts=concepts,
         concept_dependencies=dependencies,
         explanation_sequence=steps,
-        depth_policy=_depth_policy(assistance_mode, concepts),
+        depth_policy=_depth_policy(concepts),
         understanding_check=None,
         coverage_gaps=gaps,
     )
@@ -216,15 +214,8 @@ def _explanation_steps(
     return tuple(step for step in steps if step.concept_ids or step.artifact_refs)
 
 
-def _depth_policy(assistance_mode: str, concepts: Sequence[Concept]) -> DepthPolicy:
+def _depth_policy(concepts: Sequence[Concept]) -> DepthPolicy:
     core_count = sum(1 for concept in concepts if concept.role == "core")
-    if assistance_mode == "work":
-        return DepthPolicy(
-            mode="silent_adaptation",
-            assumption_statement="Use a concise implementation-focused answer and avoid blocking checks.",
-            gate_required=False,
-            rationale="Work mode should not force tutoring behavior.",
-        )
     gate_required = core_count > 4
     return DepthPolicy(
         mode="concept_gate" if gate_required else "assumption_statement",

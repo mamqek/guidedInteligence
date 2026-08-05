@@ -61,7 +61,6 @@ class EvidenceItem:
 class RetrievalHints:
     """Advisory intent metadata that can shape retrieval without being evidence."""
 
-    recommended_assistance_mode: str
     retrieval_intents: tuple[Mapping[str, str], ...] = field(default_factory=tuple)
     response_operation: str = ""
     primary_expected_output: str = ""
@@ -74,7 +73,6 @@ class RetrievalHints:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "recommended_assistance_mode": self.recommended_assistance_mode,
             "retrieval_intents": [dict(item) for item in self.retrieval_intents],
             "response_operation": self.response_operation,
             "primary_expected_output": self.primary_expected_output,

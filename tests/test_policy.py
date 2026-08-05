@@ -14,7 +14,6 @@ from core.violations import PolicyViolationType
 from services.comprehension import build_comprehension_plan
 from services.comprehension.followup import build_comprehension_state
 from services.guidance.answer_evaluation import evaluate_answers
-from services.guidance.questions import build_question_contexts
 from services.response_generation.comprehension import (
     _next_check_requirement,
     _next_checks_from_response,
@@ -172,7 +171,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
         plan = build_comprehension_plan(
             user_prompt="Explain the external handoff.",
             retrieval_result=retrieval_result,
-            assistance_mode="teach",
         )
 
         requirement = _next_check_requirement(plan=plan, retrieval_result=retrieval_result)
@@ -196,7 +194,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
         plan = build_comprehension_plan(
             user_prompt="Explain direct evidence with a non-blocking scope note.",
             retrieval_result=retrieval_result,
-            assistance_mode="teach",
         )
 
         requirement = _next_check_requirement(plan=plan, retrieval_result=retrieval_result)
@@ -216,7 +213,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
         plan = build_comprehension_plan(
             user_prompt="Explain direct evidence.",
             retrieval_result=retrieval_result,
-            assistance_mode="teach",
         )
 
         requirement = _next_check_requirement(plan=plan, retrieval_result=retrieval_result)
@@ -306,7 +302,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
                     "user_goals": ["understand", "debug"],
                     "response_operation": "explain",
                     "turn_relation": "new_task",
-                    "recommended_assistance_mode": "teach",
                     "solution_pressure": "none",
                     "retrieval_intents": [{"intent": "behavior_explanation", "priority": "primary"}],
                     "primary_expected_output": "explanation",
@@ -359,289 +354,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertEqual(agreement.payload["agreement"], "compatible")
         self.assertEqual(agreement.payload["top_level_primary"], "behavior_explanation")
         self.assertEqual(agreement.payload["workspace_primary"], "defect_localization")
-
-    def test_assistance_mode_shadow_logs_recommendation_without_changing_mode(self) -> None:
-        retrieval = _StubRetrievalService(_retrieval_with_role_buckets())
-        logger = _InMemoryLogger()
-        with _fake_llm_server(
-            [
-                {
-                    "user_goals": ["understand"],
-                    "response_operation": "explain",
-                    "turn_relation": "new_task",
-                    "recommended_assistance_mode": "work",
-                    "solution_pressure": "none",
-                    "retrieval_intents": [{"intent": "behavior_explanation", "priority": "primary"}],
-                    "primary_expected_output": "explanation",
-                    "expected_outputs": ["explanation"],
-                    "specificity": "medium",
-                    "explicit_targets": [],
-                    "confidence": 0.9,
-                    "classification_basis": ["User asks to understand behavior."],
-                },
-                {
-                    "markdown": "# Bottom line\n\nThe checker owns the rule at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12). It contains semantic validation and reports the relevant diagnostic.",
-                    "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                    "understanding_checks": [
-                        {
-                            "id": "q1",
-                            "role": "validation_checking",
-                            "question_type": "primary",
-                            "question": "Why is this checker path relevant?",
-                            "expected_answer_points": ["It validates the behavior."],
-                            "hint": "Look at the validation responsibility.",
-                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                            "origin": "main retrieved role",
-                        }
-                    ],
-                    "render_notes": {"title": "Bottom line", "summary": "Checker enforces behavior."},
-                },
-            ]
-        ) as server_url:
-            control_layer = ControlLayer(
-                policy_stage=PolicyStage(),
-                retrieval_stage=retrieval,
-                logger=logger,
-                response_llm_config=_llm_config(server_url),
-                intent_shadow_enabled=True,
-                intent_assistance_mode="shadow",
-                assistance_mode="teach",
-            )
-            result = control_layer.run(
-                ConversationState(
-                    conversation_id="test-assistance-shadow",
-                    user_input="Explain this behavior.",
-                    intent=UserIntent.UNKNOWN,
-                )
-            )
-
-        self.assertEqual(result.response_plan.notes["assistance_mode"], "teach")
-        self.assertEqual(result.response_plan.notes["retrieval_assistance_mode_hint"], "work")
-        self.assertEqual(result.response_payload.metadata["assistance_mode"], "teach")
-        self.assertEqual(result.response_payload.metadata["retrieval_assistance_mode_hint"], "work")
-        self.assertEqual(len(retrieval.calls), 1)
-        self.assertIsNotNone(retrieval.calls[0][0].retrieval_hints)
-        assert retrieval.calls[0][0].retrieval_hints is not None
-        self.assertEqual(retrieval.calls[0][0].retrieval_hints.recommended_assistance_mode, "work")
-        assistance_events = [event for event in logger.events if event.event_type == LogEventType.INTENT_ASSISTANCE_DECISION]
-        self.assertEqual(len(assistance_events), 1)
-        payload = assistance_events[0].payload
-        self.assertEqual(payload["configured_assistance_mode"], "teach")
-        self.assertEqual(payload["recommended_assistance_mode"], "work")
-        self.assertEqual(payload["effective_assistance_mode"], "teach")
-        self.assertTrue(payload["would_change_mode"])
-        self.assertFalse(payload["applied"])
-        self.assertTrue(payload["conflict"])
-        self.assertIn("classifier_recommendation_differs_from_configured_mode", payload["decision_reasons"])
-
-    def test_assistance_mode_active_changes_effective_mode_for_allowed_explanation(self) -> None:
-        retrieval = _StubRetrievalService(_retrieval_with_role_buckets())
-        logger = _InMemoryLogger()
-        with _fake_llm_server(
-            [
-                {
-                    "user_goals": ["understand"],
-                    "response_operation": "explain",
-                    "turn_relation": "new_task",
-                    "recommended_assistance_mode": "teach",
-                    "solution_pressure": "none",
-                    "retrieval_intents": [{"intent": "behavior_explanation", "priority": "primary"}],
-                    "primary_expected_output": "explanation",
-                    "expected_outputs": ["explanation"],
-                    "specificity": "medium",
-                    "explicit_targets": [],
-                    "confidence": 0.9,
-                    "classification_basis": ["User asks to understand behavior."],
-                },
-                {
-                    "markdown": "# Bottom line\n\nThe checker owns the rule in `checkClassLikeDeclaration` at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12). After the parser creates a class declaration, `checkClassLikeDeclaration` applies the semantic rule and reports the diagnostic.",
-                    "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                    "understanding_checks": [
-                        {
-                            "id": "q1",
-                            "role": "validation_checking",
-                            "question_type": "primary",
-                            "question": "Why is this checker path relevant?",
-                            "expected_answer_points": ["It validates the behavior."],
-                            "hint": "Look at the validation responsibility.",
-                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                            "origin": "main retrieved role",
-                        }
-                    ],
-                    "render_notes": {"title": "Bottom line", "summary": "Checker enforces behavior."},
-                },
-            ]
-        ) as server_url:
-            control_layer = ControlLayer(
-                policy_stage=PolicyStage(),
-                retrieval_stage=retrieval,
-                logger=logger,
-                response_llm_config=_llm_config(server_url),
-                intent_shadow_enabled=True,
-                intent_assistance_mode="active",
-                assistance_mode="work",
-            )
-            result = control_layer.run(
-                ConversationState(
-                    conversation_id="test-assistance-active",
-                    user_input="Explain this behavior.",
-                    intent=UserIntent.UNKNOWN,
-                )
-            )
-
-        self.assertEqual(result.response_plan.notes["assistance_mode"], "teach")
-        self.assertEqual(result.response_payload.metadata["assistance_mode"], "teach")
-        assistance_events = [event for event in logger.events if event.event_type == LogEventType.INTENT_ASSISTANCE_DECISION]
-        self.assertEqual(len(assistance_events), 1)
-        payload = assistance_events[0].payload
-        self.assertEqual(payload["configured_assistance_mode"], "work")
-        self.assertEqual(payload["recommended_assistance_mode"], "teach")
-        self.assertEqual(payload["effective_assistance_mode"], "teach")
-        self.assertTrue(payload["applied"])
-        self.assertIn("active_explanation_understand_uses_teach_mode", payload["decision_reasons"])
-
-    def test_assistance_mode_active_does_not_apply_work_mode_for_patch_request(self) -> None:
-        retrieval = _StubRetrievalService(_retrieval_with_role_buckets())
-        logger = _InMemoryLogger()
-        with _fake_llm_server(
-            [
-                {
-                    "user_goals": ["change"],
-                    "response_operation": "produce",
-                    "turn_relation": "new_task",
-                    "recommended_assistance_mode": "work",
-                    "solution_pressure": "complete_solution",
-                    "retrieval_intents": [{"intent": "change_or_impact_planning", "priority": "primary"}],
-                    "primary_expected_output": "patch",
-                    "expected_outputs": ["patch", "explanation"],
-                    "specificity": "medium",
-                    "explicit_targets": [],
-                    "confidence": 0.9,
-                    "classification_basis": ["User asks for a patch."],
-                },
-                {
-                    "markdown": "# Plan\n\nThe relevant area is [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
-                    "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                    "understanding_checks": [
-                        {
-                            "id": "q1",
-                            "role": "validation_checking",
-                            "question_type": "primary",
-                            "question": "Why is this checker path relevant?",
-                            "expected_answer_points": ["It validates the behavior."],
-                            "hint": "Look at the validation responsibility.",
-                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                            "origin": "main retrieved role",
-                        }
-                    ],
-                    "render_notes": {"title": "Plan", "summary": "Checker is relevant."},
-                },
-            ]
-        ) as server_url:
-            control_layer = ControlLayer(
-                policy_stage=PolicyStage(),
-                retrieval_stage=retrieval,
-                logger=logger,
-                response_llm_config=_llm_config(server_url),
-                intent_shadow_enabled=True,
-                intent_assistance_mode="active",
-                assistance_mode="teach",
-            )
-            result = control_layer.run(
-                ConversationState(
-                    conversation_id="test-assistance-active-no-work-patch",
-                    user_input="Patch this bug.",
-                    intent=UserIntent.UNKNOWN,
-                )
-            )
-
-        self.assertEqual(result.response_plan.notes["assistance_mode"], "teach")
-        self.assertEqual(result.response_plan.notes["retrieval_assistance_mode_hint"], "work")
-        self.assertNotIn("response_pipeline", result.response_plan.notes)
-        self.assertEqual(len(retrieval.calls), 1)
-        self.assertIsNotNone(retrieval.calls[0][0].retrieval_hints)
-        assistance_events = [event for event in logger.events if event.event_type == LogEventType.INTENT_ASSISTANCE_DECISION]
-        self.assertEqual(len(assistance_events), 1)
-        payload = assistance_events[0].payload
-        self.assertEqual(payload["configured_assistance_mode"], "teach")
-        self.assertEqual(payload["recommended_assistance_mode"], "work")
-        self.assertEqual(payload["effective_assistance_mode"], "teach")
-        self.assertFalse(payload["applied"])
-        self.assertIn("active_no_allowed_transition", payload["decision_reasons"])
-
-    def test_assistance_mode_active_allows_explanation_context_bug_agreement(self) -> None:
-        retrieval = _StubRetrievalService(
-            RetrievalResult(
-                evidence=DEFAULT_STUB_EVIDENCE,
-                coverage_status="strong",
-                sufficient=True,
-                retrieval_summary={"profile_output": {"issue_analysis": {"issue_type": "bug"}}},
-            )
-        )
-        logger = _InMemoryLogger()
-        with _fake_llm_server(
-            [
-                {
-                    "user_goals": ["understand"],
-                    "response_operation": "explain",
-                    "turn_relation": "new_task",
-                    "recommended_assistance_mode": "teach",
-                    "solution_pressure": "none",
-                    "retrieval_intents": [{"intent": "repository_exploration", "priority": "primary"}],
-                    "primary_expected_output": "explanation",
-                    "expected_outputs": ["explanation"],
-                    "specificity": "medium",
-                    "explicit_targets": [],
-                    "confidence": 0.95,
-                    "classification_basis": ["User asks for code context for a bug."],
-                },
-                {
-                    "markdown": "# Bottom line\n\nThe code context is grounded at [src/compiler/checker.ts:L10-L12](src/compiler/checker.ts#L10-L12).",
-                    "used_evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                    "understanding_checks": [
-                        {
-                            "id": "q1",
-                            "role": "validation_checking",
-                            "question_type": "primary",
-                            "question": "Why is this checker path relevant?",
-                            "expected_answer_points": ["It validates the behavior."],
-                            "hint": "Look at the validation responsibility.",
-                            "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                            "origin": "main retrieved role",
-                        }
-                    ],
-                    "render_notes": {"title": "Bottom line", "summary": "Checker is relevant."},
-                },
-            ]
-        ) as server_url:
-            control_layer = ControlLayer(
-                policy_stage=PolicyStage(),
-                retrieval_stage=retrieval,
-                logger=logger,
-                response_llm_config=_llm_config(server_url),
-                intent_shadow_enabled=True,
-                intent_assistance_mode="active",
-                assistance_mode="work",
-            )
-            result = control_layer.run(
-                ConversationState(
-                    conversation_id="test-assistance-active-bug-exploration",
-                    user_input="Explain the code context for this bug.",
-                    intent=UserIntent.UNKNOWN,
-                )
-            )
-
-        self.assertEqual(len(retrieval.calls), 1)
-        self.assertEqual(result.response_plan.notes["retrieval_assistance_mode_hint"], "teach")
-        self.assertEqual(result.response_plan.notes["assistance_mode"], "teach")
-        agreement_events = [event for event in logger.events if event.event_type == LogEventType.INTENT_AGREEMENT]
-        self.assertEqual(agreement_events[0].payload["agreement"], "compatible")
-        self.assertIn(
-            "explanation_context_compatible_with_codex_issue_type",
-            agreement_events[0].payload["notes"],
-        )
-        assistance_events = [event for event in logger.events if event.event_type == LogEventType.INTENT_ASSISTANCE_DECISION]
-        self.assertTrue(assistance_events[0].payload["applied"])
 
     def test_guided_explanation_uses_llm_generation_when_configured(self) -> None:
         retrieval = _StubRetrievalService(_retrieval_with_role_buckets())
@@ -711,10 +423,8 @@ class ControlLayerPolicyTests(unittest.TestCase):
         plan = build_comprehension_plan(
             user_prompt="Explain abstract class handling.",
             retrieval_result=retrieval,
-            assistance_mode="teach",
         )
 
-        self.assertEqual(plan.assistance_mode, "teach")
         self.assertEqual(plan.concepts[0].id, "validation_checking")
         self.assertEqual(plan.concepts[0].status, "grounded")
         self.assertEqual(plan.concepts[0].suggested_depth, "full")
@@ -755,7 +465,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 retrieval_stage=retrieval,
                 logger=logger,
                 response_llm_config=_llm_config(server_url),
-                assistance_mode="teach",
             )
             result = control_layer.run(
                 ConversationState(
@@ -767,7 +476,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
 
         metadata = result.response_payload.metadata
         self.assertNotIn("response_pipeline", metadata)
-        self.assertEqual(metadata["assistance_mode"], "teach")
         self.assertEqual(metadata["comprehension_plan"]["concepts"][0]["id"], "validation_checking")
         self.assertIn("Plan-based answer", result.response_payload.content)
         self.assertIn("library declaration shape", result.response_payload.content)
@@ -825,7 +533,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 retrieval_stage=retrieval,
                 logger=_InMemoryLogger(),
                 response_llm_config=_llm_config(server_url),
-                assistance_mode="teach",
             )
             result = control_layer.run(
                 ConversationState(
@@ -911,7 +618,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 retrieval_stage=retrieval,
                 logger=_InMemoryLogger(),
                 response_llm_config=_llm_config(server_url),
-                assistance_mode="teach",
             )
             result = control_layer.run(
                 ConversationState(
@@ -990,7 +696,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
                 retrieval_stage=retrieval,
                 logger=logger,
                 response_llm_config=_llm_config(server_url),
-                assistance_mode="teach",
             )
             result = control_layer.run(
                 ConversationState(
@@ -1050,7 +755,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
         plan = build_comprehension_plan(
             user_prompt="Explain abstract class handling.",
             retrieval_result=_retrieval_with_role_buckets(),
-            assistance_mode="teach",
         )
         state = build_comprehension_state(
             plan=plan,
@@ -1283,40 +987,13 @@ class ControlLayerPolicyTests(unittest.TestCase):
         retrieval_event = [event for event in logger.events if event.event_type == LogEventType.RETRIEVAL_PLAN][-1]
         self.assertEqual(retrieval_event.payload["action"], "skip_existing_evidence")
 
-    def test_question_contexts_use_required_role_buckets_first(self) -> None:
-        contexts = build_question_contexts(_retrieval_with_role_buckets())
-
-        self.assertEqual(contexts[0].id, "q1")
-        self.assertEqual(contexts[0].role, "validation_checking")
-        self.assertEqual(contexts[0].question_type, "primary")
-        self.assertEqual(contexts[0].origin, "main retrieved role")
-        self.assertIn("primary check for validation checking", contexts[0].focus)
-        self.assertIn("what data or state enters or leaves it", contexts[0].focus)
-        self.assertNotIn("?", contexts[0].focus)
-
-    def test_question_contexts_do_not_inherit_feature_specific_queries(self) -> None:
-        retrieval = _retrieval_with_role_buckets(
-            role="representation",
-            query="Where does the compiler represent abstract classes and abstract methods in the AST or symbol table?",
-        )
-
-        contexts = build_question_contexts(retrieval)
-
-        self.assertEqual(contexts[0].role, "representation")
-        self.assertIn("primary check for representation", contexts[0].focus)
-        self.assertIn("request-specific question", contexts[0].focus)
-        self.assertNotIn("?", contexts[0].focus)
-        self.assertNotIn("abstract", contexts[0].focus.lower())
-
     def test_understanding_checks_reject_retrieval_label_questions(self) -> None:
         retrieval = _retrieval_with_role_buckets()
-        contexts = tuple(context.to_dict() for context in build_question_contexts(retrieval))
 
         with self.assertRaisesRegex(RuntimeError, "no valid model-generated understanding checks"):
             plan = build_comprehension_plan(
                 user_prompt="Explain abstract class handling.",
                 retrieval_result=retrieval,
-                assistance_mode="teach",
             )
             _validate_response(
                 {
@@ -1384,7 +1061,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
         plan = build_comprehension_plan(
             user_prompt="Explain the code context for vue-server-renderer/client-plugin declarations.",
             retrieval_result=retrieval,
-            assistance_mode="teach",
         )
 
         result = _validate_response(
@@ -1474,7 +1150,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
         plan = build_comprehension_plan(
             user_prompt="Explain abstract class handling.",
             retrieval_result=retrieval,
-            assistance_mode="teach",
         )
 
         with self.assertRaisesRegex(RuntimeError, "no valid model-generated understanding checks"):
