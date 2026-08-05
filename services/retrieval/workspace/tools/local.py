@@ -89,35 +89,6 @@ class BM25SearchTool:
         )
 
 
-class CodeGraphTool:
-    name = "codegraph_search"
-
-    def __init__(self, index: BM25Index) -> None:
-        self.index = index
-        self._file_entries = _build_file_entries(index)
-
-    def run(self, request: ToolRequest) -> ToolObservation:
-        query = str(request.arguments.get("query", ""))
-        entities = request.arguments.get("entities", ())
-        terms = _query_terms(query, entities)
-        limit = _bounded_int(request.arguments.get("limit"), default=20, minimum=1, maximum=50)
-        ranked: list[dict[str, Any]] = []
-        for entry in self._file_entries:
-            score = _codegraph_score(entry, terms)
-            if score <= 0:
-                continue
-            ranked.append({**entry, "score": score, "matched_terms": _matched_terms(entry, terms)})
-        ranked.sort(key=lambda item: (item["score"], item["role"] == "implementation"), reverse=True)
-        selected = ranked[:limit]
-        return ToolObservation(
-            tool_name=self.name,
-            status="ok",
-            payload={"query": query, "entities": list(terms), "files": selected},
-            source_refs=tuple(str(item["path"]) for item in selected),
-            metadata={"result_count": str(len(selected))},
-        )
-
-
 class OpenFileTool:
     name = "open_file"
 
@@ -166,30 +137,6 @@ class OpenFileTool:
 
 def local_tool_specs() -> tuple[ToolSpec, ...]:
     return (
-        ToolSpec(
-            name="codegraph_search",
-            title="Codegraph File Search",
-            description=(
-                "Lightweight file and symbol orientation over indexed paths and declarations. "
-                "Use to identify likely files before opening or focused BM25 searches."
-            ),
-            arguments={
-                "query": "Required string. Concept, file, or symbol terms to match.",
-                "entities": "Optional list of strings. Extra issue entities or identifiers.",
-                "limit": "Optional integer from 1 to 50. Defaults to 20.",
-            },
-            examples=(
-                {
-                    "tool_name": "codegraph_search",
-                    "arguments": {
-                        "query": "abstract class method declaration",
-                        "entities": ["abstract", "class", "method"],
-                        "limit": 20,
-                    },
-                    "reason": "Find likely compiler files related to abstract declarations.",
-                },
-            ),
-        ),
         ToolSpec(
             name="open_file",
             title="Open Indexed File Snippets",
@@ -379,49 +326,6 @@ def _representative_files(paths: Sequence[str], limit: int) -> tuple[str, ...]:
     return tuple(selected)
 
 
-def _codegraph_score(entry: Mapping[str, Any], terms: Sequence[str]) -> float:
-    haystack = " ".join(
-        [
-            str(entry.get("path", "")),
-            str(entry.get("basename", "")),
-            str(entry.get("directory", "")),
-            " ".join(str(identifier) for identifier in entry.get("identifiers", ())),
-        ]
-    ).lower()
-    score = 0.0
-    for term in terms:
-        lowered = term.lower()
-        if not lowered:
-            continue
-        if lowered in str(entry.get("path", "")).lower():
-            score += 3.0
-        if lowered in haystack:
-            score += 1.0
-    if entry.get("role") == "implementation":
-        score *= 1.2
-    return score
-
-
-def _matched_terms(entry: Mapping[str, Any], terms: Sequence[str]) -> list[str]:
-    haystack = " ".join(
-        [
-            str(entry.get("path", "")),
-            str(entry.get("basename", "")),
-            str(entry.get("directory", "")),
-            " ".join(str(identifier) for identifier in entry.get("identifiers", ())),
-        ]
-    ).lower()
-    return sorted({term for term in terms if term.lower() in haystack})
-
-
-def _query_terms(query: str, entities: object) -> tuple[str, ...]:
-    values: list[str] = []
-    values.extend(token for token in _identifier_tokens(query) if _is_query_token(token))
-    if isinstance(entities, list | tuple):
-        values.extend(str(entity) for entity in entities if _is_query_token(str(entity)))
-    return _ordered_unique(values)[:32]
-
-
 def _identifier_tokens(text: str) -> tuple[str, ...]:
     return tuple(IDENTIFIER_PATTERN.findall(text))
 
@@ -488,4 +392,3 @@ def _normalized_paths(value: object) -> tuple[str, ...]:
         seen.add(normalized)
         output.append(normalized)
     return tuple(output)
-

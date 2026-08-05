@@ -396,14 +396,8 @@ def diagnostics_like_candidate(candidate: RetrievalCandidate) -> bool:
 
 
 def candidate_symbol(candidate: RetrievalCandidate) -> str | None:
-    for match in DECLARATION_PATTERN.finditer(candidate.text):
-        symbol = match.group(1)
-        if symbol and len(symbol) >= 4:
-            return symbol
-    for token in IDENTIFIER_PATTERN.findall(candidate.text):
-        if token and len(token) >= 5 and token[0].isupper():
-            return token
-    return None
+    value = str(candidate.metadata.get("symbol") or candidate.metadata.get("name") or "").strip()
+    return value or None
 
 
 def candidate_is_reference_expansion_source(role: str, path: str, profile: FileResponsibilityProfile) -> bool:
@@ -626,4 +620,3 @@ def tool_summary_payload(observation: ToolObservation) -> dict[str, Any]:
         "result_links": links,
         "metadata": dict(observation.metadata),
     }
-

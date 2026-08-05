@@ -8,6 +8,7 @@ from services.retrieval.config import WorkspaceRetrievalConfig
 from services.retrieval.workspace.pipeline.execution_flow import WorkspaceRetrievalContext
 from services.retrieval.workspace.pipeline.execution_flow.retrieval import run_workspace_retrieval
 from services.retrieval.workspace.pipeline.index_flow import repo_scoped_collection_name as _repo_scoped_collection_name
+from services.retrieval.workspace.tools.codegraph import close_codegraph_bridge
 
 
 class WorkspaceRetrievalStage:
@@ -26,4 +27,7 @@ class WorkspaceRetrievalStage:
         self.context = WorkspaceRetrievalContext.from_config(self.config)
 
     def retrieve(self, state: ConversationState, policy_result: PolicyResult) -> RetrievalResult:
-        return run_workspace_retrieval(self.context, state, policy_result)
+        try:
+            return run_workspace_retrieval(self.context, state, policy_result)
+        finally:
+            close_codegraph_bridge(self.config)

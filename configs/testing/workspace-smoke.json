@@ -10,6 +10,7 @@
   ],
   "codex_model": "gpt-5.4-mini",
   "codex_timeout_seconds": 900,
+  "codex_ignore_user_config": true,
   "cases": [
     "testing/codeRepoQA/corpus/cases/microsoft-TypeScript-35468/issue.json"
   ]

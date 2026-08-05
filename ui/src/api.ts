@@ -119,6 +119,7 @@ export type AppConfig = {
     codex_model: string;
     codex_prompt_profile?: string;
     codex_timeout_seconds: number;
+    codex_ignore_user_config?: boolean;
   };
   connections: {
     remote_mcp_sources?: RemoteMcpSource[];
@@ -171,13 +172,8 @@ export type IndexEstimate = {
   estimated_chunks: number;
   estimated_seconds_min?: number;
   estimated_seconds_max?: number;
-  cgc_estimated_seconds_min?: number;
-  cgc_estimated_seconds_max?: number;
-  cgc_full_estimated_seconds_min?: number;
-  cgc_full_estimated_seconds_max?: number;
-  cgc_skip_external_estimated_seconds_min?: number;
-  cgc_skip_external_estimated_seconds_max?: number;
-  cgc_timeout_risk?: boolean;
+  structural_estimated_seconds_min?: number;
+  structural_estimated_seconds_max?: number;
   index_estimate_notes?: string[];
   sample_paths: string[];
   exclude_paths: string[];
@@ -281,7 +277,12 @@ export type EvidenceConnection = {
 
 export type EvidenceConnectionsGraph = {
   version: number;
+  status?: "complete" | "error";
   connections: EvidenceConnection[];
+  root_ref?: string;
+  disconnected_evidence?: Array<{ evidence_ref: string; reason: string }>;
+  generation?: Record<string, unknown>;
+  error?: string;
 };
 
 export type RunDetail = RunSummary & {

@@ -38,7 +38,7 @@ def responsibility_rerank_bucket(
         candidates: Sequence[RetrievalCandidate],
         graph_paths: Sequence[str],
         anchor_support: AnchorSupport,
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
     ) -> RoleRetrievalBucket:
         scored: list[tuple[RetrievalCandidate, RoleValidationResult, ResponsibilityScore]] = []
         for candidate in candidates:
@@ -49,8 +49,8 @@ def responsibility_rerank_bucket(
                 helper_queries=prepared_bucket.helper_queries,
                 candidate=candidate,
                 anchor_support=anchor_support,
-                cgc_tools=cgc_tools,
-                allow_cgc_queries=True,
+                structural_tools=structural_tools,
+                allow_structural_queries=True,
             )
             score = score_responsibility(
                 prepared_bucket.role,

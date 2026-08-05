@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 import os
+import json
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from core.models import EvidenceItem
+from core.models import ConversationState, EvidenceItem, PolicyResult, TurnType, UserIntent
+from core.source_policy import SourceCategory
+from services.retrieval.config import RetrievalEmbeddingConfig, RetrievalQdrantConfig, RunLLMConfig, WorkspaceRetrievalConfig
 from services.retrieval.codex.cli import resolve_codex_command
 from services.retrieval.codex.provider import (
+    CodexRetrievalStage,
     CodexRetrievalError,
     _artifact_trace_summary,
     _classify_artifact_path,
     _codex_path_prefixes,
     _codex_coverage_status,
     _codex_prompt,
-    _evidence_connections_from_payload,
     _evidence_from_payload,
     _enrich_codex_evidence_artifacts,
     load_codex_prompt_profile,
@@ -39,9 +42,9 @@ class CodexProviderTests(unittest.TestCase):
         self.assertIn("Prefer source authoring files over generated/emitted files", prompt)
         self.assertIn("Do not select bundled/generated CLI output", prompt)
         self.assertIn("deterministic post-processing will audit this judgment", prompt)
-        self.assertIn("evidence_connections", schema["required"])
-        self.assertIn("evidence_id", schema["properties"]["evidence"]["items"]["required"])
-        self.assertIn("Evidence connection requirements", prompt)
+        self.assertNotIn("evidence_connections", schema["required"])
+        self.assertNotIn("evidence_id", schema["properties"]["evidence"]["items"]["required"])
+        self.assertNotIn("Evidence connection requirements", prompt)
         self.assertIn("artifact_kind", schema["properties"]["evidence"]["items"]["properties"])
 
     def test_responsibility_complete_profile_owns_expanded_prompt_and_schema(self) -> None:
@@ -69,92 +72,8 @@ class CodexProviderTests(unittest.TestCase):
         self.assertIn("relevance", item_schema["required"])
         self.assertIn("confidence", item_schema["required"])
         self.assertIn("implementation_owner", item_schema["properties"]["file_role"]["enum"])
-        self.assertIn("evidence_connections", required)
-        self.assertIn("evidence_id", item_schema["required"])
-
-    def test_evidence_connections_are_remapped_to_selected_source_refs(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            source = root / "src" / "flow.py"
-            source.parent.mkdir()
-            source.write_text("first()\nsecond()\n", encoding="utf-8")
-            payload = {
-                "evidence": [
-                    {
-                        "evidence_id": "entry",
-                        "file": "src/flow.py",
-                        "line_start": 1,
-                        "line_end": 1,
-                        "claim_supported": "The flow starts here.",
-                        "why_relevant": "Entry point.",
-                        "coverage_area": "entry",
-                    },
-                    {
-                        "evidence_id": "target",
-                        "file": "src/flow.py",
-                        "line_start": 2,
-                        "line_end": 2,
-                        "claim_supported": "The flow continues here.",
-                        "why_relevant": "Target.",
-                        "coverage_area": "target",
-                    },
-                ],
-                "evidence_connections": [
-                    {
-                        "source_evidence_id": "entry",
-                        "target_evidence_id": "target",
-                        "relationship_kind": "control_flow",
-                        "label": "calls",
-                        "description": "The entry invokes the target.",
-                        "grounding": "direct",
-                        "confidence": "high",
-                    }
-                ],
-            }
-            evidence = _evidence_from_payload(payload, workspace_root=root)
-            graph = _evidence_connections_from_payload(payload, evidence=evidence)
-
-        self.assertEqual(graph["version"], 1)
-        self.assertEqual(graph["connections"][0]["source_ref"], "workspace:src/flow.py:L1-L1")
-        self.assertEqual(graph["connections"][0]["target_ref"], "workspace:src/flow.py:L2-L2")
-
-    def test_evidence_connections_drop_dangling_self_and_duplicate_edges(self) -> None:
-        evidence = (
-            EvidenceItem(
-                source_category="source_code",
-                source_id="workspace:a.py:L1-L2",
-                snippet="a()",
-                metadata={"evidence_id": "a"},
-            ),
-            EvidenceItem(
-                source_category="source_code",
-                source_id="workspace:b.py:L1-L2",
-                snippet="b()",
-                metadata={"evidence_id": "b"},
-            ),
-        )
-        valid = {
-            "source_evidence_id": "a",
-            "target_evidence_id": "b",
-            "relationship_kind": "data_flow",
-            "label": "passes data",
-            "description": "A passes structured data to B.",
-            "grounding": "inferred",
-            "confidence": "high",
-        }
-        payload = {
-            "evidence_connections": [
-                valid,
-                dict(valid),
-                {**valid, "target_evidence_id": "a"},
-                {**valid, "target_evidence_id": "missing"},
-            ]
-        }
-
-        graph = _evidence_connections_from_payload(payload, evidence=evidence)
-
-        self.assertEqual(len(graph["connections"]), 1)
-        self.assertEqual(graph["connections"][0]["confidence"], "medium")
+        self.assertNotIn("evidence_connections", required)
+        self.assertNotIn("evidence_id", item_schema["required"])
 
     def test_unknown_profile_fails_explicitly(self) -> None:
         with self.assertRaisesRegex(CodexRetrievalError, "Unknown Codex prompt profile"):
@@ -351,6 +270,89 @@ class CodexProviderTests(unittest.TestCase):
 
             with patch.dict(os.environ, {"CODEX_CLI_PATH": str(codex_path)}):
                 self.assertEqual(resolve_codex_command(("codex",)), (str(codex_path),))
+
+    def test_codex_retrieval_uses_ignore_user_config_by_default(self) -> None:
+        command = self._run_codex_retrieval_and_capture_command()
+
+        self.assertIn("--ignore-user-config", command)
+
+    def test_codex_retrieval_can_allow_user_config(self) -> None:
+        command = self._run_codex_retrieval_and_capture_command(codex_ignore_user_config=False)
+
+        self.assertNotIn("--ignore-user-config", command)
+
+    def _run_codex_retrieval_and_capture_command(self, *, codex_ignore_user_config: bool = True) -> list[str]:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "src").mkdir()
+            (root / "src" / "owner.py").write_text("def owner():\n    return True\n", encoding="utf-8")
+            config = WorkspaceRetrievalConfig(
+                workspace_root=str(root),
+                index_dir=str(root / ".index"),
+                run_dir=str(root / ".runs"),
+                llm_config=RunLLMConfig(
+                    api_style="openai_chat_completions",
+                    model="test",
+                    endpoint_url="http://example.test",
+                    api_key="key",
+                ),
+                embedding_config=RetrievalEmbeddingConfig(
+                    model="unused",
+                    endpoint_url="http://unused.test",
+                    api_key="unused",
+                ),
+                qdrant_config=RetrievalQdrantConfig(
+                    url="http://unused.test",
+                    collection_name="unused",
+                ),
+                retrieval_mode="codex",
+                codex_command=("codex-test",),
+                codex_model="gpt-test",
+                codex_ignore_user_config=codex_ignore_user_config,
+            )
+            stage = CodexRetrievalStage(config)
+            state = ConversationState(
+                conversation_id="test",
+                user_input="Explain owner.",
+                intent=UserIntent.UNDERSTAND_CODE,
+            )
+            policy = PolicyResult(
+                allowed=True,
+                intent=UserIntent.UNDERSTAND_CODE,
+                retrieval_required=True,
+                allowed_sources=(SourceCategory.SOURCE_CODE,),
+                turn_type=TurnType.GUIDED_EXPLANATION,
+                reason="allowed",
+                source_policy_name="test",
+            )
+            captured: dict[str, list[str]] = {}
+
+            def fake_run(command: list[str], **kwargs: object) -> object:
+                captured["command"] = list(command)
+                output_path = Path(command[command.index("-o") + 1])
+                output_path.write_text(
+                    json.dumps(
+                        {
+                            "evidence": [
+                                {
+                                    "file": "src/owner.py",
+                                    "line_start": 1,
+                                    "line_end": 2,
+                                    "claim_supported": "owner exists",
+                                    "why_relevant": "selected evidence",
+                                    "coverage_area": "implementation_owner",
+                                }
+                            ]
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                return type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+            with patch("services.retrieval.codex.provider.subprocess.run", side_effect=fake_run):
+                stage.retrieve(state, policy)
+
+            return captured["command"]
 
 
 if __name__ == "__main__":

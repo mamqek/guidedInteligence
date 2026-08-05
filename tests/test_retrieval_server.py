@@ -2,24 +2,28 @@ from __future__ import annotations
 
 import json
 import tempfile
+import threading
+import urllib.request
 import unittest
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
 from core.source_policy import SourceCategory
 from services.guidance.answer_evaluation import AnswerEvaluation
 from services.retrieval.server import (
+    Handler,
     RetrievalServerError,
     RuntimeState,
-    _cgc_failure_message,
+    _structural_graph_failure_message,
     _github_repository_from_remote_url,
     _local_ui_url,
     _oauth_redirect_uri,
     _response_generation_progress_message,
     _response_generation_timed_out,
     _safe_run_id,
-    _sync_cgcignore,
 )
+from services.retrieval.workspace.codegraph_config import install_temporary_codegraph_excludes, restore_codegraph_config
 
 
 VALID_ENV = "\n".join(
@@ -276,6 +280,118 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertEqual(result["tools"][0]["name"], "search_pages")
             adapter_config = adapter_class.call_args.args[0]
             self.assertEqual(adapter_config.bearer_token, "token")
+
+    def test_codex_runtime_capabilities_lists_global_mcp_servers_without_secrets(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = RuntimeState(Path(temp_dir))
+            completed = type(
+                "Completed",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": json.dumps(
+                        [
+                            {
+                                "name": "github",
+                                "enabled": True,
+                                "transport": {
+                                    "type": "streamable_http",
+                                    "url": "https://api.githubcopilot.com/mcp/",
+                                    "bearer_token_env_var": "GITHUB_PAT_TOKEN",
+                                    "http_headers": {"Authorization": "Bearer secret-token"},
+                                },
+                                "auth_status": "bearer_token",
+                            },
+                            {
+                                "name": "figma",
+                                "enabled": True,
+                                "transport": {
+                                    "type": "stdio",
+                                    "command": "npx",
+                                    "args": ["figma-mcp"],
+                                    "env": {"FIGMA_API_KEY": "secret-key"},
+                                },
+                                "auth_status": "unsupported",
+                            },
+                        ]
+                    ),
+                    "stderr": "",
+                },
+            )()
+
+            with patch("services.retrieval.server.subprocess.run", return_value=completed) as run:
+                result = state.codex_runtime_capabilities()
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["global_mcp"]["server_count"], 2)
+            self.assertTrue(result["retrieval_overrides"]["ignore_user_config"]["overridden"])
+            self.assertTrue(result["retrieval_overrides"]["plugins"]["overridden"])
+            serialized = json.dumps(result)
+            self.assertNotIn("secret-token", serialized)
+            self.assertNotIn("secret-key", serialized)
+            self.assertEqual(result["global_mcp"]["servers"][0]["transport"]["http_header_keys"], ["Authorization"])
+            self.assertEqual(result["global_mcp"]["servers"][1]["transport"]["env_keys"], ["FIGMA_API_KEY"])
+            self.assertEqual(run.call_args.args[0][-3:], ["mcp", "list", "--json"])
+
+    def test_codex_runtime_capabilities_reports_probe_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = RuntimeState(Path(temp_dir))
+            completed = type(
+                "Completed",
+                (),
+                {
+                    "returncode": 1,
+                    "stdout": "",
+                    "stderr": "not logged in",
+                },
+            )()
+
+            with patch("services.retrieval.server.subprocess.run", return_value=completed):
+                with self.assertRaisesRegex(RetrievalServerError, "not logged in"):
+                    state.codex_runtime_capabilities()
+
+    def test_codex_runtime_capabilities_route(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            original_state = getattr(Handler, "state", None)
+            Handler.state = RuntimeState(Path(temp_dir))
+            server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            completed = type(
+                "Completed",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": json.dumps(
+                        [
+                            {
+                                "name": "github",
+                                "enabled": True,
+                                "transport": {"type": "streamable_http", "url": "https://api.githubcopilot.com/mcp/"},
+                                "auth_status": "bearer_token",
+                            }
+                        ]
+                    ),
+                    "stderr": "",
+                },
+            )()
+            try:
+                thread.start()
+                with patch("services.retrieval.server.subprocess.run", return_value=completed):
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{server.server_port}/codex/runtime-capabilities",
+                        timeout=5,
+                    ) as response:
+                        result = json.loads(response.read().decode("utf-8"))
+            finally:
+                server.shutdown()
+                server.server_close()
+                if original_state is None:
+                    delattr(Handler, "state")
+                else:
+                    Handler.state = original_state
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["global_mcp"]["servers"][0]["name"], "github")
 
     def test_provider_auth_is_tool_scoped_and_public_response_hides_secret_values(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -877,18 +993,13 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertEqual(result["workspace_root"], str(selected))
             self.assertFalse(result["cancelled"])
 
-    def test_cgc_failure_message_reports_locked_database(self) -> None:
-        message = _cgc_failure_message(
-            {
-                "stdout": "Database Connection Error: IO exception: Could not set lock on file : C:\\repo\\.codegraphcontext\\db\\kuzudb",
-                "stderr": "",
-            }
-        )
+    def test_structural_graph_failure_message_reports_timeout(self) -> None:
+        message = _structural_graph_failure_message({"reason": "CodeGraph index timed out"})
 
-        self.assertIn("database is locked", message)
-        self.assertIn("Close other running retrieval/indexing jobs", message)
+        self.assertIn("timed out", message)
+        self.assertIn("CodeGraph", message)
 
-    def test_workspace_retrieval_config_uses_workspace_root_for_cgc(self) -> None:
+    def test_workspace_retrieval_config_uses_codegraph_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             workspace = root / "workspace"
@@ -900,21 +1011,37 @@ class RetrievalServerStateTests(unittest.TestCase):
 
             config = state._workspace_retrieval_config(run_dir=workspace / ".guided-intelligence" / "index-prep")
 
-            self.assertEqual(Path(config.cgc_repo_path or ""), workspace)
-            self.assertEqual(Path(config.cgc_db_path), workspace / ".guided-intelligence" / "index" / "cgc-kuzu")
+            self.assertEqual(Path(config.workspace_root), workspace)
+            self.assertTrue(config.structural_graph_enabled)
+            self.assertEqual(config.structural_graph_timeout_seconds, 900)
 
-    def test_sync_cgcignore_writes_managed_excludes(self) -> None:
+    def test_temporary_codegraph_excludes_preserve_and_restore_user_config(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            (workspace / ".cgcignore").write_text("dist/\n", encoding="utf-8")
+            (workspace / "codegraph.json").write_text('{"exclude": ["dist"]}\n', encoding="utf-8")
 
-            _sync_cgcignore(workspace, ("node_modules", "coverage", "generated/file.ts"))
+            snapshot = install_temporary_codegraph_excludes(
+                workspace,
+                ("node_modules", "coverage", "generated/file.ts"),
+            )
 
-            raw = (workspace / ".cgcignore").read_text(encoding="utf-8")
-            self.assertIn("dist/", raw)
-            self.assertIn("node_modules/", raw)
-            self.assertIn("coverage/", raw)
+            raw = (workspace / "codegraph.json").read_text(encoding="utf-8")
+            self.assertIn("dist", raw)
+            self.assertIn("node_modules", raw)
+            self.assertIn("coverage", raw)
             self.assertIn("generated/file.ts", raw)
+            restore_codegraph_config(snapshot)
+            self.assertEqual((workspace / "codegraph.json").read_text(encoding="utf-8"), '{"exclude": ["dist"]}\n')
+
+    def test_temporary_codegraph_excludes_remove_generated_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            snapshot = install_temporary_codegraph_excludes(workspace, ("node_modules", "coverage"))
+
+            self.assertTrue((workspace / "codegraph.json").exists())
+            restore_codegraph_config(snapshot)
+            self.assertFalse((workspace / "codegraph.json").exists())
 
 
 if __name__ == "__main__":

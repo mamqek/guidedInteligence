@@ -100,7 +100,7 @@ def qdrant_tool_specs() -> tuple[ToolSpec, ...]:
             title="Qdrant Hybrid Chunk Search",
             description=(
                 "Dense+sparse hybrid search over indexed repository chunks stored in Qdrant. "
-                "Use for initial candidate discovery after CGC narrowing."
+                "Use for conceptual candidate discovery, optionally boosted by exact-symbol CodeGraph narrowing."
             ),
             arguments={
                 "query": "Required string. Role- or issue-derived retrieval query.",
@@ -139,4 +139,3 @@ def _result_to_payload(result: Any) -> dict[str, Any]:
         "matched_terms": list(result.matched_terms),
         "visibility": str(chunk.metadata.get("visibility", "")),
     }
-

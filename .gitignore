@@ -22,7 +22,6 @@ node_modules/
 
 # Local code-graph indexes and generated runtime state
 .codegraph/
-.codegraphcontext/
 .guided-intelligence/
 .tmp/
 

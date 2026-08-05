@@ -12,7 +12,7 @@ from services.retrieval.workspace.pipeline.execution_flow.context import Workspa
 from services.retrieval.workspace.pipeline.execution_flow.connected_sources_flow import connected_source_context
 from services.retrieval.workspace.pipeline.execution_flow.index_setup import (
     build_step2_repo_context,
-    cgc_tools as build_cgc_tools,
+    structural_tools as build_structural_tools,
     rebuild_index,
 )
 from services.retrieval.workspace.pipeline.execution_flow.narrowing import run_initial_narrowing
@@ -72,15 +72,15 @@ def run_workspace_retrieval(
             },
         )
 
-    # Step 2: Refresh CGC and sync BM25/Qdrant indexes.
+    # Step 2: Refresh CodeGraph and sync BM25/Qdrant indexes.
     prompt_evidence = extract_prompt_evidence(state, policy_result.allowed_sources)
-    cgc_tools = build_cgc_tools(ctx)
-    # CGC refresh runs before semantic search so downstream graph/file anchors are based on the current workspace.
+    structural_tools = build_structural_tools(ctx)
+    # Structural refresh runs before semantic search so downstream graph/file anchors are based on the current workspace.
     if ctx.config.enable_indexing:
 
         # ///////////////////////
-        cgc_stage_started = ctx.trace.start_stage(
-            "index_cgc",
+        structural_stage_started = ctx.trace.start_stage(
+            "index_structural_graph",
             "Refreshing the code graph",
             workspace_root=ctx.config.workspace_root,
             index_dir=ctx.config.index_dir,
@@ -90,7 +90,7 @@ def run_workspace_retrieval(
 
         # ///////////////////////
         ctx.trace.record(
-            "workspace_index_cgc_started",
+            "workspace_index_structural_graph_started",
             {
                 "workspace_root": ctx.config.workspace_root,
                 "index_dir": ctx.config.index_dir,
@@ -98,22 +98,22 @@ def run_workspace_retrieval(
         )
         # ///////////////////////
 
-        index_observation = cgc_tools["cgc_index_repo"].run(
-            ToolRequest(tool_name="cgc_index_repo", arguments={}, reason="mandatory code graph refresh")
+        index_observation = structural_tools["structural_index_repo"].run(
+            ToolRequest(tool_name="structural_index_repo", arguments={}, reason="mandatory structural graph refresh")
         )
 
         # ///////////////////////
-        ctx.trace.record_tool(ToolRequest(tool_name="cgc_index_repo", arguments={}), index_observation, round_index=0)
+        ctx.trace.record_tool(ToolRequest(tool_name="structural_index_repo", arguments={}), index_observation, round_index=0)
         # ///////////////////////
 
         if index_observation.status != "ok":
-            return failed_result(ctx, None, failure="cgc_index_failed", observation=index_observation)
+            return failed_result(ctx, None, failure="structural_index_failed", observation=index_observation)
 
         # ///////////////////////
         ctx.trace.complete_stage(
-            "index_cgc",
+            "index_structural_graph",
             "Refreshing the code graph",
-            cgc_stage_started,
+            structural_stage_started,
             status="ok",
         )
         # ///////////////////////
@@ -121,14 +121,14 @@ def run_workspace_retrieval(
     else:
         # Disabled indexing still produces a traceable observation so later summaries do not need special cases.
         index_observation = ToolObservation(
-            tool_name="cgc_index_repo",
+            tool_name="structural_index_repo",
             status="ok",
             payload={"skipped": True, "reason": "indexing_disabled"},
             metadata={"result_count": "1", "command": "skipped_indexing_disabled"},
         )
 
         # ///////////////////////
-        ctx.trace.record_tool(ToolRequest(tool_name="cgc_index_repo", arguments={}), index_observation, round_index=0)
+        ctx.trace.record_tool(ToolRequest(tool_name="structural_index_repo", arguments={}), index_observation, round_index=0)
         # ///////////////////////
 
 
@@ -221,7 +221,7 @@ def run_workspace_retrieval(
     step2_repo_context, preplan_tool_calls = build_step2_repo_context(
         ctx,
         prompt_evidence,
-        cgc_tools["cgc_find_code"],
+        structural_tools["structural_find_exact_symbol"],
         index,
         connected_context=connected_context,
     )
@@ -300,7 +300,7 @@ def run_workspace_retrieval(
     global_narrowed_files, narrowing_observations, tool_call_count = run_initial_narrowing(
         ctx,
         retrieval_plan=retrieval_plan,
-        cgc_find_tool=cgc_tools["cgc_find_code"],
+        structural_find_tool=structural_tools["structural_find_exact_symbol"],
         preplan_tool_calls=preplan_tool_calls,
     )
 
@@ -317,7 +317,7 @@ def run_workspace_retrieval(
     if global_narrowed_files is None:
         # If structural narrowing fails, continuing would turn role retrieval into noisy whole-repo search.
         failed_observation = narrowing_observations[0] if narrowing_observations else index_observation
-        return failed_result(ctx, retrieval_plan, failure="cgc_narrowing_failed", observation=failed_observation)
+        return failed_result(ctx, retrieval_plan, failure="structural_narrowing_failed", observation=failed_observation)
 
     # Step 6: Run the bounded retrieval loop.
     # The loop owns role retrieval, refinement, synthesis, recovery, protocol bridging, and deferred role promotion.
@@ -327,7 +327,7 @@ def run_workspace_retrieval(
         retrieval_plan=retrieval_plan,
         qdrant_tool=qdrant_tool,
         open_file_tool=open_file_tool,
-        cgc_tools=cgc_tools,
+        structural_tools=structural_tools,
         narrowed_files=global_narrowed_files,
         starting_tool_call_count=tool_call_count,
     )
@@ -459,9 +459,9 @@ def run_workspace_retrieval(
         "promoted_objectives": list(loop_result.promoted_objectives),
         "round_summaries": [dict(item) for item in loop_result.round_summaries],
         "stop_reason": loop_result.stop_reason or synthesis_decision.stop_reason or "late_synthesis_complete",
-        "cgc_command_prefix": list(ctx.config.cgc_command),
-        "cgc_index_command": index_observation.payload.get("command", []),
-        "cgc_narrowed_file_count": len(global_narrowed_files),
+        "structural_graph_provider": "codegraph",
+        "structural_index_provider": "codegraph",
+        "structural_narrowed_file_count": len(global_narrowed_files),
         "qdrant_path_filter_count": len(global_narrowed_files),
         "required_role_buckets": [bucket.to_dict() for bucket in required_buckets],
         "supporting_role_buckets": [bucket.to_dict() for bucket in supporting_buckets],

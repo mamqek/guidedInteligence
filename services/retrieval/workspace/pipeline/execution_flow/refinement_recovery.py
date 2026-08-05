@@ -56,13 +56,13 @@ def refine_selected_role_buckets(
         rescue_roles: Sequence[str],
         qdrant_tool: QdrantHybridSearchTool,
         open_file_tool: OpenFileTool,
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
         starting_tool_call_count: int,
     ) -> tuple[tuple[RoleRetrievalBucket, ...], int]:
         if not buckets:
             return (), starting_tool_call_count
         anchors = _accepted_anchor_records_flow(buckets)
-        anchor_support, tool_call_count = _build_anchor_support_flow(ctx, anchors=anchors, cgc_tools=cgc_tools)
+        anchor_support, tool_call_count = _build_anchor_support_flow(ctx, anchors=anchors, structural_tools=structural_tools)
         total_tool_calls = starting_tool_call_count + tool_call_count
         refined_buckets: list[RoleRetrievalBucket] = []
         for bucket in buckets:
@@ -74,7 +74,7 @@ def refine_selected_role_buckets(
                 anchor_support=anchor_support,
                 qdrant_tool=qdrant_tool,
                 open_file_tool=open_file_tool,
-                cgc_tools=cgc_tools,
+                structural_tools=structural_tools,
             )
             refined_buckets.append(updated_bucket)
             total_tool_calls += bucket_tool_calls
@@ -113,7 +113,7 @@ def recover_weak_role_buckets(
         synthesis_decision: RetrievalSynthesisDecision,
         qdrant_tool: QdrantHybridSearchTool,
         open_file_tool: OpenFileTool,
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
         narrowed_files: Sequence[str],
         starting_tool_call_count: int,
     ) -> tuple[tuple[RoleRetrievalBucket, ...], int, RetrievalSynthesisDecision]:
@@ -140,7 +140,7 @@ def recover_weak_role_buckets(
             if bucket.role in retrieval_plan.required_roles and bucket.role_status == "strong" and bucket.satisfying_refs
         )
         anchors = _accepted_anchor_records_flow(strong_required_buckets)
-        anchor_support, support_tool_calls = _build_anchor_support_flow(ctx, anchors=anchors, cgc_tools=cgc_tools) if anchors else (
+        anchor_support, support_tool_calls = _build_anchor_support_flow(ctx, anchors=anchors, structural_tools=structural_tools) if anchors else (
             AnchorSupport(accepted_anchors={}, dependency_paths_by_anchor={}, call_paths_by_anchor={}),
             0,
         )
@@ -155,7 +155,7 @@ def recover_weak_role_buckets(
                 follow_up_queries=tuple(follow_up_by_role.get(bucket.role, ())),
                 qdrant_tool=qdrant_tool,
                 open_file_tool=open_file_tool,
-                cgc_tools=cgc_tools,
+                structural_tools=structural_tools,
                 anchor_support=anchor_support,
                 narrowed_files=narrowed_files,
                 all_buckets=tuple(recovered_buckets),
@@ -183,7 +183,7 @@ def recover_weak_role_bucket(
         follow_up_queries: Sequence[str],
         qdrant_tool: QdrantHybridSearchTool,
         open_file_tool: OpenFileTool,
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
         anchor_support: AnchorSupport,
         narrowed_files: Sequence[str],
         all_buckets: Sequence[RoleRetrievalBucket],
@@ -193,7 +193,7 @@ def recover_weak_role_bucket(
             mode="late_recovery",
             qdrant_tool=qdrant_tool,
             open_file_tool=open_file_tool,
-            cgc_tools=cgc_tools,
+            structural_tools=structural_tools,
             anchor_support=anchor_support,
             search_specs=build_late_recovery_followup_specs(
                 ctx,
@@ -324,7 +324,7 @@ def run_role_followup_pipeline(
         mode: str,
         qdrant_tool: QdrantHybridSearchTool,
         open_file_tool: OpenFileTool,
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
         anchor_support: AnchorSupport,
         search_specs: Sequence[Mapping[str, Any]],
     ) -> tuple[RoleRetrievalBucket, int, bool]:
@@ -383,8 +383,8 @@ def run_role_followup_pipeline(
                         helper_queries=bucket.helper_queries,
                         candidate=enriched_candidate,
                         anchor_support=anchor_support,
-                        cgc_tools=cgc_tools,
-                        allow_cgc_queries=False,
+                        structural_tools=structural_tools,
+                        allow_structural_queries=False,
                     )
                     initial_evaluations.append(
                         RoleCandidateEvaluation(
@@ -436,8 +436,8 @@ def run_role_followup_pipeline(
                     helper_queries=bucket.helper_queries,
                     candidate=refined_candidate,
                     anchor_support=anchor_support,
-                    cgc_tools=cgc_tools,
-                    allow_cgc_queries=False,
+                    structural_tools=structural_tools,
+                    allow_structural_queries=False,
                 )
                 initial_evaluations.append(
                     RoleCandidateEvaluation(
@@ -490,8 +490,8 @@ def run_role_followup_pipeline(
                 helper_queries=bucket.helper_queries,
                 candidate=candidate,
                 anchor_support=anchor_support,
-                cgc_tools=cgc_tools,
-                allow_cgc_queries=True,
+                structural_tools=structural_tools,
+                allow_structural_queries=True,
             )
             verified_evaluations.append(
                 RoleCandidateEvaluation(
@@ -569,7 +569,7 @@ def refine_selected_role_bucket(
         anchor_support: AnchorSupport,
         qdrant_tool: QdrantHybridSearchTool,
         open_file_tool: OpenFileTool,
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
     ) -> tuple[RoleRetrievalBucket, int]:
         if not bucket.accepted_candidates:
             return bucket, 0
@@ -578,7 +578,7 @@ def refine_selected_role_bucket(
             mode="snippet_refinement",
             qdrant_tool=qdrant_tool,
             open_file_tool=open_file_tool,
-            cgc_tools=cgc_tools,
+            structural_tools=structural_tools,
             anchor_support=anchor_support,
             search_specs=build_snippet_followup_specs(ctx, bucket),
         )

@@ -7,15 +7,12 @@ from typing import Any, Mapping, Protocol, Sequence
 ALLOWED_TOOL_NAMES = frozenset(
     {
         "qdrant_hybrid_search",
-        "codegraph_search",
         "open_file",
-        "cgc_index_repo",
-        "cgc_find_code",
-        "cgc_analyze_callers",
-        "cgc_analyze_callees",
-        "cgc_query_graph",
-        "cgc_analyze_deps",
-        "cgc_run_cli",
+        "structural_index_repo",
+        "structural_find_exact_symbol",
+        "structural_callers",
+        "structural_callees",
+        "structural_relationship",
     }
 )
 

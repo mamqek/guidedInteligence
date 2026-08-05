@@ -11,6 +11,7 @@ class AnchorRecord:
     source_id: str
     symbol: str | None
     text: str
+    line_start: int = 1
 
 
 @dataclass(frozen=True)

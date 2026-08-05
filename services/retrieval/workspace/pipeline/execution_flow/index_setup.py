@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# Owns workspace index/tool setup: CGC tool construction, BM25/Qdrant synchronization, and Step2 repository context hints. Do not place role retrieval, candidate validation, synthesis, or connected-source orchestration here.
+# Owns workspace index/tool setup: CodeGraph tool construction, BM25/Qdrant synchronization, and Step2 repository context hints. Do not place role retrieval, candidate validation, synthesis, or connected-source orchestration here.
 
 from pathlib import Path
 from typing import Any, Mapping
@@ -14,28 +14,13 @@ from services.retrieval.workspace.pipeline.index_flow import (
     sync_manifest_scope_matches as _sync_manifest_scope_matches,
 )
 from services.retrieval.workspace.step2.common import merge_paths, ordered_unique
-from services.retrieval.workspace.tools import (
-    CGCAnalyzeCalleesTool,
-    CGCAnalyzeCallersTool,
-    CGCFindCodeTool,
-    CGCIndexRepoTool,
-    CGCQueryGraphTool,
-    CGCRunCliTool,
-    QdrantHybridSearchTool,
-    ToolRequest,
-)
+from services.retrieval.workspace.tools import QdrantHybridSearchTool, ToolRequest, codegraph_tools
 from services.retrieval.workspace.tools.local import build_repo_sketch, file_role as tool_file_role
 
 
-def cgc_tools(ctx: WorkspaceRetrievalContext) -> dict[str, Any]:
-    return {
-        "cgc_index_repo": CGCIndexRepoTool(ctx.config),
-        "cgc_find_code": CGCFindCodeTool(ctx.config),
-        "cgc_analyze_callers": CGCAnalyzeCallersTool(ctx.config),
-        "cgc_analyze_callees": CGCAnalyzeCalleesTool(ctx.config),
-        "cgc_query_graph": CGCQueryGraphTool(ctx.config),
-        "cgc_run_cli": CGCRunCliTool(ctx.config),
-    }
+def structural_tools(ctx: WorkspaceRetrievalContext) -> dict[str, Any]:
+    tools, _bridge = codegraph_tools(ctx.config)
+    return tools
 
 
 def rebuild_index(ctx: WorkspaceRetrievalContext) -> Any:
@@ -153,7 +138,7 @@ def rebuild_index(ctx: WorkspaceRetrievalContext) -> Any:
 def build_step2_repo_context(
     ctx: WorkspaceRetrievalContext,
     prompt_evidence: Any,
-    cgc_find_tool: CGCFindCodeTool,
+    structural_find_tool: Any,
     index: Any,
     *,
     connected_context: ConnectedSourceContextResult | None = None,
@@ -180,11 +165,11 @@ def build_step2_repo_context(
     )
     for entity in entity_candidates[:8]:
         request = ToolRequest(
-            tool_name="cgc_find_code",
-            arguments={"query": entity, "limit": min(ctx.config.cgc_max_files_for_bm25, 8)},
+            tool_name="structural_find_exact_symbol",
+            arguments={"query": entity, "limit": min(ctx.config.structural_graph_max_files, 8)},
             reason="Confirm whether a prompt or connected-source entity maps to implementation files before step-2 planning.",
         )
-        observation = cgc_find_tool.run(request)
+        observation = structural_find_tool.run(request)
         ctx.trace.record_tool(request, observation, round_index=-1)
         tool_calls += 1
         implementation_files = [

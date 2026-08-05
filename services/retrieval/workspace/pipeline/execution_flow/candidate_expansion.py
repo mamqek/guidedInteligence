@@ -29,6 +29,7 @@ from services.retrieval.workspace.pipeline.file_level import (
     has_role_owner_candidate as _has_role_owner_candidate,
     is_generic_reference_hub as _is_generic_reference_hub,
     iterative_code_context_queries as _iterative_code_context_queries,
+    line_start_from_range as _line_start_from_range,
     owner_artifact_path_match as _owner_artifact_path_match,
     rank_unique_candidates as _rank_unique_candidates,
     resolve_explicit_reference_path as _resolve_explicit_reference_path,
@@ -71,6 +72,7 @@ def preliminary_responsibility_anchors(
                         source_id=candidate.source_id,
                         symbol=_candidate_symbol(candidate),
                         text=candidate.text,
+                        line_start=_line_start_from_range(candidate.line_range),
                     )
                 )
                 selected += 1
@@ -86,7 +88,7 @@ def expand_responsibility_candidates(
         expansion_intents: Sequence[ResponsibilityExpansionIntent],
         qdrant_tool: QdrantHybridSearchTool,
         open_file_tool: OpenFileTool,
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
     ) -> tuple[dict[str, tuple[RetrievalCandidate, ...]], dict[str, tuple[str, ...]], int]:
         expanded: dict[str, list[RetrievalCandidate]] = {}
         graph_paths: dict[str, list[str]] = {}
@@ -158,15 +160,15 @@ def expand_responsibility_candidates(
                 ).support_only
             ][:4]
             for source_candidate in weak_sources:
-                symbol = _candidate_symbol(source_candidate)
-                if not symbol:
+                line_start = _line_start_from_range(source_candidate.line_range)
+                if not source_candidate.path or line_start <= 0:
                     continue
                 request = ToolRequest(
-                    tool_name="cgc_analyze_callers",
-                    arguments={"symbol": symbol, "file": source_candidate.path or ""},
+                    tool_name="structural_callers",
+                    arguments={"file": source_candidate.path, "line": line_start},
                     reason=f"Move upward from a support-only {role} candidate to likely owner callers.",
                 )
-                observation = cgc_tools["cgc_analyze_callers"].run(request)
+                observation = structural_tools["structural_callers"].run(request)
                 ctx.trace.record_tool(request, observation, round_index=0)
                 tool_calls += 1
                 candidate_paths = _anchor_support_paths(observation)
@@ -182,7 +184,7 @@ def expand_responsibility_candidates(
                             "source_category": "source_code",
                             "file_role": "implementation",
                         },
-                        reason=f"Target the upward CGC owner candidate for {role}.",
+                        reason=f"Target the upward structural owner candidate for {role}.",
                     )
                     observation = qdrant_tool.run(request)
                     ctx.trace.record_tool(request, observation, round_index=0)
