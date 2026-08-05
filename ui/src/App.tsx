@@ -286,6 +286,9 @@ export function App() {
               workspaces={workspaces}
               setConfig={setConfig}
               estimate={indexEstimate}
+              indexPrepareLoading={indexPrepareLoading}
+              indexPrepareMessage={indexPrepareMessage}
+              onPrepareIndex={prepareIndex}
               refreshBase={refreshBase}
               onOpenWorkspace={openWorkspace}
             />
@@ -395,37 +398,13 @@ function RunPanel(props: {
       {help && <InfoDialog help={help} onClose={() => setHelp(null)} />}
       {props.blocked && <p className="noticeText">Answer the current understanding checks before starting another run.</p>}
       {!isCodexMode && props.indexEstimate?.enable_indexing && props.indexEstimate.file_count > 0 && (
-        <div className={props.indexPrepareLoading ? "indexNotice running" : props.indexEstimate.index_ready ? "indexNotice ready" : "indexNotice"}>
-          <div className="indexNoticeText">
-            <strong>
-              {props.indexPrepareLoading
-                ? "Indexing is running."
-                : props.indexEstimate.index_ready
-                  ? "Index is ready."
-                  : "Indexing may run before retrieval."}
-            </strong>
-            <span>
-              Scope: {formatCount(props.indexEstimate.file_count)} files, about {formatCount(props.indexEstimate.estimated_chunks)} chunks.
-              {props.indexEstimate.index_ready
-                ? ` ${props.indexEstimate.index_status_detail || ""}`
-                : ` Estimate: ${formatIndexEstimateDuration(props.indexEstimate)}.`}
-              {props.indexEstimate.index_last_built_at ? ` Last prepared: ${formatDateTime(props.indexEstimate.index_last_built_at)}.` : ""}
-              {" "}
-              {!props.indexEstimate.index_ready && (
-                <>
-                  If that is too long, open Workspace and add folders to "Do not index these directories/files", then refresh the estimate.
-                  {" "}
-                </>
-              )}
-              <button className="inlineLinkButton" type="button" onClick={props.onConfigureIndexing}>
-                Edit exclusions in Workspace
-              </button>
-            </span>
-          </div>
-          <button className="textButton indexButton" type="button" disabled={props.indexPrepareLoading} onClick={props.onPrepareIndex}>
-            {props.indexPrepareLoading ? "Preparing..." : props.indexEstimate.index_ready ? "Refresh index" : "Prepare index"}
-          </button>
-        </div>
+        <IndexPreparationNotice
+          estimate={props.indexEstimate}
+          indexPrepareLoading={props.indexPrepareLoading}
+          onPrepareIndex={props.onPrepareIndex}
+          onConfigureIndexing={props.onConfigureIndexing}
+          indexingEnabled={props.indexEstimate.enable_indexing}
+        />
       )}
       {!isCodexMode && props.indexPrepareMessage && <p className="noticeText">{props.indexPrepareMessage}</p>}
       {props.runError && <p className="errorText">{props.runError}</p>}
@@ -433,6 +412,53 @@ function RunPanel(props: {
         {props.runLoading ? "Running..." : "Run retrieval"}
       </button>
     </section>
+  );
+}
+
+function IndexPreparationNotice({
+  estimate,
+  indexPrepareLoading,
+  onPrepareIndex,
+  onConfigureIndexing,
+  indexingEnabled = true,
+}: {
+  estimate: IndexEstimate;
+  indexPrepareLoading: boolean;
+  onPrepareIndex: () => void;
+  onConfigureIndexing?: () => void;
+  indexingEnabled?: boolean;
+}) {
+  const ready = Boolean(estimate.index_ready);
+  return (
+    <div className={indexPrepareLoading ? "indexNotice running" : ready ? "indexNotice ready" : "indexNotice"}>
+      <div className="indexNoticeText">
+        <strong>{indexPrepareLoading ? "Indexing is running." : ready ? "Index is ready." : "Index is not prepared."}</strong>
+        <span>
+          Prepares native retrieval for BM25, Qdrant, and CodeGraph. Scope: {formatCount(estimate.file_count)} files, about {formatCount(estimate.estimated_chunks)} chunks.
+          {!indexingEnabled
+            ? " Enable indexing and save retrieval settings before preparing the index."
+            : ready
+              ? ` ${estimate.index_status_detail || ""}`
+              : ` Run indexing before retrieval for best results. Estimate: ${formatIndexEstimateDuration(estimate)}.`}
+          {estimate.index_last_built_at ? ` Last prepared: ${formatDateTime(estimate.index_last_built_at)}.` : ""}
+          {" "}
+          {!ready && onConfigureIndexing && (
+            <>
+              If that is too long, open Workspace and add folders to "Do not index these directories/files", then refresh the estimate.
+              {" "}
+            </>
+          )}
+          {onConfigureIndexing && (
+            <button className="inlineLinkButton" type="button" onClick={onConfigureIndexing}>
+              Edit exclusions in Workspace
+            </button>
+          )}
+        </span>
+      </div>
+      <button className="textButton indexButton" type="button" disabled={indexPrepareLoading || !indexingEnabled} onClick={onPrepareIndex}>
+        {indexPrepareLoading ? "Preparing..." : ready ? "Refresh index" : "Prepare index"}
+      </button>
+    </div>
   );
 }
 
@@ -1526,6 +1552,9 @@ function WorkspaceIndexPanel({
   workspaces: LoadState<WorkspaceEntry[]>;
   setConfig: (state: LoadState<AppConfig>) => void;
   estimate: LoadState<IndexEstimate>;
+  indexPrepareLoading: boolean;
+  indexPrepareMessage: string;
+  onPrepareIndex: () => void;
   refreshBase: () => void;
   onOpenWorkspace: (workspaceRoot: string) => void | Promise<void>;
 }) {
@@ -1744,6 +1773,14 @@ function WorkspaceIndexPanel({
                 Codex mode reads the selected workspace directly and does not use BM25, embeddings, Qdrant, or CodeGraph indexing.
               </p>
             )}
+            {retrieval.mode !== "codex" && estimate.data && estimate.data.file_count > 0 && (
+              <IndexPreparationNotice
+                estimate={estimate.data}
+                indexPrepareLoading={indexPrepareLoading}
+                onPrepareIndex={onPrepareIndex}
+                indexingEnabled={estimate.data.enable_indexing}
+              />
+            )}
           </>
         )}
         {!isCodexMode && indexing && (
@@ -1777,6 +1814,7 @@ function WorkspaceIndexPanel({
         {!isCodexMode && estimate.data?.index_estimate_notes?.map((note) => (
           <p className="noticeText" key={note}>{note}</p>
         ))}
+        {!isCodexMode && indexPrepareMessage && <p className="noticeText">{indexPrepareMessage}</p>}
         <button className="primaryButton" type="button" disabled={!config.data || saving} onClick={saveIndexing}>
           {saving ? "Saving..." : "Save retrieval settings"}
         </button>
