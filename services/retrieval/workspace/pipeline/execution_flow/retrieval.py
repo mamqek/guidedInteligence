@@ -221,7 +221,7 @@ def run_workspace_retrieval(
     step2_repo_context, preplan_tool_calls = build_step2_repo_context(
         ctx,
         prompt_evidence,
-        structural_tools["structural_find_exact_symbol"],
+        structural_tools["structural_search_symbols"],
         index,
         connected_context=connected_context,
     )

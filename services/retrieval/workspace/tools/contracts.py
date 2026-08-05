@@ -10,6 +10,7 @@ ALLOWED_TOOL_NAMES = frozenset(
         "open_file",
         "structural_index_repo",
         "structural_find_exact_symbol",
+        "structural_search_symbols",
         "structural_callers",
         "structural_callees",
         "structural_relationship",

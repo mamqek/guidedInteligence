@@ -83,6 +83,68 @@ function uniqueFiles(nodes, limit = 50) {
   return files;
 }
 
+function queryWords(value) {
+  return String(value || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .match(/[a-z0-9_]+/g)
+    ?.filter((word) => word.length >= 2) || [];
+}
+
+function rankedSymbolMatches(codegraph, query, limit) {
+  const matches = [];
+  const seen = new Set();
+
+  function add(node, details) {
+    if (!node?.id || seen.has(node.id) || matches.length >= limit) return;
+    seen.add(node.id);
+    matches.push({
+      ...nodePayload(node),
+      ...details,
+      rank: matches.length + 1,
+    });
+  }
+
+  for (const node of exactNodes(codegraph, query)) {
+    add(node, {
+      match_type: "exact_symbol",
+      matched_words: queryWords(query),
+      search_score: null,
+      confirmed: true,
+    });
+  }
+
+  const words = queryWords(query);
+  if (words.length) {
+    const segments = codegraph
+      .getSegmentMatches(words, Math.max(limit * 3, 12))
+      .sort((left, right) => right.matchedWords.length - left.matchedWords.length);
+    for (const segment of segments) {
+      const node = exactNodes(codegraph, segment.name, segment.filePath).find(
+        (candidate) => Number(candidate.startLine || 0) === Number(segment.startLine || 0),
+      );
+      if (!node) continue;
+      const matchedWords = [...new Set(segment.matchedWords.map((word) => String(word).toLowerCase()))];
+      add(node, {
+        match_type: matchedWords.length >= 2 ? "segment_cooccurrence" : "segment_single",
+        matched_words: matchedWords,
+        search_score: null,
+        confirmed: matchedWords.length >= 2,
+      });
+    }
+  }
+
+  for (const result of codegraph.searchNodes(query, { limit: Math.max(limit * 3, 12) })) {
+    add(result.node, {
+      match_type: "ranked_symbol",
+      matched_words: [],
+      search_score: Number(result.score || 0),
+      confirmed: false,
+    });
+  }
+  return matches;
+}
+
 async function indexRepository() {
   const initialized = CodeGraph.isInitialized(projectRoot);
   const codegraph = await openGraph();
@@ -102,6 +164,23 @@ async function findExactSymbol(args) {
   const nodes = exactNodes(codegraph, args.query);
   const limit = Math.max(1, Math.min(Number(args.limit || 20), 100));
   return { query: String(args.query || ""), nodes: nodes.slice(0, limit).map(nodePayload), files: uniqueFiles(nodes, limit) };
+}
+
+async function searchSymbols(args) {
+  const codegraph = await openGraph();
+  const queries = [...new Set((Array.isArray(args.queries) ? args.queries : []).map((value) => String(value || "").trim()).filter(Boolean))].slice(0, 12);
+  const limit = Math.max(1, Math.min(Number(args.limit_per_query || 6), 20));
+  const results = queries.map((query) => ({ query, matches: rankedSymbolMatches(codegraph, query, limit) }));
+  const files = [];
+  const seenFiles = new Set();
+  for (const result of results) {
+    for (const match of result.matches) {
+      if (!match.path || seenFiles.has(match.path)) continue;
+      seenFiles.add(match.path);
+      files.push({ path: match.path, name: match.name, kind: match.kind, line: match.line_start });
+    }
+  }
+  return { queries, results, files };
 }
 
 async function analyzeCalls(args, direction) {
@@ -170,6 +249,7 @@ async function relationshipBetweenFiles(args) {
 async function dispatch(operation, args) {
   if (operation === "index") return indexRepository();
   if (operation === "find_exact_symbol") return findExactSymbol(args);
+  if (operation === "search_symbols") return searchSymbols(args);
   if (operation === "callers") return analyzeCalls(args, "callers");
   if (operation === "callees") return analyzeCalls(args, "callees");
   if (operation === "relationship_between_files") return relationshipBetweenFiles(args);

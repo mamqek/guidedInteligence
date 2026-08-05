@@ -2121,7 +2121,15 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             with patch(
                 "services.retrieval.workspace.pipeline.execution_flow.connected_sources_flow.ObsidianHybridSearchAdapter.search",
                 return_value=(note_result,),
-            ), patch("services.retrieval.workspace.tools.codegraph.CodeGraphFindExactSymbolTool.run") as fake_structural_find:
+            ), patch("services.retrieval.workspace.tools.codegraph.CodeGraphSearchSymbolsTool.run") as fake_structural_search, patch(
+                "services.retrieval.workspace.tools.codegraph.CodeGraphFindExactSymbolTool.run"
+            ) as fake_structural_find:
+                fake_structural_search.return_value = ToolObservation(
+                    tool_name="structural_search_symbols",
+                    status="ok",
+                    payload={"results": [], "files": []},
+                    metadata={"result_count": "0"},
+                )
                 fake_structural_find.return_value = ToolObservation(
                     tool_name="structural_find_exact_symbol",
                     status="ok",
@@ -3125,6 +3133,7 @@ class _fake_structural:
     def __enter__(self):
         operation_keys = {
             "find_exact_symbol": ("find",),
+            "search_symbols": ("search",),
             "callers": ("analyze", "callers"),
             "callees": ("analyze", "calls"),
         }
@@ -3144,6 +3153,32 @@ class _fake_structural:
                     "target_depends_on_source": False,
                 }
             active_files = self.files_by_command.get(command_key, self.files)
+            if operation == "search_symbols":
+                queries = list((arguments or {}).get("queries", ()))
+                return {
+                    "files": active_files,
+                    "results": [
+                        {
+                            "query": query,
+                            "matches": [
+                                {
+                                    "name": "match",
+                                    "qualified_name": "match",
+                                    "kind": "function",
+                                    "path": str(item["path"]),
+                                    "line_start": 1,
+                                    "line_end": 1,
+                                    "match_type": "exact_symbol",
+                                    "matched_words": [str(query).lower()],
+                                    "search_score": None,
+                                    "confirmed": True,
+                                }
+                                for item in active_files
+                            ],
+                        }
+                        for query in queries
+                    ],
+                }
             return {
                 "files": active_files,
                 "nodes": [

@@ -3,7 +3,7 @@ from __future__ import annotations
 # Owns workspace index/tool setup: CodeGraph tool construction, BM25/Qdrant synchronization, and Step2 repository context hints. Do not place role retrieval, candidate validation, synthesis, or connected-source orchestration here.
 
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, build_index_from_repo, load_index, save_index
 from services.retrieval.workspace.connected_context import ConnectedSourceContextResult
@@ -138,7 +138,7 @@ def rebuild_index(ctx: WorkspaceRetrievalContext) -> Any:
 def build_step2_repo_context(
     ctx: WorkspaceRetrievalContext,
     prompt_evidence: Any,
-    structural_find_tool: Any,
+    structural_search_tool: Any,
     index: Any,
     *,
     connected_context: ConnectedSourceContextResult | None = None,
@@ -147,6 +147,7 @@ def build_step2_repo_context(
     confirmed_entities: list[str] = []
     confirmed_file_hints: list[str] = []
     anchor_examples: list[dict[str, Any]] = []
+    candidate_anchor_examples: list[dict[str, Any]] = []
     tool_calls = 0
     connected_context = connected_context or ConnectedSourceContextResult()
     indexed_paths = {document.chunk.path for document in index.documents}
@@ -163,35 +164,62 @@ def build_step2_repo_context(
             *connected_context.retrieval_terms,
         )
     )
-    for entity in entity_candidates[:8]:
+    selected_entities = entity_candidates[:8]
+    search_results: Sequence[Any] = ()
+    if selected_entities:
         request = ToolRequest(
-            tool_name="structural_find_exact_symbol",
-            arguments={"query": entity, "limit": min(ctx.config.structural_graph_max_files, 8)},
-            reason="Confirm whether a prompt or connected-source entity maps to implementation files before step-2 planning.",
+            tool_name="structural_search_symbols",
+            arguments={"queries": list(selected_entities), "limit_per_query": min(ctx.config.structural_graph_max_files, 8)},
+            reason="Rank prompt and connected-source terms against repository symbols before step-2 planning.",
         )
-        observation = structural_find_tool.run(request)
+        observation = structural_search_tool.run(request)
         ctx.trace.record_tool(request, observation, round_index=-1)
         tool_calls += 1
-        implementation_files = [
-            str(item.get("path", "")).strip().replace("\\", "/")
-            for item in observation.payload.get("files", ())
+        if observation.status == "ok" and isinstance(observation.payload.get("results"), Sequence):
+            search_results = observation.payload.get("results", ())
+
+    result_by_query = {
+        str(item.get("query", "")).strip(): item
+        for item in search_results
+        if isinstance(item, Mapping) and str(item.get("query", "")).strip()
+    }
+    for entity in selected_entities:
+        result = result_by_query.get(entity, {})
+        matches = [
+            item
+            for item in result.get("matches", ())
             if isinstance(item, Mapping) and _is_step2_repo_path_allowed(str(item.get("path", "")))
-        ]
-        if implementation_files:
+        ] if isinstance(result, Mapping) else []
+        confirmed_matches = [item for item in matches if bool(item.get("confirmed"))]
+        candidate_matches = [item for item in matches if not bool(item.get("confirmed"))]
+        confirmed_files = list(
+            ordered_unique(str(item.get("path", "")).strip().replace("\\", "/") for item in confirmed_matches)
+        )[:3]
+        origin = "prompt" if entity in prompt_evidence.grounded_entities else "connected_source"
+        source_ids = list(
+            connected_context.signal_provenance.get(f"symbol_hints:{entity}")
+            or connected_context.signal_provenance.get(f"retrieval_terms:{entity}")
+            or ()
+        )
+        if confirmed_files:
             confirmed_entities.append(entity)
-            confirmed_file_hints = list(merge_paths(implementation_files[:3], confirmed_file_hints))
+            confirmed_file_hints = list(merge_paths(confirmed_files, confirmed_file_hints))
             anchor_examples.append(
                 {
                     "entity": entity,
-                    "files": implementation_files[:3],
-                    "origin": "prompt"
-                    if entity in prompt_evidence.grounded_entities
-                    else "connected_source",
-                    "source_ids": list(
-                        connected_context.signal_provenance.get(f"symbol_hints:{entity}")
-                        or connected_context.signal_provenance.get(f"retrieval_terms:{entity}")
-                        or ()
-                    ),
+                    "files": confirmed_files,
+                    "matches": [_anchor_match_payload(item) for item in confirmed_matches[:3]],
+                    "origin": origin,
+                    "source_ids": source_ids,
+                }
+            )
+        if candidate_matches:
+            candidate_anchor_examples.append(
+                {
+                    "entity": entity,
+                    "matches": [_anchor_match_payload(item) for item in candidate_matches[:3]],
+                    "origin": origin,
+                    "source_ids": source_ids,
                 }
             )
     return (
@@ -212,6 +240,7 @@ def build_step2_repo_context(
             "confirmed_entities": list(ordered_unique(confirmed_entities)),
             "confirmed_file_hints": list(ordered_unique(confirmed_file_hints)),
             "confirmed_anchor_examples": anchor_examples[:6],
+            "candidate_anchor_examples": candidate_anchor_examples[:6],
             "connected_context": {
                 "retrieval_terms": list(connected_context.retrieval_terms),
                 "file_hints": list(connected_context.file_hints),
@@ -229,3 +258,16 @@ def build_step2_repo_context(
 def _is_step2_repo_path_allowed(path: str) -> bool:
     role = tool_file_role(path)
     return role in {"implementation", "documentation"}
+
+
+def _anchor_match_payload(item: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "symbol": str(item.get("qualified_name") or item.get("name") or ""),
+        "file": str(item.get("path") or "").replace("\\", "/"),
+        "kind": str(item.get("kind") or ""),
+        "line_start": int(item.get("line_start") or 0),
+        "line_end": int(item.get("line_end") or 0),
+        "match_type": str(item.get("match_type") or ""),
+        "matched_words": [str(value) for value in item.get("matched_words", ())],
+        "search_score": item.get("search_score"),
+    }
