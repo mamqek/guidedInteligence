@@ -7,14 +7,14 @@ from typing import Mapping
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
 from services.retrieval.workspace.step2 import WorkspaceRetrievalPlan
 from services.retrieval.workspace.step2.common import merge_paths
-from services.retrieval.workspace.tools import CGCFindCodeTool, ToolObservation, ToolRequest
+from services.retrieval.workspace.tools import ToolObservation, ToolRequest
 
 
 def run_initial_narrowing(
     ctx: WorkspaceRetrievalContext,
     *,
     retrieval_plan: WorkspaceRetrievalPlan,
-    cgc_find_tool: CGCFindCodeTool,
+    structural_find_tool: object,
     preplan_tool_calls: int,
 ) -> tuple[tuple[str, ...] | None, tuple[ToolObservation, ...], int]:
     narrowed_files = merge_paths(retrieval_plan.confirmed_file_hints, retrieval_plan.grounded_file_hints)
@@ -22,11 +22,11 @@ def run_initial_narrowing(
     tool_call_count = 1 + preplan_tool_calls
     for entity in (retrieval_plan.confirmed_entities or retrieval_plan.grounded_entities)[:4]:
         request = ToolRequest(
-            tool_name="cgc_find_code",
-            arguments={"query": entity, "limit": ctx.config.cgc_max_files_for_bm25},
+            tool_name="structural_find_exact_symbol",
+            arguments={"query": entity, "limit": ctx.config.structural_graph_max_files},
             reason="Grounded symbol or identifier from the prompt for initial structural narrowing.",
         )
-        observation = cgc_find_tool.run(request)
+        observation = structural_find_tool.run(request)  # type: ignore[attr-defined]
         ctx.trace.record_tool(request, observation, round_index=0)
         tool_call_count += 1
         observations.append(observation)
@@ -48,6 +48,6 @@ def narrowed_files_from_observation(ctx: WorkspaceRetrievalContext, observation:
             continue
         seen.add(path)
         selected.append(path)
-        if len(selected) >= ctx.config.cgc_max_files_for_bm25:
+        if len(selected) >= ctx.config.structural_graph_max_files:
             break
     return tuple(selected)

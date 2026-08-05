@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from core.logging_schema import LogEvent, LogEventType
 from core.models import (
@@ -32,6 +32,12 @@ from services.retrieval.workspace import WorkspaceRetrievalStage
 from services.response_generation.comprehension import prompt_template_id
 
 
+EvidenceGraphBuilder = Callable[
+    [RetrievalResult, ConversationState, Callable[[str, Mapping[str, Any]], None]],
+    RetrievalResult,
+]
+
+
 @dataclass(frozen=True)
 class ControlLayer:
     """Top-level orchestration entrypoint."""
@@ -45,6 +51,7 @@ class ControlLayer:
     intent_shadow_enabled: bool = False
     intent_assistance_mode: str = ASSISTANCE_MODE_ROUTER_OFF
     intent_llm_config: Any | None = None
+    evidence_graph_builder: EvidenceGraphBuilder | None = None
 
     def run(self, state: ConversationState) -> OrchestrationResult:
         self._record(LogEventType.RUN_STARTED, state.conversation_id, {"turn_request": state.user_input})
@@ -99,6 +106,16 @@ class ControlLayer:
                     coverage_status="state_evidence" if state.evidence else "missing",
                     sufficient=bool(state.evidence),
                     retrieval_summary={"source": "conversation_state", "evidence_count": len(state.evidence)},
+                )
+            if self.evidence_graph_builder is not None:
+                retrieval_result = self.evidence_graph_builder(
+                    retrieval_result,
+                    retrieval_state,
+                    lambda event_type, payload: self._record(
+                        LogEventType(event_type),
+                        state.conversation_id,
+                        payload,
+                    ),
                 )
             self._record(
                 LogEventType.EVIDENCE_SELECTED,

@@ -53,7 +53,7 @@ WORKSPACE_STATE_DIR = ".guided-intelligence"
 SUPPORTED_ASSISTANCE_MODES = ("teach", "work", "hybrid", "evaluation")
 CODE_PATH_PATTERN = re.compile(r"\b(?:[\w.-]+/)+[\w.-]+\.(?:[A-Za-z0-9]+)\b|\b[\w.-]+\.(?:ts|tsx|js|jsx|py|java|go|rs|cs|cpp|c|h|json|md|txt)\b")
 IDENTIFIER_PATTERN = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`|\b([A-Z][A-Za-z0-9_]{2,})\b")
-CODE_REPOQA_CGC_INDEX_TIMEOUT_SECONDS = int(os.environ.get("CODEREPOQA_CGC_INDEX_TIMEOUT_SECONDS", "600"))
+CODE_REPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS = int(os.environ.get("CODEREPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS", "900"))
 CODE_REPOQA_QDRANT_INDEX_TIMEOUT_SECONDS = 900
 CODE_REPOQA_REPO_EXCLUDE_PATHS: Mapping[tuple[str, str], tuple[str, ...]] = {
     ("microsoft", "TypeScript"): (
@@ -155,20 +155,10 @@ def prepare_index(
     save_index(index, index_dir)
 
 
-def _remove_structural_index_artifacts(index_dir: Path) -> None:
-    cgc_db_path = index_dir / "cgc-kuzu"
-    candidates = (
-        cgc_db_path,
-        Path(str(cgc_db_path) + ".wal"),
-        Path(str(cgc_db_path) + ".complete.json"),
-    )
-    for candidate in candidates:
-        if not candidate.exists():
-            continue
-        if candidate.is_dir():
-            shutil.rmtree(candidate)
-        else:
-            candidate.unlink()
+def _remove_structural_index_artifacts(workspace_root: Path) -> None:
+    codegraph_dir = workspace_root / ".codegraph"
+    if codegraph_dir.exists():
+        shutil.rmtree(codegraph_dir)
 
 
 def run_case(
@@ -188,6 +178,7 @@ def run_case(
     codex_model: str = "gpt-5.4-mini",
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE,
     codex_timeout_seconds: int = 900,
+    codex_ignore_user_config: bool = True,
     objective_role_selection_enabled: bool = False,
     assistance_mode: str = "teach",
     max_gap_retrieval_passes: int = 0,
@@ -210,8 +201,6 @@ def run_case(
         intent=UserIntent.UNDERSTAND_CODE,
     )
     workspace_root = Path(repo_pre_path)
-    cgc_repo_path = workspace_root
-    cgc_db_path = Path(index_dir) / "cgc-kuzu"
     output_dir = Path(run_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     logger = JsonlLogger(output_dir / "orchestration-trace.jsonl")
@@ -221,13 +210,12 @@ def run_case(
         index_dir=Path(index_dir),
         run_dir=output_dir,
         llm_config=llm_config,
-        cgc_repo_path=cgc_repo_path,
-        cgc_db_path=cgc_db_path,
         exclude_paths=exclude_paths,
         codex_command=codex_command,
         codex_model=codex_model,
         codex_prompt_profile=codex_prompt_profile,
         codex_timeout_seconds=codex_timeout_seconds,
+        codex_ignore_user_config=codex_ignore_user_config,
         objective_role_selection_enabled=objective_role_selection_enabled,
     )
     retrieval_stage = CodexRetrievalStage(retrieval_config) if retrieval_config.retrieval_mode == RETRIEVAL_MODE_CODEX else WorkspaceRetrievalStage(retrieval_config)
@@ -295,6 +283,7 @@ def evaluate_case(
     codex_model: str = "gpt-5.4-mini",
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE,
     codex_timeout_seconds: int = 900,
+    codex_ignore_user_config: bool = True,
     objective_role_selection_enabled: bool = False,
     assistance_mode: str = "teach",
     max_gap_retrieval_passes: int = 0,
@@ -333,7 +322,7 @@ def evaluate_case(
     _remove_legacy_snapshot_index(snapshot_dir)
     index_dir = _workspace_index_dir(snapshot_dir)
     if rebuild_index:
-        _remove_structural_index_artifacts(index_dir)
+        _remove_structural_index_artifacts(snapshot_dir)
     if retrieval_mode != RETRIEVAL_MODE_CODEX and (rebuild_index or not (index_dir / "bm25-index.json").exists()):
         prepare_index(
             repo_pre_path=snapshot_dir,
@@ -366,6 +355,7 @@ def evaluate_case(
         codex_model=codex_model,
         codex_prompt_profile=codex_prompt_profile,
         codex_timeout_seconds=codex_timeout_seconds,
+        codex_ignore_user_config=codex_ignore_user_config,
         objective_role_selection_enabled=objective_role_selection_enabled,
         assistance_mode=assistance_mode,
         max_gap_retrieval_passes=max_gap_retrieval_passes,
@@ -578,6 +568,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args, run_config, "codex_prompt_profile", DEFAULT_CODEX_PROMPT_PROFILE
             ),
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
+            codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
             objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
             assistance_mode=_assistance_mode_from_config(run_config),
             max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
@@ -605,6 +596,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args, run_config, "codex_prompt_profile", DEFAULT_CODEX_PROMPT_PROFILE
             ),
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
+            codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
             objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
             assistance_mode=_assistance_mode_from_config(run_config),
             max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
@@ -636,6 +628,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args, run_config, "codex_prompt_profile", DEFAULT_CODEX_PROMPT_PROFILE
                 ),
                 codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
+                codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
                 objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
                 assistance_mode=_assistance_mode_from_config(run_config),
                 max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
@@ -692,6 +685,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             args, run_config, "codex_prompt_profile", DEFAULT_CODEX_PROMPT_PROFILE
                         ),
                         codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
+                        codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
                         objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
                         assistance_mode=_assistance_mode_from_config(run_config),
                         max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
@@ -1340,13 +1334,12 @@ def _workspace_retrieval_config_for_case(
     index_dir: Path,
     run_dir: Path,
     llm_config: RunLLMConfig,
-    cgc_repo_path: Path,
-    cgc_db_path: Path,
     exclude_paths: Sequence[str],
     codex_command: Sequence[str],
     codex_model: str,
     codex_prompt_profile: str,
     codex_timeout_seconds: int,
+    codex_ignore_user_config: bool,
     objective_role_selection_enabled: bool,
 ) -> WorkspaceRetrievalConfig:
     # Shared boundary: both testcase retrieval modes receive the same sanitized
@@ -1376,11 +1369,9 @@ def _workspace_retrieval_config_for_case(
         codex_model=codex_model,
         codex_prompt_profile=codex_prompt_profile,
         codex_timeout_seconds=codex_timeout_seconds,
-        cgc_repo_path=str(cgc_repo_path),
-        cgc_db_path=str(cgc_db_path),
-        cgc_force_reindex_each_request=False,
+        codex_ignore_user_config=codex_ignore_user_config,
         enable_indexing=load_retrieval_enable_indexing(TOOL_ENV_PATH) if retrieval_mode != RETRIEVAL_MODE_CODEX else False,
-        cgc_timeout_seconds=CODE_REPOQA_CGC_INDEX_TIMEOUT_SECONDS,
+        structural_graph_timeout_seconds=CODE_REPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS,
         qdrant_index_timeout_seconds=CODE_REPOQA_QDRANT_INDEX_TIMEOUT_SECONDS,
         index_exclude_paths=tuple(exclude_paths),
         enabled_source_categories=(SourceCategory.LOCAL_NOTES, SourceCategory.SOURCE_CODE),

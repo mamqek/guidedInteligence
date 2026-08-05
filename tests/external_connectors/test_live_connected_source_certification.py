@@ -25,7 +25,7 @@ from services.retrieval.config import (
 from services.retrieval.server import _configured_remote_mcp_sources
 from services.retrieval.workspace import WorkspaceRetrievalStage
 from services.retrieval.workspace.bm25 import build_index_from_repo, save_index
-from tests.test_workspace_retrieval import WorkspaceRetrievalStageFixture, _fake_cgc
+from tests.test_workspace_retrieval import WorkspaceRetrievalStageFixture, _fake_structural
 
 
 def _enabled() -> bool:
@@ -1244,7 +1244,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
-            with _fake_cgc(files=[{"path": file_hint}]):
+            with _fake_structural(files=[{"path": file_hint}]):
                 result = stage.retrieve(state, _policy_result(state))
 
             self.assertIn(

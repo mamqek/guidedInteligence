@@ -27,6 +27,14 @@ class LogEventType(str, Enum):
     RETRIEVAL_PLAN = "retrieval_plan"
     #: Retrieval or context building selected concrete evidence items.
     EVIDENCE_SELECTED = "evidence_selected"
+    #: Post-retrieval evidence graph generation has started.
+    EVIDENCE_GRAPH_GENERATION_STARTED = "evidence_graph_generation_started"
+    #: A cached post-retrieval evidence graph was reused.
+    EVIDENCE_GRAPH_CACHE_HIT = "evidence_graph_cache_hit"
+    #: Post-retrieval evidence graph generation completed.
+    EVIDENCE_GRAPH_GENERATION_COMPLETED = "evidence_graph_generation_completed"
+    #: Post-retrieval evidence graph generation failed explicitly.
+    EVIDENCE_GRAPH_GENERATION_FAILED = "evidence_graph_generation_failed"
     #: Control layer produced a structured response plan.
     RESPONSE_PLAN = "response_plan"
     #: Model or response builder input payload was created.

@@ -46,7 +46,5 @@ Evidence requirements:
 - Put non-blocking investigation caveats in scope_notes. Scope notes are for branches you did not inspect, external sources you did not use, or adjacent implementation details that are not needed to answer the user question from the selected evidence.
 - Do not put a caveat in answer_blocking_uncertainties when the selected repository evidence is sufficient for the requested explanation and the caveat only describes optional extra scope.
 
-{{EVIDENCE_CONNECTIONS_CONTRACT}}
-
 Sanitized issue packet:
 {{USER_PROMPT}}

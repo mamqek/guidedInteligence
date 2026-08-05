@@ -68,7 +68,7 @@ def retrieve_responsibility_role_buckets(
         subquery_roles: Sequence[str],
         qdrant_tool: QdrantHybridSearchTool,
         open_file_tool: OpenFileTool,
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
         narrowed_files: Sequence[str],
         starting_tool_call_count: int,
         phase: str,
@@ -125,7 +125,7 @@ def retrieve_responsibility_role_buckets(
                 expansion_intents=expansion_intents,
                 qdrant_tool=qdrant_tool,
                 open_file_tool=open_file_tool,
-                cgc_tools=cgc_tools,
+                structural_tools=structural_tools,
             )
             tool_call_count += expansion_calls
             ctx.trace.record(
@@ -139,7 +139,7 @@ def retrieve_responsibility_role_buckets(
             )
         anchor_support, support_calls = _build_anchor_support_flow(ctx, 
             anchors=_preliminary_responsibility_anchors_flow(prepared_buckets),
-            cgc_tools=cgc_tools,
+            structural_tools=structural_tools,
         )
         tool_call_count += support_calls
 
@@ -155,7 +155,7 @@ def retrieve_responsibility_role_buckets(
                     candidates=merged_candidates,
                     graph_paths=graph_paths_by_role.get(prepared_bucket.role, ()),
                     anchor_support=anchor_support,
-                    cgc_tools=cgc_tools,
+                    structural_tools=structural_tools,
                 )
             )
         return tuple(buckets), tool_call_count, expansion_intents
@@ -168,7 +168,7 @@ def retrieve_role_buckets(
         subquery_roles: Sequence[str],
         qdrant_tool: QdrantHybridSearchTool,
         open_file_tool: OpenFileTool,
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
         narrowed_files: Sequence[str],
         starting_tool_call_count: int,
         phase: str,
@@ -195,19 +195,19 @@ def retrieve_role_buckets(
                 prepared_bucket,
                 anchor_support=initial_support,
                 max_accept_count=1,
-                cgc_tools=cgc_tools,
+                structural_tools=structural_tools,
             )
             for prepared_bucket in prepared_buckets
         )
         anchor_records = _accepted_anchor_records_flow(seeded_buckets)
-        anchor_support, support_tool_calls = _build_anchor_support_flow(ctx, anchors=anchor_records, cgc_tools=cgc_tools)
+        anchor_support, support_tool_calls = _build_anchor_support_flow(ctx, anchors=anchor_records, structural_tools=structural_tools)
         tool_call_count += support_tool_calls
         final_buckets = tuple(
             evaluate_prepared_role_bucket(ctx, 
                 prepared_bucket,
                 anchor_support=anchor_support,
                 max_accept_count=MAX_ROLE_BUCKET_CANDIDATES,
-                cgc_tools=cgc_tools,
+                structural_tools=structural_tools,
             )
             for prepared_bucket in prepared_buckets
         )
@@ -452,7 +452,7 @@ def prepare_role_bucket(
         direct_owner_candidates: list[RetrievalCandidate] = []
         tool_calls = 0
         role_narrowed_files = _role_scoped_narrowed_files(retrieval_plan, role, narrowed_files)
-        shared_arguments: dict[str, Any] = {"limit": min(ctx.config.cgc_max_files_for_bm25, MAX_EVIDENCE_ITEMS)}
+        shared_arguments: dict[str, Any] = {"limit": min(ctx.config.structural_graph_max_files, MAX_EVIDENCE_ITEMS)}
         for query_index, helper_query in enumerate(helper_queries[:MAX_ROLE_QUERIES]):
             request = ToolRequest(
                 tool_name="qdrant_hybrid_search",
@@ -475,9 +475,9 @@ def prepare_role_bucket(
                         "source_category": "source_code",
                         "file_role": "implementation",
                         "paths": list(role_narrowed_files),
-                        "limit": min(ctx.config.cgc_max_files_for_bm25, MAX_EVIDENCE_ITEMS),
+                        "limit": min(ctx.config.structural_graph_max_files, MAX_EVIDENCE_ITEMS),
                     },
-                    reason=f"Boost grounded CGC-narrowed candidates for the {role} role without excluding global results.",
+                    reason=f"Boost exact-symbol structural candidates for the {role} role without excluding global results.",
                 )
                 narrowed_observation = qdrant_tool.run(narrowed_request)
                 ctx.trace.record_tool(narrowed_request, narrowed_observation, round_index=0)
@@ -585,7 +585,7 @@ def evaluate_prepared_role_bucket(
         *,
         anchor_support: AnchorSupport,
         max_accept_count: int,
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
     ) -> RoleRetrievalBucket:
         evaluations: list[RoleCandidateEvaluation] = []
         accepted: list[RetrievalCandidate] = []
@@ -598,7 +598,7 @@ def evaluate_prepared_role_bucket(
                 helper_queries=prepared_bucket.helper_queries,
                 candidate=candidate,
                 anchor_support=anchor_support,
-                cgc_tools=cgc_tools,
+                structural_tools=structural_tools,
             )
             evaluations.append(RoleCandidateEvaluation(candidate=candidate, validation=validation))
             ctx.trace.record(

@@ -26,18 +26,6 @@ SUPPORTED_RETRIEVAL_LLM_API_STYLES = ("openai_chat_completions",)
 SUPPORTED_RETRIEVAL_EMBEDDING_API_STYLES = ("openai_embeddings",)
 
 
-def _default_cgc_command() -> tuple[str, ...]:
-    root = Path(__file__).resolve().parents[2]
-    scripts_dir = root / ".venv" / ("Scripts" if os.name == "nt" else "bin")
-    executable_name = "cgc.exe" if os.name == "nt" else "cgc"
-    return (str(scripts_dir / executable_name),)
-
-
-def _default_cgc_db_path() -> str:
-    root = Path(__file__).resolve().parents[2]
-    return str(root / ".codegraphcontext" / "db" / "kuzudb")
-
-
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -386,19 +374,16 @@ class WorkspaceRetrievalConfig:
     codex_model: str = "gpt-5.4-mini"
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE
     codex_timeout_seconds: int = 900
+    codex_ignore_user_config: bool = True
     run_dir: str | None = None
     chunk_line_count: int = 40
     chunk_line_overlap: int = 10
     max_exploration_rounds: int = 3
     max_tool_calls_per_round: int = 5
-    cgc_enabled: bool = True
-    cgc_command: tuple[str, ...] = field(default_factory=_default_cgc_command)
-    cgc_repo_path: str | None = None
-    cgc_db_path: str = field(default_factory=_default_cgc_db_path)
-    cgc_force_reindex_each_request: bool = True
+    structural_graph_enabled: bool = True
     enable_indexing: bool = True
-    cgc_timeout_seconds: int = 60
-    cgc_max_files_for_bm25: int = 20
+    structural_graph_timeout_seconds: int = 900
+    structural_graph_max_files: int = 20
     qdrant_index_timeout_seconds: int = 600
     index_exclude_paths: tuple[str, ...] | None = None
     enabled_source_categories: tuple[SourceCategory, ...] = DEFAULT_ALLOWED_SOURCE_CATEGORIES
@@ -458,8 +443,8 @@ class WorkspaceRetrievalConfig:
                 enabled=SourceCategory.SOURCE_CODE in self.enabled_source_categories,
                 indexed=True,
                 queryable=True,
-                adapter_name="codegraphcontext+qdrant-hybrid",
-                note="CGC narrows files first; Qdrant hybrid retrieval searches dense+sparse vectors inside the filtered file set.",
+                adapter_name="codegraph+qdrant-hybrid",
+                note="CodeGraph resolves exact symbols and structural relationships; Qdrant hybrid retrieval handles conceptual code search.",
                 source_key="source_code",
                 title="Source code",
             ),
@@ -468,8 +453,8 @@ class WorkspaceRetrievalConfig:
                 enabled=SourceCategory.DOCUMENTATION in self.enabled_source_categories,
                 indexed=True,
                 queryable=True,
-                adapter_name="codegraphcontext+qdrant-hybrid",
-                note="Workspace docs participate in the same CGC-first Qdrant hybrid retrieval flow.",
+                adapter_name="qdrant-hybrid",
+                note="Repository documentation is retrieved semantically; CodeGraph is reserved for supported source-code structure.",
                 source_key="repo_docs",
                 title="Repository docs",
             ),
@@ -582,14 +567,12 @@ class WorkspaceRetrievalConfig:
             raise ValueError("max_exploration_rounds must be greater than zero.")
         if self.max_tool_calls_per_round <= 0:
             raise ValueError("max_tool_calls_per_round must be greater than zero.")
-        if not self.cgc_enabled:
-            raise ValueError("Workspace retrieval requires cgc_enabled=True.")
-        if not self.cgc_command:
-            raise ValueError("Workspace retrieval requires a non-empty cgc_command.")
-        if self.cgc_timeout_seconds < 0:
-            raise ValueError("cgc_timeout_seconds must be zero or greater.")
-        if self.cgc_max_files_for_bm25 <= 0:
-            raise ValueError("cgc_max_files_for_bm25 must be greater than zero.")
+        if not self.structural_graph_enabled:
+            raise ValueError("Workspace retrieval requires structural_graph_enabled=True.")
+        if self.structural_graph_timeout_seconds <= 0:
+            raise ValueError("structural_graph_timeout_seconds must be greater than zero.")
+        if self.structural_graph_max_files <= 0:
+            raise ValueError("structural_graph_max_files must be greater than zero.")
         if self.qdrant_index_timeout_seconds <= 0:
             raise ValueError("qdrant_index_timeout_seconds must be greater than zero.")
         index_exclude_paths = self.index_exclude_paths or ()

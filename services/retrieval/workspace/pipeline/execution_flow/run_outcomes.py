@@ -92,7 +92,7 @@ def failed_result(
             "retriever": "workspace",
             **({"retrieval_plan": retrieval_plan.to_dict()} if retrieval_plan is not None else {}),
             "source_registry": [entry.to_dict() for entry in ctx.config.source_registry()],
-            "cgc_command_prefix": list(ctx.config.cgc_command),
+            "structural_graph_provider": "codegraph",
             "failure": failure,
             "failure_reason": str(observation.payload.get("reason", "")),
         },

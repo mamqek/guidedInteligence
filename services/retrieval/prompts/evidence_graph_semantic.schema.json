@@ -1,0 +1,97 @@
+{
+  "type": "object",
+  "properties": {
+    "root_ref": {
+      "type": "string"
+    },
+    "connections": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "properties": {
+          "source_ref": {
+            "type": "string"
+          },
+          "target_ref": {
+            "type": "string"
+          },
+          "relationship_kind": {
+            "type": "string",
+            "enum": [
+              "dependency",
+              "control_flow",
+              "data_flow",
+              "configuration",
+              "validation",
+              "rendering",
+              "other"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "grounding": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "inferred"
+            ]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          }
+        },
+        "required": [
+          "source_ref",
+          "target_ref",
+          "relationship_kind",
+          "label",
+          "description",
+          "grounding",
+          "confidence"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "disconnected_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "evidence_ref": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "evidence_ref",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "root_ref",
+    "connections",
+    "disconnected_evidence"
+  ],
+  "additionalProperties": false
+}

@@ -22,7 +22,7 @@
     "exclude_paths": [
       ".git",
       ".guided-intelligence",
-      ".codegraphcontext",
+      ".codegraph",
       ".venv",
       "__pycache__",
       "node_modules",
@@ -38,7 +38,8 @@
       "codex"
     ],
     "codex_model": "gpt-5.4-mini",
-    "codex_timeout_seconds": 900
+    "codex_timeout_seconds": 900,
+    "codex_ignore_user_config": true
   },
   "connected_context": {
     "enabled": true,

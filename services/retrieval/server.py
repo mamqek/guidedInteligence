@@ -20,7 +20,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from core.control_layer import ControlLayer
@@ -31,13 +31,6 @@ from services.comprehension import generate_followup
 from services.guidance.answer_evaluation import evaluate_answers
 from services.intent import SUPPORTED_ASSISTANCE_ROUTER_MODES
 from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, estimate_indexing_scope, load_index
-from services.retrieval.workspace.cgcignore import (
-    CGCIGNORE_END,
-    CGCIGNORE_START,
-    normalize_cgcignore_excludes as _normalize_cgcignore_excludes,
-    remove_managed_cgcignore_block as _remove_managed_cgcignore_block,
-    sync_cgcignore as _sync_cgcignore,
-)
 from services.logging.store import JsonlLogger
 from services.retrieval.config import (
     DEFAULT_CODEX_PROMPT_PROFILE,
@@ -58,7 +51,8 @@ from services.retrieval.config import (
     load_retrieval_qdrant_config,
     source_categories_from_strings,
 )
-from services.retrieval.codex.provider import CodexRetrievalStage
+from services.retrieval.evidence_graph import build_evidence_graph
+from services.retrieval.codex.provider import CodexRetrievalStage, _codex_subprocess_env
 from services.retrieval.codex.cli import resolve_codex_command
 from services.retrieval.workspace.mcp import (
     LocalMCPConnectedSourceAdapter,
@@ -68,8 +62,9 @@ from services.retrieval.workspace.mcp import (
 )
 from services.retrieval.workspace.qdrant_backend import QdrantHybridBackend
 from services.retrieval.workspace.tools.contracts import ToolRequest
+from services.retrieval.workspace.tools.codegraph import close_codegraph_bridge
 from services.retrieval.workspace import WorkspaceRetrievalStage
-from services.retrieval.workspace.pipeline.execution_flow.index_setup import cgc_tools as build_cgc_tools, rebuild_index
+from services.retrieval.workspace.pipeline.execution_flow.index_setup import rebuild_index, structural_tools as build_structural_tools
 
 
 DEFAULT_HOST = "127.0.0.1"
@@ -227,6 +222,22 @@ class RuntimeState:
             "command": command,
             "models": _codex_model_options(catalog),
             "stderr": stderr,
+        }
+
+    def codex_runtime_capabilities(self) -> dict[str, Any]:
+        retrieval_settings = _retrieval_settings(self.config)
+        codex_command = resolve_codex_command(_string_list(retrieval_settings.get("codex_command", ["codex"])))
+        mcp_command = [*codex_command, "mcp", "list", "--json"]
+        mcp_probe = _codex_global_mcp_servers(mcp_command, workspace_root=self.workspace_root)
+        return {
+            "ok": True,
+            "command": list(codex_command),
+            "global_mcp": mcp_probe,
+            "retrieval_overrides": _codex_retrieval_override_indicators(retrieval_settings),
+            "notes": [
+                "global_mcp describes the user's configured Codex MCP servers, not the tools used when Codex retrieval ignores user config.",
+                "tool schemas are not listed here because Codex CLI exposes configured MCP servers deterministically, while per-tool schemas require starting each server.",
+            ],
         }
 
     def github_repository(self) -> str:
@@ -544,8 +555,7 @@ class RuntimeState:
     ) -> dict[str, Any]:
         index_dir = self.workspace_root / CONFIG_DIR_NAME / "index"
         index_path = index_dir / "bm25-index.json"
-        cgc_db_path = index_dir / "cgc-kuzu"
-        cgc_marker_path = Path(str(cgc_db_path) + ".complete.json")
+        codegraph_db_path = self.workspace_root / ".codegraph" / "codegraph.db"
         bm25_manifest = _load_json(index_dir / "bm25-scope-manifest.json", {})
         expected_scope = {
             "workspace_root": str(self.workspace_root.resolve()),
@@ -553,11 +563,11 @@ class RuntimeState:
             "chunk_line_count": chunk_line_count,
             "chunk_line_overlap": chunk_line_overlap,
         }
-        if not cgc_db_path.exists() or not cgc_marker_path.exists():
+        if not codegraph_db_path.exists():
             return {
                 "index_ready": False,
                 "index_status": "missing_or_stale",
-                "index_status_detail": "Completed CGC structural index is missing.",
+                "index_status_detail": "CodeGraph structural index is missing.",
                 "index_last_built_at": _manifest_timestamp(index_dir / "qdrant-sync-manifest.json"),
             }
         if not index_path.exists() or not _manifest_scope_matches(bm25_manifest, expected_scope):
@@ -759,8 +769,8 @@ class RuntimeState:
         try:
             self._update_index_job(
                 job_id,
-                phase="cgc",
-                message="Refreshing code graph.",
+                phase="codegraph",
+                message="Refreshing CodeGraph structural index.",
                 progress_percent=5,
                 log="Refreshing code graph.",
             )
@@ -769,13 +779,16 @@ class RuntimeState:
                 raise RetrievalServerError("Indexing is disabled in workspace settings.", status=400)
             run_dir.mkdir(parents=True, exist_ok=True)
             stage = WorkspaceRetrievalStage(self._workspace_retrieval_config(run_dir=run_dir))
-            cgc_tools = build_cgc_tools(stage.context)
-            index_observation = cgc_tools["cgc_index_repo"].run(
-                ToolRequest(tool_name="cgc_index_repo", arguments={}, reason="manual index preparation")
-            )
-            stage.context.trace.record_tool(ToolRequest(tool_name="cgc_index_repo", arguments={}), index_observation, round_index=0)
+            graph_tools = build_structural_tools(stage.context)
+            try:
+                index_observation = graph_tools["structural_index_repo"].run(
+                    ToolRequest(tool_name="structural_index_repo", arguments={}, reason="manual index preparation")
+                )
+            finally:
+                close_codegraph_bridge(stage.config)
+            stage.context.trace.record_tool(ToolRequest(tool_name="structural_index_repo", arguments={}), index_observation, round_index=0)
             if index_observation.status != "ok":
-                raise RetrievalServerError(_cgc_failure_message(index_observation.payload), status=500)
+                raise RetrievalServerError(_structural_graph_failure_message(index_observation.payload), status=500)
             self._update_index_job(
                 job_id,
                 phase="bm25",
@@ -1026,6 +1039,13 @@ class RuntimeState:
                 max_gap_retrieval_passes=int(_assistance_settings(self.config).get("max_gap_retrieval_passes") or 0),
                 intent_shadow_enabled=bool(_intent_settings(self.config).get("shadow_mode", False)),
                 intent_assistance_mode=str(_intent_settings(self.config).get("assistance_mode") or "off"),
+                evidence_graph_builder=lambda retrieval_result, graph_state, record_event: build_evidence_graph(
+                    retrieval_result,
+                    workspace_root=self.workspace_root,
+                    user_prompt=graph_state.user_input,
+                    llm_config=llm_config,
+                    log_event=record_event,
+                ),
             )
             state = ConversationState(
                 conversation_id=run_id,
@@ -1160,11 +1180,9 @@ class RuntimeState:
                 retrieval_settings.get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
             ).strip().lower(),
             codex_timeout_seconds=int(retrieval_settings.get("codex_timeout_seconds") or 900),
+            codex_ignore_user_config=bool(retrieval_settings.get("codex_ignore_user_config", True)),
             enable_indexing=bool(indexing.get("enable_indexing", load_retrieval_enable_indexing(tool_env_path))),
-            cgc_repo_path=str(self.workspace_root),
-            cgc_db_path=str(self.workspace_root / CONFIG_DIR_NAME / "index" / "cgc-kuzu"),
-            cgc_force_reindex_each_request=False,
-            cgc_timeout_seconds=180,
+            structural_graph_timeout_seconds=900,
             index_exclude_paths=index_exclude_paths,
             enabled_source_categories=enabled_source_categories if enabled_source_categories is not None else tuple(DEFAULT_ALLOWED_SOURCE_CATEGORIES),
             enabled_sources=enabled_sources if enabled_sources is not None else tuple(_enabled_sources_from_config(self.config)),
@@ -1341,6 +1359,7 @@ class RuntimeState:
                 "codex_model": "gpt-5.4-mini",
                 "codex_prompt_profile": DEFAULT_CODEX_PROMPT_PROFILE,
                 "codex_timeout_seconds": 900,
+                "codex_ignore_user_config": True,
             },
             "assistance": {
                 "mode": "teach",
@@ -1387,6 +1406,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if parsed.path == "/codex/models":
                 self._send_json(self.state.codex_models())
+                return
+            if parsed.path == "/codex/runtime-capabilities":
+                self._send_json(self.state.codex_runtime_capabilities())
                 return
             if parsed.path == "/workspaces":
                 self._send_json({"workspaces": self.state.list_workspaces()})
@@ -1601,11 +1623,15 @@ def _orchestration_progress_for_event(event_type: str) -> tuple[int, str, str, s
         "run_started": (12, "policy", "Analyzing request.", None),
         "turn_decision": (16, "policy", "Checking source policy.", None),
         "retrieval_plan": (22, "planning", "Preparing retrieval.", None),
-        "evidence_selected": (86, "synthesis", "Evidence selected.", "Evidence selected."),
-        "response_plan": (88, "synthesis", "Planning explanation response.", None),
-        "prompt_payload": (90, "synthesis", "Preparing explanation prompt.", None),
-        "response_generation_requested": (92, "generation", "Generating explanation.", "Explanation generation started."),
-        "response_generation_request_payload": (92, "generation", "Generating explanation.", "Explanation generation started."),
+        "evidence_graph_generation_started": (87, "graph", "Connecting selected evidence.", "Evidence graph generation started."),
+        "evidence_graph_cache_hit": (88, "graph", "Reusing evidence graph.", "Evidence graph cache reused."),
+        "evidence_graph_generation_completed": (88, "graph", "Evidence graph ready.", "Evidence graph generated."),
+        "evidence_graph_generation_failed": (88, "graph", "Evidence graph generation failed.", "Evidence graph generation failed."),
+        "evidence_selected": (89, "synthesis", "Evidence selected.", "Evidence selected."),
+        "response_plan": (90, "synthesis", "Planning explanation response.", None),
+        "prompt_payload": (91, "synthesis", "Preparing explanation prompt.", None),
+        "response_generation_requested": (93, "generation", "Generating explanation.", "Explanation generation started."),
+        "response_generation_request_payload": (93, "generation", "Generating explanation.", "Explanation generation started."),
         "response_generation_received": (97, "generation", "Received explanation response.", None),
         "response_generation_response_payload": (97, "generation", "Received explanation response.", None),
         "response_payload": (99, "generation", "Finalizing explanation.", None),
@@ -1782,71 +1808,38 @@ def _qdrant_reachable(url: str, *, timeout_seconds: float) -> bool:
         return False
 
 
-def _cgc_failure_message(payload: Mapping[str, Any]) -> str:
-    reason = str(payload.get("reason") or "CGC index preparation failed.").strip()
-    stdout = str(payload.get("stdout") or "").strip()
-    stderr = str(payload.get("stderr") or "").strip()
-    detail = stdout or stderr or reason
+def _structural_graph_failure_message(payload: Mapping[str, Any]) -> str:
+    reason = str(payload.get("reason") or "CodeGraph index preparation failed.").strip()
     if "timed out" in reason.lower():
         return (
-            "CGC index preparation timed out. The code graph index did not finish within the configured timeout. "
+            "CodeGraph index preparation timed out. The structural index did not finish within the configured timeout. "
             f"Details: {reason}"
         )
-    if "could not set lock" in detail.lower():
-        return (
-            "CGC index preparation failed because its Kuzu database is locked by another process. "
-            "Close other running retrieval/indexing jobs or restart the local API, then try again. "
-            f"Details: {detail}"
-        )
-    return f"CGC index preparation failed. Details: {detail}"
+    return f"CodeGraph index preparation failed. Details: {reason}"
 
 
 def _index_time_estimate(estimate: Mapping[str, Any]) -> dict[str, Any]:
     files = int(estimate.get("file_count") or 0)
     chunks = int(estimate.get("estimated_chunks") or 0)
-    total_bytes = int(estimate.get("total_bytes") or 0)
     if files <= 0 or chunks <= 0:
         return {
             "estimated_seconds_min": 0,
             "estimated_seconds_max": 0,
-            "cgc_estimated_seconds_min": 0,
-            "cgc_estimated_seconds_max": 0,
-            "cgc_full_estimated_seconds_min": 0,
-            "cgc_full_estimated_seconds_max": 0,
-            "cgc_skip_external_estimated_seconds_min": 0,
-            "cgc_skip_external_estimated_seconds_max": 0,
-            "cgc_timeout_risk": False,
+            "structural_estimated_seconds_min": 0,
+            "structural_estimated_seconds_max": 0,
             "index_estimate_notes": [],
         }
     min_seconds = max(10, int(chunks * 0.05 + files * 0.002))
     max_seconds = max(min_seconds + 10, int(chunks * 0.15 + files * 0.006))
-    size_mib = total_bytes / (1024 * 1024)
-    cgc_full_midpoint_seconds = max(20, int(chunks * 0.055 + files * 0.25 + size_mib * 120))
-    cgc_full_min_seconds = max(15, int(cgc_full_midpoint_seconds * 0.75))
-    cgc_full_max_seconds = max(cgc_full_min_seconds + 20, int(cgc_full_midpoint_seconds * 1.35))
-    cgc_skip_midpoint_seconds = max(15, int(cgc_full_midpoint_seconds * 0.57))
-    cgc_skip_min_seconds = max(10, int(cgc_skip_midpoint_seconds * 0.75))
-    cgc_skip_max_seconds = max(cgc_skip_min_seconds + 20, int(cgc_skip_midpoint_seconds * 1.35))
-    notes: list[str] = []
-    if cgc_skip_max_seconds > 180:
-        notes.append(
-            "CGC structural indexing may exceed the interactive timeout even with SKIP_EXTERNAL_RESOLUTION; narrow exclusions or prepare the index before retrieval."
-        )
-    if chunks > 8000 or size_mib > 5:
-        notes.append(
-            "Large generated/test files can dominate CGC graph construction even when BM25/Qdrant indexing looks reasonable."
-        )
+    structural_midpoint_seconds = max(5, int(files * 0.006))
+    structural_min_seconds = max(3, int(structural_midpoint_seconds * 0.6))
+    structural_max_seconds = max(structural_min_seconds + 5, int(structural_midpoint_seconds * 1.8))
     return {
         "estimated_seconds_min": min_seconds,
         "estimated_seconds_max": max_seconds,
-        "cgc_estimated_seconds_min": cgc_skip_min_seconds,
-        "cgc_estimated_seconds_max": cgc_skip_max_seconds,
-        "cgc_full_estimated_seconds_min": cgc_full_min_seconds,
-        "cgc_full_estimated_seconds_max": cgc_full_max_seconds,
-        "cgc_skip_external_estimated_seconds_min": cgc_skip_min_seconds,
-        "cgc_skip_external_estimated_seconds_max": cgc_skip_max_seconds,
-        "cgc_timeout_risk": cgc_skip_max_seconds > 180,
-        "index_estimate_notes": notes,
+        "structural_estimated_seconds_min": structural_min_seconds,
+        "structural_estimated_seconds_max": structural_max_seconds,
+        "index_estimate_notes": [],
     }
 
 
@@ -1881,6 +1874,7 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
         timeout_seconds = 900
     retrieval["codex_timeout_seconds"] = timeout_seconds
+    retrieval["codex_ignore_user_config"] = bool(retrieval.get("codex_ignore_user_config", True))
     assistance = config.get("assistance")
     if not isinstance(assistance, dict):
         assistance = {}
@@ -2185,6 +2179,8 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
         raise RetrievalServerError("`retrieval.codex_timeout_seconds` must be an integer.") from exc
     if codex_timeout_seconds <= 0:
         raise RetrievalServerError("`retrieval.codex_timeout_seconds` must be greater than zero.")
+    if "codex_ignore_user_config" in retrieval and not isinstance(retrieval.get("codex_ignore_user_config"), bool):
+        raise RetrievalServerError("`retrieval.codex_ignore_user_config` must be a boolean.")
     assistance = payload.get("assistance", {})
     if not isinstance(assistance, Mapping):
         raise RetrievalServerError("`assistance` must be an object.")
@@ -2365,6 +2361,130 @@ def _codex_model_options(catalog: Any) -> list[dict[str, Any]]:
             }
         )
     return sorted(models, key=lambda model: (model.get("priority") is None, model.get("priority") or 9999, str(model.get("slug") or "")))
+
+
+def _codex_global_mcp_servers(command: Sequence[str], *, workspace_root: Path) -> dict[str, Any]:
+    try:
+        completed = subprocess.run(
+            list(command),
+            cwd=str(workspace_root),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=_codex_subprocess_env(command),
+            timeout=30,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        raise RetrievalServerError(f"Codex command was not found: {command[0]}", status=404) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RetrievalServerError("Codex MCP server list request timed out.", status=504) from exc
+    except OSError as exc:
+        raise RetrievalServerError(f"Codex MCP server list request failed: {exc}", status=502) from exc
+    stdout = completed.stdout.strip()
+    stderr = completed.stderr.strip()
+    if completed.returncode != 0:
+        detail = stderr or stdout or f"exit code {completed.returncode}"
+        raise RetrievalServerError(f"Codex MCP server list request failed: {detail}", status=502)
+    try:
+        raw_servers = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise RetrievalServerError("Codex MCP server list response was not valid JSON.", status=502) from exc
+    if not isinstance(raw_servers, list):
+        raise RetrievalServerError("Codex MCP server list response must be an array.", status=502)
+    servers = [_public_codex_mcp_server(server) for server in raw_servers if isinstance(server, Mapping)]
+    return {
+        "ok": True,
+        "command": list(command),
+        "server_count": len(servers),
+        "enabled_server_count": sum(1 for server in servers if server.get("enabled")),
+        "servers": servers,
+        "stderr": stderr,
+    }
+
+
+def _public_codex_mcp_server(server: Mapping[str, Any]) -> dict[str, Any]:
+    transport = server.get("transport")
+    public_transport = _public_codex_mcp_transport(transport if isinstance(transport, Mapping) else {})
+    return {
+        "name": str(server.get("name") or "").strip(),
+        "enabled": bool(server.get("enabled")),
+        "disabled_reason": str(server.get("disabled_reason") or "").strip(),
+        "transport": public_transport,
+        "startup_timeout_sec": server.get("startup_timeout_sec") if isinstance(server.get("startup_timeout_sec"), (int, float)) else None,
+        "tool_timeout_sec": server.get("tool_timeout_sec") if isinstance(server.get("tool_timeout_sec"), (int, float)) else None,
+        "auth_status": str(server.get("auth_status") or "").strip(),
+    }
+
+
+def _public_codex_mcp_transport(transport: Mapping[str, Any]) -> dict[str, Any]:
+    transport_type = str(transport.get("type") or "").strip()
+    public: dict[str, Any] = {"type": transport_type}
+    if transport_type == "stdio":
+        public["command"] = str(transport.get("command") or "").strip()
+        public["args"] = _plain_string_list(transport.get("args"))
+        public["cwd"] = str(transport.get("cwd") or "").strip()
+        env = transport.get("env")
+        public["env_keys"] = sorted(str(key) for key in env.keys()) if isinstance(env, Mapping) else []
+        public["env_vars"] = _plain_string_list(transport.get("env_vars"))
+        return public
+    if transport_type in {"streamable_http", "sse", "http"}:
+        public["url"] = str(transport.get("url") or "").strip()
+        public["bearer_token_env_var"] = str(transport.get("bearer_token_env_var") or "").strip()
+        http_headers = transport.get("http_headers")
+        env_http_headers = transport.get("env_http_headers")
+        public["http_header_keys"] = sorted(str(key) for key in http_headers.keys()) if isinstance(http_headers, Mapping) else []
+        public["env_http_header_keys"] = sorted(str(key) for key in env_http_headers.keys()) if isinstance(env_http_headers, Mapping) else []
+        return public
+    return public
+
+
+def _codex_retrieval_override_indicators(retrieval_settings: Mapping[str, Any]) -> dict[str, Any]:
+    model = str(retrieval_settings.get("codex_model") or "").strip()
+    ignore_user_config = bool(retrieval_settings.get("codex_ignore_user_config", True))
+    return {
+        "ignore_user_config": {
+            "overridden": ignore_user_config,
+            "flag": "--ignore-user-config",
+            "effect": (
+                "Codex retrieval does not load globally configured MCP servers, profiles, or user config defaults."
+                if ignore_user_config
+                else "Codex retrieval may load the user's global Codex config."
+            ),
+        },
+        "plugins": {
+            "overridden": True,
+            "flag": "--disable plugins",
+            "effect": "Codex retrieval disables Codex plugins for this run.",
+        },
+        "rules": {
+            "overridden": True,
+            "flag": "--ignore-rules",
+            "effect": "Codex retrieval does not apply repository or user instruction rules from Codex.",
+        },
+        "web_search": {
+            "overridden": True,
+            "flag": "-c web_search=\"disabled\"",
+            "effect": "Codex retrieval cannot use live web search.",
+        },
+        "approval_policy": {
+            "overridden": True,
+            "flag": "-a never",
+            "effect": "Codex retrieval will not ask for approvals.",
+        },
+        "sandbox": {
+            "overridden": True,
+            "flag": "--sandbox read-only",
+            "effect": "Codex retrieval is constrained to read-only workspace access.",
+        },
+        "model": {
+            "overridden": bool(model),
+            "flag": "--model",
+            "value": model,
+            "effect": "Codex retrieval uses the model selected in Guided Intelligence instead of a Codex user-config default.",
+        },
+    }
 
 
 def _string_list(value: Any) -> list[str]:
@@ -3121,13 +3241,15 @@ def _run_evidence_connections(result: Mapping[str, Any]) -> dict[str, Any]:
     graph = summary.get("evidence_connections")
     if not isinstance(graph, Mapping):
         return {"version": 1, "connections": []}
-    connections = graph.get("connections")
-    if not isinstance(connections, list):
-        return {"version": 1, "connections": []}
-    return {
+    output = {
         "version": int(graph.get("version") or 1),
-        "connections": _deepcopy_json(connections),
+        "status": str(graph.get("status") or "complete"),
+        "connections": _deepcopy_json(graph.get("connections") if isinstance(graph.get("connections"), list) else []),
     }
+    for key in ("root_ref", "disconnected_evidence", "generation", "error"):
+        if key in graph:
+            output[key] = _deepcopy_json(graph[key])
+    return output
 
 
 def _run_metrics(run_dir: Path, metadata: Mapping[str, Any]) -> dict[str, Any]:

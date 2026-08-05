@@ -22,7 +22,7 @@ DECLARATION_SYMBOL_PATTERN = re.compile(
 DEFAULT_EXCLUDED_PATHS = (
     ".git",
     ".guided-intelligence",
-    ".codegraphcontext",
+    ".codegraph",
     ".venv",
     "__pycache__",
     "node_modules",

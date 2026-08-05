@@ -17,7 +17,7 @@ from services.retrieval.workspace.pipeline.execution_flow.coverage_synthesis imp
     synthesize_or_accept_deterministic,
 )
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
-from services.retrieval.workspace.pipeline.execution_flow.index_setup import build_step2_repo_context, cgc_tools, rebuild_index
+from services.retrieval.workspace.pipeline.execution_flow.index_setup import build_step2_repo_context, rebuild_index, structural_tools
 from services.retrieval.workspace.pipeline.execution_flow.narrowing import run_initial_narrowing
 from services.retrieval.workspace.pipeline.execution_flow.refinement_recovery import recover_weak_role_buckets, refine_selected_role_buckets
 from services.retrieval.workspace.pipeline.execution_flow.retrieval import run_workspace_retrieval
@@ -36,7 +36,7 @@ __all__ = [
     "build_step2_repo_context",
     "build_anchor_support",
     "candidates_from_search_observation",
-    "cgc_tools",
+    "structural_tools",
     "connected_source_context",
     "direct_owner_candidate_from_path",
     "expand_responsibility_candidates",

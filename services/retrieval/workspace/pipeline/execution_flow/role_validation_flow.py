@@ -14,11 +14,6 @@ from services.retrieval.workspace.pipeline.file_level import (
     role_phase_path_allowed as _role_phase_path_allowed,
 )
 from services.retrieval.workspace.pipeline.models import RetrievalCandidate, RoleRetrievalBucket, RoleValidationResult
-from services.retrieval.workspace.pipeline.relationship_flow import (
-    anchor_symbol_relation_query as _anchor_symbol_relation_query,
-    cypher_relative_path as _cypher_relative_path,
-    is_structural_symbol_name as _is_structural_symbol_name,
-)
 from services.retrieval.workspace.responsibility import ResponsibilityScore
 from services.retrieval.workspace.role_validation import AnchorRecord, AnchorSupport, RoleValidationContext, validator_for_role
 from services.retrieval.workspace.step2.common import ordered_unique
@@ -127,8 +122,8 @@ def validate_role_candidate(
         helper_queries: Sequence[str],
         candidate: RetrievalCandidate,
         anchor_support: AnchorSupport,
-        cgc_tools: Mapping[str, Any],
-        allow_cgc_queries: bool = True,
+        structural_tools: Mapping[str, Any],
+        allow_structural_queries: bool = True,
     ) -> RoleValidationResult:
         path = candidate.path or ""
         if not _role_phase_path_allowed(role, path):
@@ -174,8 +169,8 @@ def validate_role_candidate(
             candidate_path=path,
             candidate=candidate,
             anchors=compatible_anchors,
-            cgc_tools=cgc_tools,
-            allow_cgc_queries=allow_cgc_queries,
+            structural_tools=structural_tools,
+            allow_structural_queries=allow_structural_queries,
         )
         matched_call_anchors = _matched_anchor_paths(path, compatible_anchors, anchor_support.call_paths_by_anchor)
         context = RoleValidationContext(
@@ -234,43 +229,33 @@ def query_anchor_candidate_support(
         candidate_path: str,
         candidate: RetrievalCandidate,
         anchors: Sequence[AnchorRecord],
-        cgc_tools: Mapping[str, Any],
-        allow_cgc_queries: bool = True,
+        structural_tools: Mapping[str, Any],
+        allow_structural_queries: bool = True,
     ) -> tuple[str, ...]:
-        if role != "representation" or not candidate_path or not allow_cgc_queries:
+        if role != "representation" or not candidate_path or not allow_structural_queries:
             return ()
-        candidate_relative = _cypher_relative_path(candidate_path)
         supporting_anchor_paths: list[str] = []
         for anchor in anchors:
             if not anchor.path or anchor.path == candidate_path:
                 continue
-            query = _anchor_symbol_relation_query(anchor.path, candidate_relative)
             request = ToolRequest(
-                tool_name="cgc_query_graph",
-                arguments={"query": query},
-                reason=f"Confirm whether accepted {anchor.role} anchors reference symbols declared in the {role} candidate.",
+                tool_name="structural_relationship",
+                arguments={"source_path": anchor.path, "target_path": candidate_path},
+                reason=f"Confirm a real graph relationship between the accepted {anchor.role} anchor and the {role} candidate.",
             )
-            observation = cgc_tools["cgc_query_graph"].run(request)
+            observation = structural_tools["structural_relationship"].run(request)
             ctx.trace.record_tool(request, observation, round_index=0)
             if observation.status != "ok":
                 continue
-            rows = observation.payload.get("rows", ())
-            if not isinstance(rows, Sequence):
-                continue
-            symbols = [
-                str(item.get("shared_symbol", "")).strip()
-                for item in rows
-                if isinstance(item, Mapping) and _is_structural_symbol_name(str(item.get("shared_symbol", "")).strip())
-            ]
-            if symbols:
+            if observation.payload.get("related"):
                 supporting_anchor_paths.append(anchor.path)
                 ctx.trace.record(
-                    "anchor_query_confirmed",
+                    "anchor_relationship_confirmed",
                     {
                         "source_role": anchor.role,
                         "anchor_path": anchor.path,
                         "candidate_path": candidate_path,
-                        "shared_symbols": list(ordered_unique(symbols)),
+                        "edges": list(observation.payload.get("edges", ()))[:10],
                     },
                 )
         return tuple(ordered_unique(supporting_anchor_paths))
@@ -289,6 +274,7 @@ def accepted_anchor_records(buckets: Sequence[RoleRetrievalBucket]) -> tuple[Anc
                         source_id=candidate.source_id,
                         symbol=_candidate_symbol(candidate),
                         text=candidate.text,
+                        line_start=_line_start_from_range(candidate.line_range),
                     )
                 )
         return tuple(anchors)
@@ -298,7 +284,7 @@ def build_anchor_support(
     ctx: WorkspaceRetrievalContext,
         *,
         anchors: Sequence[AnchorRecord],
-        cgc_tools: Mapping[str, Any],
+        structural_tools: Mapping[str, Any],
     ) -> tuple[AnchorSupport, int]:
         accepted_anchors: dict[str, list[AnchorRecord]] = {}
         dependency_paths_by_anchor: dict[str, tuple[str, ...]] = {}
@@ -308,15 +294,15 @@ def build_anchor_support(
             accepted_anchors.setdefault(anchor.role, []).append(anchor)
             dependency_paths_by_anchor[anchor.path] = ()
             call_paths: tuple[str, ...] = ()
-            if anchor.symbol:
+            if anchor.line_start > 0:
                 collected_call_paths: list[str] = []
-                for tool_name in ("cgc_analyze_callers", "cgc_analyze_callees"):
+                for tool_name in ("structural_callers", "structural_callees"):
                     request = ToolRequest(
                         tool_name=tool_name,
-                        arguments={"symbol": anchor.symbol, "file": anchor.path},
+                        arguments={"file": anchor.path, "line": anchor.line_start},
                         reason=f"Expand role support around the accepted {anchor.role} anchor.",
                     )
-                    observation = cgc_tools[tool_name].run(request)
+                    observation = structural_tools[tool_name].run(request)
                     ctx.trace.record_tool(request, observation, round_index=0)
                     tool_calls += 1
                     collected_call_paths.extend(_anchor_support_paths(observation))

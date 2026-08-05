@@ -36,10 +36,10 @@ from services.retrieval.workspace.qdrant_backend import QdrantSearchResult
 from services.retrieval.workspace.responsibility import profile_candidate, score_responsibility
 from services.retrieval.workspace.step2 import RoleDirectedSubquery, WorkspaceRetrievalPlan
 from services.retrieval.workspace.role_validation import AnchorSupport, supported_roles
-from services.retrieval.workspace.tools import cgc_tool_specs, local_tool_specs, qdrant_tool_specs
+from services.retrieval.workspace.tools import local_tool_specs, qdrant_tool_specs
+from services.retrieval.workspace.tools.codegraph import CodeGraphBridge
 from services.retrieval.workspace.tools.local import OpenFileTool
 from services.retrieval.workspace.tools.qdrant import QdrantHybridSearchTool
-from services.retrieval.workspace.tools.cgc import CGCAnalyzeDepsTool, CGCFindCodeTool, CGCIndexRepoTool, CGCQueryGraphTool, CGCRunCliTool
 from services.retrieval.workspace.tools.contracts import ToolObservation, ToolRequest
 from services.retrieval.workspace.pipeline.execution_flow.adaptive_loop import run_adaptive_retrieval_loop
 from services.retrieval.workspace.pipeline.execution_flow.candidate_expansion import (
@@ -52,7 +52,7 @@ from services.retrieval.workspace.pipeline.execution_flow.coverage_synthesis imp
     apply_protocol_relationship_bridge,
     apply_synthesis_feedback,
 )
-from services.retrieval.workspace.pipeline.execution_flow.index_setup import cgc_tools, rebuild_index
+from services.retrieval.workspace.pipeline.execution_flow.index_setup import structural_tools, rebuild_index
 from services.retrieval.workspace.pipeline.execution_flow.refinement_recovery import (
     build_late_recovery_followup_specs,
     recover_weak_role_buckets,
@@ -377,7 +377,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     retrieval_plan=plan,
                     qdrant_tool=None,
                     open_file_tool=None,
-                    cgc_tools={},
+                    structural_tools={},
                     narrowed_files=("src/compiler/checker.ts",),
                     starting_tool_call_count=0,
                 )
@@ -472,7 +472,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     retrieval_plan=plan,
                     qdrant_tool=None,
                     open_file_tool=None,
-                    cgc_tools={},
+                    structural_tools={},
                     narrowed_files=("src/compiler/checker.ts",),
                     starting_tool_call_count=0,
                 )
@@ -557,7 +557,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     retrieval_plan=plan,
                     qdrant_tool=None,
                     open_file_tool=None,
-                    cgc_tools={},
+                    structural_tools={},
                     narrowed_files=("src/compiler/checker.ts",),
                     starting_tool_call_count=0,
                 )
@@ -622,7 +622,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     subquery_roles=("tests",),
                     qdrant_tool=None,
                     open_file_tool=None,
-                    cgc_tools={},
+                    structural_tools={},
                     narrowed_files=(),
                     starting_tool_call_count=10,
                     phase="supporting",
@@ -685,7 +685,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     retrieval_plan=plan,
                     qdrant_tool=None,
                     open_file_tool=None,
-                    cgc_tools={},
+                    structural_tools={},
                     narrowed_files=("src/compiler/checker.ts",),
                     starting_tool_call_count=0,
                 )
@@ -789,7 +789,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
-            with _fake_cgc(files=[{"path": "src/compiler/parser.ts"}, {"path": "src/compiler/checker.ts"}, {"path": "src/compiler/diagnosticMessages.json"}, {"path": "tests/cases/abstractTests.ts"}]):
+            with _fake_structural(files=[{"path": "src/compiler/parser.ts"}, {"path": "src/compiler/checker.ts"}, {"path": "src/compiler/diagnosticMessages.json"}, {"path": "tests/cases/abstractTests.ts"}]):
                 result = stage.retrieve(state, _policy_result(state, allowed_sources=(SourceCategory.SOURCE_CODE,)))
 
             evidence_paths = [item.metadata.get("path", "") for item in result.evidence]
@@ -835,7 +835,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
-            with _fake_cgc(files=[{"path": "src/compiler/diagnosticMessages.json"}]):
+            with _fake_structural(files=[{"path": "src/compiler/diagnosticMessages.json"}]):
                 result = stage.retrieve(state, _policy_result(state, allowed_sources=(SourceCategory.SOURCE_CODE,)))
 
             self.assertFalse(result.sufficient)
@@ -892,7 +892,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
-            with _fake_cgc(files=[{"path": "src/compiler/parser.ts"}, {"path": "src/compiler/parserHelpers.ts"}, {"path": "src/compiler/checker.ts"}]):
+            with _fake_structural(files=[{"path": "src/compiler/parser.ts"}, {"path": "src/compiler/parserHelpers.ts"}, {"path": "src/compiler/checker.ts"}]):
                 result = stage.retrieve(state, _policy_result(state, allowed_sources=(SourceCategory.SOURCE_CODE,)))
 
             self.assertGreaterEqual(len(result.evidence), 2)
@@ -1399,17 +1399,19 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
-            with _fake_cgc(
+            with _fake_structural(
                 files_by_command={
                     ("find",): [{"path": "src/compiler/parser.ts"}, {"path": "src/compiler/types.ts"}],
                     ("analyze", "callers"): [{"path": "src/compiler/checker.ts"}],
                     ("analyze", "calls"): [{"path": "src/compiler/types.ts"}],
                 },
-                query_rows_by_contains={
-                    "fc.relative_path = 'src\\\\compiler\\\\types.ts'": [
-                        {"shared_symbol": "ClassDeclaration", "anchor_function": "parseClassDeclaration", "anchor_line": 2542}
-                    ]
-                },
+                relationship_edges=[
+                    {
+                        "edge_kind": "references",
+                        "source": {"path": "src/compiler/parser.ts", "name": "parseClassDeclaration"},
+                        "target": {"path": "src/compiler/types.ts", "name": "ClassDeclaration"},
+                    }
+                ],
             ):
                 result = stage.retrieve(state, _policy_result(state, allowed_sources=(SourceCategory.SOURCE_CODE,)))
 
@@ -1462,7 +1464,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
-            with _fake_cgc(
+            with _fake_structural(
                 files_by_command={
                     ("find",): [{"path": "src/compiler/parser.ts"}, {"path": "src/compiler/checker.ts"}],
                     ("analyze", "callers"): [{"path": "src/compiler/checker.ts"}],
@@ -1550,7 +1552,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
-            with _fake_cgc(files=[{"path": "src/compiler/checker.ts"}, {"path": "src/compiler/tc.ts"}, {"path": "src/services/services.ts"}]):
+            with _fake_structural(files=[{"path": "src/compiler/checker.ts"}, {"path": "src/compiler/tc.ts"}, {"path": "src/services/services.ts"}]):
                 result = stage.retrieve(state, _policy_result(state, allowed_sources=(SourceCategory.SOURCE_CODE,)))
 
             validation_bucket = next(bucket for bucket in result.retrieval_summary["required_role_buckets"] if bucket["role"] == "validation_checking")
@@ -1588,7 +1590,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
-            with _fake_cgc(files=[{"path": "src/compiler/parser.ts"}]):
+            with _fake_structural(files=[{"path": "src/compiler/parser.ts"}]):
                 stage.retrieve(state, _policy_result(state, allowed_sources=(SourceCategory.SOURCE_CODE,)))
 
             trace = (root / "run" / "retrieval-trace.jsonl").read_text(encoding="utf-8")
@@ -1977,14 +1979,14 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 follow_up_queries=({"role": "validation_checking", "query": "cannot instantiate abstract class semantic checker", "reason": "missing checker"},),
             )
 
-            with _fake_cgc(files=[{"path": "src/compiler/checker.ts"}]):
+            with _fake_structural(files=[{"path": "src/compiler/checker.ts"}]):
                 updated_buckets, _, _ = recover_weak_role_buckets(stage.context, 
                     retrieval_plan=_test_retrieval_plan(required_roles=("validation_checking",)),
                     buckets=(bucket,),
                     synthesis_decision=decision,
                     qdrant_tool=qdrant_tool,
                     open_file_tool=open_file_tool,
-                    cgc_tools=cgc_tools(stage.context),
+                    structural_tools=structural_tools(stage.context),
                     narrowed_files=("src/compiler/binder.ts", "src/compiler/checker.ts"),
                     starting_tool_call_count=0,
                 )
@@ -2120,9 +2122,9 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             with patch(
                 "services.retrieval.workspace.pipeline.execution_flow.connected_sources_flow.ObsidianHybridSearchAdapter.search",
                 return_value=(note_result,),
-            ), patch("services.retrieval.tools.cgc.CGCFindCodeTool.run") as fake_cgc_find:
-                fake_cgc_find.return_value = ToolObservation(
-                    tool_name="cgc_find_code",
+            ), patch("services.retrieval.workspace.tools.codegraph.CodeGraphFindExactSymbolTool.run") as fake_structural_find:
+                fake_structural_find.return_value = ToolObservation(
+                    tool_name="structural_find_exact_symbol",
                     status="ok",
                     payload={"files": []},
                     metadata={"result_count": "0"},
@@ -2304,7 +2306,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
-            with _fake_cgc(files=[{"path": "src/runtime/checkout.ts"}]):
+            with _fake_structural(files=[{"path": "src/runtime/checkout.ts"}]):
                 result = stage.retrieve(state, _policy_result(state))
 
             connected = result.retrieval_summary["connected_source_context"]
@@ -2402,7 +2404,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 anchor_support=AnchorSupport(accepted_anchors={}, dependency_paths_by_anchor={}, call_paths_by_anchor={}),
                 qdrant_tool=qdrant_tool,
                 open_file_tool=open_file_tool,
-                cgc_tools=cgc_tools(stage.context),
+                structural_tools={},
             )
 
             self.assertTrue(any(evaluation.stage == "role_followup_snippet_refinement" for evaluation in updated_bucket.evaluations))
@@ -2443,14 +2445,15 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 satisfaction_source="first_pass",
             )
 
-            updated_buckets, _ = refine_selected_role_buckets(stage.context, 
-                buckets=(docs_bucket,),
-                rescue_roles=("representation", "input_parsing", "validation_checking", "diagnostics", "behavior_output"),
-                qdrant_tool=QdrantHybridSearchTool(build_index_from_repo(repo_path=root, commit="test"), qdrant_config=_qdrant_config(), embedding_config=_embedding_config()),
-                open_file_tool=OpenFileTool(build_index_from_repo(repo_path=root, commit="test")),
-                cgc_tools=cgc_tools(stage.context),
-                starting_tool_call_count=0,
-            )
+            with _fake_structural():
+                updated_buckets, _ = refine_selected_role_buckets(stage.context,
+                    buckets=(docs_bucket,),
+                    rescue_roles=("representation", "input_parsing", "validation_checking", "diagnostics", "behavior_output"),
+                    qdrant_tool=QdrantHybridSearchTool(build_index_from_repo(repo_path=root, commit="test"), qdrant_config=_qdrant_config(), embedding_config=_embedding_config()),
+                    open_file_tool=OpenFileTool(build_index_from_repo(repo_path=root, commit="test")),
+                    structural_tools=structural_tools(stage.context),
+                    starting_tool_call_count=0,
+                )
 
             self.assertEqual(updated_buckets[0].accepted_candidates[0].source_id, "repo:docs")
             self.assertFalse(any(evaluation.stage.startswith("role_followup_") for evaluation in updated_buckets[0].evaluations))
@@ -2595,7 +2598,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             self.assertEqual(candidate.metadata["protocol_edge"], "prompt_message_literal_to_code")
             self.assertIn("expects a method", candidate.text)
 
-    def test_hard_fail_when_cgc_binary_is_missing(self) -> None:
+    def test_hard_fail_when_codegraph_bridge_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, _fake_llm_server([_step2_response()]) as server_url:
             root = Path(temp_dir)
             repo = root / "repo"
@@ -2615,12 +2618,12 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                 intent=UserIntent.UNDERSTAND_CODE,
             )
 
-            with patch("services.retrieval.tools.cgc.subprocess.run", side_effect=FileNotFoundError("missing cgc")):
+            with patch.object(CodeGraphBridge, "request", side_effect=FileNotFoundError("missing CodeGraph bridge")):
                 result = stage.retrieve(state, _policy_result(state))
 
             self.assertFalse(result.sufficient)
             self.assertEqual(result.coverage_status, "failed")
-            self.assertEqual(result.failures_or_fallbacks, ("cgc_index_failed",))
+            self.assertEqual(result.failures_or_fallbacks, ("structural_index_failed",))
 
     def test_temperature_rejection_is_logged_and_disabled_for_rest_of_run(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -2666,7 +2669,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
                     raise urllib.error.HTTPError(request.full_url, 400, "Bad Request", hdrs=None, fp=_BytesReader(body))
                 return _FakeHTTPResponse({"choices": [{"message": {"content": json.dumps(responses.pop(0))}}]})
 
-            with _fake_cgc(files=[{"path": "src/parser.ts"}]), patch(
+            with _fake_structural(files=[{"path": "src/parser.ts"}]), patch(
                 "services.llm.json_completion.urllib.request.urlopen",
                 side_effect=fake_urlopen,
             ):
@@ -2685,188 +2688,12 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             self.assertIn("deterministic_coverage_gate", result.retrieval_summary)
 
 
-class CGCToolTests(unittest.TestCase):
+class CodeGraphToolTests(unittest.TestCase):
     def test_role_registry_exposes_expected_roles(self) -> None:
         self.assertEqual(
             supported_roles(),
             ("behavior_output", "diagnostics", "input_parsing", "representation", "validation_checking"),
         )
-
-    def test_cgc_command_prefix_override_is_used(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            config = WorkspaceRetrievalConfig(
-                workspace_root=str(root),
-                index_dir=str(root / "index"),
-                llm_config=_llm_config("http://unused/v1/chat/completions"),
-                embedding_config=_embedding_config(),
-                qdrant_config=_qdrant_config(),
-                cgc_command=("uvx", "codegraphcontext"),
-            )
-            tool = CGCFindCodeTool(config)
-            calls: list[list[str]] = []
-
-            def fake_run(command, **kwargs):
-                calls.append(command)
-                return _completed(stdout=_cgc_table([("parseClassDeclaration", "Function", str(root / "src" / "parser.ts:10"))]))
-
-            with patch("services.retrieval.tools.cgc.subprocess.run", side_effect=fake_run):
-                observation = tool.run(ToolRequest(tool_name="cgc_find_code", arguments={"query": "parser"}))
-
-            self.assertEqual(calls[0][:2], ["uvx", "codegraphcontext"])
-            self.assertEqual(observation.status, "ok")
-
-    def test_cgc_index_repo_syncs_configured_excludes_to_cgcignore(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            (root / ".cgcignore").write_text("existing/\n", encoding="utf-8")
-            tool = CGCRunCliTool(
-                WorkspaceRetrievalConfig(
-                    workspace_root=str(root),
-                    index_dir=str(root / "index"),
-                    llm_config=_llm_config("http://unused/v1/chat/completions"),
-                    embedding_config=_embedding_config(),
-                    qdrant_config=_qdrant_config(),
-                    index_exclude_paths=("node_modules", "tests/baselines", "generated/file.ts"),
-                )
-            )
-            index_tool = CGCIndexRepoTool(tool.config)
-
-            with patch("services.retrieval.tools.cgc.subprocess.run", return_value=_completed(stdout="ok")):
-                observation = index_tool.run(ToolRequest(tool_name="cgc_index_repo", arguments={}))
-
-            self.assertEqual(observation.status, "ok")
-            raw = (root / ".cgcignore").read_text(encoding="utf-8")
-            self.assertIn("existing/", raw)
-            self.assertIn("node_modules/", raw)
-            self.assertIn("tests/baselines/", raw)
-            self.assertIn("generated/file.ts", raw)
-
-    def test_cgc_run_cli_rejects_non_whitelisted_subcommands(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            tool = CGCRunCliTool(
-                WorkspaceRetrievalConfig(
-                    workspace_root=str(root),
-                    index_dir=str(root / "index"),
-                    llm_config=_llm_config("http://unused/v1/chat/completions"),
-                    embedding_config=_embedding_config(),
-                    qdrant_config=_qdrant_config(),
-                )
-            )
-
-            observation = tool.run(
-                ToolRequest(
-                    tool_name="cgc_run_cli",
-                    arguments={"subcommand": ["delete"], "args": ["--all"]},
-                )
-            )
-
-            self.assertEqual(observation.status, "rejected")
-            self.assertEqual(observation.payload["reason"], "unsupported_subcommand")
-
-    def test_cgc_timeout_returns_failed_observation(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            tool = CGCFindCodeTool(
-                WorkspaceRetrievalConfig(
-                    workspace_root=str(root),
-                    index_dir=str(root / "index"),
-                    llm_config=_llm_config("http://unused/v1/chat/completions"),
-                    embedding_config=_embedding_config(),
-                    qdrant_config=_qdrant_config(),
-                )
-            )
-
-            with patch(
-                "services.retrieval.tools.cgc.subprocess.run",
-                side_effect=subprocess.TimeoutExpired(cmd=["cgc"], timeout=10),
-            ):
-                observation = tool.run(ToolRequest(tool_name="cgc_find_code", arguments={"query": "parser"}))
-
-            self.assertEqual(observation.status, "failed")
-
-    def test_cgc_analyze_deps_tries_multiple_module_candidates(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            tool = CGCAnalyzeDepsTool(
-                WorkspaceRetrievalConfig(
-                    workspace_root=str(root),
-                    index_dir=str(root / "index"),
-                    llm_config=_llm_config("http://unused/v1/chat/completions"),
-                    embedding_config=_embedding_config(),
-                    qdrant_config=_qdrant_config(),
-                )
-            )
-            commands: list[list[str]] = []
-
-            def fake_run(command, **kwargs):
-                commands.append(command)
-                if command[-1] == "src.compiler.parser":
-                    return _completed(stdout=_cgc_table([("types", "Module", str(root / "src" / "compiler" / "types.ts"))]))
-                return _completed(stdout="")
-
-            with patch("services.retrieval.tools.cgc.subprocess.run", side_effect=fake_run):
-                observation = tool.run(ToolRequest(tool_name="cgc_analyze_deps", arguments={"path": "src/compiler/parser.ts"}))
-
-            self.assertEqual(observation.status, "ok")
-            self.assertEqual(observation.payload["used_module"], "src.compiler.parser")
-            self.assertGreater(len(commands), 1)
-
-    def test_cgc_query_graph_parses_rows(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            tool = CGCQueryGraphTool(
-                WorkspaceRetrievalConfig(
-                    workspace_root=str(root),
-                    index_dir=str(root / "index"),
-                    llm_config=_llm_config("http://unused/v1/chat/completions"),
-                    embedding_config=_embedding_config(),
-                    qdrant_config=_qdrant_config(),
-                )
-            )
-
-            def fake_run(command, **kwargs):
-                return _completed(stdout='[{"shared_symbol":"ClassDeclaration","anchor_function":"parseClassDeclaration"}]')
-
-            with patch("services.retrieval.tools.cgc.subprocess.run", side_effect=fake_run):
-                observation = tool.run(ToolRequest(tool_name="cgc_query_graph", arguments={"query": "MATCH (n) RETURN n LIMIT 1"}))
-
-            self.assertEqual(observation.status, "ok")
-            self.assertEqual(observation.payload["rows"][0]["shared_symbol"], "ClassDeclaration")
-
-    def test_cgc_analyze_deps_returns_ok_when_mapping_has_no_hits(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            tool = CGCAnalyzeDepsTool(
-                WorkspaceRetrievalConfig(
-                    workspace_root=str(root),
-                    index_dir=str(root / "index"),
-                    llm_config=_llm_config("http://unused/v1/chat/completions"),
-                    embedding_config=_embedding_config(),
-                    qdrant_config=_qdrant_config(),
-                )
-            )
-
-            with patch("services.retrieval.tools.cgc.subprocess.run", side_effect=lambda command, **kwargs: _completed(stdout="")):
-                observation = tool.run(ToolRequest(tool_name="cgc_analyze_deps", arguments={"path": "src/compiler/parser.ts"}))
-
-            self.assertEqual(observation.status, "ok")
-            self.assertEqual(observation.payload["files"], [])
-
-    def test_tool_specs_include_cgc_guidance(self) -> None:
-        cgc_names = {spec.name for spec in cgc_tool_specs()}
-        local_names = {spec.name for spec in local_tool_specs()}
-
-        self.assertIn("cgc_find_code", cgc_names)
-        self.assertIn("cgc_analyze_deps", cgc_names)
-        self.assertIn("cgc_run_cli", cgc_names)
-        hybrid_names = {spec.name for spec in qdrant_tool_specs()}
-        self.assertIn("qdrant_hybrid_search", hybrid_names)
-        find_code_spec = next(spec for spec in cgc_tool_specs() if spec.name == "cgc_find_code")
-        self.assertIn("Use CodeGraphContext first", find_code_spec.description)
-        raw_spec = next(spec for spec in cgc_tool_specs() if spec.name == "cgc_run_cli")
-        self.assertIn("not arbitrary shell execution", raw_spec.description)
 
 
 class RetrievalLLMConfigTests(unittest.TestCase):
@@ -3277,57 +3104,62 @@ def _completed(*, stdout: str = "", stderr: str = "", returncode: int = 0):
     return Completed()
 
 
-class _fake_cgc:
+class _fake_structural:
     def __init__(
         self,
         files: list[dict[str, object]] | None = None,
         fail_on: tuple[str, ...] | None = None,
         files_by_command: dict[tuple[str, ...], list[dict[str, object]]] | None = None,
-        query_rows_by_contains: dict[str, list[dict[str, object]]] | None = None,
+        relationship_edges: list[dict[str, object]] | None = None,
     ) -> None:
         self.files = files or [{"path": "src/parser.ts"}]
         self.fail_on = fail_on
         self.files_by_command = files_by_command or {}
-        self.query_rows_by_contains = query_rows_by_contains or {}
+        self.relationship_edges = relationship_edges or []
 
     def __enter__(self):
-        def fake_run(command, **kwargs):
-            command_tail = tuple(command[1:3]) if len(command) >= 3 else tuple(command[1:])
-            if self.fail_on is not None and command_tail == self.fail_on:
-                return _completed(stderr="failed", returncode=1)
-            if command[1] == "index":
-                return _completed(stdout="indexed")
-            if command[1] == "query":
-                query_text = command[-1]
-                for needle, rows in self.query_rows_by_contains.items():
-                    if needle in query_text:
-                        return _completed(stdout=json.dumps(rows))
-                return _completed(stdout="[]")
-            cwd = Path(str(kwargs.get("cwd", ".")))
-            rows = []
-            active_files = self.files_by_command.get(command_tail, self.files)
-            for item in active_files:
-                path = str(item["path"]).replace("/", "\\")
-                rows.append(("match", "Function", str((cwd / path).resolve())))
-            return _completed(stdout=_cgc_table(rows))
+        operation_keys = {
+            "find_exact_symbol": ("find",),
+            "callers": ("analyze", "callers"),
+            "callees": ("analyze", "calls"),
+        }
 
-        self.patcher = patch("services.retrieval.tools.cgc.subprocess.run", side_effect=fake_run)
+        def fake_request(operation, arguments=None):
+            command_key = operation_keys.get(operation, (operation,))
+            if self.fail_on is not None and command_key == self.fail_on:
+                raise RuntimeError("failed")
+            if operation in {"callers", "callees"}:
+                self._assert_source_location(arguments)
+            if operation == "index":
+                return {"index_state": "complete", "pending_references": 0, "stats": {"files": len(self.files)}}
+            if operation == "relationship_between_files":
+                return {
+                    "edges": self.relationship_edges,
+                    "source_depends_on_target": bool(self.relationship_edges),
+                    "target_depends_on_source": False,
+                }
+            active_files = self.files_by_command.get(command_key, self.files)
+            return {
+                "files": active_files,
+                "nodes": [
+                    {"name": "match", "kind": "function", "path": str(item["path"]), "start_line": 1, "end_line": 1}
+                    for item in active_files
+                ],
+            }
+
+        self.patcher = patch.object(CodeGraphBridge, "request", side_effect=fake_request)
         self.patcher.start()
         return self
 
+    @staticmethod
+    def _assert_source_location(arguments: object) -> None:
+        if not isinstance(arguments, dict):
+            raise AssertionError("Structural call traversal requires an argument object.")
+        if not str(arguments.get("file") or "").strip() or int(arguments.get("line") or 0) <= 0:
+            raise AssertionError("Structural call traversal requires a file and positive source line.")
+
     def __exit__(self, exc_type, exc, tb):
         self.patcher.stop()
-
-
-def _cgc_table(rows: list[tuple[str, str, str]]) -> str:
-    header = [
-        "+--------------------------------------------------------------------------------+",
-        "| Name | Type | Location |",
-        "|------+------|----------|",
-    ]
-    body = [f"| {name} | {kind} | {location} |" for name, kind, location in rows]
-    footer = ["+--------------------------------------------------------------------------------+"]
-    return "\n".join(header + body + footer)
 
 
 class _FakeLLMHandler(BaseHTTPRequestHandler):

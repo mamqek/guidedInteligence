@@ -410,7 +410,6 @@ function RunPanel(props: {
                 ? ` ${props.indexEstimate.index_status_detail || ""}`
                 : ` Estimate: ${formatIndexEstimateDuration(props.indexEstimate)}.`}
               {props.indexEstimate.index_last_built_at ? ` Last prepared: ${formatDateTime(props.indexEstimate.index_last_built_at)}.` : ""}
-              {props.indexEstimate.cgc_timeout_risk ? ` CGC estimate: ${formatCgcModeEstimate(props.indexEstimate)}.` : ""}
               {" "}
               {!props.indexEstimate.index_ready && (
                 <>
@@ -527,7 +526,7 @@ function ConnectionsPanel({
   const shortcutTokenInputRef = useRef<HTMLInputElement | null>(null);
   const [saveError, setSaveError] = useState("");
   const builtIns = [
-    ["Source Code", "Built in", "codegraphcontext + qdrant"],
+    ["Source Code", "Built in", "CodeGraph + Qdrant"],
     ["Documentation", "Built in", "workspace index"],
     ["Local Notes", "Optional", "obsidian-hybrid-search"],
   ];
@@ -1721,17 +1720,28 @@ function WorkspaceIndexPanel({
                   <Metric
                     label="Indexing"
                     value="Skipped"
-                    description="Codex mode asks Codex to inspect the selected workspace directly, so local BM25, embeddings, Qdrant, and CGC index preparation are not used."
+                    description="Codex mode asks Codex to inspect the selected workspace directly, so local BM25, embeddings, Qdrant, and CodeGraph index preparation are not used."
                   />
                 </div>
+                <label
+                  className="checkRow"
+                  title="When enabled, Codex retrieval starts with --ignore-user-config so global Codex MCP servers, profiles, and user config defaults do not affect retrieval. Turn it off if you intentionally want your global Codex setup to participate."
+                >
+                  <input
+                    type="checkbox"
+                    checked={retrieval.codex_ignore_user_config !== false}
+                    onChange={(event) => updateRetrieval({ codex_ignore_user_config: event.target.checked })}
+                  />
+                  <span>Ignore global Codex user config</span>
+                </label>
               </>
             )}
             {retrieval.mode === "codex" && (
               <p
                 className="noticeText"
-                title="Codex mode asks Codex to inspect the selected workspace directly, so local BM25, embeddings, Qdrant, and CGC index preparation are not used."
+                title="Codex mode asks Codex to inspect the selected workspace directly, so local BM25, embeddings, Qdrant, and CodeGraph index preparation are not used."
               >
-                Codex mode reads the selected workspace directly and does not use BM25, embeddings, Qdrant, or CGC indexing.
+                Codex mode reads the selected workspace directly and does not use BM25, embeddings, Qdrant, or CodeGraph indexing.
               </p>
             )}
           </>
@@ -1761,8 +1771,7 @@ function WorkspaceIndexPanel({
             <Metric label="Files" value={formatCount(estimate.data.file_count)} />
             <Metric label="Chunks est." value={formatCount(estimate.data.estimated_chunks)} />
             <Metric label="Size" value={`${(estimate.data.total_bytes / 1024 / 1024).toFixed(1)} MB`} />
-            <Metric label="CGC full" value={formatCgcFullEstimateDuration(estimate.data)} />
-            <Metric label="CGC skip ext." value={formatCgcSkipEstimateDuration(estimate.data)} />
+            <Metric label="CodeGraph est." value={formatStructuralEstimateDuration(estimate.data)} />
           </div>
         )}
         {!isCodexMode && estimate.data?.index_estimate_notes?.map((note) => (
@@ -2045,38 +2054,14 @@ function formatIndexEstimateDuration(estimate: IndexEstimate): string {
   return formatDurationRange(minSeconds, maxSeconds);
 }
 
-function formatCgcModeEstimate(estimate: IndexEstimate): string {
-  return `full ${formatCgcFullEstimateDuration(estimate)}, skip external ${formatCgcSkipEstimateDuration(estimate)}`;
-}
-
-function formatCgcFullEstimateDuration(estimate: IndexEstimate): string {
+function formatStructuralEstimateDuration(estimate: IndexEstimate): string {
   if (
-    typeof estimate.cgc_full_estimated_seconds_min === "number" &&
-    Number.isFinite(estimate.cgc_full_estimated_seconds_min) &&
-    typeof estimate.cgc_full_estimated_seconds_max === "number" &&
-    Number.isFinite(estimate.cgc_full_estimated_seconds_max)
+    typeof estimate.structural_estimated_seconds_min === "number" &&
+    Number.isFinite(estimate.structural_estimated_seconds_min) &&
+    typeof estimate.structural_estimated_seconds_max === "number" &&
+    Number.isFinite(estimate.structural_estimated_seconds_max)
   ) {
-    return formatDurationRange(estimate.cgc_full_estimated_seconds_min, estimate.cgc_full_estimated_seconds_max);
-  }
-  return formatCgcSkipEstimateDuration(estimate);
-}
-
-function formatCgcSkipEstimateDuration(estimate: IndexEstimate): string {
-  if (
-    typeof estimate.cgc_skip_external_estimated_seconds_min === "number" &&
-    Number.isFinite(estimate.cgc_skip_external_estimated_seconds_min) &&
-    typeof estimate.cgc_skip_external_estimated_seconds_max === "number" &&
-    Number.isFinite(estimate.cgc_skip_external_estimated_seconds_max)
-  ) {
-    return formatDurationRange(estimate.cgc_skip_external_estimated_seconds_min, estimate.cgc_skip_external_estimated_seconds_max);
-  }
-  if (
-    typeof estimate.cgc_estimated_seconds_min === "number" &&
-    Number.isFinite(estimate.cgc_estimated_seconds_min) &&
-    typeof estimate.cgc_estimated_seconds_max === "number" &&
-    Number.isFinite(estimate.cgc_estimated_seconds_max)
-  ) {
-    return formatDurationRange(estimate.cgc_estimated_seconds_min, estimate.cgc_estimated_seconds_max);
+    return formatDurationRange(estimate.structural_estimated_seconds_min, estimate.structural_estimated_seconds_max);
   }
   return formatIndexEstimateDuration(estimate);
 }
@@ -2249,6 +2234,14 @@ function EvidenceGraphPanel({ graph, evidence }: { graph?: EvidenceConnectionsGr
 
   useEffect(() => setSelectedEdgeId(""), [graph]);
 
+  if (graph?.status === "error") {
+    return (
+      <section className="panel evidenceGraphPanel" id="evidence-flow">
+        <div className="panelHeader"><h2>Evidence Flow</h2><span className="panelMeta">unavailable</span></div>
+        <p className="errorText">{graph.error || "Evidence graph generation failed."}</p>
+      </section>
+    );
+  }
   if (!connections.length || !flow.nodes.length) return null;
   const source = selectedConnection ? evidenceByRef.get(selectedConnection.source_ref) : undefined;
   const target = selectedConnection ? evidenceByRef.get(selectedConnection.target_ref) : undefined;

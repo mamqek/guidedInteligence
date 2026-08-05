@@ -20,15 +20,11 @@ from services.retrieval.workspace.pipeline.objective_flow import (
     legacy_required_roles_for_objectives,
     legacy_supporting_roles_for_objectives,
 )
-from services.retrieval.workspace.pipeline.relationship_flow import (
-    anchor_symbol_relation_query,
-    protocol_relationship_seed_texts,
-)
+from services.retrieval.workspace.pipeline.relationship_flow import protocol_relationship_seed_texts
 
 __all__ = [
     "append_accepted_decision_evidence",
     "append_connected_source_evidence",
-    "anchor_symbol_relation_query",
     "build_deterministic_coverage_gate",
     "coverage_status",
     "DeterministicCoverageGate",

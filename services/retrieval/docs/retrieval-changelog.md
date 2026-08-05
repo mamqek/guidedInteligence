@@ -1,8 +1,181 @@
 # Retrieval Changelog
 
+## 2026-08-05
+
+### Verified: CodeGraph Replacement On Historical CGC Timeout Case
+
+- Purpose:
+  - run a case that previously exceeded the interactive structural-indexing boundary;
+  - inspect whether the current CodeGraph-backed native retriever improves both runtime and selected evidence quality.
+- Selected case:
+  - `microsoft-TypeScript-46770`;
+  - historical workspace/native run `run-20260623T104115Z` failed before useful retrieval because CGC timed out after 600 seconds.
+- Historical baseline:
+  - run: `testing/codeRepoQA/batch-runs/002-20260623T102552Z/microsoft-TypeScript-46770/workspace/run-20260623T104115Z`;
+  - `coverage_status=failed`;
+  - `sufficient=false`;
+  - `failure_reason=cgc_index_timeout`;
+  - retrieved 0 source files;
+  - oracle overlap `0/5`;
+  - implementation overlap `0`;
+  - no top-k oracle hit.
+- Current CodeGraph workspace run:
+  - command: `npm.cmd run coderepoqa:evaluate:workspace -- --issue-json testing/codeRepoQA/corpus/cases/microsoft-TypeScript-46770/issue.json`;
+  - run: `C:\Programming\guidedInteligence_testcases\microsoft-TypeScript-46770\runs\run-20260805T021431Z`;
+  - completed end to end in about 155 seconds;
+  - `coverage_status=partial`;
+  - `sufficient=false`;
+  - retrieved 4 source files:
+    - `src/compiler/checker.ts`,
+    - `src/compiler/diagnosticMessages.json`,
+    - `src/compiler/moduleNameResolver.ts`,
+    - `src/compiler/transformers/declarations/diagnostics.ts`;
+  - oracle overlap `1/5`;
+  - implementation overlap `1`;
+  - implementation owner `src/compiler/moduleNameResolver.ts` ranked third and was found within top 5.
+- Runtime and trace notes:
+  - CodeGraph structural index stage took 13,448 ms;
+  - CodeGraph reported 221 discovered files, 220 indexed files, 14,993 nodes, and 77,594 edges;
+  - CodeGraph skipped `src/compiler/checker.ts` with a `size_exceeded` warning because the file exceeded the 1 MB index threshold, but retrieval still selected checker snippets through Qdrant/local refinement;
+  - BM25/Qdrant index stage took 13,963 ms;
+  - retrieval made 215 tool calls;
+  - retrieval LLM tokens: 11,704 total.
+- Result:
+  - the CGC timeout failure is resolved for this case;
+  - native retrieval now reaches the key implementation owner where the old workspace path retrieved nothing;
+  - final sufficiency is still partial because the run does not retrieve the oracle test/baseline files and the deterministic gate reports `behavior_output:owner_layer_missing`;
+  - current workspace config excludes `tests/cases` and `tests/baselines`, so several oracle files are unreachable in this run by policy rather than ranking alone.
+- Retrieval-quality observations to revisit:
+  - exact structural preplan only found `TypeScript -> src/compiler/moduleNameResolver.ts`; issue terms such as `ESM`, `TS2307`, `TS2349`, and `node_modules` had no exact CodeGraph symbol matches, which is expected but means Qdrant still carries most semantic discovery;
+  - the final selected evidence overweights checker and diagnostic surfaces before the module-resolution owner, even though `moduleNameResolver.ts` is the implementation oracle;
+  - this suggests a next retrieval improvement should bias final evidence toward the owner implementation once CodeGraph/Qdrant have identified it, and treat diagnostics/checker snippets as support unless the issue's failure is actually diagnostic ownership;
+  - test/baseline exclusion policy should be reconsidered for CodeRepoQA cases where the prompt includes an explicit native repro path.
+
+### Verified: CodeGraph Replacement On Historical Workspace Retrieval Failure
+
+- Purpose:
+  - recheck a historical native/workspace retrieval failure after the CGC-to-CodeGraph replacement;
+  - use a real CodeRepoQA workspace run, not Codex retrieval and not an isolated unit harness;
+  - compare whether the replacement improved retrieval quality, not only indexing speed.
+- Selected case:
+  - `vuejs-vue-10803`;
+  - this case was previously documented as the cleaner native-retrieval quality signal because it was a narrow Vue SSR bug that did not fail only because of infrastructure timeout;
+  - the issue explicitly mentions `test/ssr/ssr-string.spec.js` and the implementation owner is `src/platforms/web/server/modules/dom-props.js`.
+- Historical baseline:
+  - run: `testing/codeRepoQA/batch-runs/002-20260623T102552Z/vuejs-vue-10803/workspace/run-20260623T112023Z`;
+  - `coverage_status=partial`;
+  - `sufficient=false`;
+  - oracle overlap `1/2`;
+  - implementation owner `src/platforms/web/server/modules/dom-props.js` ranked second;
+  - retrieved 6 source files;
+  - made 513 tool calls;
+  - retrieval LLM tokens: 24,239 total;
+  - CGC structural index stage took 106,913 ms.
+- Current CodeGraph workspace run:
+  - command: `npm.cmd run coderepoqa:evaluate:workspace -- --issue-json testing/codeRepoQA/corpus/cases/vuejs-vue-10803/issue.json`;
+  - run: `C:\Programming\guidedInteligence_testcases\vuejs-vue-10803\runs\run-20260805T005332Z`;
+  - `coverage_status=partial`;
+  - `sufficient=false`;
+  - oracle overlap `1/2`;
+  - implementation owner `src/platforms/web/server/modules/dom-props.js` ranked first;
+  - retrieved 3 source files:
+    - `src/platforms/web/server/modules/dom-props.js`,
+    - `src/platforms/web/compiler/modules/model.js`,
+    - `src/compiler/directives/model.js`;
+  - made 342 tool calls;
+  - retrieval LLM tokens: 12,968 total;
+  - CodeGraph structural index stage took 1,982 ms;
+  - BM25/Qdrant index stage took 1,074 ms.
+- Result:
+  - CodeGraph materially improved infrastructure cost and owner precision on this historical failure;
+  - selected evidence was less noisy, and the implementation owner moved from rank 2 to rank 1;
+  - retrieval still did not become sufficient because it missed the oracle repro/test file `test/ssr/ssr-string.spec.js`;
+  - the remaining failure is therefore in planning, support-objective promotion, or final evidence selection, not in structural graph indexing alone.
+- Follow-up implication:
+  - the CodeGraph replacement should be treated as successful for replacing CGC's slow structural index path;
+  - it should not be treated as a full native-retrieval quality fix;
+  - future work on this case should focus on honoring explicit prompt file hints and retrieving/retaining verification repro evidence when the issue contains a concrete test path.
+
 ## 2026-08-04
 
-### Added: Codex Evidence Connection Graph
+### Changed: Replaced CGC With Project-Local CodeGraph
+
+- Intended stage boundary:
+  - CodeGraph owns exact symbol resolution, callers, callees, file dependencies, and verified source relationships;
+  - Qdrant remains responsible for conceptual and natural-language retrieval;
+  - the existing protocol bridge remains separate because transport/error-string relationships are not structural code-graph edges.
+- Expected quality impact:
+  - remove CGC content/name heuristics and raw Cypher string matching from relationship validation;
+  - use graph node identity and file/line locations for call traversal;
+  - report no structural relationship when CodeGraph has no edge instead of accepting generic uppercase names.
+- Expected token impact:
+  - no additional LLM calls or prompt fields;
+  - structural indexing and queries are local and therefore add zero retrieval tokens.
+- Known regression risks:
+  - CodeGraph language support and cross-language resolution vary by ecosystem;
+  - exact symbol lookup intentionally does not replace Qdrant concept search;
+  - a first index can still be material on very large repositories, although incremental sync is much cheaper.
+- Pre-change gate on native-retrieval timeout case `microsoft-TypeScript-46770`:
+  - historical CGC run `run-20260623T104115Z` timed out at 600 seconds before retrieval;
+  - project-local CodeGraph indexed the same snapshot successfully: 30,987 files, 279,591 nodes, and 523,919 edges;
+  - CodeGraph indexing took 2m18s internally and 8m07s through the one-shot CLI, under the previous 10-minute failure boundary;
+  - an unchanged incremental sync completed in 21.2 seconds end to end;
+  - exact lookup and caller traversal resolved `createBuilderProgram` to `src/compiler/builder.ts` and its two public builder callers.
+- Implementation verification:
+  - production retrieval uses a long-lived embedded Node bridge during one run and closes it deterministically afterward;
+  - indexing temporarily installs workspace exclusions and then restores an existing `codegraph.json` byte-for-byte, or removes the generated file when the workspace had none;
+  - the CGC Python package, tools, command configuration, Kuzu paths, marker files, `.cgcignore`, server handling, UI estimates, and benchmark wiring were removed;
+  - `tests.test_codegraph_tools` verifies indexing, exact-only lookup, source-location call traversal, and file relationships against a real temporary TypeScript repository;
+  - `tests.test_codegraph_tools` plus `tests.test_workspace_retrieval` pass 65 tests with `ResourceWarning` promoted to an error;
+  - `tests.test_retrieval_server` passes 37 tests and `npm run web:build` passes.
+- Real native-retrieval verification on `microsoft-TypeScript-46770` after the replacement:
+  - `run-20260804T223427Z`: `coverage_status=strong`, `sufficient=true`, 8 evidence items, structural sync 1.962s, 12,486 retrieval tokens, and the oracle implementation file ranked second;
+  - `run-20260804T224122Z`: `coverage_status=partial`, `sufficient=false`, 4 evidence items, structural sync 2.002s, 11,694 retrieval tokens, and the oracle implementation file remained in the top five;
+  - `run-20260804T224528Z`: `coverage_status=strong`, `sufficient=true`, 6 evidence items, structural sync 1.643s, 8,306 retrieval tokens, but the oracle implementation file was not selected;
+  - all three runs produced the same exact structural narrowing result, including `TypeScript -> src/compiler/moduleNameResolver.ts`; the remaining coverage and selection variance comes from downstream LLM role planning and evidence selection, not from unstable CodeGraph output;
+  - CodeGraph therefore resolves the historical indexing timeout and provides stable local graph operations, but this replacement does not by itself fix the native pipeline's existing LLM selection variance.
+
+### Changed: Isolated Codex Retrieval From User MCP Configuration
+
+- Codex retrieval invokes `codex exec --ignore-user-config` when `codex_ignore_user_config` is enabled.
+- Saved authentication remains available, but global user MCP servers and other user configuration are not inherited by retrieval runs.
+- CodeGraph MCP access used by the bounded experiment was temporary and is not part of the production retrieval path.
+
+### Changed: Post-Retrieval Hybrid Evidence Graph
+
+- Intended stage boundary:
+  - normal Codex retrieval selects and describes evidence without generating graph nodes or edges,
+  - a post-retrieval stage runs CodeGraph over only the selected evidence ranges and discovers exact source relationships,
+  - exact source-to-document references are resolved locally, while one bounded LLM call supplies semantic, cross-language, transport, and Markdown relationships that static analysis cannot prove,
+  - graph metadata remains in `retrieval_summary` and is not sent to explanation generation.
+- Expected quality impact:
+  - retain the coherent decision-to-UI flow of the earlier LLM-only graph,
+  - keep exact CodeGraph and source-to-document relationships as the factual backbone instead of letting the semantic model omit them,
+  - distinguish direct CodeGraph/document relationships from inferred semantic boundaries,
+  - remove redundant cycles and shortcuts while requiring every selected item to be connected or explicitly reported as disconnected.
+- Expected token impact:
+  - Codex retrieval no longer spends tokens discovering and justifying the graph,
+  - the isolated Next-check evidence set used 6,735 graph-stage input tokens and 943 output tokens, 7,678 total,
+  - this is about 79% below the 36,716 uncached-token increase observed between the pre-graph baseline and accepted LLM-only graph run F; the later live-stage replay measured still lower usage.
+- Known regression risks:
+  - CodeGraph support varies by language and cannot prove HTTP, serialization, prompt-file, or frontend/backend boundaries,
+  - inferred LLM edges remain semantic claims and must be labeled `inferred`,
+  - a workspace without a CodeGraph index incurs local indexing before graph extraction,
+  - graph failure is surfaced explicitly; it does not fall back to an ungrounded deterministic graph.
+- Isolated comparison using the exact evidence from `run-20260804-evidence-graph-f`:
+  - 10/10 selected nodes connected by 9 non-redundant edges,
+  - CodeGraph supplied five exact call relationships,
+  - local source inspection supplied the two exact Markdown prompt-file relationships,
+  - the bounded LLM supplied the remaining semantic transport boundary and organized the final minimal flow.
+- Verification:
+  - live `/retrieve` run `run-20260804T155019Z-f3b0042a` completed with `coverage_status=strong`, `sufficient=true`, and 9 selected evidence items after the existing one-time explanation-timeout retry,
+  - the final graph-stage replay on those exact 9 items connected 9/9 nodes with 8 edges and no disconnected artifacts; it used 5,432 input and 819 output tokens, 6,251 total,
+  - the graph contained five direct CodeGraph/document/shared-field edges and three bounded inferred semantic edges for omitted prompt-response, repair-document, and backend-frontend boundaries,
+  - `.venv\Scripts\python.exe -m unittest tests.test_codex_provider tests.test_evidence_graph tests.test_retrieval_server` passed 50 tests.
+  - `npm run web:build` passed.
+  - the broader `tests.test_policy` suite still contains legacy mocked responses without the required `story_flow` object and one stale prompt-text assertion; those pre-existing fixture failures were not bypassed by this change.
+
+### Superseded: Codex Evidence Connection Graph (Historical LLM-Only Design)
 
 - Intended stage boundary:
   - Codex retrieval assigns stable retrieval-local IDs to selected evidence and returns semantic connections between those selected items,
