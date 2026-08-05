@@ -6,8 +6,12 @@
     "node": ">=22 <23"
   },
   "scripts": {
-    "setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1",
-    "dev:all": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-dev.ps1",
+    "setup": "node scripts/run-platform-script.mjs setup",
+    "setup:ps": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1",
+    "setup:bash": "bash scripts/setup.sh",
+    "dev:all": "node scripts/run-platform-script.mjs run-dev",
+    "dev:all:ps": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-dev.ps1",
+    "dev:all:bash": "bash scripts/run-dev.sh",
     "retrieval:server": ".venv\\Scripts\\python.exe -m services.retrieval.server",
     "config:web:workspace": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force .guided-intelligence | Out-Null; Copy-Item configs/web-ui/workspace.json .guided-intelligence/config.json -Force\"",
     "config:web:codex": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force .guided-intelligence | Out-Null; Copy-Item configs/web-ui/codex.json .guided-intelligence/config.json -Force\"",

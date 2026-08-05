@@ -24,6 +24,17 @@ function Invoke-Step {
     & $Action
 }
 
+function Invoke-Native {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments
+    )
+    & $FilePath @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($Arguments -join ' ')"
+    }
+}
+
 function Get-PythonCommand {
     if (Test-CommandAvailable "py") {
         try {
@@ -65,38 +76,38 @@ Invoke-Step "Checking required tools" {
 
 if (-not $SkipNpm) {
     Invoke-Step "Installing Node dependencies" {
-        npm ci
+        Invoke-Native npm ci
     }
 }
 
 if (-not $SkipPython) {
     Invoke-Step "Creating Python virtual environment" {
         if (-not (Test-Path ".venv")) {
-            & $script:PythonCommand.Exe @($script:PythonCommand.Args) -m venv .venv
+            Invoke-Native $script:PythonCommand.Exe @($script:PythonCommand.Args) -m venv .venv
         }
     }
 
     Invoke-Step "Installing Python dependencies" {
-        .\.venv\Scripts\python.exe -m pip install --upgrade pip
-        .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+        Invoke-Native .\.venv\Scripts\python.exe -m pip install --upgrade pip
+        Invoke-Native .\.venv\Scripts\python.exe -m pip install -r requirements.txt
     }
 }
 
 Invoke-Step "Preparing local configuration" {
     if (-not (Test-Path ".env")) {
         Copy-Item ".env.example" ".env"
-        Write-Host "Created .env from .env.example. Add API keys before running LLM-backed retrieval."
+        Write-Host "Created .env from .env.example. Configure embeddings/OAuth there; LLM API keys are entered in the Workspace tab."
     } else {
         Write-Host ".env already exists; leaving it unchanged."
     }
 
-    npm run config:web:workspace
+    Invoke-Native npm run config:web:workspace
 }
 
 if (-not $SkipQdrantPull) {
     Invoke-Step "Preparing Qdrant Docker image" {
         if (Test-CommandAvailable "docker") {
-            docker compose -f docker-compose.qdrant.yml pull
+            Invoke-Native docker compose -f docker-compose.qdrant.yml pull
         } else {
             Write-Warning "Docker was not found. Qdrant will not start until Docker Desktop is installed and running."
         }

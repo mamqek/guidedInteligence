@@ -1,2 +1,3 @@
-# Retrieval runtime dependencies installed into the repository-local .venv.
+# Direct Python runtime dependencies installed into the repository-local .venv.
+# Keep this file limited to packages imported by maintained project code.
 langgraph==1.2.6

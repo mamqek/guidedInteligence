@@ -1806,7 +1806,7 @@
 - Added general local in-file refinement after file selection. The scorer uses the selected file path, retrieval role, role query, helper queries, retrieval terms, prompt evidence, and declaration anchors to choose a better span inside large files.
 - Added `local_in_file_refinement` as a retrieval path for spans selected by deterministic in-file scoring.
 - Added salient excerpt generation for late LLM assessment so long spans are compacted around relevant declarations instead of blindly truncating from the first line.
-- Added `RETRIEVAL_LLM_CONTINUITY_ENABLED` in `.env` and `.env.example`.
+- Added the legacy retrieval LLM continuity flag in `.env` and `.env.example`.
 - Added experimental process-local LLM continuity for Chat Completions-compatible APIs. When enabled, the next LLM call receives only the previous compact JSON retrieval result as orientation, not full file content.
 - Added role-scoped handling for trusted Obsidian file hints. Note-derived file hints are now kept in retrieval-plan metadata and applied only to matching roles, instead of being promoted to global confirmed file hints.
 - Added focused regression coverage for:
@@ -1850,4 +1850,4 @@
   - selected `src/compiler/checker.ts:L4992-L5071`
   - retrieval path `local_in_file_refinement`
   - late assessment marked the snippet `core` for `validation_checking`.
-- Final `.env` state has `RETRIEVAL_LLM_CONTINUITY_ENABLED=false`.
+- Final `.env` state had the legacy retrieval LLM continuity flag disabled.

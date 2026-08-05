@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import tempfile
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 
@@ -19,6 +23,14 @@ def complete_json(
     log_warning: Callable[[Mapping[str, Any]], None] | None = None,
     log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
 ) -> Mapping[str, Any]:
+    if str(getattr(config, "api_style", "")).strip() == "codex_cli":
+        return _complete_json_with_codex_cli(
+            config,
+            messages,
+            response_format=response_format,
+            log_event=log_event,
+        )
+
     api_key = str(config.api_key).strip()
     if not api_key:
         raise ValueError("Missing LLM API key in config.")
@@ -252,6 +264,218 @@ def _perform_request(config: Any, api_key: str, payload: Mapping[str, Any]) -> M
     )
     with urllib.request.urlopen(request, timeout=config.timeout_seconds) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def _complete_json_with_codex_cli(
+    config: Any,
+    messages: Sequence[Mapping[str, str]],
+    *,
+    response_format: Mapping[str, Any] | None,
+    log_event: Callable[[str, Mapping[str, Any]], None] | None,
+) -> Mapping[str, Any]:
+    effective_messages = _messages_with_continuity(config, messages)
+    schema = _codex_output_schema(response_format)
+    prompt = _codex_prompt_from_messages(effective_messages)
+    model = str(getattr(config, "model", "")).strip()
+    if not model:
+        raise ValueError("Codex CLI LLM config requires model.")
+    command_prefix = tuple(str(part) for part in getattr(config, "codex_command", ("codex",)) if str(part).strip())
+    if not command_prefix:
+        raise ValueError("Codex CLI LLM config requires codex_command.")
+
+    with tempfile.TemporaryDirectory(prefix="guided-llm-codex-") as temp_dir:
+        temp_path = Path(temp_dir)
+        schema_path = temp_path / "response.schema.json"
+        output_path = temp_path / "response.json"
+        schema_path.write_text(json.dumps(schema, indent=2, sort_keys=True), encoding="utf-8")
+        command = [
+            *command_prefix,
+            "--disable",
+            "plugins",
+            "-a",
+            "never",
+            "-c",
+            'web_search="disabled"',
+            "exec",
+            "--json",
+            "--ephemeral",
+            "--sandbox",
+            "read-only",
+            "--ignore-rules",
+            "--model",
+            model,
+            "--output-schema",
+            str(schema_path),
+            "-o",
+            str(output_path),
+            prompt,
+        ]
+        if bool(getattr(config, "codex_ignore_user_config", True)):
+            command.insert(command.index("--sandbox"), "--ignore-user-config")
+        started_at = time.perf_counter()
+        if log_event is not None:
+            log_event(
+                "llm_request_sent",
+                {
+                    "model": model,
+                    "endpoint_url": "codex_cli",
+                    "request_payload": {
+                        "messages": [dict(message) for message in effective_messages],
+                        "response_format": dict(response_format or {"type": "json_object"}),
+                        "command": list(command_prefix),
+                    },
+                },
+            )
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=_codex_subprocess_env(command_prefix),
+                timeout=int(getattr(config, "timeout_seconds", 30)),
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            _log_codex_failure(log_event, config, started_at, "FileNotFoundError", str(exc), command_prefix)
+            raise RuntimeError("Codex CLI LLM request failed: codex command was not found.") from exc
+        except subprocess.TimeoutExpired as exc:
+            _log_codex_failure(log_event, config, started_at, "TimeoutExpired", str(exc), command_prefix)
+            raise RuntimeError(f"Codex CLI LLM request timed out after {getattr(config, 'timeout_seconds', 30)} seconds.") from exc
+        duration_ms = round((time.perf_counter() - started_at) * 1000, 3)
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "").strip()[:1200]
+            if log_event is not None:
+                log_event(
+                    "llm_request_failed",
+                    {
+                        "model": model,
+                        "endpoint_url": "codex_cli",
+                        "duration_ms": duration_ms,
+                        "error_type": "CodexCLIError",
+                        "returncode": completed.returncode,
+                        "stdout": completed.stdout,
+                        "stderr": completed.stderr,
+                    },
+                )
+            raise RuntimeError(f"Codex CLI LLM request failed with exit code {completed.returncode}: {detail}")
+        try:
+            parsed = _parse_json_object(output_path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise RuntimeError("Codex CLI LLM request did not write a JSON output file.") from exc
+        _store_continuity_response(config, parsed)
+        if log_event is not None:
+            log_event(
+                "llm_response_received",
+                {
+                    "model": model,
+                    "endpoint_url": "codex_cli",
+                    "duration_ms": duration_ms,
+                    "request_payload": {
+                        "messages": [dict(message) for message in effective_messages],
+                        "response_format": dict(response_format or {"type": "json_object"}),
+                        "command": list(command_prefix),
+                    },
+                    "raw_response": {
+                        "content": parsed,
+                        "stdout": completed.stdout,
+                        "stderr": completed.stderr,
+                    },
+                },
+            )
+        return parsed
+
+
+def _codex_output_schema(response_format: Mapping[str, Any] | None) -> Mapping[str, Any]:
+    if not response_format:
+        return {"type": "object", "additionalProperties": True}
+    if response_format.get("type") == "json_schema":
+        json_schema = response_format.get("json_schema")
+        if isinstance(json_schema, Mapping) and isinstance(json_schema.get("schema"), Mapping):
+            return dict(json_schema["schema"])
+    return {"type": "object", "additionalProperties": True}
+
+
+def _codex_prompt_from_messages(messages: Sequence[Mapping[str, str]]) -> str:
+    sections: list[str] = [
+        "Return only the JSON object requested by the provided output schema.",
+        "Conversation messages:",
+    ]
+    for message in messages:
+        role = str(message.get("role") or "user").strip() or "user"
+        content = str(message.get("content") or "")
+        sections.append(f"\n[{role}]\n{content}")
+    return "\n".join(sections)
+
+
+def _log_codex_failure(
+    log_event: Callable[[str, Mapping[str, Any]], None] | None,
+    config: Any,
+    started_at: float,
+    error_type: str,
+    error: str,
+    command_prefix: Sequence[str],
+) -> None:
+    if log_event is None:
+        return
+    log_event(
+        "llm_request_failed",
+        {
+            "model": getattr(config, "model", ""),
+            "endpoint_url": "codex_cli",
+            "duration_ms": round((time.perf_counter() - started_at) * 1000, 3),
+            "error_type": error_type,
+            "error": error,
+            "request_payload": {"command": list(command_prefix)},
+        },
+    )
+
+
+def _codex_subprocess_env(command: Sequence[str]) -> dict[str, str]:
+    env = dict(os.environ)
+    if os.name != "nt":
+        return env
+    path_parts = _codex_path_prefixes(command)
+    if not path_parts:
+        return env
+    existing_path = env.get("PATH") or env.get("Path") or ""
+    path_key = "Path" if "Path" in env else "PATH"
+    env[path_key] = os.pathsep.join((*path_parts, existing_path))
+    return env
+
+
+def _codex_path_prefixes(command: Sequence[str]) -> tuple[str, ...]:
+    candidates: list[Path] = []
+    repo_root = Path(__file__).resolve().parents[2]
+    candidates.append(repo_root / ".venv" / "Scripts")
+    if command:
+        command_path = Path(str(command[0]))
+        if command_path.is_file():
+            candidates.append(command_path.parent)
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        codex_bin = Path(local_app_data) / "OpenAI" / "Codex" / "bin"
+        if codex_bin.is_dir():
+            candidates.extend(
+                path
+                for path in sorted(codex_bin.iterdir(), key=lambda path: path.stat().st_mtime, reverse=True)
+                if path.is_dir() and (path / "codex-windows-sandbox-setup.exe").is_file()
+            )
+    plugin_helper_dir = Path.home() / ".codex" / "plugins" / ".plugin-appserver"
+    candidates.append(plugin_helper_dir)
+    seen: set[str] = set()
+    resolved: list[str] = []
+    for candidate in candidates:
+        if not candidate.is_dir():
+            continue
+        value = str(candidate)
+        key = value.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        resolved.append(value)
+    return tuple(resolved)
 
 
 def _is_temperature_unsupported_error(status_code: int, error_body: str) -> bool:

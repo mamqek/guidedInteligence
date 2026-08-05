@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 import threading
 import urllib.request
 import unittest
+from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
@@ -12,9 +14,15 @@ from unittest.mock import patch
 from core.source_policy import SourceCategory
 from services.guidance.answer_evaluation import AnswerEvaluation
 from services.retrieval.server import (
+    DirectoryPickerUnavailable,
     Handler,
     RetrievalServerError,
     RuntimeState,
+    _choose_directory,
+    _codex_retrieval_progress_completed_event,
+    _codex_retrieval_progress_start_event,
+    _display_progress_percent,
+    _electron_picker_payload,
     _structural_graph_failure_message,
     _github_repository_from_remote_url,
     _local_ui_url,
@@ -23,15 +31,12 @@ from services.retrieval.server import (
     _response_generation_timed_out,
     _safe_run_id,
 )
+from services.retrieval.config import RunLLMConfig
 from services.retrieval.workspace.codegraph_config import install_temporary_codegraph_excludes, restore_codegraph_config
 
 
 VALID_ENV = "\n".join(
     [
-        "RETRIEVAL_LLM_MODEL=test",
-        "RETRIEVAL_LLM_API_STYLE=openai_chat_completions",
-        "RETRIEVAL_LLM_ENDPOINT_URL=http://example.test/llm",
-        "RETRIEVAL_LLM_API_KEY=key",
         "RETRIEVAL_EMBEDDING_MODEL=embed",
         "RETRIEVAL_EMBEDDING_API_STYLE=openai_embeddings",
         "RETRIEVAL_EMBEDDING_ENDPOINT_URL=http://example.test/embed",
@@ -40,6 +45,17 @@ VALID_ENV = "\n".join(
         "RETRIEVAL_QDRANT_COLLECTION=test",
     ]
 )
+
+
+def configure_test_api_llm(state: RuntimeState) -> None:
+    config = state.get_config()
+    config.setdefault("connections", {})["api_llm"] = {
+        "api_style": "openai_chat_completions",
+        "endpoint_url": "http://example.test/llm",
+        "api_key": "key",
+        "model": "test",
+    }
+    state.update_config(config)
 
 
 class RetrievalServerStateTests(unittest.TestCase):
@@ -75,6 +91,42 @@ class RetrievalServerStateTests(unittest.TestCase):
             _response_generation_progress_message("Comprehension explanation generation returned no valid answer_flow.", retry_count=1),
             "Explanation generation failed after retry: Comprehension explanation generation returned no valid answer_flow.",
         )
+
+    def test_codex_progress_start_event_opens_simulated_window(self) -> None:
+        event = _codex_retrieval_progress_start_event(900)
+
+        self.assertEqual(event["event"], "stage_started")
+        self.assertEqual(event["stage_key"], "codex_retrieval")
+        self.assertEqual(event["window_start_percent"], 20)
+        self.assertEqual(event["window_end_percent"], 86)
+        self.assertEqual(event["expected_seconds"], 180.0)
+
+    def test_codex_progress_completion_event_closes_simulated_window(self) -> None:
+        event = _codex_retrieval_progress_completed_event()
+
+        self.assertEqual(event["event"], "stage_completed")
+        self.assertEqual(event["stage_key"], "codex_retrieval")
+        self.assertEqual(event["window_start_percent"], 20)
+        self.assertEqual(event["window_end_percent"], 86)
+
+    def test_display_progress_simulates_codex_retrieval_after_start(self) -> None:
+        metadata = {
+            "status": "running",
+            "progress_percent": 20,
+            "progress_active_stage": {
+                "event": "stage_started",
+                "stage_key": "codex_retrieval",
+                "started_at": (datetime.now(timezone.utc) - timedelta(seconds=90)).isoformat(),
+                "window_start_percent": 20,
+                "window_end_percent": 86,
+                "expected_seconds": 180,
+            },
+        }
+
+        percent = _display_progress_percent(metadata)
+
+        self.assertGreater(percent, 20)
+        self.assertLess(percent, 86)
 
     def test_oauth_callback_return_url_points_to_local_ui(self) -> None:
         self.assertEqual(_local_ui_url("127.0.0.1:8790"), "http://127.0.0.1:5173/#connections")
@@ -119,6 +171,37 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertFalse(health["config_exists"])
             self.assertFalse(health["env_exists"])
 
+    def test_browse_workspace_reports_missing_directory_picker_without_failing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            state = RuntimeState(root)
+
+            with patch(
+                "services.retrieval.server._choose_directory",
+                side_effect=DirectoryPickerUnavailable("Directory picker is unavailable in this Python installation."),
+            ):
+                result = state.browse_workspace({"start_path": str(root)})
+
+            self.assertEqual(result["workspace_root"], "")
+            self.assertTrue(result["cancelled"])
+            self.assertFalse(result["picker_available"])
+            self.assertIn("Paste the repository path", result["message"])
+
+    def test_directory_picker_returns_electron_selected_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            completed = subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps({"cancelled": False, "path": str(root)}) + "\n", stderr="")
+
+            with patch("services.retrieval.server.subprocess.run", return_value=completed):
+                selected = _choose_directory(root)
+
+            self.assertEqual(selected, root.resolve())
+
+    def test_electron_picker_payload_ignores_non_json_output(self) -> None:
+        payload = _electron_picker_payload('noise\n{"cancelled":false,"path":"C:/repo"}\n')
+
+        self.assertEqual(payload["path"], "C:/repo")
+
     def test_health_checks_tool_env_not_selected_workspace_env(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -135,7 +218,8 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertEqual(health["workspace_root"], str(workspace.resolve()))
             self.assertEqual(health["tool_root"], str(tool_root.resolve()))
             self.assertTrue(health["env_exists"])
-            self.assertTrue(health["llm_configured"])
+            self.assertFalse(health["llm_configured"])
+            self.assertFalse(health["api_llm_configured"])
             self.assertTrue(health["embedding_configured"])
             self.assertTrue(health["qdrant_configured"])
             self.assertTrue(health["qdrant_reachable"])
@@ -216,6 +300,80 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertTrue(config["intent"]["shadow_mode"])
             self.assertNotIn("router_mode", config["intent"])
             self.assertEqual(config["intent"]["assistance_mode"], "active")
+
+    def test_update_config_stores_llm_api_key_only_in_workspace_secrets(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            state = RuntimeState(root)
+
+            config = state.update_config(
+                {
+                    "connections": {
+                        "api_llm": {
+                            "api_style": "openai_chat_completions",
+                            "endpoint_url": "http://example.test/v1/chat/completions",
+                            "api_key": "secret-key",
+                            "model": "gpt-4.1-mini",
+                        }
+                    }
+                }
+            )
+
+            config_path = root / ".guided-intelligence" / "config.json"
+            secrets_path = root / ".guided-intelligence" / "secrets.json"
+            saved_config = json.loads(config_path.read_text(encoding="utf-8-sig"))
+            saved_secrets = json.loads(secrets_path.read_text(encoding="utf-8-sig"))
+            self.assertNotIn("api_key", config["connections"]["api_llm"])
+            self.assertNotIn("api_key", saved_config["connections"]["api_llm"])
+            self.assertTrue(config["connections"]["api_llm"]["api_key_configured"])
+            self.assertEqual(saved_secrets["api_llm"]["api_key"], "secret-key")
+
+    def test_api_llm_config_ignores_tool_env_llm_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            tool_root = root / "tool"
+            tool_root.mkdir()
+            (tool_root / ".env").write_text(VALID_ENV, encoding="utf-8")
+            state = RuntimeState(root, tool_root=tool_root)
+
+            with self.assertRaisesRegex(ValueError, "OpenAI-compatible API connection requires"):
+                state._api_llm_config()
+
+    def test_codex_retrieval_uses_provider_ignore_user_config_setting(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            tool_root = root / "tool"
+            workspace = root / "workspace"
+            tool_root.mkdir()
+            workspace.mkdir()
+            (tool_root / ".env").write_text(VALID_ENV, encoding="utf-8")
+            state = RuntimeState(workspace, tool_root=tool_root)
+            state.update_config(
+                {
+                    **state.get_config(),
+                    "retrieval": {
+                        **state.get_config()["retrieval"],
+                        "mode": "codex",
+                        "codex_ignore_user_config": True,
+                    },
+                    "connections": {
+                        **state.get_config()["connections"],
+                        "codex": {
+                            "command": ["codex"],
+                            "ignore_user_config": False,
+                            "timeout_seconds": 30,
+                        },
+                    },
+                }
+            )
+
+            config = state._workspace_retrieval_config(
+                run_dir=workspace / ".guided-intelligence" / "runs" / "test",
+                llm_config=RunLLMConfig(api_style="codex_cli", model="gpt-5.4-mini", codex_command=("codex",)),
+            )
+
+            self.assertFalse(config.codex_ignore_user_config)
+            self.assertNotIn("codex_ignore_user_config", state.get_config()["retrieval"])
 
     def test_old_enabled_source_categories_migrate_to_source_keys(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -681,6 +839,7 @@ class RetrievalServerStateTests(unittest.TestCase):
                     }
                 }
             )
+            configure_test_api_llm(state)
 
             config = state._workspace_retrieval_config(run_dir=workspace / ".guided-intelligence" / "runs" / "test")
 
@@ -795,6 +954,7 @@ class RetrievalServerStateTests(unittest.TestCase):
                     },
                 }
             )
+            configure_test_api_llm(state)
 
             config = state._workspace_retrieval_config(run_dir=workspace / ".guided-intelligence" / "runs" / "test")
 
@@ -869,6 +1029,7 @@ class RetrievalServerStateTests(unittest.TestCase):
             workspace.mkdir()
             (tool_root / ".env").write_text(VALID_ENV, encoding="utf-8")
             state = RuntimeState(workspace, tool_root=tool_root)
+            configure_test_api_llm(state)
             run_dir = workspace / ".guided-intelligence" / "runs" / "run-1"
             run_dir.mkdir(parents=True)
             plan = {
@@ -1008,6 +1169,7 @@ class RetrievalServerStateTests(unittest.TestCase):
             tool_root.mkdir()
             (tool_root / ".env").write_text(VALID_ENV, encoding="utf-8")
             state = RuntimeState(workspace, tool_root=tool_root)
+            configure_test_api_llm(state)
 
             config = state._workspace_retrieval_config(run_dir=workspace / ".guided-intelligence" / "index-prep")
 

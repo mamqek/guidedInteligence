@@ -29,7 +29,6 @@ from services.retrieval.config import (
     RunLLMConfig,
     WorkspaceRetrievalConfig,
     load_retrieval_embedding_config,
-    load_retrieval_llm_config,
     load_retrieval_qdrant_config,
 )
 from services.retrieval.workspace.qdrant_backend import QdrantSearchResult
@@ -2697,53 +2696,6 @@ class CodeGraphToolTests(unittest.TestCase):
 
 
 class RetrievalLLMConfigTests(unittest.TestCase):
-    def test_load_retrieval_llm_config_reads_documented_env_values(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            env_path = Path(temp_dir) / ".env"
-            env_path.write_text(
-                "\n".join(
-                    [
-                        "# retrieval config",
-                        "RETRIEVAL_LLM_API_STYLE=openai_chat_completions",
-                        "RETRIEVAL_LLM_ENDPOINT_URL=http://example.test/v1/chat/completions # full endpoint",
-                        "RETRIEVAL_LLM_MODEL=gpt-4.1-mini",
-                        "RETRIEVAL_LLM_API_KEY=test-secret",
-                        "RETRIEVAL_LLM_TEMPERATURE=0",
-                        "RETRIEVAL_LLM_MAX_TOKENS=1200",
-                        "RETRIEVAL_LLM_TIMEOUT_SECONDS=45",
-                        "RETRIEVAL_LLM_CONTINUITY_ENABLED=true",
-                    ]
-                ),
-                encoding="utf-8",
-            )
-
-            config = load_retrieval_llm_config(env_path)
-
-            self.assertEqual(config.api_style, "openai_chat_completions")
-            self.assertEqual(config.endpoint_url, "http://example.test/v1/chat/completions")
-            self.assertEqual(config.model, "gpt-4.1-mini")
-            self.assertEqual(config.api_key, "test-secret")
-            self.assertEqual(config.temperature, 0.0)
-            self.assertEqual(config.max_tokens, 1200)
-            self.assertEqual(config.timeout_seconds, 45)
-            self.assertTrue(config.continuity_enabled)
-
-    def test_load_retrieval_llm_config_rejects_missing_config(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            env_path = Path(temp_dir) / ".env"
-            env_path.write_text("# empty retrieval config\n", encoding="utf-8")
-
-            with self.assertRaisesRegex(ValueError, "Retrieval LLM config is missing"):
-                load_retrieval_llm_config(env_path)
-
-    def test_load_retrieval_llm_config_rejects_partial_config(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            env_path = Path(temp_dir) / ".env"
-            env_path.write_text("RETRIEVAL_LLM_MODEL=gpt-4.1-mini\n", encoding="utf-8")
-
-            with self.assertRaisesRegex(ValueError, "Retrieval LLM config is incomplete"):
-                load_retrieval_llm_config(env_path)
-
     def test_load_retrieval_embedding_config_reads_documented_env_values(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             env_path = Path(temp_dir) / ".env"
@@ -2828,6 +2780,19 @@ class RetrievalLLMConfigTests(unittest.TestCase):
         self.assertNotIn("api_key", payload)
         self.assertTrue(payload["api_key_configured"])
 
+    def test_workspace_config_validation_allows_codex_cli_llm_without_api_key(self) -> None:
+        WorkspaceRetrievalConfig(
+            workspace_root="repo",
+            index_dir="index",
+            llm_config=RunLLMConfig(
+                api_style="codex_cli",
+                model="gpt-5.4-mini",
+                codex_command=("codex",),
+            ),
+            embedding_config=_embedding_config(),
+            qdrant_config=_qdrant_config(),
+        ).validate()
+
     def test_complete_json_uses_exact_endpoint_and_auth_header(self) -> None:
         seen: dict[str, object] = {}
 
@@ -2852,6 +2817,46 @@ class RetrievalLLMConfigTests(unittest.TestCase):
         self.assertEqual(seen["url"], "http://example.test/custom/chat/completions")
         self.assertEqual(seen["auth"], "Bearer secret-token")
         self.assertEqual(seen["timeout"], 12)
+
+    def test_complete_json_can_route_to_codex_cli(self) -> None:
+        seen: dict[str, object] = {}
+
+        def fake_run(command, **kwargs):
+            seen["command"] = command
+            seen["timeout"] = kwargs.get("timeout")
+            output_path = Path(command[command.index("-o") + 1])
+            output_path.write_text(json.dumps({"ok": True}), encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, stdout='{"type":"turn.completed"}', stderr="")
+
+        config = RunLLMConfig(
+            api_style="codex_cli",
+            model="gpt-5.4-mini",
+            timeout_seconds=17,
+            codex_command=("codex",),
+        )
+
+        with patch("services.llm.json_completion.subprocess.run", side_effect=fake_run):
+            response = workspace_llm.complete_json(
+                config,
+                [{"role": "user", "content": "Return ok."}],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "ok_response",
+                        "schema": {
+                            "type": "object",
+                            "properties": {"ok": {"type": "boolean"}},
+                            "required": ["ok"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+            )
+
+        self.assertEqual(response, {"ok": True})
+        self.assertIn("exec", seen["command"])
+        self.assertIn("--output-schema", seen["command"])
+        self.assertEqual(seen["timeout"], 17)
 
     def test_run_case_help_no_longer_exposes_llm_cli_flags(self) -> None:
         module = _load_run_case_module()

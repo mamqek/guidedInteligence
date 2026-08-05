@@ -30,6 +30,7 @@ from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, SourceCategory
 from services.comprehension import generate_followup
 from services.guidance.answer_evaluation import evaluate_answers
 from services.intent import SUPPORTED_ASSISTANCE_ROUTER_MODES
+from services.llm.json_completion import complete_json
 from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, estimate_indexing_scope, load_index
 from services.logging.store import JsonlLogger
 from services.retrieval.config import (
@@ -43,11 +44,11 @@ from services.retrieval.config import (
     RemoteMCPConnectedSourceConfig,
     RetrievalEmbeddingConfig,
     RetrievalQdrantConfig,
+    RunLLMConfig,
     WorkspaceRetrievalConfig,
     _parse_env_file,
     load_retrieval_embedding_config,
     load_retrieval_enable_indexing,
-    load_retrieval_llm_config,
     load_retrieval_qdrant_config,
     source_categories_from_strings,
 )
@@ -71,6 +72,7 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8790
 CONFIG_DIR_NAME = ".guided-intelligence"
 CONFIG_FILE_NAME = "config.json"
+SECRETS_FILE_NAME = "secrets.json"
 WORKSPACES_FILE_NAME = "workspaces.json"
 PROVIDER_AUTH_FILE_NAME = "provider-auth.json"
 RUNS_DIR_NAME = "runs"
@@ -140,11 +142,16 @@ class RetrievalServerError(RuntimeError):
         self.status = status
 
 
+class DirectoryPickerUnavailable(RuntimeError):
+    pass
+
+
 class RuntimeState:
     def __init__(self, workspace_root: Path, *, tool_root: Path | None = None) -> None:
         self.workspace_root = workspace_root.resolve()
         self.tool_root = (tool_root or Path.cwd()).resolve()
         self.config_path = self.workspace_root / CONFIG_DIR_NAME / CONFIG_FILE_NAME
+        self.secrets_path = self.workspace_root / CONFIG_DIR_NAME / SECRETS_FILE_NAME
         self.workspaces_path = self.tool_root / CONFIG_DIR_NAME / WORKSPACES_FILE_NAME
         self.provider_auth_path = self.tool_root / CONFIG_DIR_NAME / PROVIDER_AUTH_FILE_NAME
         self.config = self._load_or_default_config()
@@ -163,6 +170,8 @@ class RuntimeState:
     def public_health(self) -> dict[str, Any]:
         env_path = self.tool_root / ".env"
         qdrant_live = self.qdrant_runtime_status()
+        api_status = self._api_connection_status()
+        codex_status = self._codex_connection_status()
         return {
             "status": "ok",
             "workspace_root": str(self.workspace_root),
@@ -174,7 +183,11 @@ class RuntimeState:
             "qdrant_configured": _config_loader_ok(load_retrieval_qdrant_config, self.tool_root),
             "qdrant_reachable": qdrant_live["reachable"],
             "qdrant_status_detail": qdrant_live["detail"],
-            "llm_configured": _config_loader_ok(load_retrieval_llm_config, self.tool_root),
+            "llm_configured": api_status["configured"],
+            "api_llm_configured": api_status["configured"],
+            "api_llm_status_detail": api_status["detail"],
+            "codex_configured": codex_status["configured"],
+            "codex_status_detail": codex_status["detail"],
             "embedding_configured": _config_loader_ok(load_retrieval_embedding_config, self.tool_root),
             "runs_dir": str(self.runs_root),
             "github_repository": self.github_repository(),
@@ -184,6 +197,34 @@ class RuntimeState:
                 _retrieval_settings(self.config).get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
             ),
         }
+
+    def _api_connection_status(self) -> dict[str, Any]:
+        try:
+            config = self._api_llm_config()
+        except Exception as exc:
+            return {"configured": False, "detail": str(exc)}
+        return {"configured": True, "detail": f"{config.model} at {config.endpoint_url}"}
+
+    def _codex_connection_status(self) -> dict[str, Any]:
+        codex = _normalize_codex_connection(_connections_mapping(self.config).get("codex", {}), retrieval=_retrieval_settings(self.config))
+        command = resolve_codex_command(_string_list(codex.get("command", ["codex"])))
+        try:
+            completed = subprocess.run(
+                [*command, "--version"],
+                cwd=str(self.workspace_root),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=_codex_subprocess_env(command),
+                timeout=5,
+                check=False,
+            )
+        except Exception as exc:
+            return {"configured": False, "detail": str(exc)}
+        if completed.returncode != 0:
+            return {"configured": False, "detail": (completed.stderr or completed.stdout or "").strip()[:300]}
+        return {"configured": True, "detail": (completed.stdout or completed.stderr or "Codex CLI available").strip()}
 
     def codex_models(self) -> dict[str, Any]:
         retrieval_settings = _retrieval_settings(self.config)
@@ -233,11 +274,94 @@ class RuntimeState:
             "ok": True,
             "command": list(codex_command),
             "global_mcp": mcp_probe,
-            "retrieval_overrides": _codex_retrieval_override_indicators(retrieval_settings),
+            "retrieval_overrides": _codex_retrieval_override_indicators(
+                retrieval_settings,
+                _normalize_codex_connection(_connections_mapping(self.config).get("codex", {}), retrieval=retrieval_settings),
+            ),
             "notes": [
                 "global_mcp describes the user's configured Codex MCP servers, not the tools used when Codex retrieval ignores user config.",
                 "tool schemas are not listed here because Codex CLI exposes configured MCP servers deterministically, while per-tool schemas require starting each server.",
             ],
+        }
+
+    def test_api_llm_connection(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        settings = _normalize_api_llm_connection(payload or _connections_mapping(self.config).get("api_llm", {}))
+        config = self._api_llm_config(model_override=str(settings.get("model") or ""), settings=settings)
+        config = RunLLMConfig(
+            api_style=config.api_style,
+            model=config.model,
+            endpoint_url=config.endpoint_url,
+            api_key=config.api_key,
+            temperature=config.temperature,
+            max_tokens=min(config.max_tokens, 64),
+            timeout_seconds=min(config.timeout_seconds, 15),
+            planner_strategy=config.planner_strategy,
+            continuity_enabled=False,
+        )
+        response = complete_json(
+            config,
+            (
+                {"role": "system", "content": "Return JSON only."},
+                {"role": "user", "content": "Return {\"ok\": true}."},
+            ),
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "guided_intelligence_api_connection_test",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {"ok": {"type": "boolean"}},
+                        "required": ["ok"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+        )
+        return {
+            "ok": bool(response.get("ok")),
+            "provider": "api",
+            "model": config.model,
+            "endpoint_url": config.endpoint_url,
+        }
+
+    def test_codex_connection(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        configured = _normalize_codex_connection(payload or _connections_mapping(self.config).get("codex", {}), retrieval=_retrieval_settings(self.config))
+        command_prefix = resolve_codex_command(_string_list(configured.get("command", ["codex"])))
+        command = [*command_prefix, "debug", "models"]
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=str(self.workspace_root),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=_codex_subprocess_env(command_prefix),
+                timeout=int(configured.get("timeout_seconds") or 30),
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            raise RetrievalServerError(f"Codex command was not found: {command_prefix[0]}", status=404) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise RetrievalServerError("Codex connection test timed out.", status=504) from exc
+        stdout = completed.stdout.strip()
+        stderr = completed.stderr.strip()
+        if completed.returncode != 0:
+            detail = stderr or stdout or f"exit code {completed.returncode}"
+            raise RetrievalServerError(f"Codex connection test failed: {detail}", status=502)
+        try:
+            catalog = json.loads(stdout)
+        except json.JSONDecodeError as exc:
+            raise RetrievalServerError("Codex model catalog response was not valid JSON.", status=502) from exc
+        models = _codex_model_options(catalog)
+        return {
+            "ok": True,
+            "provider": "codex",
+            "command": list(command_prefix),
+            "model_count": len(models),
+            "models": models,
+            "stderr": stderr,
         }
 
     def github_repository(self) -> str:
@@ -257,7 +381,45 @@ class RuntimeState:
         return _github_repository_from_remote_url(completed.stdout.strip())
 
     def get_config(self) -> dict[str, Any]:
-        return _deepcopy_json(self.config)
+        return self._public_config(self.config)
+
+    def _public_config(self, config: Mapping[str, Any]) -> dict[str, Any]:
+        output = _deepcopy_json(config)
+        api_llm = output.get("connections", {}).get("api_llm") if isinstance(output.get("connections"), Mapping) else None
+        if isinstance(api_llm, dict):
+            api_llm.pop("api_key", None)
+            api_llm["api_key_configured"] = self._api_llm_key_configured()
+        return output
+
+    def _load_secrets(self) -> dict[str, Any]:
+        payload = _load_json(self.secrets_path, {})
+        return dict(payload) if isinstance(payload, Mapping) else {}
+
+    def _save_secrets(self, payload: Mapping[str, Any]) -> None:
+        self.secrets_path.parent.mkdir(parents=True, exist_ok=True)
+        self.secrets_path.write_text(json.dumps(dict(payload), indent=2, sort_keys=True), encoding="utf-8")
+
+    def _api_llm_key(self) -> str:
+        secrets_payload = self._load_secrets()
+        api_llm = secrets_payload.get("api_llm")
+        if not isinstance(api_llm, Mapping):
+            return ""
+        return str(api_llm.get("api_key") or "").strip()
+
+    def _api_llm_key_configured(self) -> bool:
+        return bool(self._api_llm_key())
+
+    def _save_api_llm_key(self, api_key: str) -> None:
+        clean_key = api_key.strip()
+        if not clean_key:
+            return
+        payload = self._load_secrets()
+        api_llm = payload.get("api_llm")
+        if not isinstance(api_llm, dict):
+            api_llm = {}
+            payload["api_llm"] = api_llm
+        api_llm["api_key"] = clean_key
+        self._save_secrets(payload)
 
     def provider_auth(self) -> dict[str, Any]:
         payload = _load_json(self.provider_auth_path, {})
@@ -419,7 +581,14 @@ class RuntimeState:
     def update_config(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(payload, Mapping):
             raise RetrievalServerError("Config payload must be an object.")
+        incoming_api_key = _incoming_api_llm_key(payload)
         updated = _normalize_config(_merge_config(self._default_config(), dict(payload)))
+        if incoming_api_key:
+            self._save_api_llm_key(incoming_api_key)
+        api_llm = updated.get("connections", {}).get("api_llm") if isinstance(updated.get("connections"), Mapping) else None
+        if isinstance(api_llm, dict):
+            api_llm.pop("api_key", None)
+            api_llm["api_key_configured"] = self._api_llm_key_configured()
         _validate_config(updated)
         self.config = updated
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -499,10 +668,19 @@ class RuntimeState:
         start_path = Path(str(payload.get("start_path") or self.workspace_root)).expanduser().resolve()
         if not start_path.exists() or not start_path.is_dir():
             start_path = self.workspace_root
-        selected = _choose_directory(start_path)
+        try:
+            selected = _choose_directory(start_path)
+        except DirectoryPickerUnavailable as exc:
+            return {
+                "workspace_root": "",
+                "cancelled": True,
+                "picker_available": False,
+                "message": f"{exc} Paste the repository path into the field instead.",
+            }
         return {
             "workspace_root": str(selected) if selected is not None else "",
             "cancelled": selected is None,
+            "picker_available": True,
         }
 
     def index_estimate(self) -> dict[str, Any]:
@@ -937,11 +1115,13 @@ class RuntimeState:
             if retrieval_mode != RETRIEVAL_MODE_CODEX:
                 self.ensure_qdrant_runtime()
             self._update_run_progress(run_dir, phase="retrieval", percent=10, message="Starting retrieval.")
-            llm_config = load_retrieval_llm_config(self.tool_root / ".env")
+            retrieval_llm_config = self._retrieval_llm_config()
+            generation_llm_config = self._generation_llm_config()
             retrieval_config = self._workspace_retrieval_config(
                 run_dir=run_dir,
                 enabled_source_categories=tuple(allowed_categories),
                 enabled_sources=tuple(allowed_source_keys),
+                llm_config=retrieval_llm_config,
             )
             if retrieval_config.retrieval_mode == RETRIEVAL_MODE_CODEX:
                 retrieval_stage = CodexRetrievalStage(retrieval_config)
@@ -1020,9 +1200,23 @@ class RuntimeState:
                 elif event_type == "retrieval_refinement_evaluated":
                     self._update_run_progress(run_dir, phase="retrieval", percent=89, message="Checking whether the evidence is enough.")
                 elif event_type == "codex_retrieval_started":
-                    self._update_run_progress(run_dir, phase="codex", percent=20, message="Asking Codex for code evidence.", log="Codex retrieval started.")
+                    self._update_run_progress(
+                        run_dir,
+                        phase="codex",
+                        percent=20,
+                        message="Asking Codex for code evidence.",
+                        log="Codex retrieval started.",
+                        timeline_event=_codex_retrieval_progress_start_event(retrieval_config.codex_timeout_seconds),
+                    )
                 elif event_type == "codex_retrieval_completed":
-                    self._update_run_progress(run_dir, phase="codex", percent=86, message="Codex evidence received.", log="Codex evidence received.")
+                    self._update_run_progress(
+                        run_dir,
+                        phase="codex",
+                        percent=86,
+                        message="Codex evidence received.",
+                        log="Codex evidence received.",
+                        timeline_event=_codex_retrieval_progress_completed_event(),
+                    )
 
             if isinstance(retrieval_stage, WorkspaceRetrievalStage):
                 retrieval_stage.context.trace.record = record_retrieval_progress  # type: ignore[method-assign]
@@ -1034,7 +1228,7 @@ class RuntimeState:
                 policy_stage=policy,
                 retrieval_stage=retrieval_stage,
                 logger=progress_logger,
-                response_llm_config=llm_config,
+                response_llm_config=generation_llm_config,
                 assistance_mode=str(_assistance_settings(self.config).get("mode") or "teach"),
                 max_gap_retrieval_passes=int(_assistance_settings(self.config).get("max_gap_retrieval_passes") or 0),
                 intent_shadow_enabled=bool(_intent_settings(self.config).get("shadow_mode", False)),
@@ -1043,7 +1237,7 @@ class RuntimeState:
                     retrieval_result,
                     workspace_root=self.workspace_root,
                     user_prompt=graph_state.user_input,
-                    llm_config=llm_config,
+                    llm_config=generation_llm_config,
                     log_event=record_event,
                 ),
             )
@@ -1134,12 +1328,72 @@ class RuntimeState:
     ) -> None:
         _update_run_metadata_progress(run_dir, phase=phase, percent=percent, message=message, log=log, timeline_event=timeline_event)
 
+    def _api_llm_config(
+        self,
+        *,
+        model_override: str = "",
+        max_tokens_override: int | None = None,
+        timeout_override: int | None = None,
+        settings: Mapping[str, Any] | None = None,
+    ) -> RunLLMConfig:
+        api_settings = settings or _connections_mapping(self.config).get("api_llm", {})
+        api_settings = _normalize_api_llm_connection(api_settings)
+        model = model_override.strip() or str(api_settings.get("model") or "").strip()
+        endpoint_url = str(api_settings.get("endpoint_url") or "").strip()
+        api_key = str(api_settings.get("api_key") or "").strip() or self._api_llm_key()
+        api_style = str(api_settings.get("api_style") or "").strip() or "openai_chat_completions"
+        if not model or not endpoint_url or not api_key:
+            raise ValueError("OpenAI-compatible API connection requires endpoint URL, API key, and model.")
+        return RunLLMConfig(
+            api_style=api_style,
+            model=model,
+            endpoint_url=endpoint_url,
+            api_key=api_key,
+            temperature=float(api_settings.get("temperature") if api_settings.get("temperature") is not None else 0.0),
+            max_tokens=max_tokens_override or int(api_settings.get("max_tokens") or 800),
+            timeout_seconds=timeout_override or int(api_settings.get("timeout_seconds") or 30),
+            continuity_enabled=False,
+        )
+
+    def _codex_llm_config(self, *, model: str, timeout_seconds: int | None = None) -> RunLLMConfig:
+        codex = _normalize_codex_connection(_connections_mapping(self.config).get("codex", {}), retrieval=_retrieval_settings(self.config))
+        resolved_model = model.strip() or str(_retrieval_settings(self.config).get("codex_model") or "gpt-5.4-mini").strip() or "gpt-5.4-mini"
+        return RunLLMConfig(
+            api_style="codex_cli",
+            model=resolved_model,
+            timeout_seconds=timeout_seconds or int(codex.get("timeout_seconds") or 30),
+            codex_command=tuple(resolve_codex_command(_string_list(codex.get("command", ["codex"])))),
+            codex_ignore_user_config=bool(codex.get("ignore_user_config", True)),
+        )
+
+    def _retrieval_llm_config(self) -> RunLLMConfig:
+        retrieval = _retrieval_settings(self.config)
+        if _retrieval_mode(self.config) == RETRIEVAL_MODE_CODEX:
+            generation = _generation_settings(self.config)
+            if str(generation.get("provider") or "api") == "codex":
+                return self._codex_llm_config(model=str(generation.get("codex_model") or retrieval.get("codex_model") or ""))
+        return self._api_llm_config(model_override=str(retrieval.get("workspace_model") or ""))
+
+    def _generation_llm_config(self) -> RunLLMConfig:
+        generation = _generation_settings(self.config)
+        if str(generation.get("provider") or "api") == "codex":
+            return self._codex_llm_config(
+                model=str(generation.get("codex_model") or _retrieval_settings(self.config).get("codex_model") or ""),
+                timeout_seconds=int(generation.get("timeout_seconds") or 30),
+            )
+        return self._api_llm_config(
+            model_override=str(generation.get("api_model") or ""),
+            max_tokens_override=int(generation.get("max_tokens") or 800),
+            timeout_override=int(generation.get("timeout_seconds") or 30),
+        )
+
     def _workspace_retrieval_config(
         self,
         *,
         run_dir: str | Path,
         enabled_source_categories: tuple[SourceCategory, ...] | None = None,
         enabled_sources: tuple[str, ...] | None = None,
+        llm_config: RunLLMConfig | None = None,
     ) -> WorkspaceRetrievalConfig:
         tool_env_path = self.tool_root / ".env"
         indexing = self.config.get("indexing", {})
@@ -1151,6 +1405,7 @@ class RuntimeState:
         index_exclude_paths = tuple(_string_list(indexing.get("exclude_paths", [])))
         connections = _connections_mapping(self.config)
         retrieval_settings = _retrieval_settings(self.config)
+        codex_settings = _normalize_codex_connection(connections.get("codex", {}), retrieval=retrieval_settings)
         retrieval_mode = _retrieval_mode(self.config)
         if retrieval_mode == RETRIEVAL_MODE_CODEX:
             embedding_config = RetrievalEmbeddingConfig(
@@ -1170,7 +1425,7 @@ class RuntimeState:
             workspace_root=str(self.workspace_root),
             index_dir=str(self.workspace_root / CONFIG_DIR_NAME / "index"),
             run_dir=str(run_dir),
-            llm_config=load_retrieval_llm_config(tool_env_path),
+            llm_config=llm_config or self._retrieval_llm_config(),
             embedding_config=embedding_config,
             qdrant_config=qdrant_config,
             retrieval_mode=retrieval_mode,
@@ -1180,7 +1435,7 @@ class RuntimeState:
                 retrieval_settings.get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
             ).strip().lower(),
             codex_timeout_seconds=int(retrieval_settings.get("codex_timeout_seconds") or 900),
-            codex_ignore_user_config=bool(retrieval_settings.get("codex_ignore_user_config", True)),
+            codex_ignore_user_config=bool(codex_settings.get("ignore_user_config", True)),
             enable_indexing=bool(indexing.get("enable_indexing", load_retrieval_enable_indexing(tool_env_path))),
             structural_graph_timeout_seconds=900,
             index_exclude_paths=index_exclude_paths,
@@ -1233,7 +1488,7 @@ class RuntimeState:
         answers = payload.get("answers", {})
         if not isinstance(answers, Mapping):
             raise RetrievalServerError("`answers` must be an object keyed by question id.", status=400)
-        llm_config = load_retrieval_llm_config(self.tool_root / ".env")
+        llm_config = self._generation_llm_config()
         evaluations = evaluate_answers(
             checks=tuple(item for item in checks if isinstance(item, Mapping)),
             answers={str(key): str(value) for key, value in answers.items()},
@@ -1337,7 +1592,15 @@ class RuntimeState:
         payload = _load_json(self.config_path, {})
         if not isinstance(payload, Mapping):
             return self._default_config()
-        return _normalize_config(_merge_config(self._default_config(), dict(payload)))
+        config = _normalize_config(_merge_config(self._default_config(), dict(payload)))
+        inline_api_key = _incoming_api_llm_key(config)
+        if inline_api_key:
+            self._save_api_llm_key(inline_api_key)
+            api_llm = config.get("connections", {}).get("api_llm") if isinstance(config.get("connections"), Mapping) else None
+            if isinstance(api_llm, dict):
+                api_llm.pop("api_key", None)
+                api_llm["api_key_configured"] = True
+        return config
 
     def _default_config(self) -> dict[str, Any]:
         return {
@@ -1346,6 +1609,8 @@ class RuntimeState:
             "enabled_source_categories": [source.value for source in DEFAULT_ALLOWED_SOURCE_CATEGORIES],
             "enabled_sources": list(DEFAULT_ALLOWED_SOURCE_KEYS),
             "connections": {
+                "api_llm": _default_api_llm_connection(),
+                "codex": _default_codex_connection(),
                 "remote_mcp_sources": _default_remote_mcp_sources(),
                 "mcp_sources": [],
             },
@@ -1357,9 +1622,16 @@ class RuntimeState:
                 "mode": RETRIEVAL_MODE_WORKSPACE,
                 "codex_command": ["codex"],
                 "codex_model": "gpt-5.4-mini",
+                "workspace_model": "",
                 "codex_prompt_profile": DEFAULT_CODEX_PROMPT_PROFILE,
                 "codex_timeout_seconds": 900,
-                "codex_ignore_user_config": True,
+            },
+            "generation": {
+                "provider": "api",
+                "api_model": "",
+                "codex_model": "gpt-5.4-mini",
+                "max_tokens": 800,
+                "timeout_seconds": 30,
             },
             "assistance": {
                 "mode": "teach",
@@ -1486,6 +1758,12 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if parsed.path == "/connections/test":
                 self._send_json(self.state.test_connection(payload))
+                return
+            if parsed.path == "/connections/api-llm/test":
+                self._send_json(self.state.test_api_llm_connection(payload))
+                return
+            if parsed.path == "/connections/codex/test":
+                self._send_json(self.state.test_codex_connection(payload))
                 return
             if parsed.path == "/connections/remote-mcp/test":
                 self._send_json(self.state.test_remote_mcp_connection(payload))
@@ -1684,6 +1962,30 @@ def _progress_update_for_stage_completion(
     return stage_key, max(window_start, window_end - 1), message, f"{message.rstrip('.')}{_duration_suffix(observed_seconds)}.", timeline_event
 
 
+def _codex_retrieval_progress_start_event(timeout_seconds: int) -> dict[str, Any]:
+    expected_seconds = min(180.0, max(45.0, float(timeout_seconds) * 0.35))
+    return {
+        "event": "stage_started",
+        "stage_key": "codex_retrieval",
+        "stage_label": "Asking Codex for code evidence.",
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "window_start_percent": 20,
+        "window_end_percent": 86,
+        "expected_seconds": round(expected_seconds, 2),
+    }
+
+
+def _codex_retrieval_progress_completed_event() -> dict[str, Any]:
+    return {
+        "event": "stage_completed",
+        "stage_key": "codex_retrieval",
+        "stage_label": "Codex evidence received.",
+        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "window_start_percent": 20,
+        "window_end_percent": 86,
+    }
+
+
 def _response_generation_timed_out(result_payload: Mapping[str, Any]) -> bool:
     error = _response_generation_error(result_payload)
     return "timed out" in error.casefold() or "timeout" in error.casefold()
@@ -1853,6 +2155,77 @@ def _merge_config(defaults: dict[str, Any], payload: dict[str, Any]) -> dict[str
     return merged
 
 
+def _default_api_llm_connection() -> dict[str, Any]:
+    return {
+        "api_style": "openai_chat_completions",
+        "endpoint_url": "",
+        "api_key": "",
+        "api_key_configured": False,
+        "model": "",
+        "temperature": 0.0,
+        "max_tokens": 800,
+        "timeout_seconds": 30,
+    }
+
+
+def _default_codex_connection() -> dict[str, Any]:
+    return {
+        "command": ["codex"],
+        "ignore_user_config": True,
+        "timeout_seconds": 30,
+    }
+
+
+def _incoming_api_llm_key(payload: Mapping[str, Any]) -> str:
+    connections = payload.get("connections")
+    if not isinstance(connections, Mapping):
+        return ""
+    api_llm = connections.get("api_llm")
+    if not isinstance(api_llm, Mapping):
+        return ""
+    return str(api_llm.get("api_key") or "").strip()
+
+
+def _normalize_api_llm_connection(value: Any) -> dict[str, Any]:
+    source = value if isinstance(value, Mapping) else {}
+    return {
+        "api_style": str(source.get("api_style") or "openai_chat_completions").strip() or "openai_chat_completions",
+        "endpoint_url": str(source.get("endpoint_url") or "").strip(),
+        "api_key": str(source.get("api_key") or "").strip(),
+        "api_key_configured": bool(source.get("api_key_configured", False)),
+        "model": str(source.get("model") or "").strip(),
+        "temperature": _float_setting(source.get("temperature"), 0.0),
+        "max_tokens": max(1, _int_setting(source.get("max_tokens"), 800)),
+        "timeout_seconds": max(1, _int_setting(source.get("timeout_seconds"), 30)),
+    }
+
+
+def _normalize_codex_connection(value: Any, *, retrieval: Mapping[str, Any]) -> dict[str, Any]:
+    source = value if isinstance(value, Mapping) else {}
+    command = source.get("command", retrieval.get("codex_command", ["codex"]))
+    if isinstance(command, str):
+        command = [command]
+    return {
+        "command": _string_list(command) or ["codex"],
+        "ignore_user_config": _boolean_setting(source.get("ignore_user_config"), bool(retrieval.get("codex_ignore_user_config", True))),
+        "timeout_seconds": max(1, _int_setting(source.get("timeout_seconds"), 30)),
+    }
+
+
+def _int_setting(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _float_setting(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     retrieval = config.get("retrieval")
     if not isinstance(retrieval, dict):
@@ -1866,6 +2239,7 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
         command = [command]
     retrieval["codex_command"] = _string_list(command) or ["codex"]
     retrieval["codex_model"] = str(retrieval.get("codex_model") or "gpt-5.4-mini").strip() or "gpt-5.4-mini"
+    retrieval["workspace_model"] = str(retrieval.get("workspace_model") or "").strip()
     retrieval["codex_prompt_profile"] = str(
         retrieval.get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
     ).strip().lower()
@@ -1874,7 +2248,25 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
         timeout_seconds = 900
     retrieval["codex_timeout_seconds"] = timeout_seconds
-    retrieval["codex_ignore_user_config"] = bool(retrieval.get("codex_ignore_user_config", True))
+    generation = config.get("generation")
+    if not isinstance(generation, dict):
+        generation = {}
+        config["generation"] = generation
+    generation["provider"] = str(generation.get("provider") or "api").strip().lower()
+    if generation["provider"] not in {"api", "codex"}:
+        generation["provider"] = "api"
+    generation["api_model"] = str(generation.get("api_model") or "").strip()
+    generation["codex_model"] = str(generation.get("codex_model") or retrieval["codex_model"]).strip() or retrieval["codex_model"]
+    try:
+        generation_max_tokens = int(generation.get("max_tokens") or 800)
+    except (TypeError, ValueError):
+        generation_max_tokens = 800
+    generation["max_tokens"] = max(1, generation_max_tokens)
+    try:
+        generation_timeout_seconds = int(generation.get("timeout_seconds") or 30)
+    except (TypeError, ValueError):
+        generation_timeout_seconds = 30
+    generation["timeout_seconds"] = max(1, generation_timeout_seconds)
     assistance = config.get("assistance")
     if not isinstance(assistance, dict):
         assistance = {}
@@ -1916,6 +2308,9 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(connections, dict):
         connections = {}
         config["connections"] = connections
+    connections["api_llm"] = _normalize_api_llm_connection(connections.get("api_llm", {}))
+    connections["codex"] = _normalize_codex_connection(connections.get("codex", {}), retrieval=retrieval)
+    retrieval.pop("codex_ignore_user_config", None)
     for key in ("github_repository", "github_fetch_issues", "github_fetch_pull_requests"):
         connections.pop(key, None)
     connections["remote_mcp_sources"] = _normalize_remote_mcp_sources(connections.get("remote_mcp_sources", []))
@@ -2181,6 +2576,24 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
         raise RetrievalServerError("`retrieval.codex_timeout_seconds` must be greater than zero.")
     if "codex_ignore_user_config" in retrieval and not isinstance(retrieval.get("codex_ignore_user_config"), bool):
         raise RetrievalServerError("`retrieval.codex_ignore_user_config` must be a boolean.")
+    generation = payload.get("generation", {})
+    if not isinstance(generation, Mapping):
+        raise RetrievalServerError("`generation` must be an object.")
+    if str(generation.get("provider") or "api") not in {"api", "codex"}:
+        raise RetrievalServerError("`generation.provider` must be either `api` or `codex`.")
+    if str(generation.get("provider") or "api") == "api" and "api_model" in generation and not isinstance(generation.get("api_model"), str):
+        raise RetrievalServerError("`generation.api_model` must be a string.")
+    if str(generation.get("provider") or "api") == "codex" and not str(generation.get("codex_model") or "").strip():
+        raise RetrievalServerError("`generation.codex_model` is required when generation.provider is `codex`.")
+    connections = payload.get("connections", {})
+    if not isinstance(connections, Mapping):
+        raise RetrievalServerError("`connections` must be an object.")
+    api_llm = connections.get("api_llm", {})
+    if api_llm is not None and not isinstance(api_llm, Mapping):
+        raise RetrievalServerError("`connections.api_llm` must be an object.")
+    codex_connection = connections.get("codex", {})
+    if codex_connection is not None and not isinstance(codex_connection, Mapping):
+        raise RetrievalServerError("`connections.codex` must be an object.")
     assistance = payload.get("assistance", {})
     if not isinstance(assistance, Mapping):
         raise RetrievalServerError("`assistance` must be an object.")
@@ -2252,6 +2665,11 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
 def _retrieval_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
     retrieval = config.get("retrieval", {})
     return retrieval if isinstance(retrieval, Mapping) else {}
+
+
+def _generation_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    generation = config.get("generation", {})
+    return generation if isinstance(generation, Mapping) else {}
 
 
 def _assistance_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -2440,9 +2858,9 @@ def _public_codex_mcp_transport(transport: Mapping[str, Any]) -> dict[str, Any]:
     return public
 
 
-def _codex_retrieval_override_indicators(retrieval_settings: Mapping[str, Any]) -> dict[str, Any]:
+def _codex_retrieval_override_indicators(retrieval_settings: Mapping[str, Any], codex_settings: Mapping[str, Any]) -> dict[str, Any]:
     model = str(retrieval_settings.get("codex_model") or "").strip()
-    ignore_user_config = bool(retrieval_settings.get("codex_ignore_user_config", True))
+    ignore_user_config = bool(codex_settings.get("ignore_user_config", True))
     return {
         "ignore_user_config": {
             "overridden": ignore_user_config,
@@ -2533,25 +2951,63 @@ def _configured_remote_mcp_sources(
 
 
 def _choose_directory(start_path: Path) -> Path | None:
+    script_path = Path(__file__).resolve().parents[2] / "scripts" / "pick-directory.mjs"
+    electron_command = _electron_command(script_path)
     try:
-        import tkinter as tk
-        from tkinter import filedialog
-    except Exception as exc:  # pragma: no cover - depends on local Python install
-        raise RetrievalServerError(f"Directory picker is unavailable: {exc}", status=500) from exc
-
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes("-topmost", True)
-    try:
-        selected = filedialog.askdirectory(
-            parent=root,
-            initialdir=str(start_path),
-            title="Select project directory",
-            mustexist=True,
+        completed = subprocess.run(
+            [*electron_command, str(start_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
         )
-    finally:
-        root.destroy()
+    except OSError as exc:
+        raise DirectoryPickerUnavailable("Directory picker is unavailable: Electron could not be started. Run `npm install`.") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise DirectoryPickerUnavailable("Directory picker timed out.") from exc
+
+    if completed.returncode != 0:
+        detail = _electron_picker_error(completed.stdout, completed.stderr)
+        raise DirectoryPickerUnavailable(f"Directory picker is unavailable: {detail}") from None
+
+    payload = _electron_picker_payload(completed.stdout)
+    if payload.get("error"):
+        raise DirectoryPickerUnavailable(f"Directory picker is unavailable: {payload['error']}")
+    selected = str(payload.get("path") or "").strip()
     return Path(selected).resolve() if selected else None
+
+
+def _electron_command(script_path: Path) -> tuple[str, ...]:
+    tool_root = script_path.parents[1]
+    bin_name = "electron.cmd" if sys.platform == "win32" else "electron"
+    electron_bin = tool_root / "node_modules" / ".bin" / bin_name
+    if electron_bin.exists():
+        return (str(electron_bin), str(script_path))
+    return ("npx", "--no-install", "electron", str(script_path))
+
+
+def _electron_picker_payload(stdout: str) -> Mapping[str, Any]:
+    for line in reversed(stdout.splitlines()):
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        return payload if isinstance(payload, Mapping) else {}
+    raise DirectoryPickerUnavailable("Directory picker did not return a valid response.")
+
+
+def _electron_picker_error(stdout: str, stderr: str) -> str:
+    try:
+        payload = _electron_picker_payload(stdout)
+    except DirectoryPickerUnavailable:
+        payload = {}
+    detail = str(payload.get("error") or "").strip() if isinstance(payload, Mapping) else ""
+    return detail or stderr.strip() or stdout.strip() or "Electron folder picker failed."
 
 
 def _mcp_config_from_mapping(payload: Mapping[str, Any]) -> MCPConnectedSourceConfig:
@@ -3301,7 +3757,7 @@ def _load_json(path: Path, fallback: Any) -> Any:
     if not path.exists():
         return fallback
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return fallback
 
