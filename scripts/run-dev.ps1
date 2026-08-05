@@ -37,11 +37,11 @@ function Test-BackendHealth {
 function Invoke-Native {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
-        [Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments
+        [string[]]$ArgumentList = @()
     )
-    & $FilePath @Arguments
+    & $FilePath @ArgumentList
     if ($LASTEXITCODE -ne 0) {
-        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($Arguments -join ' ')"
+        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($ArgumentList -join ' ')"
     }
 }
 
@@ -54,7 +54,7 @@ if (-not (Test-Path "node_modules")) {
 }
 
 if (-not (Test-Path ".guided-intelligence\config.json")) {
-    Invoke-Native npm run config:web:workspace
+    Invoke-Native npm @("run", "config:web:workspace")
 }
 
 if (-not $WorkspaceRoot) {
@@ -65,7 +65,7 @@ $ResolvedWorkspaceRoot = Resolve-Path $WorkspaceRoot
 if (-not $SkipQdrant) {
     if (Get-Command docker -ErrorAction SilentlyContinue) {
         Write-Host "Starting Qdrant with Docker Compose if needed..."
-        Invoke-Native docker compose -f docker-compose.qdrant.yml up -d
+        Invoke-Native docker @("compose", "-f", "docker-compose.qdrant.yml", "up", "-d")
     } else {
         Write-Warning "Docker was not found. Workspace retrieval needs Qdrant; install/start Docker Desktop or rerun with -SkipQdrant for UI-only checks."
     }
@@ -123,7 +123,7 @@ if (-not $ReuseBackend) {
 }
 
 try {
-    Invoke-Native npm run web:dev
+    Invoke-Native npm @("run", "web:dev")
 } finally {
     if ($backend -and -not $backend.HasExited) {
         Stop-Process -Id $backend.Id -Force

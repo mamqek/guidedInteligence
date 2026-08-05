@@ -27,11 +27,11 @@ function Invoke-Step {
 function Invoke-Native {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
-        [Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments
+        [string[]]$ArgumentList = @()
     )
-    & $FilePath @Arguments
+    & $FilePath @ArgumentList
     if ($LASTEXITCODE -ne 0) {
-        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($Arguments -join ' ')"
+        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($ArgumentList -join ' ')"
     }
 }
 
@@ -76,20 +76,20 @@ Invoke-Step "Checking required tools" {
 
 if (-not $SkipNpm) {
     Invoke-Step "Installing Node dependencies" {
-        Invoke-Native npm ci
+        Invoke-Native npm @("ci")
     }
 }
 
 if (-not $SkipPython) {
     Invoke-Step "Creating Python virtual environment" {
         if (-not (Test-Path ".venv")) {
-            Invoke-Native $script:PythonCommand.Exe @($script:PythonCommand.Args) -m venv .venv
+            Invoke-Native $script:PythonCommand.Exe @($script:PythonCommand.Args + @("-m", "venv", ".venv"))
         }
     }
 
     Invoke-Step "Installing Python dependencies" {
-        Invoke-Native .\.venv\Scripts\python.exe -m pip install --upgrade pip
-        Invoke-Native .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+        Invoke-Native .\.venv\Scripts\python.exe @("-m", "pip", "install", "--upgrade", "pip")
+        Invoke-Native .\.venv\Scripts\python.exe @("-m", "pip", "install", "-r", "requirements.txt")
     }
 }
 
@@ -101,13 +101,13 @@ Invoke-Step "Preparing local configuration" {
         Write-Host ".env already exists; leaving it unchanged."
     }
 
-    Invoke-Native npm run config:web:workspace
+    Invoke-Native npm @("run", "config:web:workspace")
 }
 
 if (-not $SkipQdrantPull) {
     Invoke-Step "Preparing Qdrant Docker image" {
         if (Test-CommandAvailable "docker") {
-            Invoke-Native docker compose -f docker-compose.qdrant.yml pull
+            Invoke-Native docker @("compose", "-f", "docker-compose.qdrant.yml", "pull")
         } else {
             Write-Warning "Docker was not found. Qdrant will not start until Docker Desktop is installed and running."
         }
