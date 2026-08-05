@@ -216,6 +216,17 @@ button:disabled {
   color: #7a4b12;
 }
 
+.infoText {
+  margin: 8px 0 0;
+  border: 1px solid #c9d7ec;
+  border-radius: 8px;
+  background: #f5f8fc;
+  color: #33506f;
+  padding: 9px 11px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .workArea {
   display: grid;
   grid-template-columns: minmax(360px, 0.9fr) minmax(440px, 1.1fr);
@@ -425,7 +436,7 @@ button:disabled {
 .panelHeader {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -440,6 +451,14 @@ button:disabled {
   margin: 0;
   font-size: 15px;
   letter-spacing: 0;
+}
+
+.panelPurpose {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 520;
+  line-height: 1.4;
 }
 
 .panel h3 {
@@ -503,6 +522,127 @@ select:focus {
   color: var(--muted);
   font-size: 12px;
   font-weight: 500;
+}
+
+.settingsGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.settingsGrid.twoColumn,
+.workspaceConnectionsGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspaceConnectionsGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.settingsCard {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfe;
+  min-width: 0;
+}
+
+.settingsCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.settingsCardHeader p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.connectionTestButton,
+.codexIgnoreToggle {
+  margin-top: 14px;
+}
+
+.settingsStickySaveBar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  border: 1px solid #c7d5eb;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 28px rgba(25, 35, 55, 0.16);
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+}
+
+.settingsStickySaveBar strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.settingsStickySaveBar p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stickySaveButton {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 126px;
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+.connectionSuccessText {
+  margin: 12px 0 0;
+  border: 1px solid #9bd3b0;
+  border-radius: 8px;
+  background: #edf9f1;
+  color: #17663a;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.4;
+}
+
+.dependencyNotice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  background: #fbfcfe;
+}
+
+.dependencyNotice.warning {
+  border-color: #f0c36a;
+  background: #fffaf0;
+}
+
+.dependencyNotice strong {
+  display: block;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.dependencyNotice p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .pathPickerRow {
@@ -703,17 +843,15 @@ select:focus {
   gap: 8px;
 }
 
-.connectionActions,
-.connectionEditorActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-top: 12px;
+.connectionSection {
+  display: grid;
+  gap: 10px;
 }
 
-.connectionActions {
-  justify-content: flex-end;
+.connectionSection + .connectionSection {
+  margin-top: 18px;
+  border-top: 1px solid #d9e2ef;
+  padding-top: 16px;
 }
 
 .sectionHeader h3 {
@@ -762,7 +900,6 @@ select:focus {
 .remoteMcpSection {
   display: grid;
   gap: 10px;
-  margin-top: 14px;
 }
 
 .remoteMcpGrid {
@@ -1806,7 +1943,9 @@ pre {
   .sourceGrid,
   .summaryBar,
   .formGrid.two,
-  .featureToggleRow {
+  .featureToggleRow,
+  .settingsGrid.twoColumn,
+  .workspaceConnectionsGrid {
     grid-template-columns: 1fr;
   }
 
@@ -1825,5 +1964,15 @@ pre {
   .evidenceConnectionRoute > span {
     transform: rotate(90deg);
     justify-self: center;
+  }
+
+  .settingsStickySaveBar {
+    align-items: stretch;
+    flex-direction: column;
+    bottom: 8px;
+  }
+
+  .stickySaveButton {
+    width: 100%;
   }
 }

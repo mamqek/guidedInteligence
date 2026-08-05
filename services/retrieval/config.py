@@ -22,7 +22,9 @@ DEFAULT_CODEX_PROMPT_PROFILE = "efficient"
 DEFAULT_CONNECTED_CONTEXT_DISCLAIMER_REQUIRED_TERMS = ("do not use",)
 DEFAULT_CONNECTED_CONTEXT_STALE_BLOCK_TERMS = ("stale", "superseded", "outdated", "deprecated")
 SUPPORTED_CODEX_PROMPT_PROFILES = (DEFAULT_CODEX_PROMPT_PROFILE, "responsibility-complete")
-SUPPORTED_RETRIEVAL_LLM_API_STYLES = ("openai_chat_completions",)
+LLM_API_STYLE_OPENAI_CHAT = "openai_chat_completions"
+LLM_API_STYLE_CODEX_CLI = "codex_cli"
+SUPPORTED_LLM_API_STYLES = (LLM_API_STYLE_OPENAI_CHAT, LLM_API_STYLE_CODEX_CLI)
 SUPPORTED_RETRIEVAL_EMBEDDING_API_STYLES = ("openai_embeddings",)
 
 
@@ -83,51 +85,6 @@ def _parse_bool_env(values: Mapping[str, str], key: str, default: bool) -> bool:
     if raw_value in {"0", "false", "no", "off"}:
         return False
     raise ValueError(f"{key} must be a boolean-like value.")
-
-
-def load_retrieval_llm_config(env_path: str | Path | None = None) -> "RunLLMConfig":
-    values = _parse_env_file(Path(env_path) if env_path is not None else _default_retrieval_env_path())
-    api_style = values.get("RETRIEVAL_LLM_API_STYLE", "").strip()
-    model = values.get("RETRIEVAL_LLM_MODEL", "").strip()
-    endpoint_url = values.get("RETRIEVAL_LLM_ENDPOINT_URL", "").strip()
-    api_key = values.get("RETRIEVAL_LLM_API_KEY", "").strip()
-    configured_values = (api_style, model, endpoint_url, api_key)
-    if not any(configured_values):
-        raise ValueError(
-            "Retrieval LLM config is missing. "
-            "Set RETRIEVAL_LLM_API_STYLE, RETRIEVAL_LLM_MODEL, RETRIEVAL_LLM_ENDPOINT_URL, and RETRIEVAL_LLM_API_KEY."
-        )
-    if not all(configured_values):
-        raise ValueError(
-            "Retrieval LLM config is incomplete. "
-            "Set RETRIEVAL_LLM_API_STYLE, RETRIEVAL_LLM_MODEL, RETRIEVAL_LLM_ENDPOINT_URL, and RETRIEVAL_LLM_API_KEY."
-        )
-    temperature_raw = values.get("RETRIEVAL_LLM_TEMPERATURE", "0").strip() or "0"
-    max_tokens_raw = values.get("RETRIEVAL_LLM_MAX_TOKENS", "800").strip() or "800"
-    timeout_raw = values.get("RETRIEVAL_LLM_TIMEOUT_SECONDS", "30").strip() or "30"
-    continuity_enabled = _parse_bool_env(values, "RETRIEVAL_LLM_CONTINUITY_ENABLED", False)
-    try:
-        temperature = float(temperature_raw)
-    except ValueError as exc:
-        raise ValueError("RETRIEVAL_LLM_TEMPERATURE must be a number.") from exc
-    try:
-        max_tokens = int(max_tokens_raw)
-    except ValueError as exc:
-        raise ValueError("RETRIEVAL_LLM_MAX_TOKENS must be an integer.") from exc
-    try:
-        timeout_seconds = int(timeout_raw)
-    except ValueError as exc:
-        raise ValueError("RETRIEVAL_LLM_TIMEOUT_SECONDS must be an integer.") from exc
-    return RunLLMConfig(
-        api_style=api_style,
-        model=model,
-        endpoint_url=endpoint_url,
-        api_key=api_key,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        timeout_seconds=timeout_seconds,
-        continuity_enabled=continuity_enabled,
-    )
 
 
 def load_retrieval_embedding_config(env_path: str | Path | None = None) -> "RetrievalEmbeddingConfig":
@@ -657,7 +614,7 @@ class RunSourceConfig:
 class RunLLMConfig:
     """Optional model settings for retrieval intent planning."""
 
-    api_style: str = "openai_chat_completions"
+    api_style: str = LLM_API_STYLE_OPENAI_CHAT
     model: str = ""
     endpoint_url: str = ""
     api_key: str = ""
@@ -666,6 +623,8 @@ class RunLLMConfig:
     timeout_seconds: int = 30
     planner_strategy: str = "issue_repo_sketch_v1"
     continuity_enabled: bool = False
+    codex_command: tuple[str, ...] = ("codex",)
+    codex_ignore_user_config: bool = True
 
     def public_dict(self) -> dict[str, object]:
         return {
@@ -678,6 +637,8 @@ class RunLLMConfig:
             "timeout_seconds": self.timeout_seconds,
             "planner_strategy": self.planner_strategy,
             "continuity_enabled": self.continuity_enabled,
+            "codex_command": list(self.codex_command),
+            "codex_ignore_user_config": self.codex_ignore_user_config,
         }
 
 
@@ -761,13 +722,19 @@ class RunConfigController:
         self.validate_llm_config(config.llm_config)
 
     def validate_llm_config(self, llm_config: RunLLMConfig) -> None:
-        if llm_config.api_style not in SUPPORTED_RETRIEVAL_LLM_API_STYLES:
+        if llm_config.api_style not in SUPPORTED_LLM_API_STYLES:
             raise ValueError(
                 f"Unsupported retrieval LLM api_style: {llm_config.api_style}. "
-                f"Supported values: {', '.join(SUPPORTED_RETRIEVAL_LLM_API_STYLES)}."
+                f"Supported values: {', '.join(SUPPORTED_LLM_API_STYLES)}."
             )
         if not llm_config.model:
             raise ValueError("Retrieval LLM config requires model.")
+        if llm_config.api_style == LLM_API_STYLE_CODEX_CLI:
+            if not llm_config.codex_command:
+                raise ValueError("Codex CLI LLM config requires codex_command.")
+            if llm_config.timeout_seconds <= 0:
+                raise ValueError("Codex CLI LLM config requires timeout_seconds > 0.")
+            return
         if not llm_config.endpoint_url:
             raise ValueError("Retrieval LLM config requires endpoint_url.")
         if not llm_config.api_key:

@@ -6,6 +6,10 @@ export type Health = {
   env_exists: boolean;
   qdrant_configured: boolean;
   llm_configured: boolean;
+  api_llm_configured?: boolean;
+  api_llm_status_detail?: string;
+  codex_configured?: boolean;
+  codex_status_detail?: string;
   embedding_configured: boolean;
   runs_dir: string;
   index_estimate?: IndexEstimate;
@@ -117,11 +121,33 @@ export type AppConfig = {
     mode: "workspace" | "codex";
     codex_command: string[];
     codex_model: string;
+    workspace_model?: string;
     codex_prompt_profile?: string;
     codex_timeout_seconds: number;
-    codex_ignore_user_config?: boolean;
+  };
+  generation?: {
+    provider: "api" | "codex";
+    api_model?: string;
+    codex_model?: string;
+    max_tokens?: number;
+    timeout_seconds?: number;
   };
   connections: {
+    api_llm?: {
+      api_style?: string;
+      endpoint_url?: string;
+      api_key?: string;
+      api_key_configured?: boolean;
+      model?: string;
+      temperature?: number;
+      max_tokens?: number;
+      timeout_seconds?: number;
+    };
+    codex?: {
+      command?: string[];
+      ignore_user_config?: boolean;
+      timeout_seconds?: number;
+    };
     remote_mcp_sources?: RemoteMcpSource[];
     mcp_sources: McpSource[];
   };
@@ -219,6 +245,17 @@ export type CodexModelsResponse = {
   stderr?: string;
 };
 
+export type ConnectionTestResponse = {
+  ok: boolean;
+  provider: "api" | "codex";
+  model?: string;
+  endpoint_url?: string;
+  command?: string[];
+  model_count?: number;
+  models?: CodexModelOption[];
+  stderr?: string;
+};
+
 export type UnderstandingCheck = {
   id: string;
   role: string;
@@ -310,8 +347,22 @@ export type RunTrace = {
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, init);
+async function requestJson<T>(path: string, init?: RequestInit & { timeoutMs?: number }): Promise<T> {
+  const timeoutMs = init?.timeoutMs;
+  const controller = timeoutMs ? new AbortController() : undefined;
+  const timeoutId = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : undefined;
+  const { timeoutMs: _timeoutMs, ...fetchInit } = init || {};
+  let response: Response;
+  try {
+    response = await fetch(`/api${path}`, { ...fetchInit, signal: controller?.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`Request timed out after ${Math.round((timeoutMs || 0) / 1000)} seconds.`);
+    }
+    throw error;
+  } finally {
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+  }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(String(payload.error || `Request failed: ${response.status}`));
@@ -331,13 +382,27 @@ export const api = {
       body: JSON.stringify({ workspace_root }),
     }),
   browseWorkspace: (start_path: string) =>
-    requestJson<{ workspace_root: string; cancelled: boolean }>("/workspaces/browse", {
+    requestJson<{ workspace_root: string; cancelled: boolean; picker_available?: boolean; message?: string }>("/workspaces/browse", {
       method: "POST",
       headers: jsonHeaders,
       body: JSON.stringify({ start_path }),
     }),
   indexEstimate: () => requestJson<IndexEstimate>("/index/estimate"),
   codexModels: () => requestJson<CodexModelsResponse>("/codex/models"),
+  testApiLlmConnection: (payload: NonNullable<AppConfig["connections"]["api_llm"]>) =>
+    requestJson<ConnectionTestResponse>("/connections/api-llm/test", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+      timeoutMs: 20000,
+    }),
+  testCodexConnection: (payload: NonNullable<AppConfig["connections"]["codex"]>) =>
+    requestJson<ConnectionTestResponse>("/connections/codex/test", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+      timeoutMs: 40000,
+    }),
   prepareIndex: () =>
     requestJson<IndexPrepareJob>("/index/prepare", {
       method: "POST",

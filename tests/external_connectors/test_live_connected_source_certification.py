@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -20,7 +20,6 @@ from services.retrieval.config import (
     RunLLMConfig,
     WorkspaceRetrievalConfig,
     load_retrieval_embedding_config,
-    load_retrieval_llm_config,
 )
 from services.retrieval.server import _configured_remote_mcp_sources
 from services.retrieval.workspace import WorkspaceRetrievalStage
@@ -34,6 +33,33 @@ def _enabled() -> bool:
 
 def _obsidian_enabled() -> bool:
     return os.environ.get("GI_LIVE_OBSIDIAN_CERT") == "1"
+
+
+def _project_llm_config(root: Path) -> RunLLMConfig:
+    config_path = root / ".guided-intelligence" / "config.json"
+    secrets_path = root / ".guided-intelligence" / "secrets.json"
+    if not config_path.exists():
+        raise ValueError("LLM config is missing. Configure it in the Workspace tab first.")
+    config = json.loads(config_path.read_text(encoding="utf-8-sig"))
+    secrets = json.loads(secrets_path.read_text(encoding="utf-8-sig")) if secrets_path.exists() else {}
+    connections = config.get("connections") if isinstance(config.get("connections"), dict) else {}
+    generation = config.get("generation") if isinstance(config.get("generation"), dict) else {}
+    api_llm = connections.get("api_llm") if isinstance(connections.get("api_llm"), dict) else {}
+    secret_api_llm = secrets.get("api_llm") if isinstance(secrets.get("api_llm"), dict) else {}
+    model = str(generation.get("api_model") or api_llm.get("model") or "").strip()
+    endpoint_url = str(api_llm.get("endpoint_url") or "").strip()
+    api_key = str(secret_api_llm.get("api_key") or "").strip()
+    if not model or not endpoint_url or not api_key:
+        raise ValueError("OpenAI-compatible API connection requires endpoint URL, API key, and model. Configure it in the Workspace tab first.")
+    return RunLLMConfig(
+        api_style=str(api_llm.get("api_style") or "openai_chat_completions").strip() or "openai_chat_completions",
+        endpoint_url=endpoint_url,
+        model=model,
+        api_key=api_key,
+        temperature=float(api_llm.get("temperature") if api_llm.get("temperature") is not None else 0.0),
+        max_tokens=int(generation.get("max_tokens") or api_llm.get("max_tokens") or 800),
+        timeout_seconds=int(generation.get("timeout_seconds") or api_llm.get("timeout_seconds") or 30),
+    )
 
 
 def _notion_enabled() -> bool:
@@ -442,7 +468,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                     workspace_root=str(repo),
                     index_dir=str(index_dir),
                     run_dir=str(temp_root / "run"),
-                    llm_config=load_retrieval_llm_config(root / ".env"),
+                    llm_config=_project_llm_config(root),
                     embedding_config=load_retrieval_embedding_config(root / ".env"),
                     qdrant_config=RetrievalQdrantConfig(
                         url="http://example.test:6333",
@@ -573,7 +599,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                     },
                 ),
                 state=state,
-                llm_config=load_retrieval_llm_config(root / ".env"),
+                llm_config=_project_llm_config(root),
                 assistance_mode="teach",
                 log_event=record_response_event,
             )
@@ -674,7 +700,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                     workspace_root=str(repo),
                     index_dir=str(index_dir),
                     run_dir=str(temp_root / "run"),
-                    llm_config=load_retrieval_llm_config(root / ".env"),
+                    llm_config=_project_llm_config(root),
                     embedding_config=load_retrieval_embedding_config(root / ".env"),
                     qdrant_config=RetrievalQdrantConfig(
                         url="http://example.test:6333",
@@ -792,7 +818,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                     },
                 ),
                 state=state,
-                llm_config=load_retrieval_llm_config(root / ".env"),
+                llm_config=_project_llm_config(root),
                 assistance_mode="teach",
                 log_event=record_response_event,
             )
@@ -862,7 +888,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                     workspace_root=str(repo),
                     index_dir=str(index_dir),
                     run_dir=str(temp_root / "run"),
-                    llm_config=load_retrieval_llm_config(root / ".env"),
+                    llm_config=_project_llm_config(root),
                     embedding_config=load_retrieval_embedding_config(root / ".env"),
                     qdrant_config=RetrievalQdrantConfig(
                         url="http://example.test:6333",
@@ -939,7 +965,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                     },
                 ),
                 state=state,
-                llm_config=load_retrieval_llm_config(root / ".env"),
+                llm_config=_project_llm_config(root),
                 assistance_mode="teach",
                 log_event=record_response_event,
             )
@@ -1018,7 +1044,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                     workspace_root=str(repo),
                     index_dir=str(index_dir),
                     run_dir=str(temp_root / "run"),
-                    llm_config=load_retrieval_llm_config(root / ".env"),
+                    llm_config=_project_llm_config(root),
                     embedding_config=load_retrieval_embedding_config(root / ".env"),
                     qdrant_config=RetrievalQdrantConfig(
                         url="http://example.test:6333",
@@ -1089,7 +1115,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                     },
                 ),
                 state=state,
-                llm_config=load_retrieval_llm_config(root / ".env"),
+                llm_config=_project_llm_config(root),
                 assistance_mode="teach",
             )
             self.assertNotIn("Explanation generation failed", response.content, msg=response.content)

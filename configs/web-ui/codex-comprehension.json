@@ -38,9 +38,34 @@
       "codex"
     ],
     "codex_model": "gpt-5.4-mini",
+    "workspace_model": "",
     "codex_prompt_profile": "responsibility-complete",
-    "codex_timeout_seconds": 900,
-    "codex_ignore_user_config": true
+    "codex_timeout_seconds": 900
+  },
+  "generation": {
+    "provider": "api",
+    "api_model": "",
+    "codex_model": "gpt-5.4-mini",
+    "max_tokens": 800,
+    "timeout_seconds": 30
+  },
+  "connections": {
+    "api_llm": {
+      "api_style": "openai_chat_completions",
+      "endpoint_url": "",
+      "api_key": "",
+      "model": "",
+      "temperature": 0,
+      "max_tokens": 800,
+      "timeout_seconds": 30
+    },
+    "codex": {
+      "command": [
+        "codex"
+      ],
+      "ignore_user_config": true,
+      "timeout_seconds": 30
+    }
   },
   "assistance": {
     "mode": "teach",

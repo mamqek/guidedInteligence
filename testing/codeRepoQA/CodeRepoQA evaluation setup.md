@@ -101,24 +101,19 @@ The retrieval log should record the query, source policy, ordered sources, selec
 
 ## Model Providers
 
-Define retrieval model configuration in the repo root `.env` so local secrets stay out of Git and the harness can switch endpoints without code changes.
+Define retrieval model configuration in the Workspace tab. The harness reads the project-local `.guided-intelligence/config.json` nonsecret provider settings and `.guided-intelligence/secrets.json` API key written by the UI.
 
-Copy `.env.example` to `.env` and configure:
+For OpenAI-compatible API runs, configure:
 
-```dotenv
-RETRIEVAL_LLM_API_STYLE=openai_chat_completions
-RETRIEVAL_LLM_ENDPOINT_URL=https://api.openai.com/v1/chat/completions
-RETRIEVAL_LLM_MODEL=<model-name>
-RETRIEVAL_LLM_API_KEY=<api-key>
-RETRIEVAL_LLM_TEMPERATURE=0
-RETRIEVAL_LLM_MAX_TOKENS=2000
-RETRIEVAL_LLM_TIMEOUT_SECONDS=30
-```
+- endpoint URL
+- API key
+- default model
+- generation model, max tokens, and timeout when different from defaults
 
 Important:
 
-- `RETRIEVAL_LLM_ENDPOINT_URL` must be the full request URL.
-- The runtime currently supports only `openai_chat_completions`.
+- Endpoint URL must be the full request URL.
+- The API runtime currently supports OpenAI-compatible chat completions.
 - Alternate providers are supported by configuration when they expose an OpenAI-compatible chat completions endpoint.
 
 For local Gemma, use Ollama first. Google documents direct Gemma support through Ollama, including Gemma 3 model tags such as `gemma3:4b`, and this is the fastest setup path for local experiments. Use `llama.cpp` later if you need direct GGUF control or lower-level benchmarking. Use `vLLM` only if the project needs serving throughput or GPU batching.

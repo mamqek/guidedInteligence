@@ -313,14 +313,12 @@ function StatusStrip({ health }: { health: LoadState<Health> }) {
   const isCodexMode = health.data?.retrieval_mode === "codex";
   const items = isCodexMode ? [
     ["Service", health.data?.status === "ok"],
-    [".env", health.data?.env_exists],
-    ["LLM", health.data?.llm_configured],
-    ["Codex", true],
+    ["API", health.data?.api_llm_configured || health.data?.llm_configured],
+    ["Codex", health.data?.codex_configured],
     [health.data?.codex_prompt_profile ? `Profile: ${health.data.codex_prompt_profile}` : "Codex profile", Boolean(health.data?.codex_prompt_profile)],
   ] as const : [
     ["Service", health.data?.status === "ok"],
-    [".env", health.data?.env_exists],
-    ["LLM", health.data?.llm_configured],
+    ["API", health.data?.api_llm_configured || health.data?.llm_configured],
     ["Embeddings", health.data?.embedding_configured],
     ["Qdrant", Boolean(health.data?.qdrant_configured && health.data?.qdrant_reachable)],
   ] as const;
@@ -796,18 +794,28 @@ function ConnectionsPanel({
   }
 
   return (
-    <section className="panel" id="connections">
-      <div className="panelHeader">
-        <h2>Connections</h2>
-        <button className="textButton" type="button" onClick={refreshBase}>Reload</button>
-      </div>
-      <div className="connectionGrid">
-        {builtIns.map(([name, status, detail]) => (
-          <ConnectionTile key={name} name={name} status={status} detail={detail} onInfo={() => setHelp(builtInConnectionHelp(name))} />
-        ))}
-      </div>
-      {remoteMcpSources.length > 0 && (
-        <div className="remoteMcpSection">
+    <>
+      <section className="panel" id="connections">
+        <div className="panelHeader">
+          <div>
+            <h2>Connections</h2>
+            <p className="panelPurpose">Manage built-in sources and hosted provider connectors used as retrieval evidence.</p>
+          </div>
+          <button className="textButton" type="button" onClick={refreshBase}>Reload</button>
+        </div>
+        <div className="connectionSection">
+          <div className="sectionHeader">
+            <h3>Built-in sources</h3>
+            <p>Local retrieval surfaces available from the selected workspace and configured local tools.</p>
+          </div>
+          <div className="connectionGrid">
+            {builtIns.map(([name, status, detail]) => (
+              <ConnectionTile key={name} name={name} status={status} detail={detail} onInfo={() => setHelp(builtInConnectionHelp(name))} />
+            ))}
+          </div>
+        </div>
+        {remoteMcpSources.length > 0 && (
+          <div className="connectionSection remoteMcpSection">
           <div className="sectionHeader">
             <h3>Hosted MCP connectors</h3>
             <p>Remote MCP uses provider-hosted endpoints. It never falls back to local command MCP.</p>
@@ -1169,16 +1177,21 @@ function ConnectionsPanel({
               );
             })}
           </div>
+          </div>
+        )}
+        {saveError && <p className="errorText">{saveError}</p>}
+        {help && <InfoDialog help={help} onClose={() => setHelp(null)} />}
+      </section>
+      <div className="settingsStickySaveBar">
+        <div>
+          <strong>Connections</strong>
+          <p>Save hosted MCP connector and connected-source settings together.</p>
         </div>
-      )}
-      <div className="connectionActions">
-        <button className="primaryButton compactButton" type="button" disabled={!config.data || saving} onClick={saveConnections}>
-          {saving ? "Saving..." : "Save connections"}
+        <button className="primaryButton stickySaveButton" type="button" disabled={!config.data || saving} onClick={saveConnections}>
+          {saving ? "Saving..." : "Save changes"}
         </button>
       </div>
-      {saveError && <p className="errorText">{saveError}</p>}
-      {help && <InfoDialog help={help} onClose={() => setHelp(null)} />}
-    </section>
+    </>
   );
 }
 
@@ -1567,6 +1580,9 @@ function WorkspaceIndexPanel({
   const [openingWorkspace, setOpeningWorkspace] = useState(false);
   const [browseError, setBrowseError] = useState("");
   const [codexModels, setCodexModels] = useState<LoadState<CodexModelOption[]>>({ loading: false });
+  const [apiConnectionTest, setApiConnectionTest] = useState<LoadState<string>>({ loading: false });
+  const [codexConnectionTest, setCodexConnectionTest] = useState<LoadState<string>>({ loading: false });
+  const connectionsRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     setWorkspaceRoot(health?.workspace_root || "");
   }, [health?.workspace_root]);
@@ -1599,6 +1615,65 @@ function WorkspaceIndexPanel({
     });
   }
 
+  function updateGeneration(next: Partial<NonNullable<AppConfig["generation"]>>) {
+    if (!config.data) return;
+    setConfig({
+      data: {
+        ...config.data,
+        generation: {
+          provider: "api",
+          ...config.data.generation,
+          ...next,
+        },
+      },
+      loading: false,
+    });
+  }
+
+  function updateApiConnection(next: Partial<NonNullable<AppConfig["connections"]["api_llm"]>>) {
+    if (!config.data) return;
+    setConfig({
+      data: {
+        ...config.data,
+        connections: {
+          ...config.data.connections,
+          api_llm: {
+            api_style: "openai_chat_completions",
+            endpoint_url: "",
+            api_key: "",
+            model: "",
+            temperature: 0,
+            max_tokens: 800,
+            timeout_seconds: 30,
+            ...config.data.connections.api_llm,
+            ...next,
+          },
+        },
+      },
+      loading: false,
+    });
+  }
+
+  function updateCodexConnection(next: Partial<NonNullable<AppConfig["connections"]["codex"]>>) {
+    if (!config.data) return;
+    setConfig({
+      data: {
+        ...config.data,
+        connections: {
+          ...config.data.connections,
+          codex: {
+            command: ["codex"],
+            ignore_user_config: true,
+            timeout_seconds: 30,
+            ...config.data.connections.codex,
+            ...next,
+          },
+        },
+      },
+      loading: false,
+    });
+  }
+
   async function saveIndexing() {
     if (!config.data) return;
     setSaving(true);
@@ -1618,6 +1693,10 @@ function WorkspaceIndexPanel({
     setBrowsing(true);
     try {
       const result = await api.browseWorkspace(workspaceRoot || health?.workspace_root || "");
+      if (result.picker_available === false) {
+        setBrowseError(result.message || "Directory picker is unavailable. Paste the repository path into the field instead.");
+        return;
+      }
       if (!result.cancelled && result.workspace_root) {
         setWorkspaceRoot(result.workspace_root);
       }
@@ -1630,10 +1709,20 @@ function WorkspaceIndexPanel({
 
   const indexing = config.data?.indexing;
   const retrieval = config.data?.retrieval;
+  const generation = config.data?.generation || { provider: "api" as const };
+  const apiConnection = config.data?.connections.api_llm || {};
+  const codexConnection = config.data?.connections.codex || {};
   const isCodexMode = retrieval?.mode === "codex";
+  const apiRequired = retrieval?.mode !== "codex" || generation.provider === "api";
+  const codexRequired = retrieval?.mode === "codex" || generation.provider === "codex";
+  const apiConfigured = Boolean(
+    health?.api_llm_configured ||
+    (apiConnection.endpoint_url && (apiConnection.api_key || apiConnection.api_key_configured) && (apiConnection.model || retrieval?.workspace_model || generation.api_model))
+  );
+  const codexConfigured = Boolean(health?.codex_configured);
   const selectedWorkspaceValue = workspaces.data?.some((workspace) => workspace.workspace_root === workspaceRoot) ? workspaceRoot : "";
   useEffect(() => {
-    if (!isCodexMode) {
+    if (!codexRequired) {
       setCodexModels({ loading: false });
       return;
     }
@@ -1649,7 +1738,44 @@ function WorkspaceIndexPanel({
     return () => {
       cancelled = true;
     };
-  }, [isCodexMode, health?.workspace_root]);
+  }, [codexRequired, health?.workspace_root]);
+
+  function focusConnections() {
+    connectionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function testApiConnection() {
+    setApiConnectionTest({ loading: true });
+    try {
+      const result = await api.testApiLlmConnection({
+        api_style: apiConnection.api_style || "openai_chat_completions",
+        endpoint_url: apiConnection.endpoint_url || "",
+        api_key: apiConnection.api_key || "",
+        model: apiConnection.model || generation.api_model || retrieval?.workspace_model || "",
+        temperature: Number(apiConnection.temperature ?? 0),
+        max_tokens: 64,
+        timeout_seconds: Math.min(Number(apiConnection.timeout_seconds ?? generation.timeout_seconds ?? 30), 15),
+      });
+      setApiConnectionTest({ data: `Verified ${result.model || "model"} at ${result.endpoint_url || "endpoint"}.`, loading: false });
+    } catch (error) {
+      setApiConnectionTest({ error: error instanceof Error ? error.message : String(error), loading: false });
+    }
+  }
+
+  async function testCodexConnection() {
+    setCodexConnectionTest({ loading: true });
+    try {
+      const result = await api.testCodexConnection({
+        command: codexConnection.command?.length ? codexConnection.command : retrieval?.codex_command || ["codex"],
+        ignore_user_config: codexConnection.ignore_user_config ?? true,
+        timeout_seconds: Number(codexConnection.timeout_seconds ?? 30),
+      });
+      if (result.models?.length) setCodexModels({ data: result.models, loading: false });
+      setCodexConnectionTest({ data: `Verified Codex CLI with ${result.model_count || result.models?.length || 0} model options.`, loading: false });
+    } catch (error) {
+      setCodexConnectionTest({ error: error instanceof Error ? error.message : String(error), loading: false });
+    }
+  }
 
   async function openSelectedWorkspace() {
     if (!workspaceRoot.trim()) return;
@@ -1666,7 +1792,10 @@ function WorkspaceIndexPanel({
     <>
       <section className="panel" id="workspace">
         <div className="panelHeader">
-          <h2>Workspace Directory</h2>
+          <div>
+            <h2>Workspace</h2>
+            <p className="panelPurpose">Select the repository and local project context this tool can inspect.</p>
+          </div>
         </div>
         <label className="fieldLabel">
           Repository path
@@ -1689,7 +1818,12 @@ function WorkspaceIndexPanel({
             </select>
           )}
           <div className="pathPickerRow">
-            <input value={workspaceRoot} disabled={openingWorkspace} onChange={(event) => setWorkspaceRoot(event.target.value)} />
+            <input
+              value={workspaceRoot}
+              disabled={openingWorkspace}
+              placeholder="Browse or type in full path to the directory"
+              onChange={(event) => setWorkspaceRoot(event.target.value)}
+            />
             <button className="textButton" type="button" disabled={browsing || openingWorkspace} onClick={browseWorkspace}>
               {browsing ? "Browsing..." : "Browse"}
             </button>
@@ -1711,18 +1845,49 @@ function WorkspaceIndexPanel({
 
       <section className="panel" id="indexing-settings">
         <div className="panelHeader">
-          <h2>Retrieval Settings</h2>
+          <div>
+            <h2>Evidence Retrieval</h2>
+            <p className="panelPurpose">Choose how code evidence is found before an answer is generated.</p>
+          </div>
           {!isCodexMode && <button className="textButton" type="button" onClick={refreshBase}>Refresh estimate</button>}
         </div>
         {retrieval && (
           <>
             <label className="fieldLabel">
-              Retrieval mode
+              Evidence provider
               <select value={retrieval.mode || "workspace"} onChange={(event) => updateRetrieval({ mode: event.target.value as AppConfig["retrieval"]["mode"] })}>
-                <option value="workspace">Workspace index</option>
-                <option value="codex">Codex evidence provider</option>
+                <option value="workspace">Native workspace retrieval</option>
+                <option value="codex">Codex retrieval</option>
               </select>
             </label>
+            {retrieval.mode === "codex" && (
+              <p
+                className="infoText"
+                title="Codex mode asks Codex to inspect the selected workspace directly, so local BM25, embeddings, Qdrant, and CodeGraph index preparation are not used."
+              >
+                Codex mode reads the selected workspace directly and does not use BM25, embeddings, Qdrant, or CodeGraph indexing.
+              </p>
+            )}
+            <DependencyNotice
+              ok={retrieval.mode === "codex" ? codexConfigured : apiConfigured}
+              label={retrieval.mode === "codex" ? "Requires Codex CLI" : "Requires OpenAI-compatible API"}
+              detail={
+                retrieval.mode === "codex"
+                  ? (codexConfigured ? health?.codex_status_detail || "Codex CLI available." : "Codex retrieval needs a verified Codex CLI connection.")
+                  : (apiConfigured ? health?.api_llm_status_detail || "API connection configured." : "Native retrieval still requires the API connection for retrieval planning.")
+              }
+              onConfigure={focusConnections}
+            />
+            {retrieval.mode !== "codex" && (
+              <label className="fieldLabel">
+                Retrieval API model
+                <input
+                  value={retrieval.workspace_model || ""}
+                  placeholder={apiConnection.model || "gpt-5.1-mini"}
+                  onChange={(event) => updateRetrieval({ workspace_model: event.target.value })}
+                />
+              </label>
+            )}
             {retrieval.mode === "codex" && (
               <>
                 <label className="fieldLabel" title="The model passed to Codex for evidence retrieval runs. Model options are loaded from the local Codex model catalog.">
@@ -1755,26 +1920,7 @@ function WorkspaceIndexPanel({
                     description="Codex mode asks Codex to inspect the selected workspace directly, so local BM25, embeddings, Qdrant, and CodeGraph index preparation are not used."
                   />
                 </div>
-                <label
-                  className="checkRow"
-                  title="When enabled, Codex retrieval starts with --ignore-user-config so global Codex MCP servers, profiles, and user config defaults do not affect retrieval. Turn it off if you intentionally want your global Codex setup to participate."
-                >
-                  <input
-                    type="checkbox"
-                    checked={retrieval.codex_ignore_user_config !== false}
-                    onChange={(event) => updateRetrieval({ codex_ignore_user_config: event.target.checked })}
-                  />
-                  <span>Ignore global Codex user config</span>
-                </label>
               </>
-            )}
-            {retrieval.mode === "codex" && (
-              <p
-                className="noticeText"
-                title="Codex mode asks Codex to inspect the selected workspace directly, so local BM25, embeddings, Qdrant, and CodeGraph index preparation are not used."
-              >
-                Codex mode reads the selected workspace directly and does not use BM25, embeddings, Qdrant, or CodeGraph indexing.
-              </p>
             )}
             {retrieval.mode !== "codex" && estimate.data && estimate.data.file_count > 0 && (
               <IndexPreparationNotice
@@ -1818,12 +1964,160 @@ function WorkspaceIndexPanel({
           <p className="noticeText" key={note}>{note}</p>
         ))}
         {!isCodexMode && indexPrepareMessage && <p className="noticeText">{indexPrepareMessage}</p>}
-        <button className="primaryButton" type="button" disabled={!config.data || saving} onClick={saveIndexing}>
-          {saving ? "Saving..." : "Save retrieval settings"}
-        </button>
         {!isCodexMode && estimate.error && <p className="errorText">{estimate.error}</p>}
         {config.error && <p className="errorText">{config.error}</p>}
       </section>
+
+      <section className="panel" id="generation-settings">
+        <div className="panelHeader">
+          <div>
+            <h2>Explanation Generation</h2>
+            <p className="panelPurpose">Choose how final explanations, checks, and evidence graph text are generated.</p>
+          </div>
+        </div>
+        <label className="fieldLabel">
+          Generation provider
+          <select value={generation.provider || "api"} onChange={(event) => updateGeneration({ provider: event.target.value as "api" | "codex" })}>
+            <option value="api">OpenAI-compatible API</option>
+            <option value="codex">Codex CLI</option>
+          </select>
+        </label>
+        <DependencyNotice
+          ok={generation.provider === "codex" ? codexConfigured : apiConfigured}
+          label={generation.provider === "codex" ? "Requires Codex CLI" : "Requires OpenAI-compatible API"}
+          detail={
+            generation.provider === "codex"
+              ? (codexConfigured ? health?.codex_status_detail || "Codex CLI available." : "Codex generation needs a verified Codex CLI connection.")
+              : (apiConfigured ? health?.api_llm_status_detail || "API connection configured." : "API generation requires an endpoint URL, API key, and model.")
+          }
+          onConfigure={focusConnections}
+        />
+        {generation.provider === "codex" ? (
+          <label className="fieldLabel">
+            Codex generation model
+            <select
+              value={generation.codex_model || retrieval?.codex_model || ""}
+              disabled={codexModels.loading || !codexModels.data?.length}
+              onChange={(event) => updateGeneration({ codex_model: event.target.value })}
+            >
+              {codexModelOptions(codexModels.data, generation.codex_model || retrieval?.codex_model).map((model) => (
+                <option key={model.slug} value={model.slug}>
+                  {model.display_name || model.slug}
+                  {model.default_reasoning_level ? ` (${model.default_reasoning_level})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label className="fieldLabel">
+            API generation model
+            <input
+              value={generation.api_model || ""}
+              placeholder={apiConnection.model || "gpt-5.1"}
+              onChange={(event) => updateGeneration({ api_model: event.target.value })}
+            />
+          </label>
+        )}
+        <div className="settingsGrid twoColumn">
+          <label className="fieldLabel">
+            Max tokens
+            <input type="number" min={1} value={generation.max_tokens || 800} onChange={(event) => updateGeneration({ max_tokens: Number(event.target.value) || 800 })} />
+          </label>
+          <label className="fieldLabel">
+            Timeout seconds
+            <input type="number" min={1} value={generation.timeout_seconds || 30} onChange={(event) => updateGeneration({ timeout_seconds: Number(event.target.value) || 30 })} />
+          </label>
+        </div>
+      </section>
+
+      <section className="panel" id="workspace-connections" ref={connectionsRef}>
+        <div className="panelHeader">
+          <div>
+            <h2>LLM Providers</h2>
+            <p className="panelPurpose">Configure model providers used by retrieval or explanation generation.</p>
+          </div>
+        </div>
+        <div className="workspaceConnectionsGrid">
+          <div className="settingsCard">
+            <div className="settingsCardHeader">
+              <div>
+                <h3>OpenAI-compatible API</h3>
+                <p>Used by native retrieval and API-based explanation generation.</p>
+              </div>
+              <span className={apiConfigured ? "statusPill connected" : "statusPill"}>{apiConfigured ? "Configured" : "Not configured"}</span>
+            </div>
+            <label className="fieldLabel">
+              Endpoint URL
+              <input value={apiConnection.endpoint_url || ""} placeholder="https://api.openai.com/v1/chat/completions" onChange={(event) => updateApiConnection({ endpoint_url: event.target.value })} />
+            </label>
+            <label className="fieldLabel">
+              API key
+              <input type="password" value={apiConnection.api_key || ""} placeholder={apiConnection.api_key_configured || health?.api_llm_configured ? "API key saved. Paste a new key to replace it." : "Paste API key"} onChange={(event) => updateApiConnection({ api_key: event.target.value })} />
+            </label>
+            <label className="fieldLabel">
+              Default API model
+              <input value={apiConnection.model || ""} placeholder="gpt-5.1-mini" onChange={(event) => updateApiConnection({ model: event.target.value })} />
+            </label>
+            <div className="settingsGrid twoColumn">
+              <label className="fieldLabel">
+                Temperature
+                <input type="number" step="0.1" value={apiConnection.temperature ?? 0} onChange={(event) => updateApiConnection({ temperature: Number(event.target.value) || 0 })} />
+              </label>
+              <label className="fieldLabel">
+                Timeout seconds
+                <input type="number" min={1} value={apiConnection.timeout_seconds || 30} onChange={(event) => updateApiConnection({ timeout_seconds: Number(event.target.value) || 30 })} />
+              </label>
+            </div>
+            <button className="textButton connectionTestButton" type="button" disabled={apiConnectionTest.loading} onClick={testApiConnection}>
+              {apiConnectionTest.loading ? "Testing API..." : "Test API"}
+            </button>
+            {apiConnectionTest.data && <p className="connectionSuccessText">{apiConnectionTest.data}</p>}
+            {apiConnectionTest.error && <p className="errorText">{apiConnectionTest.error}</p>}
+          </div>
+          <div className="settingsCard">
+            <div className="settingsCardHeader">
+              <div>
+                <h3>Codex CLI</h3>
+                <p>Used by Codex retrieval and Codex-based explanation generation.</p>
+              </div>
+              <span className={codexConfigured ? "statusPill connected" : "statusPill"}>{codexConfigured ? "Configured" : "Not configured"}</span>
+            </div>
+            <label className="fieldLabel">
+              Command
+              <input
+                value={(codexConnection.command || retrieval?.codex_command || ["codex"]).join(" ")}
+                onChange={(event) => updateCodexConnection({ command: linesToList(event.target.value.replace(/\s+/g, "\n")) })}
+              />
+            </label>
+            <label className="fieldLabel">
+              Timeout seconds
+              <input type="number" min={1} value={codexConnection.timeout_seconds || 30} onChange={(event) => updateCodexConnection({ timeout_seconds: Number(event.target.value) || 30 })} />
+            </label>
+            <label className="checkRow codexIgnoreToggle">
+              <input
+                type="checkbox"
+                checked={codexConnection.ignore_user_config ?? true}
+                onChange={(event) => updateCodexConnection({ ignore_user_config: event.target.checked })}
+              />
+              <span>Ignore global Codex user config for LLM calls</span>
+            </label>
+            <button className="textButton connectionTestButton" type="button" disabled={codexConnectionTest.loading} onClick={testCodexConnection}>
+              {codexConnectionTest.loading ? "Testing Codex..." : "Test Codex"}
+            </button>
+            {codexConnectionTest.data && <p className="connectionSuccessText">{codexConnectionTest.data}</p>}
+            {codexConnectionTest.error && <p className="errorText">{codexConnectionTest.error}</p>}
+          </div>
+        </div>
+      </section>
+      <div className="settingsStickySaveBar">
+        <div>
+          <strong>Workspace settings</strong>
+          <p>Save retrieval, generation, and LLM provider changes together.</p>
+        </div>
+        <button className="primaryButton stickySaveButton" type="button" disabled={!config.data || saving} onClick={saveIndexing}>
+          {saving ? "Saving..." : "Save changes"}
+        </button>
+      </div>
     </>
   );
 }
@@ -1839,6 +2133,23 @@ function ConnectionTile({ name, status, detail, onInfo }: { name: string; status
         <span>{status}</span>
         <InfoButton label={`Explain ${name}`} onClick={onInfo} />
       </div>
+    </div>
+  );
+}
+
+function DependencyNotice({ ok, label, detail, onConfigure }: { ok: boolean; label: string; detail: string; onConfigure: () => void }) {
+  if (ok) return null;
+  return (
+    <div className="dependencyNotice warning">
+      <div>
+        <strong>{label}</strong>
+        <p>{detail}</p>
+      </div>
+      {!ok && (
+        <button className="textButton compactButton" type="button" onClick={onConfigure}>
+          Configure
+        </button>
+      )}
     </div>
   );
 }

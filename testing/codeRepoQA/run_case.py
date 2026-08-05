@@ -37,7 +37,6 @@ from services.retrieval.config import (
     WorkspaceRetrievalConfig,
     load_retrieval_embedding_config,
     load_retrieval_enable_indexing,
-    load_retrieval_llm_config,
     load_retrieval_qdrant_config,
 )
 from services.intent import SUPPORTED_ASSISTANCE_ROUTER_MODES
@@ -560,7 +559,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_dir=args.run_dir,
             run_id=args.run_id,
             verification_json=args.verification_json,
-            llm_config=load_retrieval_llm_config(TOOL_ENV_PATH),
+            llm_config=_load_project_llm_config(run_config),
             retrieval_mode=_config_value(args, run_config, "retrieval_mode", RETRIEVAL_MODE_WORKSPACE),
             codex_command=_codex_command(args, run_config),
             codex_model=_config_value(args, run_config, "codex_model", "gpt-5.4-mini"),
@@ -588,7 +587,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             rebuild_index=bool(args.rebuild_index or run_config.get("rebuild_index", False)),
             verification_json=args.verification_json,
             shared_repo_root=_config_value(args, run_config, "shared_repo_root", None),
-            llm_config=load_retrieval_llm_config(TOOL_ENV_PATH),
+            llm_config=_load_project_llm_config(run_config),
             retrieval_mode=_config_value(args, run_config, "retrieval_mode", RETRIEVAL_MODE_WORKSPACE),
             codex_command=_codex_command(args, run_config),
             codex_model=_config_value(args, run_config, "codex_model", "gpt-5.4-mini"),
@@ -620,7 +619,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 chunk_line_overlap=int(_config_value(args, run_config, "chunk_overlap", 10)),
                 rebuild_index=bool(args.rebuild_index or run_config.get("rebuild_index", False)),
                 shared_repo_root=_config_value(args, run_config, "shared_repo_root", None),
-                llm_config=load_retrieval_llm_config(TOOL_ENV_PATH),
+                llm_config=_load_project_llm_config(run_config),
                 retrieval_mode=_config_value(args, run_config, "retrieval_mode", RETRIEVAL_MODE_WORKSPACE),
                 codex_command=_codex_command(args, run_config),
                 codex_model=_config_value(args, run_config, "codex_model", "gpt-5.4-mini"),
@@ -677,7 +676,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         chunk_line_overlap=int(_config_value(args, run_config, "chunk_overlap", 10)),
                         rebuild_index=bool(args.rebuild_index or run_config.get("rebuild_index", False)),
                         shared_repo_root=_config_value(args, run_config, "shared_repo_root", None),
-                        llm_config=load_retrieval_llm_config(TOOL_ENV_PATH),
+                        llm_config=_load_project_llm_config(run_config),
                         retrieval_mode=retrieval_mode,
                         codex_command=_codex_command(args, run_config),
                         codex_model=_config_value(args, run_config, "codex_model", "gpt-5.4-mini"),
@@ -769,6 +768,52 @@ def _load_test_run_config(path: str | None) -> dict[str, Any]:
     if not isinstance(data, Mapping):
         raise ValueError(f"Test run config must be a JSON object: {config_path}")
     return dict(data)
+
+
+def _load_project_llm_config(run_config: Mapping[str, Any]) -> RunLLMConfig:
+    config_path = ROOT / WORKSPACE_STATE_DIR / "config.json"
+    secrets_path = ROOT / WORKSPACE_STATE_DIR / "secrets.json"
+    if not config_path.exists():
+        raise ValueError("LLM config is missing. Configure it in the Workspace tab first.")
+    config = json.loads(config_path.read_text(encoding="utf-8-sig"))
+    secrets = json.loads(secrets_path.read_text(encoding="utf-8-sig")) if secrets_path.exists() else {}
+    if not isinstance(config, Mapping):
+        raise ValueError(f"Project config must be a JSON object: {config_path}")
+    if not isinstance(secrets, Mapping):
+        secrets = {}
+    generation = config.get("generation") if isinstance(config.get("generation"), Mapping) else {}
+    connections = config.get("connections") if isinstance(config.get("connections"), Mapping) else {}
+    provider = str(run_config.get("generation_provider") or generation.get("provider") or "api").strip()
+    if provider == "codex":
+        codex = connections.get("codex") if isinstance(connections.get("codex"), Mapping) else {}
+        command = codex.get("command", run_config.get("codex_command", ["codex"]))
+        if isinstance(command, str):
+            command = [command]
+        return RunLLMConfig(
+            api_style="codex_cli",
+            model=str(run_config.get("generation_codex_model") or generation.get("codex_model") or run_config.get("codex_model") or "gpt-5.4-mini").strip(),
+            max_tokens=int(generation.get("max_tokens") or 800),
+            timeout_seconds=int(generation.get("timeout_seconds") or codex.get("timeout_seconds") or 30),
+            codex_command=tuple(resolve_codex_command(tuple(str(part) for part in command if str(part).strip()))),
+            codex_ignore_user_config=bool(codex.get("ignore_user_config", run_config.get("codex_ignore_user_config", True))),
+        )
+    api_llm = connections.get("api_llm") if isinstance(connections.get("api_llm"), Mapping) else {}
+    secret_api_llm = secrets.get("api_llm") if isinstance(secrets.get("api_llm"), Mapping) else {}
+    model = str(run_config.get("generation_api_model") or generation.get("api_model") or api_llm.get("model") or "").strip()
+    endpoint_url = str(api_llm.get("endpoint_url") or "").strip()
+    api_key = str(secret_api_llm.get("api_key") or "").strip()
+    if not model or not endpoint_url or not api_key:
+        raise ValueError("OpenAI-compatible API connection requires endpoint URL, API key, and model. Configure it in the Workspace tab first.")
+    return RunLLMConfig(
+        api_style=str(api_llm.get("api_style") or "openai_chat_completions").strip() or "openai_chat_completions",
+        model=model,
+        endpoint_url=endpoint_url,
+        api_key=api_key,
+        temperature=float(api_llm.get("temperature") if api_llm.get("temperature") is not None else 0.0),
+        max_tokens=int(generation.get("max_tokens") or api_llm.get("max_tokens") or 800),
+        timeout_seconds=int(generation.get("timeout_seconds") or api_llm.get("timeout_seconds") or 30),
+        continuity_enabled=False,
+    )
 
 
 def _config_value(args: argparse.Namespace, config: Mapping[str, Any], key: str, default: Any) -> Any:

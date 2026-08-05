@@ -19,6 +19,27 @@
 - Do not substitute unit tests, fake servers, or isolated harness checks for a requested tool rerun.
 - Use tests only as secondary verification after the real tool path has been exercised, or when the real tool path is unavailable and that limitation is stated explicitly.
 
+## Dependency Manifest Maintenance
+
+- Keep `requirements.txt` limited to direct Python packages imported by maintained project code.
+- If a Python change adds a new third-party import, update `requirements.txt` in the same change.
+- Do not add standard-library modules, transitive dependencies, temporary spike dependencies, or generated scratch-file dependencies to `requirements.txt`.
+- Prefer removing unused package entries over preserving stale dependencies.
+
+## Local Setup Scripts
+
+- Fresh-clone setup scripts live in `scripts/` and are the default install surface for agents and humans:
+  - Windows PowerShell: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1`
+  - Linux/macOS Bash: `bash scripts/setup.sh`
+- Manual web testing scripts start Qdrant, the retrieval backend, and the Vite frontend:
+  - Windows PowerShell: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-dev.ps1`
+  - Linux/macOS Bash: `bash scripts/run-dev.sh`
+- The npm aliases expose the same flows:
+  - Cross-platform aliases: `npm run setup`, `npm run dev:all`
+  - Explicit aliases: `npm run setup:ps`, `npm run dev:all:ps`, `npm run setup:bash`, `npm run dev:all:bash`
+- Setup scripts install Node packages with `npm ci`, create a repository-local `.venv`, install `requirements.txt`, copy `.env.example` to `.env` only when missing, apply `configs/web-ui/workspace.json`, and optionally pull the Qdrant Docker image.
+- Do not add codec installation or codec checks to these scripts.
+
 ## Run Configs And Commands
 
 - Centralized run profiles live under `configs/`.

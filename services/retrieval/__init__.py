@@ -19,7 +19,6 @@ _CONFIG_EXPORTS = {
     "WorkspaceRetrievalConfig",
     "load_retrieval_embedding_config",
     "load_retrieval_enable_indexing",
-    "load_retrieval_llm_config",
     "load_retrieval_qdrant_config",
 }
 
