@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$WorkspaceRoot = "",
+    [int]$BackendPort = 8790,
+    [int]$FrontendPort = 5173,
     [switch]$SkipQdrant
 )
 
@@ -27,7 +29,7 @@ function Test-TcpPortOpen {
 
 function Test-BackendHealth {
     try {
-        $response = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:8790/health" -TimeoutSec 2
+        $response = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$BackendPort/health" -TimeoutSec 2
         return $response.StatusCode -eq 200
     } catch {
         return $false
@@ -72,23 +74,23 @@ if (-not $SkipQdrant) {
 }
 
 $ReuseBackend = $false
-if (Test-TcpPortOpen 8790) {
+if (Test-TcpPortOpen $BackendPort) {
     if (Test-BackendHealth) {
         $ReuseBackend = $true
-        Write-Host "Using existing healthy backend on http://127.0.0.1:8790."
+        Write-Host "Using existing healthy backend on http://127.0.0.1:$BackendPort."
     } else {
-        throw "Port 8790 is already in use, but /health did not respond. Stop that process before running npm run dev:all."
+        throw "Port $BackendPort is already in use, but /health did not respond. Stop that process before running npm run dev:all."
     }
 }
 
-if (Test-TcpPortOpen 5173) {
-    throw "Port 5173 is already in use. Stop the existing frontend server before running npm run dev:all."
+if (Test-TcpPortOpen $FrontendPort) {
+    throw "Port $FrontendPort is already in use. Stop the existing frontend server before running npm run dev:all."
 }
 
 Write-Host ""
 Write-Host "Starting Guided Intelligence for manual testing:"
-Write-Host "  API: http://127.0.0.1:8790/health"
-Write-Host "  UI:  http://127.0.0.1:5173"
+Write-Host "  API: http://127.0.0.1:$BackendPort/health"
+Write-Host "  UI:  http://127.0.0.1:$FrontendPort"
 Write-Host "  Backend logs: .tmp\retrieval-server.log"
 Write-Host ""
 Write-Host "Press Ctrl+C in this window to stop both services."
@@ -100,7 +102,7 @@ $BackendErrorLog = Join-Path $RepoRoot ".tmp\retrieval-server.err.log"
 $backend = $null
 if (-not $ReuseBackend) {
     $backend = Start-Process -FilePath ".\.venv\Scripts\python.exe" `
-        -ArgumentList @("-m", "services.retrieval.server", "--workspace-root", "$ResolvedWorkspaceRoot", "--tool-root", "$RepoRoot") `
+        -ArgumentList @("-m", "services.retrieval.server", "--workspace-root", "$ResolvedWorkspaceRoot", "--tool-root", "$RepoRoot", "--port", "$BackendPort") `
         -WorkingDirectory "$RepoRoot" `
         -WindowStyle Hidden `
         -RedirectStandardOutput "$BackendLog" `
@@ -118,11 +120,13 @@ if (-not $ReuseBackend) {
         if ($backend -and -not $backend.HasExited) {
             Stop-Process -Id $backend.Id -Force
         }
-        throw "Backend did not become healthy on http://127.0.0.1:8790. Check .tmp\retrieval-server.err.log."
+        throw "Backend did not become healthy on http://127.0.0.1:$BackendPort. Check .tmp\retrieval-server.err.log."
     }
 }
 
 try {
+    $env:GI_BACKEND_URL = "http://127.0.0.1:$BackendPort"
+    $env:GI_FRONTEND_PORT = "$FrontendPort"
     Invoke-Native npm @("run", "web:dev")
 } finally {
     if ($backend -and -not $backend.HasExited) {

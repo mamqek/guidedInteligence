@@ -34,6 +34,7 @@
 - Manual web testing scripts start Qdrant, the retrieval backend, and the Vite frontend:
   - Windows PowerShell: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-dev.ps1`
   - Linux/macOS Bash: `bash scripts/run-dev.sh`
+- Manual web testing defaults to backend port `8790` and frontend port `5173`; use `--backend-port <port>` and `--frontend-port <port>` when those ports are already occupied.
 - The npm aliases expose the same flows:
   - Cross-platform aliases: `npm run setup`, `npm run dev:all`
   - Explicit aliases: `npm run setup:ps`, `npm run dev:all:ps`, `npm run setup:bash`, `npm run dev:all:bash`
