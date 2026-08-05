@@ -1544,7 +1544,10 @@ function WorkspaceIndexPanel({
   workspaces,
   setConfig,
   estimate,
+  indexPrepareLoading,
+  indexPrepareMessage,
   refreshBase,
+  onPrepareIndex,
   onOpenWorkspace,
 }: {
   health?: Health;
