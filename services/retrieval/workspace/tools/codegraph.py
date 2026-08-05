@@ -178,6 +178,43 @@ class CodeGraphFindExactSymbolTool:
         )
 
 
+class CodeGraphSearchSymbolsTool:
+    name = "structural_search_symbols"
+
+    def __init__(self, bridge: CodeGraphBridge) -> None:
+        self.bridge = bridge
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        raw_queries = request.arguments.get("queries")
+        queries = [str(value).strip() for value in raw_queries] if isinstance(raw_queries, list) else []
+        queries = [value for value in queries if value]
+        if not queries:
+            return _error(self.name, "empty_symbol_queries")
+        try:
+            result = self.bridge.request(
+                "search_symbols",
+                {
+                    "queries": queries[:12],
+                    "limit_per_query": int(request.arguments.get("limit_per_query") or 6),
+                },
+            )
+        except Exception as exc:
+            return _error(self.name, f"structural_symbol_search_failed:{exc}")
+        files = result.get("files") if isinstance(result.get("files"), list) else []
+        match_count = sum(
+            len(item.get("matches", ()))
+            for item in result.get("results", ())
+            if isinstance(item, Mapping) and isinstance(item.get("matches"), list)
+        )
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok",
+            payload=dict(result),
+            source_refs=tuple(str(item.get("path") or "") for item in files if isinstance(item, Mapping)),
+            metadata={"result_count": str(match_count), "match": "ranked_symbol"},
+        )
+
+
 class CodeGraphAnalyzeCallsTool:
     def __init__(self, bridge: CodeGraphBridge, *, direction: str) -> None:
         self.bridge = bridge
@@ -244,6 +281,7 @@ def codegraph_tools(config: WorkspaceRetrievalConfig) -> tuple[dict[str, Any], C
         {
             "structural_index_repo": CodeGraphIndexRepoTool(bridge),
             "structural_find_exact_symbol": CodeGraphFindExactSymbolTool(bridge),
+            "structural_search_symbols": CodeGraphSearchSymbolsTool(bridge),
             "structural_callers": CodeGraphAnalyzeCallsTool(bridge, direction="callers"),
             "structural_callees": CodeGraphAnalyzeCallsTool(bridge, direction="callees"),
             "structural_relationship": CodeGraphRelationshipTool(bridge),
