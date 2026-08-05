@@ -36,6 +36,14 @@ if (process.env.npm_config_workspace_root && !passthroughArgs.includes("--worksp
   passthroughArgs.push("--workspace-root", process.env.npm_config_workspace_root);
 }
 
+if (process.env.npm_config_backend_port && !passthroughArgs.includes("--backend-port")) {
+  passthroughArgs.push("--backend-port", process.env.npm_config_backend_port);
+}
+
+if (process.env.npm_config_frontend_port && !passthroughArgs.includes("--frontend-port")) {
+  passthroughArgs.push("--frontend-port", process.env.npm_config_frontend_port);
+}
+
 const platform = process.platform === "win32" ? "win32" : "posix";
 const [command, args] = scripts[target][platform];
 
@@ -46,6 +54,8 @@ if (platform === "win32") {
     ["--skip-qdrant-pull", "-SkipQdrantPull"],
     ["--skip-qdrant", "-SkipQdrant"],
     ["--workspace-root", "-WorkspaceRoot"],
+    ["--backend-port", "-BackendPort"],
+    ["--frontend-port", "-FrontendPort"],
   ]);
   passthroughArgs = passthroughArgs.map((arg) => powershellFlagMap.get(arg) ?? arg);
 }

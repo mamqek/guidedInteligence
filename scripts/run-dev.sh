@@ -2,6 +2,8 @@
 set -euo pipefail
 
 workspace_root=""
+backend_port=8790
+frontend_port=5173
 skip_qdrant=0
 
 while [ "$#" -gt 0 ]; do
@@ -14,13 +16,29 @@ while [ "$#" -gt 0 ]; do
       workspace_root="$2"
       shift 2
       ;;
+    --backend-port)
+      if [ "$#" -lt 2 ]; then
+        echo "--backend-port requires a port." >&2
+        exit 2
+      fi
+      backend_port="$2"
+      shift 2
+      ;;
+    --frontend-port)
+      if [ "$#" -lt 2 ]; then
+        echo "--frontend-port requires a port." >&2
+        exit 2
+      fi
+      frontend_port="$2"
+      shift 2
+      ;;
     --skip-qdrant)
       skip_qdrant=1
       shift
       ;;
     -h|--help)
       cat <<'EOF'
-Usage: bash scripts/run-dev.sh [--workspace-root PATH] [--skip-qdrant]
+Usage: bash scripts/run-dev.sh [--workspace-root PATH] [--backend-port PORT] [--frontend-port PORT] [--skip-qdrant]
 
 Starts Qdrant, the local retrieval backend, and the Vite frontend for manual testing.
 EOF
@@ -70,10 +88,11 @@ port_open() {
 
 backend_healthy() {
   node -e '
-    fetch("http://127.0.0.1:8790/health", { signal: AbortSignal.timeout(2000) })
+    const port = process.argv[1];
+    fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(2000) })
       .then((response) => process.exit(response.ok ? 0 : 1))
       .catch(() => process.exit(1));
-  ' >/dev/null 2>&1
+  ' "$backend_port" >/dev/null 2>&1
 }
 
 if [ "$skip_qdrant" -eq 0 ]; then
@@ -86,24 +105,24 @@ if [ "$skip_qdrant" -eq 0 ]; then
 fi
 
 reuse_backend=0
-if port_open 8790; then
+if port_open "$backend_port"; then
   if backend_healthy; then
     reuse_backend=1
-    echo "Using existing healthy backend on http://127.0.0.1:8790."
+    echo "Using existing healthy backend on http://127.0.0.1:$backend_port."
   else
-    echo "Port 8790 is already in use, but /health did not respond. Stop that process before running scripts/run-dev.sh." >&2
+    echo "Port $backend_port is already in use, but /health did not respond. Stop that process before running scripts/run-dev.sh." >&2
     exit 1
   fi
 fi
 
-if port_open 5173; then
-  echo "Port 5173 is already in use. Stop the existing frontend server before running scripts/run-dev.sh." >&2
+if port_open "$frontend_port"; then
+  echo "Port $frontend_port is already in use. Stop the existing frontend server before running scripts/run-dev.sh." >&2
   exit 1
 fi
 
 printf '\nStarting Guided Intelligence for manual testing:\n'
-echo "  API: http://127.0.0.1:8790/health"
-echo "  UI:  http://127.0.0.1:5173"
+echo "  API: http://127.0.0.1:$backend_port/health"
+echo "  UI:  http://127.0.0.1:$frontend_port"
 echo "  Backend logs: .tmp/retrieval-server.log"
 printf '\nPress Ctrl+C in this terminal to stop both services.\n'
 
@@ -113,6 +132,7 @@ if [ "$reuse_backend" -eq 0 ]; then
   .venv/bin/python -m services.retrieval.server \
     --workspace-root "$workspace_root" \
     --tool-root "$repo_root" \
+    --port "$backend_port" \
     > .tmp/retrieval-server.log \
     2> .tmp/retrieval-server.err.log &
   backend_pid="$!"
@@ -128,7 +148,7 @@ if [ "$reuse_backend" -eq 0 ]; then
     if [ -n "$backend_pid" ]; then
       kill "$backend_pid" >/dev/null 2>&1 || true
     fi
-    echo "Backend did not become healthy on http://127.0.0.1:8790. Check .tmp/retrieval-server.err.log." >&2
+    echo "Backend did not become healthy on http://127.0.0.1:$backend_port. Check .tmp/retrieval-server.err.log." >&2
     exit 1
   fi
 fi
@@ -140,4 +160,4 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-npm run web:dev
+GI_BACKEND_URL="http://127.0.0.1:$backend_port" GI_FRONTEND_PORT="$frontend_port" npm run web:dev
