@@ -36,13 +36,23 @@ if (process.env.npm_config_workspace_root && !passthroughArgs.includes("--worksp
   passthroughArgs.push("--workspace-root", process.env.npm_config_workspace_root);
 }
 
-if (process.env.npm_config_backend_port && !passthroughArgs.includes("--backend-port")) {
-  passthroughArgs.push("--backend-port", process.env.npm_config_backend_port);
+function pushNpmConfigValue(envName, flag) {
+  if (!process.env[envName] || passthroughArgs.includes(flag)) {
+    return;
+  }
+  let value = process.env[envName];
+  if (value === "true") {
+    const valueIndex = passthroughArgs.findIndex((arg) => !arg.startsWith("-"));
+    if (valueIndex !== -1) {
+      value = passthroughArgs[valueIndex];
+      passthroughArgs.splice(valueIndex, 1);
+    }
+  }
+  passthroughArgs.push(flag, value);
 }
 
-if (process.env.npm_config_frontend_port && !passthroughArgs.includes("--frontend-port")) {
-  passthroughArgs.push("--frontend-port", process.env.npm_config_frontend_port);
-}
+pushNpmConfigValue("npm_config_backend_port", "--backend-port");
+pushNpmConfigValue("npm_config_frontend_port", "--frontend-port");
 
 const platform = process.platform === "win32" ? "win32" : "posix";
 const [command, args] = scripts[target][platform];

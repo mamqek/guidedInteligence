@@ -8,6 +8,7 @@ export default defineConfig({
   root: "ui",
   plugins: [react()],
   server: {
+    host: "127.0.0.1",
     port: frontendPort,
     strictPort: true,
     proxy: {
