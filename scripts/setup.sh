@@ -65,6 +65,18 @@ find_python() {
   exit 1
 }
 
+bootstrap_pip() {
+  mkdir -p .tmp
+  "$python_cmd" - <<'PY'
+from pathlib import Path
+from urllib.request import urlretrieve
+
+target = Path(".tmp/get-pip.py")
+urlretrieve("https://bootstrap.pypa.io/get-pip.py", target)
+PY
+  .venv/bin/python .tmp/get-pip.py
+}
+
 step "Checking required tools"
 require_command node "Node.js 22.x is required. Install Node 22, then rerun scripts/setup.sh."
 require_command npm "npm is required and should be installed with Node.js."
@@ -87,8 +99,18 @@ fi
 
 if [ "$skip_python" -eq 0 ]; then
   step "Creating Python virtual environment"
-  if [ ! -d ".venv" ]; then
-    "$python_cmd" -m venv .venv
+  if [ ! -x ".venv/bin/python" ]; then
+    rm -rf .venv
+    if ! "$python_cmd" -m venv .venv; then
+      echo "Standard venv creation failed; retrying without ensurepip and bootstrapping pip."
+      rm -rf .venv
+      "$python_cmd" -m venv --without-pip .venv
+      bootstrap_pip
+    fi
+  fi
+
+  if ! .venv/bin/python -m pip --version >/dev/null 2>&1; then
+    bootstrap_pip
   fi
 
   step "Installing Python dependencies"
