@@ -283,7 +283,7 @@ class RetrievalServerStateTests(unittest.TestCase):
                             }
                         ]
                     },
-                    "intent": {"shadow_mode": True, "assistance_mode": "active"},
+                    "intent": {"shadow_mode": True},
                 }
             )
 
@@ -299,7 +299,6 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertEqual(config["connections"]["mcp_sources"][0]["content_fields"], ["body"])
             self.assertTrue(config["intent"]["shadow_mode"])
             self.assertNotIn("router_mode", config["intent"])
-            self.assertEqual(config["intent"]["assistance_mode"], "active")
 
     def test_update_config_stores_llm_api_key_only_in_workspace_secrets(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -850,11 +849,10 @@ class RetrievalServerStateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             state = RuntimeState(Path(temp_dir))
 
-            self.assertNotIn("response_pipeline", state.get_config()["assistance"])
-            self.assertEqual(state.get_config()["assistance"]["mode"], "teach")
+            self.assertNotIn("assistance", state.get_config())
+            self.assertEqual(state.get_config()["retrieval"]["max_gap_retrieval_passes"], 0)
             self.assertFalse(state.get_config()["intent"]["shadow_mode"])
             self.assertNotIn("router_mode", state.get_config()["intent"])
-            self.assertEqual(state.get_config()["intent"]["assistance_mode"], "off")
             sources = state.get_config()["connections"]["remote_mcp_sources"]
             providers = {source["provider"] for source in sources}
             endpoints = {source["provider"]: source["endpoint_url"] for source in sources}
@@ -1035,7 +1033,6 @@ class RetrievalServerStateTests(unittest.TestCase):
             plan = {
                 "task_goal": "Understand validation.",
                 "answer_scope": "Explain validation.",
-                "assistance_mode": "teach",
                 "relevant_artifacts": [
                     {
                         "id": "a1",

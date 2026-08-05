@@ -308,7 +308,7 @@ def _complete_json_with_codex_cli(
             str(schema_path),
             "-o",
             str(output_path),
-            prompt,
+            "-",
         ]
         if bool(getattr(config, "codex_ignore_user_config", True)):
             command.insert(command.index("--sandbox"), "--ignore-user-config")
@@ -330,6 +330,7 @@ def _complete_json_with_codex_cli(
             completed = subprocess.run(
                 command,
                 capture_output=True,
+                input=prompt,
                 text=True,
                 encoding="utf-8",
                 errors="replace",

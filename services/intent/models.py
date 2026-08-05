@@ -32,13 +32,6 @@ class TurnRelation(str, Enum):
     ANSWER_TO_CHECK = "answer_to_check"
 
 
-class AssistanceMode(str, Enum):
-    TEACH = "teach"
-    WORK = "work"
-    HYBRID = "hybrid"
-    EVALUATION = "evaluation"
-
-
 class SolutionPressure(str, Enum):
     NONE = "none"
     GUIDANCE = "guidance"
@@ -111,7 +104,6 @@ class IntentClassification:
     user_goals: tuple[UserGoal, ...]
     response_operation: ResponseOperation
     turn_relation: TurnRelation
-    recommended_assistance_mode: AssistanceMode
     solution_pressure: SolutionPressure
     retrieval_intents: tuple[RankedRetrievalIntent, ...]
     primary_expected_output: ExpectedOutput
@@ -126,7 +118,6 @@ class IntentClassification:
             "user_goals": [goal.value for goal in self.user_goals],
             "response_operation": self.response_operation.value,
             "turn_relation": self.turn_relation.value,
-            "recommended_assistance_mode": self.recommended_assistance_mode.value,
             "solution_pressure": self.solution_pressure.value,
             "retrieval_intents": [item.to_dict() for item in self.retrieval_intents],
             "primary_expected_output": self.primary_expected_output.value,
@@ -142,25 +133,21 @@ class IntentClassification:
 class IntentClassificationInput:
     user_prompt: str
     active_task_goal: str | None = None
-    current_assistance_mode: AssistanceMode = AssistanceMode.HYBRID
     current_turn_type: str | None = None
     previous_user_request_summary: str | None = None
     previous_response_summary: str | None = None
     last_understanding_check: str | None = None
     last_answer_evaluation: str | None = None
-    configured_default_mode: AssistanceMode = AssistanceMode.HYBRID
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "user_prompt": self.user_prompt,
             "active_task_goal": self.active_task_goal,
-            "current_assistance_mode": self.current_assistance_mode.value,
             "current_turn_type": self.current_turn_type,
             "previous_user_request_summary": self.previous_user_request_summary,
             "previous_response_summary": self.previous_response_summary,
             "last_understanding_check": self.last_understanding_check,
             "last_answer_evaluation": self.last_answer_evaluation,
-            "configured_default_mode": self.configured_default_mode.value,
         }
 
 
@@ -179,11 +166,6 @@ def classification_from_mapping(value: Mapping[str, Any]) -> IntentClassificatio
         user_goals=tuple(_enum_sequence(value.get("user_goals"), UserGoal, default=(UserGoal.UNKNOWN,))),
         response_operation=_enum_value(value.get("response_operation"), ResponseOperation, default=ResponseOperation.INVESTIGATE),
         turn_relation=_enum_value(value.get("turn_relation"), TurnRelation, default=TurnRelation.NEW_TASK),
-        recommended_assistance_mode=_enum_value(
-            value.get("recommended_assistance_mode"),
-            AssistanceMode,
-            default=AssistanceMode.HYBRID,
-        ),
         solution_pressure=_enum_value(value.get("solution_pressure"), SolutionPressure, default=SolutionPressure.NONE),
         retrieval_intents=_ranked_retrieval_intents(value.get("retrieval_intents")),
         primary_expected_output=primary_expected_output,

@@ -39,7 +39,6 @@ from services.retrieval.config import (
     load_retrieval_enable_indexing,
     load_retrieval_qdrant_config,
 )
-from services.intent import SUPPORTED_ASSISTANCE_ROUTER_MODES
 from services.retrieval.codex.cli import resolve_codex_command
 from services.retrieval.codex.provider import CodexRetrievalStage
 from services.retrieval.workspace import WorkspaceRetrievalStage
@@ -49,7 +48,6 @@ DEFAULT_TEST_ROOT = Path(r"C:\Programming\guidedInteligence_testcases")
 BATCH_RUNS_ROOT = ROOT / "testing" / "codeRepoQA" / "batch-runs"
 CORPUS_CASES_ROOT = ROOT / "testing" / "codeRepoQA" / "corpus" / "cases"
 WORKSPACE_STATE_DIR = ".guided-intelligence"
-SUPPORTED_ASSISTANCE_MODES = ("teach", "work", "hybrid", "evaluation")
 CODE_PATH_PATTERN = re.compile(r"\b(?:[\w.-]+/)+[\w.-]+\.(?:[A-Za-z0-9]+)\b|\b[\w.-]+\.(?:ts|tsx|js|jsx|py|java|go|rs|cs|cpp|c|h|json|md|txt)\b")
 IDENTIFIER_PATTERN = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`|\b([A-Z][A-Za-z0-9_]{2,})\b")
 CODE_REPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS = int(os.environ.get("CODEREPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS", "900"))
@@ -179,10 +177,8 @@ def run_case(
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
     objective_role_selection_enabled: bool = False,
-    assistance_mode: str = "teach",
     max_gap_retrieval_passes: int = 0,
     intent_shadow_enabled: bool = False,
-    intent_assistance_mode: str = "off",
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
         issue_json,
@@ -223,10 +219,8 @@ def run_case(
         retrieval_stage=retrieval_stage,
         logger=logger,
         response_llm_config=llm_config,
-        assistance_mode=assistance_mode,
         max_gap_retrieval_passes=max_gap_retrieval_passes,
         intent_shadow_enabled=intent_shadow_enabled,
-        intent_assistance_mode=intent_assistance_mode,
     )
     result = control_layer.run(state)
     if not result.policy_result.allowed:
@@ -284,10 +278,8 @@ def evaluate_case(
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
     objective_role_selection_enabled: bool = False,
-    assistance_mode: str = "teach",
     max_gap_retrieval_passes: int = 0,
     intent_shadow_enabled: bool = False,
-    intent_assistance_mode: str = "off",
 ) -> Path:
     issue_path = Path(issue_json)
     verification_path = Path(verification_json) if verification_json is not None else _default_verification_path(issue_path)
@@ -356,10 +348,8 @@ def evaluate_case(
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
         objective_role_selection_enabled=objective_role_selection_enabled,
-        assistance_mode=assistance_mode,
         max_gap_retrieval_passes=max_gap_retrieval_passes,
         intent_shadow_enabled=intent_shadow_enabled,
-        intent_assistance_mode=intent_assistance_mode,
     )
     _write_run_metadata(
         run_dir=run_dir,
@@ -377,10 +367,8 @@ def evaluate_case(
         codex_model=codex_model,
         codex_prompt_profile=codex_prompt_profile,
         objective_role_selection_enabled=objective_role_selection_enabled,
-        assistance_mode=assistance_mode,
         max_gap_retrieval_passes=max_gap_retrieval_passes,
         intent_shadow_enabled=intent_shadow_enabled,
-        intent_assistance_mode=intent_assistance_mode,
     )
     return run_dir
 
@@ -569,10 +557,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
             objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-            assistance_mode=_assistance_mode_from_config(run_config),
             max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
             intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
-            intent_assistance_mode=_intent_assistance_mode_from_config(run_config),
         )
         return 0
 
@@ -597,10 +583,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
             objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-            assistance_mode=_assistance_mode_from_config(run_config),
             max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
             intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
-            intent_assistance_mode=_intent_assistance_mode_from_config(run_config),
         )
         print(str(run_dir))
         return 0
@@ -629,10 +613,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
                 codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
                 objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-                assistance_mode=_assistance_mode_from_config(run_config),
                 max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
                 intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
-                intent_assistance_mode=_intent_assistance_mode_from_config(run_config),
             )
             print(str(run_dir))
         return 0
@@ -686,10 +668,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                         codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
                         codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
                         objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-                        assistance_mode=_assistance_mode_from_config(run_config),
                         max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
                         intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
-                        intent_assistance_mode=_intent_assistance_mode_from_config(run_config),
                     )
                     artifact_dir = _copy_batch_artifacts(batch_dir, case_issue_json, retrieval_mode, run_dir)
                     elapsed_seconds = (datetime.now(timezone.utc) - started_at).total_seconds()
@@ -836,13 +816,6 @@ def _config_bool(config: Mapping[str, Any], key: str, default: bool) -> bool:
     return bool(value)
 
 
-def _assistance_mode_from_config(config: Mapping[str, Any]) -> str:
-    value = str(config.get("assistance_mode") or "teach").strip().lower()
-    if value not in SUPPORTED_ASSISTANCE_MODES:
-        raise ValueError("assistance_mode must be one of: " + ", ".join(SUPPORTED_ASSISTANCE_MODES))
-    return value
-
-
 def _max_gap_retrieval_passes_from_config(config: Mapping[str, Any]) -> int:
     try:
         value = int(config.get("max_gap_retrieval_passes") or 0)
@@ -858,16 +831,6 @@ def _intent_shadow_enabled_from_config(config: Mapping[str, Any]) -> bool:
     if isinstance(intent, Mapping):
         return _config_bool(intent, "shadow_mode", False)
     return _config_bool(config, "intent_shadow_enabled", False)
-
-
-def _intent_assistance_mode_from_config(config: Mapping[str, Any]) -> str:
-    intent = config.get("intent")
-    value = str(
-        intent.get("assistance_mode") if isinstance(intent, Mapping) else config.get("intent_assistance_mode") or "off"
-    ).strip().lower()
-    if value not in SUPPORTED_ASSISTANCE_ROUTER_MODES:
-        raise ValueError("intent.assistance_mode must be one of: " + ", ".join(SUPPORTED_ASSISTANCE_ROUTER_MODES))
-    return value
 
 
 def _codex_command(args: argparse.Namespace, config: Mapping[str, Any]) -> tuple[str, ...]:
@@ -1018,10 +981,8 @@ def _write_run_metadata(
     codex_model: str,
     codex_prompt_profile: str,
     objective_role_selection_enabled: bool,
-    assistance_mode: str,
     max_gap_retrieval_passes: int,
     intent_shadow_enabled: bool,
-    intent_assistance_mode: str,
 ) -> None:
     metadata = {
         "case_id": visible_case.case_id,
@@ -1037,10 +998,8 @@ def _write_run_metadata(
         "codex_model": codex_model if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
         "codex_prompt_profile": codex_prompt_profile if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
         "objective_role_selection_enabled": objective_role_selection_enabled,
-        "assistance_mode": assistance_mode,
         "max_gap_retrieval_passes": max_gap_retrieval_passes,
         "intent_shadow_enabled": intent_shadow_enabled,
-        "intent_assistance_mode": intent_assistance_mode,
         "resolution": {
             "strategy": resolution.strategy,
             "confidence": resolution.confidence,

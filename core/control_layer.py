@@ -17,15 +17,12 @@ from core.policy import PolicyStage
 from core.response_builder import render_response
 from services.comprehension import retrieve_with_bounded_gap_pass
 from services.intent import (
-    AssistanceMode,
-    ASSISTANCE_MODE_ROUTER_OFF,
     IntentClassificationInput,
     NormalizedIntent,
     assess_intent_agreement,
     build_retrieval_hints,
     classify_intent,
     normalize_intent,
-    route_assistance_mode_shadow,
 )
 from services.logging.store import JsonlLogger
 from services.retrieval.workspace import WorkspaceRetrievalStage
@@ -46,24 +43,19 @@ class ControlLayer:
     retrieval_stage: WorkspaceRetrievalStage
     logger: JsonlLogger | None = None
     response_llm_config: Any | None = None
-    assistance_mode: str = "teach"
     max_gap_retrieval_passes: int = 0
     intent_shadow_enabled: bool = False
-    intent_assistance_mode: str = ASSISTANCE_MODE_ROUTER_OFF
     intent_llm_config: Any | None = None
     evidence_graph_builder: EvidenceGraphBuilder | None = None
 
     def run(self, state: ConversationState) -> OrchestrationResult:
         self._record(LogEventType.RUN_STARTED, state.conversation_id, {"turn_request": state.user_input})
         normalized_intent: NormalizedIntent | None = None
-        effective_assistance_mode = self.assistance_mode
-        retrieval_assistance_mode_hint = ""
         retrieval_state = state
         if self.intent_shadow_enabled:
             normalized_intent = self._record_shadow_intent_classification(state)
             if normalized_intent is not None:
                 retrieval_hints = build_retrieval_hints(normalized_intent)
-                retrieval_assistance_mode_hint = retrieval_hints.recommended_assistance_mode
                 retrieval_state = replace(state, retrieval_hints=retrieval_hints)
         policy_result = self.policy_stage.decide(state)
         self._record(LogEventType.TURN_DECISION, state.conversation_id, policy_result.to_dict())
@@ -96,7 +88,6 @@ class ControlLayer:
                         state=retrieval_state,
                         policy_result=policy_result,
                         initial_result=retrieval_result,
-                        assistance_mode=effective_assistance_mode,
                         max_gap_retrieval_passes=self.max_gap_retrieval_passes,
                     )
             else:
@@ -138,30 +129,10 @@ class ControlLayer:
                         )
                     ).to_dict(),
                 )
-                if self.intent_assistance_mode != ASSISTANCE_MODE_ROUTER_OFF:
-                    assistance_decision = route_assistance_mode_shadow(
-                        normalized_intent=normalized_intent,
-                        configured_assistance_mode=_assistance_mode(self.assistance_mode),
-                        mode=self.intent_assistance_mode,
-                        retrieval_result=retrieval_result,
-                        intent_agreement=agreement.agreement,
-                    )
-                    self._record(
-                        LogEventType.INTENT_ASSISTANCE_DECISION,
-                        state.conversation_id,
-                        assistance_decision.to_dict(),
-                    )
-                    if assistance_decision.applied:
-                        effective_assistance_mode = assistance_decision.effective_assistance_mode
         else:
             self._record(LogEventType.RETRIEVAL_PLAN, state.conversation_id, {"action": "blocked"})
 
         response_plan = _build_response_plan(policy_result, retrieval_result)
-        response_plan = _with_response_mode_notes(
-            response_plan,
-            assistance_mode=effective_assistance_mode,
-            retrieval_assistance_mode_hint=retrieval_assistance_mode_hint,
-        )
         self._record(LogEventType.RESPONSE_PLAN, state.conversation_id, response_plan.to_dict())
 
         self._record(
@@ -183,7 +154,6 @@ class ControlLayer:
             response_plan,
             state=retrieval_state,
             llm_config=resolved_response_llm_config,
-            assistance_mode=effective_assistance_mode,
             record_event=lambda event_type, payload: self._record(event_type, state.conversation_id, payload),
         )
         self._record(LogEventType.RESPONSE_PAYLOAD, state.conversation_id, response_payload.to_dict())
@@ -223,9 +193,7 @@ class ControlLayer:
             llm_config = getattr(getattr(self.retrieval_stage, "config", None), "llm_config", None)
         classification_input = IntentClassificationInput(
             user_prompt=state.user_input,
-            current_assistance_mode=_assistance_mode(self.assistance_mode),
             current_turn_type=state.history[-1].turn_type.value if state.history and state.history[-1].turn_type else None,
-            configured_default_mode=_assistance_mode(self.assistance_mode),
         )
         if llm_config is None:
             payload = {
@@ -281,36 +249,6 @@ def _build_response_plan(
     )
 
 
-def _with_response_mode_notes(
-    response_plan: ResponsePlan,
-    *,
-    assistance_mode: str,
-    retrieval_assistance_mode_hint: str = "",
-) -> ResponsePlan:
-    if response_plan.turn_type == TurnType.BOUNDARY:
-        return response_plan
-    notes = dict(response_plan.notes)
-    notes["assistance_mode"] = assistance_mode
-    if retrieval_assistance_mode_hint:
-        notes["retrieval_assistance_mode_hint"] = retrieval_assistance_mode_hint
-    return ResponsePlan(
-        turn_type=response_plan.turn_type,
-        required_sections=response_plan.required_sections,
-        must_include_evidence=response_plan.must_include_evidence,
-        boundary_message_required=response_plan.boundary_message_required,
-        boundary_choices=response_plan.boundary_choices,
-        notes=notes,
-    )
-
-
-def _assistance_mode(value: str) -> AssistanceMode:
-    normalized = str(value or "").strip().lower()
-    for mode in AssistanceMode:
-        if mode.value == normalized:
-            return mode
-    return AssistanceMode.HYBRID
-
-
 def _render_response(
     policy_result: PolicyResult,
     retrieval_result: RetrievalResult | None,
@@ -318,7 +256,6 @@ def _render_response(
     *,
     state: ConversationState,
     llm_config: Any | None,
-    assistance_mode: str,
     record_event,
 ) -> ResponsePayload:
     return render_response(
@@ -327,6 +264,5 @@ def _render_response(
         response_plan,
         state=state,
         llm_config=llm_config,
-        assistance_mode=assistance_mode,
         log_event=record_event,
     )

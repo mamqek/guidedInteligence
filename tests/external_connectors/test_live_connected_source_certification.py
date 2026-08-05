@@ -600,7 +600,6 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                 ),
                 state=state,
                 llm_config=_project_llm_config(root),
-                assistance_mode="teach",
                 log_event=record_response_event,
             )
 
@@ -819,7 +818,6 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                 ),
                 state=state,
                 llm_config=_project_llm_config(root),
-                assistance_mode="teach",
                 log_event=record_response_event,
             )
 
@@ -966,7 +964,6 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                 ),
                 state=state,
                 llm_config=_project_llm_config(root),
-                assistance_mode="teach",
                 log_event=record_response_event,
             )
 
@@ -1116,7 +1113,6 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
                 ),
                 state=state,
                 llm_config=_project_llm_config(root),
-                assistance_mode="teach",
             )
             self.assertNotIn("Explanation generation failed", response.content, msg=response.content)
             self.assertTrue(

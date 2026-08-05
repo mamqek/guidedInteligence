@@ -266,3 +266,16 @@ Once sentence-to-evidence mapping was structural, final citation placement no lo
 The remaining uncertainty is semantic rather than positional: retrieval and the model must still choose evidence that genuinely supports the claim. The renderer now guarantees that every accepted mapping is shown exactly where it belongs.
 
 The broader engineering lessons from these changes are summarized in [Explanation Generation Design Conclusions](explanation-generation-design-conclusions.md).
+
+<a id="20-single-generation-path-and-strict-question-contract"></a>
+### 20. Single Generation Path and Strict Question Contract
+
+**Stage boundary.** Intent classification may still provide retrieval intent and requested-output metadata, but it no longer recommends or routes a `teach`, `work`, `hybrid`, or `evaluation` mode. Retrieval, comprehension planning, explanation generation, and understanding-check generation now use one path. Bounded gap retrieval remains an independent retrieval setting.
+
+**Expected quality impact.** Removing the mode-specific prompt bias should make evidence selection depend on the actual request and retrieval intents. Understanding-check validation now preserves accepted model fields and rejects missing, mismatched, over-limit, or invalid fields; one LLM repair is allowed, followed by an explicit error.
+
+**Expected token impact.** Intent and retrieval prompts are slightly smaller because assistance-mode inputs and conditional instructions were removed. No material generation-token change is expected until the planned question-generation refactor introduces a separate learning-target stage.
+
+**Regression risks.** Retrieval may choose a different evidence balance now that `teach` no longer asks for role-diverse context and `work` no longer favors implementation owners. Existing mocked policy tests also need migration to the already-required structured `story_flow` contract before they can exercise the stricter question contract end to end.
+
+**Comparison method.** Run the configured `microsoft-TypeScript-35468` Codex smoke case at least twice, then compare run IDs, `coverage_status`, `sufficient`, retrieval token totals, evidence relevance, and explanation/question grounding with the latest comparable runs. On 2026-08-05, `npm run coderepoqa:batch:codex` failed before retrieval because the OpenAI-compatible generation endpoint, API key, and model were not configured. No fallback run was used, and no run IDs or token totals were produced.

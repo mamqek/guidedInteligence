@@ -12,9 +12,6 @@ Treat these hints as planning metadata, not evidence. They may shape what suppor
 The product boundary is explain, plan, and suggest only. Never retrieve with the goal of producing a final fix, patch, or implementation for the user.
 
 Mode-aware retrieval guidance:
-- If recommended_assistance_mode is `teach`, prefer enough role-diverse evidence to explain dependencies, adjacent responsibilities, and why the behavior works.
-- If recommended_assistance_mode is `work`, prefer tighter implementation-owner evidence and direct supporting context, still only for explanation/planning.
-- If recommended_assistance_mode is `evaluation`, prefer evidence tied to the concept, previous check, or answer being evaluated.
 - If evidence is weak or missing, report gaps and answer-blocking uncertainty; do not compensate by guessing.
 
 Investigation process:

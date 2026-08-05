@@ -30,7 +30,6 @@ def retrieve_with_bounded_gap_pass(
     state: ConversationState,
     policy_result: PolicyResult,
     initial_result: RetrievalResult,
-    assistance_mode: str,
     max_gap_retrieval_passes: int,
 ) -> RetrievalResult:
     if max_gap_retrieval_passes <= 0:
@@ -41,7 +40,6 @@ def retrieve_with_bounded_gap_pass(
     plan = build_comprehension_plan(
         user_prompt=state.user_input,
         retrieval_result=initial_result,
-        assistance_mode=assistance_mode,
     )
     gaps = _retrievable_gaps(plan.coverage_gaps)
     if not gaps:

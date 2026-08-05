@@ -152,7 +152,6 @@ class CoverageGap:
 class ComprehensionPlan:
     task_goal: str
     answer_scope: str
-    assistance_mode: str
     relevant_artifacts: tuple[ArtifactReference, ...]
     concepts: tuple[Concept, ...]
     concept_dependencies: tuple[ConceptDependency, ...]
@@ -165,7 +164,6 @@ class ComprehensionPlan:
         return {
             "task_goal": self.task_goal,
             "answer_scope": self.answer_scope,
-            "assistance_mode": self.assistance_mode,
             "relevant_artifacts": [artifact.to_dict() for artifact in self.relevant_artifacts],
             "concepts": [concept.to_dict() for concept in self.concepts],
             "concept_dependencies": [dependency.to_dict() for dependency in self.concept_dependencies],
@@ -292,7 +290,6 @@ def plan_from_mapping(value: Mapping[str, Any]) -> ComprehensionPlan:
     return ComprehensionPlan(
         task_goal=str(value.get("task_goal") or ""),
         answer_scope=str(value.get("answer_scope") or ""),
-        assistance_mode=str(value.get("assistance_mode") or "teach"),
         relevant_artifacts=artifacts,
         concepts=concepts,
         concept_dependencies=dependencies,

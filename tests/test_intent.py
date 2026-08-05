@@ -7,7 +7,6 @@ from typing import Any, Mapping
 from services.intent import IntentClassificationInput, build_retrieval_hints, classify_intent
 from services.intent.agreement import assess_intent_agreement
 from services.intent.models import (
-    AssistanceMode,
     ExpectedOutput,
     IntentClassification,
     RankedRetrievalIntent,
@@ -21,14 +20,8 @@ from services.intent.models import (
     UserGoal,
 )
 from services.intent.normalizer import normalize_intent
-from services.intent.router import (
-    ASSISTANCE_MODE_ROUTER_ACTIVE,
-    ASSISTANCE_MODE_ROUTER_SHADOW,
-    route_assistance_mode_shadow,
-)
 from services.intent.schema import intent_response_format
-from core.models import EvidenceItem, RetrievalResult, UserIntent
-from core.source_policy import SourceCategory
+from core.models import RetrievalResult, UserIntent
 
 
 @dataclass(frozen=True)
@@ -53,7 +46,6 @@ class IntentClassifierTests(unittest.TestCase):
                 "user_goals": ["debug", "understand", "change"],
                 "response_operation": "produce",
                 "turn_relation": "new_task",
-                "recommended_assistance_mode": "hybrid",
                 "solution_pressure": "complete_solution",
                 "retrieval_intents": [
                     {"intent": "defect_localization", "priority": "primary"},
@@ -102,7 +94,6 @@ class IntentClassifierTests(unittest.TestCase):
                 user_goals=(UserGoal.UNDERSTAND, UserGoal.PLAN),
                 response_operation=ResponseOperation.EXPLAIN,
                 turn_relation=TurnRelation.NEW_TASK,
-                recommended_assistance_mode=AssistanceMode.TEACH,
                 solution_pressure=SolutionPressure.GUIDANCE,
                 retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
                 primary_expected_output=ExpectedOutput.EXPLANATION,
@@ -117,7 +108,6 @@ class IntentClassifierTests(unittest.TestCase):
 
         hints = build_retrieval_hints(normalized)
 
-        self.assertEqual(hints.recommended_assistance_mode, "teach")
         self.assertEqual(hints.product_boundary, "explain_plan_suggest_only")
         self.assertEqual(hints.retrieval_intents[0]["intent"], "behavior_explanation")
         self.assertEqual(hints.response_operation, "explain")
@@ -130,7 +120,6 @@ class IntentClassifierTests(unittest.TestCase):
             user_goals=(UserGoal.UNDERSTAND, UserGoal.UNDERSTAND),
             response_operation=ResponseOperation.PRODUCE,
             turn_relation=TurnRelation.ANSWER_TO_CHECK,
-            recommended_assistance_mode=AssistanceMode.TEACH,
             solution_pressure=SolutionPressure.NONE,
             retrieval_intents=(
                 RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),
@@ -166,7 +155,6 @@ class IntentClassifierTests(unittest.TestCase):
             user_goals=(UserGoal.UNDERSTAND, UserGoal.DEBUG),
             response_operation=ResponseOperation.EXPLAIN,
             turn_relation=TurnRelation.NEW_TASK,
-            recommended_assistance_mode=AssistanceMode.TEACH,
             solution_pressure=SolutionPressure.NONE,
             retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
             primary_expected_output=ExpectedOutput.EXPLANATION,
@@ -198,7 +186,6 @@ class IntentClassifierTests(unittest.TestCase):
             user_goals=(UserGoal.UNDERSTAND,),
             response_operation=ResponseOperation.EXPLAIN,
             turn_relation=TurnRelation.NEW_TASK,
-            recommended_assistance_mode=AssistanceMode.TEACH,
             solution_pressure=SolutionPressure.NONE,
             retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
             primary_expected_output=ExpectedOutput.EXPLANATION,
@@ -230,7 +217,6 @@ class IntentClassifierTests(unittest.TestCase):
             user_goals=(UserGoal.UNDERSTAND,),
             response_operation=ResponseOperation.EXPLAIN,
             turn_relation=TurnRelation.NEW_TASK,
-            recommended_assistance_mode=AssistanceMode.TEACH,
             solution_pressure=SolutionPressure.NONE,
             retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.REPOSITORY_EXPLORATION, "primary"),),
             primary_expected_output=ExpectedOutput.EXPLANATION,
@@ -261,7 +247,6 @@ class IntentClassifierTests(unittest.TestCase):
             user_goals=(UserGoal.CHANGE,),
             response_operation=ResponseOperation.PRODUCE,
             turn_relation=TurnRelation.NEW_TASK,
-            recommended_assistance_mode=AssistanceMode.WORK,
             solution_pressure=SolutionPressure.COMPLETE_SOLUTION,
             retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.REPOSITORY_EXPLORATION, "primary"),),
             primary_expected_output=ExpectedOutput.PATCH,
@@ -292,7 +277,6 @@ class IntentClassifierTests(unittest.TestCase):
             user_goals=(UserGoal.UNDERSTAND,),
             response_operation=ResponseOperation.EXPLAIN,
             turn_relation=TurnRelation.NEW_TASK,
-            recommended_assistance_mode=AssistanceMode.TEACH,
             solution_pressure=SolutionPressure.NONE,
             retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
             primary_expected_output=ExpectedOutput.EXPLANATION,
@@ -317,256 +301,6 @@ class IntentClassifierTests(unittest.TestCase):
 
         self.assertEqual(agreement.agreement, "compatible")
         self.assertIn("explanation_context_compatible_with_codex_issue_type", agreement.notes)
-
-    def test_assistance_mode_shadow_logs_conflict_without_applying_recommendation(self) -> None:
-        normalized = normalize_intent(
-            IntentClassification(
-                user_goals=(UserGoal.CHANGE,),
-                response_operation=ResponseOperation.PRODUCE,
-                turn_relation=TurnRelation.NEW_TASK,
-                recommended_assistance_mode=AssistanceMode.WORK,
-                solution_pressure=SolutionPressure.COMPLETE_SOLUTION,
-                retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.CHANGE_OR_IMPACT_PLANNING, "primary"),),
-                primary_expected_output=ExpectedOutput.PATCH,
-                expected_outputs=(ExpectedOutput.PATCH, ExpectedOutput.EXPLANATION),
-                specificity=Specificity.MEDIUM,
-                explicit_targets=(),
-                confidence=0.87,
-                classification_basis=("User asks for a patch.",),
-            ),
-            user_prompt="Patch this behavior.",
-        )
-
-        decision = route_assistance_mode_shadow(
-            normalized_intent=normalized,
-            configured_assistance_mode=AssistanceMode.TEACH,
-            mode=ASSISTANCE_MODE_ROUTER_SHADOW,
-        )
-
-        self.assertEqual(decision.configured_assistance_mode, "teach")
-        self.assertEqual(decision.recommended_assistance_mode, "work")
-        self.assertEqual(decision.effective_assistance_mode, "teach")
-        self.assertTrue(decision.would_change_mode)
-        self.assertFalse(decision.applied)
-        self.assertTrue(decision.conflict)
-        self.assertIn("classifier_recommendation_differs_from_configured_mode", decision.decision_reasons)
-        self.assertIn("patch_primary_output_in_teach_mode", decision.decision_reasons)
-
-    def test_assistance_mode_shadow_accepts_matching_configured_mode(self) -> None:
-        normalized = normalize_intent(
-            IntentClassification(
-                user_goals=(UserGoal.UNDERSTAND,),
-                response_operation=ResponseOperation.EXPLAIN,
-                turn_relation=TurnRelation.NEW_TASK,
-                recommended_assistance_mode=AssistanceMode.TEACH,
-                solution_pressure=SolutionPressure.NONE,
-                retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
-                primary_expected_output=ExpectedOutput.EXPLANATION,
-                expected_outputs=(ExpectedOutput.EXPLANATION,),
-                specificity=Specificity.MEDIUM,
-                explicit_targets=(),
-                confidence=0.9,
-                classification_basis=("User asks to understand behavior.",),
-            ),
-            user_prompt="Explain this behavior.",
-        )
-
-        decision = route_assistance_mode_shadow(
-            normalized_intent=normalized,
-            configured_assistance_mode=AssistanceMode.TEACH,
-            mode=ASSISTANCE_MODE_ROUTER_SHADOW,
-        )
-
-        self.assertEqual(decision.effective_assistance_mode, "teach")
-        self.assertFalse(decision.would_change_mode)
-        self.assertFalse(decision.applied)
-        self.assertFalse(decision.conflict)
-        self.assertEqual(decision.decision_reasons, ("configured_mode_matches_intent",))
-
-    def test_assistance_mode_active_applies_teach_for_explanation_understand(self) -> None:
-        normalized = normalize_intent(
-            IntentClassification(
-                user_goals=(UserGoal.UNDERSTAND,),
-                response_operation=ResponseOperation.EXPLAIN,
-                turn_relation=TurnRelation.NEW_TASK,
-                recommended_assistance_mode=AssistanceMode.TEACH,
-                solution_pressure=SolutionPressure.NONE,
-                retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
-                primary_expected_output=ExpectedOutput.EXPLANATION,
-                expected_outputs=(ExpectedOutput.EXPLANATION,),
-                specificity=Specificity.MEDIUM,
-                explicit_targets=(),
-                confidence=0.91,
-                classification_basis=("User asks to understand behavior.",),
-            ),
-            user_prompt="Explain this behavior.",
-        )
-
-        decision = route_assistance_mode_shadow(
-            normalized_intent=normalized,
-            configured_assistance_mode=AssistanceMode.WORK,
-            mode=ASSISTANCE_MODE_ROUTER_ACTIVE,
-            retrieval_result=RetrievalResult(
-                evidence=(_evidence("workspace:a.ts:L1-L2", "validation_checking", "a.ts"),),
-                coverage_status="strong",
-                sufficient=True,
-            ),
-            intent_agreement="compatible",
-        )
-
-        self.assertEqual(decision.status, "active")
-        self.assertEqual(decision.configured_assistance_mode, "work")
-        self.assertEqual(decision.recommended_assistance_mode, "teach")
-        self.assertEqual(decision.effective_assistance_mode, "teach")
-        self.assertTrue(decision.applied)
-        self.assertTrue(decision.would_change_mode)
-        self.assertIn("active_explanation_understand_uses_teach_mode", decision.decision_reasons)
-
-    def test_assistance_mode_active_applies_evaluation_for_answer_check(self) -> None:
-        normalized = normalize_intent(
-            IntentClassification(
-                user_goals=(UserGoal.UNDERSTAND,),
-                response_operation=ResponseOperation.EVALUATE,
-                turn_relation=TurnRelation.ANSWER_TO_CHECK,
-                recommended_assistance_mode=AssistanceMode.EVALUATION,
-                solution_pressure=SolutionPressure.NONE,
-                retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
-                primary_expected_output=ExpectedOutput.ANSWER_EVALUATION,
-                expected_outputs=(ExpectedOutput.ANSWER_EVALUATION,),
-                specificity=Specificity.MEDIUM,
-                explicit_targets=(),
-                confidence=0.88,
-                classification_basis=("User is answering a check.",),
-            ),
-            user_prompt="I think the checker validates the parsed declaration.",
-            active_understanding_check=True,
-        )
-
-        decision = route_assistance_mode_shadow(
-            normalized_intent=normalized,
-            configured_assistance_mode=AssistanceMode.TEACH,
-            mode=ASSISTANCE_MODE_ROUTER_ACTIVE,
-            retrieval_result=RetrievalResult(
-                evidence=(_evidence("workspace:a.ts:L1-L2", "validation_checking", "a.ts"),),
-                coverage_status="strong",
-                sufficient=True,
-            ),
-            intent_agreement="compatible",
-        )
-
-        self.assertEqual(decision.effective_assistance_mode, "evaluation")
-        self.assertTrue(decision.applied)
-        self.assertIn("active_answer_check_uses_evaluation_mode", decision.decision_reasons)
-
-    def test_assistance_mode_active_does_not_apply_unallowed_patch_transition(self) -> None:
-        normalized = normalize_intent(
-            IntentClassification(
-                user_goals=(UserGoal.CHANGE,),
-                response_operation=ResponseOperation.PRODUCE,
-                turn_relation=TurnRelation.NEW_TASK,
-                recommended_assistance_mode=AssistanceMode.WORK,
-                solution_pressure=SolutionPressure.COMPLETE_SOLUTION,
-                retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.CHANGE_OR_IMPACT_PLANNING, "primary"),),
-                primary_expected_output=ExpectedOutput.PATCH,
-                expected_outputs=(ExpectedOutput.PATCH,),
-                specificity=Specificity.MEDIUM,
-                explicit_targets=(),
-                confidence=0.82,
-                classification_basis=("User asks for a patch.",),
-            ),
-            user_prompt="Patch this behavior.",
-        )
-
-        decision = route_assistance_mode_shadow(
-            normalized_intent=normalized,
-            configured_assistance_mode=AssistanceMode.TEACH,
-            mode=ASSISTANCE_MODE_ROUTER_ACTIVE,
-            retrieval_result=RetrievalResult(
-                evidence=(_evidence("workspace:a.ts:L1-L2", "implementation_owner", "a.ts"),),
-                coverage_status="strong",
-                sufficient=True,
-            ),
-            intent_agreement="compatible",
-        )
-
-        self.assertEqual(decision.effective_assistance_mode, "teach")
-        self.assertFalse(decision.applied)
-        self.assertIn("active_no_allowed_transition", decision.decision_reasons)
-
-    def test_assistance_mode_active_blocks_without_evidence(self) -> None:
-        normalized = normalize_intent(
-            IntentClassification(
-                user_goals=(UserGoal.UNDERSTAND,),
-                response_operation=ResponseOperation.EXPLAIN,
-                turn_relation=TurnRelation.NEW_TASK,
-                recommended_assistance_mode=AssistanceMode.TEACH,
-                solution_pressure=SolutionPressure.NONE,
-                retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
-                primary_expected_output=ExpectedOutput.EXPLANATION,
-                expected_outputs=(ExpectedOutput.EXPLANATION,),
-                specificity=Specificity.MEDIUM,
-                explicit_targets=(),
-                confidence=0.9,
-                classification_basis=("User asks to understand behavior.",),
-            ),
-            user_prompt="Explain this behavior.",
-        )
-
-        decision = route_assistance_mode_shadow(
-            normalized_intent=normalized,
-            configured_assistance_mode=AssistanceMode.WORK,
-            mode=ASSISTANCE_MODE_ROUTER_ACTIVE,
-            retrieval_result=RetrievalResult(evidence=(), coverage_status="missing", sufficient=False),
-            intent_agreement="compatible",
-        )
-
-        self.assertEqual(decision.effective_assistance_mode, "work")
-        self.assertFalse(decision.applied)
-        self.assertIn("active_blocked_missing_evidence", decision.decision_reasons)
-
-    def test_assistance_mode_active_blocks_conflicting_agreement(self) -> None:
-        normalized = normalize_intent(
-            IntentClassification(
-                user_goals=(UserGoal.UNDERSTAND,),
-                response_operation=ResponseOperation.EXPLAIN,
-                turn_relation=TurnRelation.NEW_TASK,
-                recommended_assistance_mode=AssistanceMode.TEACH,
-                solution_pressure=SolutionPressure.NONE,
-                retrieval_intents=(RankedRetrievalIntent(RetrievalIntent.BEHAVIOR_EXPLANATION, "primary"),),
-                primary_expected_output=ExpectedOutput.EXPLANATION,
-                expected_outputs=(ExpectedOutput.EXPLANATION,),
-                specificity=Specificity.MEDIUM,
-                explicit_targets=(),
-                confidence=0.9,
-                classification_basis=("User asks to understand behavior.",),
-            ),
-            user_prompt="Explain this behavior.",
-        )
-
-        decision = route_assistance_mode_shadow(
-            normalized_intent=normalized,
-            configured_assistance_mode=AssistanceMode.WORK,
-            mode=ASSISTANCE_MODE_ROUTER_ACTIVE,
-            retrieval_result=RetrievalResult(
-                evidence=(_evidence("workspace:a.ts:L1-L2", "validation_checking", "a.ts"),),
-                coverage_status="strong",
-                sufficient=True,
-            ),
-            intent_agreement="conflicting",
-        )
-
-        self.assertEqual(decision.effective_assistance_mode, "work")
-        self.assertFalse(decision.applied)
-        self.assertIn("active_blocked_conflicting_intent_agreement", decision.decision_reasons)
-
-def _evidence(source_id: str, role: str, path: str) -> EvidenceItem:
-    return EvidenceItem(
-        source_category=SourceCategory.SOURCE_CODE,
-        source_id=source_id,
-        snippet="code",
-        metadata={"coverage_area": role, "path": path},
-    )
-
 
 if __name__ == "__main__":
     unittest.main()

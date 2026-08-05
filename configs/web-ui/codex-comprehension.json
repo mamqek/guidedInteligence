@@ -40,7 +40,8 @@
     "codex_model": "gpt-5.4-mini",
     "workspace_model": "",
     "codex_prompt_profile": "responsibility-complete",
-    "codex_timeout_seconds": 900
+    "codex_timeout_seconds": 900,
+    "max_gap_retrieval_passes": 1
   },
   "generation": {
     "provider": "api",
@@ -66,10 +67,6 @@
       "ignore_user_config": true,
       "timeout_seconds": 30
     }
-  },
-  "assistance": {
-    "mode": "teach",
-    "max_gap_retrieval_passes": 1
   },
   "connected_context": {
     "enabled": true,

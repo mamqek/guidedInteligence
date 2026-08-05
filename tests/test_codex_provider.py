@@ -31,13 +31,13 @@ class CodexProviderTests(unittest.TestCase):
         prompt = _codex_prompt(
             "Explain the code context needed for this issue.\n\nTitle: Broken behavior",
             template=template,
-            retrieval_hints={"recommended_assistance_mode": "teach", "product_boundary": "explain_plan_suggest_only"},
+            retrieval_hints={"retrieval_intents": [{"intent": "behavior_explanation", "priority": "primary"}], "product_boundary": "explain_plan_suggest_only"},
         )
 
         self.assertIn("Select the smallest evidence set", prompt)
         self.assertNotIn("Investigation process", prompt)
         self.assertIn("Do not inspect CodeRepoQA raw issue JSON", prompt)
-        self.assertIn('"recommended_assistance_mode": "teach"', prompt)
+        self.assertIn('"intent": "behavior_explanation"', prompt)
         self.assertIn("Never retrieve with the goal of producing a final fix, patch, or implementation", prompt)
         self.assertIn("Prefer source authoring files over generated/emitted files", prompt)
         self.assertIn("Do not select bundled/generated CLI output", prompt)
@@ -52,7 +52,7 @@ class CodexProviderTests(unittest.TestCase):
         prompt = _codex_prompt(
             "Issue packet",
             template=template,
-            retrieval_hints={"recommended_assistance_mode": "work", "product_boundary": "explain_plan_suggest_only"},
+            retrieval_hints={"retrieval_intents": [{"intent": "change_or_impact_planning", "priority": "primary"}], "product_boundary": "explain_plan_suggest_only"},
         )
         required = schema["required"]
         evidence_schema = schema["properties"]["evidence"]
@@ -60,7 +60,7 @@ class CodexProviderTests(unittest.TestCase):
 
         self.assertIn("Prefer implementation owners over broad architectural files", prompt)
         self.assertIn("at least one primary item is a likely implementation owner", prompt)
-        self.assertIn('"recommended_assistance_mode": "work"', prompt)
+        self.assertIn('"intent": "change_or_impact_planning"', prompt)
         self.assertIn("Treat these hints as planning metadata, not evidence", prompt)
         self.assertIn("include a coverage_gaps or answer_blocking_uncertainties entry explaining that limitation", prompt)
         self.assertIn("Do not select bundled/generated CLI output", prompt)
@@ -83,7 +83,7 @@ class CodexProviderTests(unittest.TestCase):
         prompt = _codex_prompt(
             "Issue packet",
             template="Question:\n{{USER_PROMPT}}\n",
-            retrieval_hints={"recommended_assistance_mode": "teach"},
+            retrieval_hints={"retrieval_intents": [{"intent": "behavior_explanation", "priority": "primary"}]},
         )
 
         self.assertEqual(prompt, "Question:\nIssue packet\n")

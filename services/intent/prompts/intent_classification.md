@@ -4,7 +4,6 @@ Return only the requested JSON schema.
 
 Rules:
 - Describe what the user is asking for; do not decide final routing.
-- Treat recommended_assistance_mode as advisory only.
 - Use conversation state when the current prompt is ambiguous.
 - Do not infer repository facts.
 - Do not generate search queries, subqueries, concept graphs, or understanding questions.

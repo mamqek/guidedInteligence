@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from services.intent.models import (
-    AssistanceMode,
     ExpectedOutput,
     ResponseOperation,
     RetrievalIntent,
@@ -29,7 +28,6 @@ def intent_response_format() -> Mapping[str, Any]:
                     "user_goals": {"type": "array", "items": {"type": "string", "enum": _values(UserGoal)}},
                     "response_operation": {"type": "string", "enum": _values(ResponseOperation)},
                     "turn_relation": {"type": "string", "enum": _values(TurnRelation)},
-                    "recommended_assistance_mode": {"type": "string", "enum": _values(AssistanceMode)},
                     "solution_pressure": {"type": "string", "enum": _values(SolutionPressure)},
                     "retrieval_intents": {
                         "type": "array",
@@ -65,7 +63,6 @@ def intent_response_format() -> Mapping[str, Any]:
                     "user_goals",
                     "response_operation",
                     "turn_relation",
-                    "recommended_assistance_mode",
                     "solution_pressure",
                     "retrieval_intents",
                     "primary_expected_output",

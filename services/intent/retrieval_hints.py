@@ -9,7 +9,6 @@ PRODUCT_BOUNDARY_EXPLAIN_PLAN_SUGGEST_ONLY = "explain_plan_suggest_only"
 def build_retrieval_hints(normalized_intent: NormalizedIntent) -> RetrievalHints:
     classification = normalized_intent.classification
     return RetrievalHints(
-        recommended_assistance_mode=classification.recommended_assistance_mode.value,
         retrieval_intents=tuple(item.to_dict() for item in classification.retrieval_intents),
         response_operation=classification.response_operation.value,
         primary_expected_output=classification.primary_expected_output.value,

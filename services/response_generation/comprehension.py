@@ -100,14 +100,12 @@ def generate_comprehension_explanation(
     state: ConversationState,
     retrieval_result: RetrievalResult,
     llm_config: Any,
-    assistance_mode: str = "teach",
     log_warning: Callable[[Mapping[str, Any]], None] | None = None,
     log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
 ) -> ComprehensionGenerationResult:
     plan = build_comprehension_plan(
         user_prompt=state.user_input,
         retrieval_result=retrieval_result,
-        assistance_mode=assistance_mode,
     )
     explanation_evidence = tuple(retrieval_result.evidence[:EXPLANATION_EVIDENCE_LIMIT])
     concept_definition_targets = _concept_definition_targets(state.user_input, explanation_evidence)
@@ -116,7 +114,6 @@ def generate_comprehension_explanation(
         "user_prompt": state.user_input,
         "retrieval_sufficient": retrieval_result.sufficient,
         "coverage_status": retrieval_result.coverage_status,
-        "assistance_mode": assistance_mode,
         "comprehension_plan": plan.to_dict(),
         "next_check_requirement": next_check_requirement,
         "concept_definition_targets": concept_definition_targets,
@@ -149,7 +146,6 @@ def generate_comprehension_explanation(
         repair_llm_config=llm_config,
         repair_context={
             "user_prompt": state.user_input,
-            "assistance_mode": assistance_mode,
             "coverage_status": retrieval_result.coverage_status,
             "retrieval_sufficient": retrieval_result.sufficient,
             "comprehension_plan": plan.to_dict(),
@@ -883,16 +879,39 @@ def _collect_checks_from_response(
     checks: list[UnderstandingCheck] = []
     rejected: list[dict[str, Any]] = []
     if isinstance(value, list):
+        if len(value) > 3:
+            return (), [{"reason": "too_many_understanding_checks", "count": len(value)}], len(value)
         for item in value:
             if not isinstance(item, Mapping):
                 rejected.append({"reason": "not_mapping"})
                 continue
-            refs = tuple(ref for ref in _string_tuple(item.get("evidence_refs")) if ref in allowed_refs)
+            check_id = str(item.get("id") or "").strip()
+            role = str(item.get("role") or "").strip()
+            question_type = str(item.get("question_type") or "").strip()
+            origin = str(item.get("origin") or "").strip()
+            raw_refs = _string_tuple(item.get("evidence_refs"))
             tested_concepts = _string_tuple(item.get("tested_concepts"))
+            expected_answer_points = _string_tuple(item.get("expected_answer_points"))
+            answer_point_map = _answer_point_map_from_response(item.get("answer_point_map"))
             question = str(item.get("question") or "").strip()
             hint = str(item.get("hint") or "").strip()
-            if not refs or not question or not hint:
+            if not all((check_id, role, question_type, origin, raw_refs, tested_concepts, expected_answer_points, answer_point_map, question, hint)):
                 rejected.append({"reason": "missing_required_fields", "question": question[:200]})
+                continue
+            invalid_refs = tuple(ref for ref in raw_refs if ref not in allowed_refs)
+            if invalid_refs:
+                rejected.append({"reason": "invalid_evidence_refs", "question": question[:200], "invalid_refs": list(invalid_refs)})
+                continue
+            if len(raw_refs) > 4 or len(tested_concepts) > 6 or len(question) > 600 or len(hint) > 500:
+                rejected.append({"reason": "field_limit_exceeded", "question": question[:200]})
+                continue
+            expected_flow_points = _answer_flow_expected_points(answer_flow)
+            expected_flow_map = _answer_flow_answer_point_map(answer_flow)
+            if expected_answer_points != expected_flow_points:
+                rejected.append({"reason": "expected_answer_points_do_not_match_answer_flow", "question": question[:200]})
+                continue
+            if answer_point_map != expected_flow_map:
+                rejected.append({"reason": "answer_point_map_does_not_match_answer_flow", "question": question[:200]})
                 continue
             grounding_error = _check_grounding_contract(
                 question=question,
@@ -909,20 +928,20 @@ def _collect_checks_from_response(
                 continue
             checks.append(
                 UnderstandingCheck(
-                    id=str(item.get("id") or f"q{len(checks) + 1}").strip(),
-                    role=str(item.get("role") or "comprehension_plan").strip(),
-                    question_type=str(item.get("question_type") or "primary").strip(),
-                    question=question[:600],
-                    expected_answer_points=_answer_flow_expected_points(answer_flow),
-                    hint=hint[:500],
-                    evidence_refs=refs[:4],
-                    origin="model_generated",
-                    tested_concepts=tested_concepts[:6],
-                    answer_point_map=_answer_flow_answer_point_map(answer_flow),
+                    id=check_id,
+                    role=role,
+                    question_type=question_type,
+                    question=question,
+                    expected_answer_points=expected_answer_points,
+                    hint=hint,
+                    evidence_refs=raw_refs,
+                    origin=origin,
+                    tested_concepts=tested_concepts,
+                    answer_point_map=answer_point_map,
                 )
             )
     if checks:
-        return tuple(checks[:3]), rejected, len(value) if isinstance(value, list) else 0
+        return tuple(checks), rejected, len(value) if isinstance(value, list) else 0
     return (), rejected, len(value) if isinstance(value, list) else 0
 
 
@@ -940,7 +959,6 @@ def _repair_understanding_checks(
 ) -> tuple[UnderstandingCheck, ...]:
     payload = {
         "user_prompt": repair_context.get("user_prompt", ""),
-        "assistance_mode": repair_context.get("assistance_mode", ""),
         "coverage_status": repair_context.get("coverage_status", ""),
         "retrieval_sufficient": repair_context.get("retrieval_sufficient", False),
         "generated_markdown": markdown,
@@ -994,23 +1012,7 @@ def _repair_understanding_checks(
                 "rejected": repair_rejected[:5],
             },
         )
-    if checks:
-        return tuple(
-            UnderstandingCheck(
-                id=check.id,
-                role=check.role,
-                question_type=check.question_type,
-                question=check.question,
-                expected_answer_points=check.expected_answer_points,
-                hint=check.hint,
-                evidence_refs=check.evidence_refs,
-                origin="model_repaired",
-                tested_concepts=check.tested_concepts,
-                answer_point_map=check.answer_point_map,
-            )
-            for check in checks
-        )
-    return ()
+    return checks
 
 
 def _repair_next_checks(
@@ -1206,6 +1208,21 @@ def _answer_flow_answer_point_map(answer_flow: Mapping[str, Any]) -> tuple[Mappi
         )
         if point
     )
+
+
+def _answer_point_map_from_response(value: Any) -> tuple[Mapping[str, str], ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    output: list[Mapping[str, str]] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            return ()
+        kind = str(item.get("kind") or "").strip()
+        point = str(item.get("point") or "").strip()
+        if kind not in {"symptom", "evidence", "cause"} or not point:
+            return ()
+        output.append({"kind": kind, "point": point})
+    return tuple(output)
 
 
 def _check_grounding_contract(
@@ -1434,16 +1451,16 @@ def _response_format() -> Mapping[str, Any]:
                                 "id": {"type": "string"},
                                 "role": {"type": "string"},
                                 "question_type": {"type": "string"},
-                                "question": {"type": "string"},
-                                "expected_answer_points": {"type": "array", "items": {"type": "string"}},
-                                "hint": {"type": "string"},
-                                "evidence_refs": {"type": "array", "items": {"type": "string"}},
+                                "question": {"type": "string", "minLength": 1, "maxLength": 600},
+                                "expected_answer_points": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 3},
+                                "hint": {"type": "string", "minLength": 1, "maxLength": 500},
+                                "evidence_refs": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 4},
                                 "origin": {"type": "string"},
                                 "tested_concepts": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 6},
                                 "answer_point_map": {
                                     "type": "array",
                                     "minItems": 3,
-                                    "maxItems": 4,
+                                    "maxItems": 3,
                                     "items": {
                                         "type": "object",
                                         "properties": {
@@ -1573,16 +1590,16 @@ def _check_repair_response_format() -> Mapping[str, Any]:
                                 "id": {"type": "string"},
                                 "role": {"type": "string"},
                                 "question_type": {"type": "string"},
-                                "question": {"type": "string"},
-                                "expected_answer_points": {"type": "array", "items": {"type": "string"}},
-                                "hint": {"type": "string"},
-                                "evidence_refs": {"type": "array", "items": {"type": "string"}},
+                                "question": {"type": "string", "minLength": 1, "maxLength": 600},
+                                "expected_answer_points": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 3},
+                                "hint": {"type": "string", "minLength": 1, "maxLength": 500},
+                                "evidence_refs": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 4},
                                 "origin": {"type": "string"},
                                 "tested_concepts": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 6},
                                 "answer_point_map": {
                                     "type": "array",
                                     "minItems": 3,
-                                    "maxItems": 4,
+                                    "maxItems": 3,
                                     "items": {
                                         "type": "object",
                                         "properties": {
