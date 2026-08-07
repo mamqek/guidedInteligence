@@ -15,7 +15,9 @@ from services.retrieval.config import SUPPORTED_CODEX_PROMPT_PROFILES, Workspace
 
 CODEX_PROMPT_PROFILES_DIR = Path(__file__).resolve().parent / "profiles"
 USER_PROMPT_PLACEHOLDER = "{{USER_PROMPT}}"
-RETRIEVAL_HINTS_PLACEHOLDER = "{{RETRIEVAL_HINTS_JSON}}"
+INTENT_CONTEXT_PLACEHOLDER = "{{INTENT_CONTEXT_JSON}}"
+DEFAULT_CODEX_EVIDENCE_LIMIT = 10
+ORGANIZER_CODEX_CANDIDATE_LIMIT = 40
 
 
 class CodexRetrievalError(RuntimeError):
@@ -61,10 +63,13 @@ class CodexRetrievalStage:
         schema_path = run_dir / "codex-evidence.schema.json"
         output_path = run_dir / "codex-evidence.json"
         prompt_path = run_dir / "codex-prompt.txt"
-        prompt_template, evidence_schema = load_codex_prompt_profile(self.config.codex_prompt_profile)
+        prompt_template, evidence_schema = load_codex_prompt_profile(
+            self.config.codex_prompt_profile,
+            organizer_enabled=self.config.codex_evidence_organizer_enabled,
+        )
         schema_path.write_text(json.dumps(evidence_schema, indent=2, sort_keys=True), encoding="utf-8")
-        retrieval_hints = state.retrieval_hints.to_dict() if state.retrieval_hints is not None else {}
-        prompt = _codex_prompt(state.user_input, template=prompt_template, retrieval_hints=retrieval_hints)
+        intent_context = state.intent_context.to_dict() if state.intent_context is not None else {}
+        prompt = _codex_prompt(state.user_input, template=prompt_template, intent_context=intent_context)
         prompt_path.write_text(prompt, encoding="utf-8")
 
         command = [
@@ -101,7 +106,7 @@ class CodexRetrievalStage:
                 "prompt_profile": self.config.codex_prompt_profile,
                 "schema_path": str(schema_path),
                 "output_path": str(output_path),
-                "retrieval_hints": retrieval_hints,
+                "intent_context": intent_context,
             },
         )
         try:
@@ -138,7 +143,20 @@ class CodexRetrievalStage:
             raise CodexRetrievalError("Codex retrieval output must be a JSON object.")
 
         workspace_root = Path(self.config.workspace_root)
-        evidence = _evidence_from_payload(payload, workspace_root=workspace_root)
+        evidence_limit = (
+            ORGANIZER_CODEX_CANDIDATE_LIMIT
+            if self.config.codex_evidence_organizer_enabled
+            else DEFAULT_CODEX_EVIDENCE_LIMIT
+        )
+        evidence, conversion = _evidence_conversion_from_payload(
+            payload,
+            workspace_root=workspace_root,
+            limit=evidence_limit,
+        )
+        if self.config.codex_evidence_organizer_enabled and conversion["limit_dropped_count"]:
+            raise CodexRetrievalError(
+                "Codex evidence organizer candidate input exceeded the 40-item schema safety ceiling."
+            )
         evidence, artifact_trace = _enrich_codex_evidence_artifacts(evidence, workspace_root=workspace_root)
         profile_output = _profile_output(payload)
         usage = _codex_usage(completed.stdout, completed.stderr)
@@ -158,12 +176,14 @@ class CodexRetrievalStage:
                 "model": self.config.codex_model,
                 "prompt_profile": self.config.codex_prompt_profile,
                 "selected_count": len(evidence),
+                "candidate_count": len(evidence),
+                "conversion": conversion,
                 "relevant_files": _string_list(payload.get("relevant_files", [])),
                 "profile_output": profile_output,
                 "answer_blocking_uncertainties": _string_list(payload.get("answer_blocking_uncertainties", [])),
                 "scope_notes": _string_list(payload.get("scope_notes", [])),
                 "usage": usage,
-                "retrieval_hints": retrieval_hints,
+                "intent_context": intent_context,
                 "artifact_trace": artifact_trace,
             },
         )
@@ -183,6 +203,8 @@ class CodexRetrievalStage:
                 "answer_blocking_uncertainties": _string_list(payload.get("answer_blocking_uncertainties", [])),
                 "scope_notes": _string_list(payload.get("scope_notes", [])),
                 "selected_count": len(evidence),
+                "candidate_count": len(evidence),
+                "evidence_conversion": conversion,
                 "stop_reason": "codex_evidence_selected" if evidence else "codex_returned_no_usable_evidence",
                 "started_at": started_at.isoformat(),
                 "completed_at": completed_at.isoformat(),
@@ -190,7 +212,7 @@ class CodexRetrievalStage:
                 "stderr_path": str(run_dir / "codex-stderr.txt"),
                 "raw_output_path": str(output_path),
                 "usage": usage,
-                "retrieval_hints": retrieval_hints,
+                "intent_context": intent_context,
                 "artifact_trace": _artifact_trace_summary(artifact_trace),
             },
             failures_or_fallbacks=() if evidence else ("codex_returned_no_usable_evidence",),
@@ -211,7 +233,9 @@ class CodexRetrievalStage:
             handle.write(json.dumps(event, sort_keys=True) + "\n")
 
 
-def load_codex_prompt_profile(profile_name: str) -> tuple[str, dict[str, Any]]:
+def load_codex_prompt_profile(
+    profile_name: str, *, organizer_enabled: bool = False
+) -> tuple[str, dict[str, Any]]:
     normalized = profile_name.strip().lower()
     if normalized not in SUPPORTED_CODEX_PROMPT_PROFILES:
         raise CodexRetrievalError(
@@ -230,25 +254,37 @@ def load_codex_prompt_profile(profile_name: str) -> tuple[str, dict[str, Any]]:
         raise CodexRetrievalError(
             f"Codex prompt profile `{normalized}` must contain exactly one {USER_PROMPT_PLACEHOLDER} placeholder."
         )
-    if template.count(RETRIEVAL_HINTS_PLACEHOLDER) > 1:
+    if template.count(INTENT_CONTEXT_PLACEHOLDER) > 1:
         raise CodexRetrievalError(
-            f"Codex prompt profile `{normalized}` must contain at most one {RETRIEVAL_HINTS_PLACEHOLDER} placeholder."
+            f"Codex prompt profile `{normalized}` must contain at most one {INTENT_CONTEXT_PLACEHOLDER} placeholder."
         )
     if not isinstance(schema, Mapping):
         raise CodexRetrievalError(f"Codex prompt profile `{normalized}` schema must be a JSON object.")
-    return template.rstrip() + "\n", dict(schema)
+    resolved_schema = dict(schema)
+    if organizer_enabled:
+        organizer_path = profile_dir / "organizer.md"
+        try:
+            organizer_appendix = organizer_path.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise CodexRetrievalError(f"Could not load Codex organizer contract for `{normalized}`.") from exc
+        evidence_schema = resolved_schema.get("properties", {}).get("evidence")
+        if not isinstance(evidence_schema, dict):
+            raise CodexRetrievalError(f"Codex prompt profile `{normalized}` has no mutable evidence schema.")
+        evidence_schema["maxItems"] = ORGANIZER_CODEX_CANDIDATE_LIMIT
+        template = template.rstrip() + "\n\n" + organizer_appendix + "\n"
+    return template.rstrip() + "\n", resolved_schema
 
 
 def _codex_prompt(
     user_prompt: str,
     *,
     template: str,
-    retrieval_hints: Mapping[str, Any] | None = None,
+    intent_context: Mapping[str, Any] | None = None,
 ) -> str:
-    hint_payload = json.dumps(retrieval_hints or {}, indent=2, sort_keys=True)
+    hint_payload = json.dumps(intent_context or {}, indent=2, sort_keys=True)
     prompt = template.replace(USER_PROMPT_PLACEHOLDER, user_prompt)
-    if RETRIEVAL_HINTS_PLACEHOLDER in prompt:
-        return prompt.replace(RETRIEVAL_HINTS_PLACEHOLDER, hint_payload)
+    if INTENT_CONTEXT_PLACEHOLDER in prompt:
+        return prompt.replace(INTENT_CONTEXT_PLACEHOLDER, hint_payload)
     return prompt
 
 
@@ -335,30 +371,62 @@ def _codex_path_prefixes(command: Sequence[str]) -> tuple[str, ...]:
 
 
 def _evidence_from_payload(payload: Mapping[str, Any], *, workspace_root: Path) -> tuple[EvidenceItem, ...]:
+    evidence, _ = _evidence_conversion_from_payload(
+        payload,
+        workspace_root=workspace_root,
+        limit=DEFAULT_CODEX_EVIDENCE_LIMIT,
+    )
+    return evidence
+
+
+def _evidence_conversion_from_payload(
+    payload: Mapping[str, Any],
+    *,
+    workspace_root: Path,
+    limit: int,
+) -> tuple[tuple[EvidenceItem, ...], dict[str, int]]:
     items = payload.get("evidence")
     if not isinstance(items, Sequence) or isinstance(items, (str, bytes)):
-        return ()
+        return (), {
+            "raw_count": 0,
+            "valid_count": 0,
+            "invalid_count": 0,
+            "duplicate_count": 0,
+            "retained_count": 0,
+            "limit_dropped_count": 0,
+        }
     evidence: list[EvidenceItem] = []
     seen: set[str] = set()
+    invalid_count = 0
+    duplicate_count = 0
+    valid_count = 0
     for item in items:
         if not isinstance(item, Mapping):
+            invalid_count += 1
             continue
         path = _safe_relative_path(str(item.get("file") or ""), workspace_root=workspace_root)
         if not path:
+            invalid_count += 1
             continue
         line_start = _positive_int(item.get("line_start"))
         line_end = _positive_int(item.get("line_end"))
         if line_start is None or line_end is None:
+            invalid_count += 1
             continue
         if line_end < line_start:
             line_end = line_start
         snippet = _read_snippet(workspace_root / path, line_start=line_start, line_end=line_end)
         if not snippet.strip():
+            invalid_count += 1
             continue
         source_id = f"workspace:{path}:L{line_start}-L{line_end}"
         if source_id in seen:
+            duplicate_count += 1
             continue
         seen.add(source_id)
+        valid_count += 1
+        if len(evidence) >= limit:
+            continue
         metadata: dict[str, Any] = {
             "path": path,
             "line_range": f"L{line_start}-L{line_end}",
@@ -380,9 +448,15 @@ def _evidence_from_payload(payload: Mapping[str, Any], *, workspace_root: Path) 
                 metadata=metadata,
             )
         )
-        if len(evidence) >= 10:
-            break
-    return tuple(evidence)
+    conversion = {
+        "raw_count": len(items),
+        "valid_count": valid_count,
+        "invalid_count": invalid_count,
+        "duplicate_count": duplicate_count,
+        "retained_count": len(evidence),
+        "limit_dropped_count": max(0, valid_count - len(evidence)),
+    }
+    return tuple(evidence), conversion
 
 
 def _enrich_codex_evidence_artifacts(

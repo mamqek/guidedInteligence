@@ -44,10 +44,16 @@
   },
   "generation": {
     "provider": "api",
-    "api_model": "",
+    "api_model": "gpt-5.6-luna",
     "codex_model": "gpt-5.4-mini",
-    "max_tokens": 800,
-    "timeout_seconds": 30
+    "max_tokens": 4000,
+    "timeout_seconds": 120
+  },
+  "experiments": {
+    "codex_evidence_organizer_enabled": true,
+    "codex_candidate_order_neutralization_enabled": true,
+    "multi_intent_stage_order_neutralization_enabled": false,
+    "intent_sufficiency_enabled": false
   },
   "connections": {
     "api_llm": {

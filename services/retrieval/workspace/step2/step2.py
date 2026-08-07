@@ -16,7 +16,6 @@ from .constants import (
     DEFAULT_NEGATIVE_FILTERS,
     DEFAULT_REQUIRED_RETRIEVAL_ROLES,
     DEFAULT_SUPPORTING_RETRIEVAL_ROLES,
-    INTENT_DEFECT_LOCALIZATION,
     MAX_GROUNDED_ENTITIES,
     MAX_GROUNDED_FILE_HINTS,
     MAX_RAW_PROMPT_TERMS,
@@ -27,7 +26,6 @@ from .constants import (
     OBJECTIVE_IMPLEMENTATION_OWNER,
     OBJECTIVE_USAGE_CONTRACT,
     OBJECTIVE_VERIFICATION_REPRO,
-    SPECIFICITY_NARROW,
 )
 from .prompts import STEP2_PLANNER_SYSTEM_PROMPT
 from .schema import step2_response_format, validate_step2_planner_response
@@ -58,6 +56,7 @@ def plan_workspace_retrieval_step(
         "history": [message_to_dict(message) for message in state.history[-6:]],
         "existing_evidence": [item.to_dict() for item in state.evidence[:6]],
         "allowed_sources": [category.value for category in policy_result.allowed_sources],
+        "intent_context": state.intent_context.to_dict() if state.intent_context is not None else {},
         "connected_sources": [
             {
                 "source_category": document.source_category.value,
@@ -90,8 +89,8 @@ def plan_workspace_retrieval_step(
     )
     prompt_signal_flags = _prompt_signal_flags(state.user_input, evidence)
     active_objectives, deferred_objectives = _normalize_objectives(
-        primary_intent=response["primary_intent"],
-        specificity=response["specificity"],
+        is_debug=bool(state.intent_context and any(intent.value == "debug" for intent in state.intent_context.intents)),
+        specificity=state.intent_context.specificity.value if state.intent_context is not None else "medium",
         active_objectives=tuple(response["active_objectives"]),
         deferred_objectives=tuple(response["deferred_objectives"]),
         prompt_signal_flags=prompt_signal_flags,
@@ -140,9 +139,8 @@ def plan_workspace_retrieval_step(
         negative_filters=merged_negative_filters,
         required_roles=DEFAULT_REQUIRED_RETRIEVAL_ROLES,
         supporting_roles=DEFAULT_SUPPORTING_RETRIEVAL_ROLES,
-        primary_intent=response["primary_intent"],
-        secondary_intents=tuple(response["secondary_intents"]),
-        specificity=response["specificity"],
+        task_intents=tuple(intent.value for intent in state.intent_context.intents) if state.intent_context is not None else (),
+        specificity=state.intent_context.specificity.value if state.intent_context is not None else "medium",
         active_objectives=active_objectives,
         deferred_objectives=deferred_objectives,
         preferred_relations=tuple(response["preferred_relations"]),
@@ -189,8 +187,7 @@ def existing_evidence_plan(
         negative_filters=DEFAULT_NEGATIVE_FILTERS,
         required_roles=DEFAULT_REQUIRED_RETRIEVAL_ROLES,
         supporting_roles=DEFAULT_SUPPORTING_RETRIEVAL_ROLES,
-        primary_intent="existing_evidence",
-        secondary_intents=(),
+        task_intents=(),
         specificity="existing_evidence",
         active_objectives=(),
         deferred_objectives=(),
@@ -357,7 +354,7 @@ def _prompt_signal_flags(raw_prompt: str, evidence: PromptEvidence) -> dict[str,
 
 def _normalize_objectives(
     *,
-    primary_intent: str,
+    is_debug: bool,
     specificity: str,
     active_objectives: Sequence[str],
     deferred_objectives: Sequence[str],
@@ -366,7 +363,7 @@ def _normalize_objectives(
     active = list(ordered_unique(value for value in active_objectives if value))
     deferred = list(ordered_unique(value for value in deferred_objectives if value and value not in active))
 
-    if primary_intent == INTENT_DEFECT_LOCALIZATION and specificity == SPECIFICITY_NARROW:
+    if is_debug and specificity == "narrow":
         if OBJECTIVE_IMPLEMENTATION_OWNER not in active:
             active.insert(0, OBJECTIVE_IMPLEMENTATION_OWNER)
         active = _remove_unless(

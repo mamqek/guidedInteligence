@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from core.models import ConversationState, EvidenceItem, PolicyResult, TurnType, UserIntent
+from core.models import AssistanceRequestType, ConversationState, EvidenceItem, PolicyResult, TurnType
 from core.source_policy import SourceCategory
 from services.retrieval.config import RetrievalEmbeddingConfig, RetrievalQdrantConfig, RunLLMConfig, WorkspaceRetrievalConfig
 from services.retrieval.codex.cli import resolve_codex_command
@@ -19,6 +19,7 @@ from services.retrieval.codex.provider import (
     _codex_path_prefixes,
     _codex_coverage_status,
     _codex_prompt,
+    _evidence_conversion_from_payload,
     _evidence_from_payload,
     _enrich_codex_evidence_artifacts,
     load_codex_prompt_profile,
@@ -31,13 +32,13 @@ class CodexProviderTests(unittest.TestCase):
         prompt = _codex_prompt(
             "Explain the code context needed for this issue.\n\nTitle: Broken behavior",
             template=template,
-            retrieval_hints={"retrieval_intents": [{"intent": "behavior_explanation", "priority": "primary"}], "product_boundary": "explain_plan_suggest_only"},
+            intent_context={"intents": [{"intent": "explain", "description": "Establish how or why the requested behavior works."}], "specificity": "medium", "explicit_targets": []},
         )
 
         self.assertIn("Select the smallest evidence set", prompt)
         self.assertNotIn("Investigation process", prompt)
         self.assertIn("Do not inspect CodeRepoQA raw issue JSON", prompt)
-        self.assertIn('"intent": "behavior_explanation"', prompt)
+        self.assertIn('"intent": "explain"', prompt)
         self.assertIn("Never retrieve with the goal of producing a final fix, patch, or implementation", prompt)
         self.assertIn("Prefer source authoring files over generated/emitted files", prompt)
         self.assertIn("Do not select bundled/generated CLI output", prompt)
@@ -52,7 +53,7 @@ class CodexProviderTests(unittest.TestCase):
         prompt = _codex_prompt(
             "Issue packet",
             template=template,
-            retrieval_hints={"retrieval_intents": [{"intent": "change_or_impact_planning", "priority": "primary"}], "product_boundary": "explain_plan_suggest_only"},
+            intent_context={"intents": [{"intent": "change", "description": "Gather context needed to reason about a requested modification without implementing it."}], "specificity": "medium", "explicit_targets": []},
         )
         required = schema["required"]
         evidence_schema = schema["properties"]["evidence"]
@@ -60,8 +61,8 @@ class CodexProviderTests(unittest.TestCase):
 
         self.assertIn("Prefer implementation owners over broad architectural files", prompt)
         self.assertIn("at least one primary item is a likely implementation owner", prompt)
-        self.assertIn('"intent": "change_or_impact_planning"', prompt)
-        self.assertIn("Treat these hints as planning metadata, not evidence", prompt)
+        self.assertIn('"intent": "change"', prompt)
+        self.assertIn("neutral outcome context, not evidence and not an Evidence Plan", prompt)
         self.assertIn("include a coverage_gaps or answer_blocking_uncertainties entry explaining that limitation", prompt)
         self.assertIn("Do not select bundled/generated CLI output", prompt)
         self.assertIn("deterministic post-processing will audit this judgment", prompt)
@@ -79,11 +80,19 @@ class CodexProviderTests(unittest.TestCase):
         with self.assertRaisesRegex(CodexRetrievalError, "Unknown Codex prompt profile"):
             load_codex_prompt_profile("missing-profile")
 
-    def test_codex_prompt_accepts_old_template_without_hints_placeholder(self) -> None:
+    def test_organizer_profile_contract_allows_forty_candidates_without_changing_default_profile(self) -> None:
+        template, schema = load_codex_prompt_profile("responsibility-complete", organizer_enabled=True)
+
+        self.assertIn("later organizer replaces the normal 2-6 item target", template)
+        self.assertEqual(schema["properties"]["evidence"]["maxItems"], 40)
+        _, default_schema = load_codex_prompt_profile("responsibility-complete")
+        self.assertEqual(default_schema["properties"]["evidence"]["maxItems"], 6)
+
+    def test_codex_prompt_accepts_template_without_intent_context_placeholder(self) -> None:
         prompt = _codex_prompt(
             "Issue packet",
             template="Question:\n{{USER_PROMPT}}\n",
-            retrieval_hints={"retrieval_intents": [{"intent": "behavior_explanation", "priority": "primary"}]},
+            intent_context={"intents": [{"intent": "explain"}]},
         )
 
         self.assertEqual(prompt, "Question:\nIssue packet\n")
@@ -118,6 +127,35 @@ class CodexProviderTests(unittest.TestCase):
         self.assertEqual(evidence[0].metadata["file_role"], "implementation_owner")
         self.assertEqual(evidence[0].metadata["relevance"], "primary")
         self.assertEqual(evidence[0].metadata["confidence"], "high")
+
+    def test_organizer_enabled_conversion_retains_more_than_ten_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            items = []
+            for index in range(25):
+                path = root / "src" / f"item_{index}.py"
+                path.parent.mkdir(exist_ok=True)
+                path.write_text(f"VALUE_{index} = {index}\n", encoding="utf-8")
+                items.append(
+                    {
+                        "file": f"src/item_{index}.py",
+                        "line_start": 1,
+                        "line_end": 1,
+                        "claim_supported": f"Item {index} exists.",
+                        "why_relevant": "Candidate retention test.",
+                        "coverage_area": "candidate",
+                    }
+                )
+
+            candidates, conversion = _evidence_conversion_from_payload(
+                {"evidence": items}, workspace_root=root, limit=40
+            )
+            default_evidence = _evidence_from_payload({"evidence": items}, workspace_root=root)
+
+        self.assertEqual(len(candidates), 25)
+        self.assertEqual(conversion["valid_count"], 25)
+        self.assertEqual(conversion["limit_dropped_count"], 0)
+        self.assertEqual(len(default_evidence), 10)
 
     def test_deterministic_artifact_classification_marks_bin_lib_as_built(self) -> None:
         classification = _classify_artifact_path("bin/lib.d.ts")
@@ -314,11 +352,11 @@ class CodexProviderTests(unittest.TestCase):
             state = ConversationState(
                 conversation_id="test",
                 user_input="Explain owner.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
             policy = PolicyResult(
                 allowed=True,
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
                 retrieval_required=True,
                 allowed_sources=(SourceCategory.SOURCE_CODE,),
                 turn_type=TurnType.GUIDED_EXPLANATION,

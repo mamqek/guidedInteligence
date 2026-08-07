@@ -332,6 +332,7 @@ class WorkspaceRetrievalConfig:
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE
     codex_timeout_seconds: int = 900
     codex_ignore_user_config: bool = True
+    codex_evidence_organizer_enabled: bool = True
     run_dir: str | None = None
     chunk_line_count: int = 40
     chunk_line_overlap: int = 10

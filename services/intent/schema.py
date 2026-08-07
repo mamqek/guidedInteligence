@@ -2,18 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from services.intent.models import (
-    ExpectedOutput,
-    ResponseOperation,
-    RetrievalIntent,
-    SolutionPressure,
-    Specificity,
-    TargetType,
-    TurnRelation,
-    UserGoal,
-)
+from services.intent.models import SolutionPressure, Specificity, TargetState, TargetType, TaskIntent, TurnRelation
 
-SCHEMA_VERSION = "intent_classification_v1"
+
+SCHEMA_VERSION = "intent_classification_v2"
 
 
 def intent_response_format() -> Mapping[str, Any]:
@@ -25,25 +17,16 @@ def intent_response_format() -> Mapping[str, Any]:
             "schema": {
                 "type": "object",
                 "properties": {
-                    "user_goals": {"type": "array", "items": {"type": "string", "enum": _values(UserGoal)}},
-                    "response_operation": {"type": "string", "enum": _values(ResponseOperation)},
+                    "intents": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": _values(TaskIntent)},
+                        "minItems": 1,
+                        "maxItems": len(TaskIntent),
+                    },
                     "turn_relation": {"type": "string", "enum": _values(TurnRelation)},
                     "solution_pressure": {"type": "string", "enum": _values(SolutionPressure)},
-                    "retrieval_intents": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "intent": {"type": "string", "enum": _values(RetrievalIntent)},
-                                "priority": {"type": "string", "enum": ["primary", "secondary"]},
-                            },
-                            "required": ["intent", "priority"],
-                            "additionalProperties": False,
-                        },
-                    },
-                    "primary_expected_output": {"type": "string", "enum": _values(ExpectedOutput)},
-                    "expected_outputs": {"type": "array", "items": {"type": "string", "enum": _values(ExpectedOutput)}},
                     "specificity": {"type": "string", "enum": _values(Specificity)},
+                    "target_state": {"type": "string", "enum": _values(TargetState)},
                     "explicit_targets": {
                         "type": "array",
                         "items": {
@@ -57,17 +40,14 @@ def intent_response_format() -> Mapping[str, Any]:
                         },
                     },
                     "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-                    "classification_basis": {"type": "array", "items": {"type": "string"}},
+                    "classification_basis": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
                 },
                 "required": [
-                    "user_goals",
-                    "response_operation",
+                    "intents",
                     "turn_relation",
                     "solution_pressure",
-                    "retrieval_intents",
-                    "primary_expected_output",
-                    "expected_outputs",
                     "specificity",
+                    "target_state",
                     "explicit_targets",
                     "confidence",
                     "classification_basis",

@@ -131,6 +131,12 @@ export type AppConfig = {
     max_tokens?: number;
     timeout_seconds?: number;
   };
+  experiments?: {
+    codex_evidence_organizer_enabled?: boolean;
+    codex_candidate_order_neutralization_enabled?: boolean;
+    multi_intent_stage_order_neutralization_enabled?: boolean;
+    intent_sufficiency_enabled?: boolean;
+  };
   connections: {
     api_llm?: {
       api_style?: string;
@@ -257,15 +263,19 @@ export type ConnectionTestResponse = {
 
 export type UnderstandingCheck = {
   id: string;
-  role: string;
-  question_type: string;
+  intent: string;
+  target_stage_ids: string[];
+  prerequisite_stage_ids: string[];
+  stem_family: string;
+  reasoning_focus: string;
+  selection_reason: string;
   question: string;
   expected_answer_points: string[];
-  hint: string;
+  hints: Array<{
+    kind: "direction" | "focus" | "scaffold";
+    text: string;
+  }>;
   evidence_refs: string[];
-  origin: string;
-  tested_concepts: string[];
-  answer_point_map: { kind: "symptom" | "evidence" | "cause"; point: string }[];
 };
 
 export type SourceAttribution = {
@@ -315,16 +325,45 @@ export type EvidenceConnectionsGraph = {
   version: number;
   status?: "complete" | "error";
   connections: EvidenceConnection[];
+  candidate_connections?: EvidenceConnection[];
+  candidate_connections_backfilled?: boolean;
+  candidate_connections_error?: string;
   root_ref?: string;
   disconnected_evidence?: Array<{ evidence_ref: string; reason: string }>;
   generation?: Record<string, unknown>;
   error?: string;
 };
 
+export type EvidenceAssessmentStatus = "core" | "supporting" | "adjacent" | "redundant" | "unclear";
+
+export type EvidenceOrganization = {
+  version?: number;
+  status?: string;
+  candidate_count?: number;
+  selected_count?: number;
+  excluded_count?: number;
+  coverage_facets?: Array<{
+    id: string;
+    description: string;
+    status: "covered" | "partial" | "missing" | "unclear";
+    selected_refs: string[];
+  }>;
+  assessments?: Array<{
+    evidence_ref: string;
+    status: EvidenceAssessmentStatus;
+    facet_ids: string[];
+    reason: string;
+  }>;
+  selected_refs?: string[];
+  excluded_refs?: string[];
+};
+
 export type RunDetail = RunSummary & {
   result: Record<string, unknown>;
   evidence: EvidenceItem[];
+  candidate_evidence?: EvidenceItem[];
   evidence_connections?: EvidenceConnectionsGraph;
+  evidence_organization?: EvidenceOrganization;
   answer_evaluation?: {
     run_id?: string;
     evaluations?: AnswerEvaluation[];

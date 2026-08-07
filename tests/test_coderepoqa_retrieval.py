@@ -8,9 +8,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from core.models import EvidenceItem, RetrievalResult
+from core.models import EvidenceItem, ResponsePayload, RetrievalResult, TurnType
 from core.source_policy import SourceCategory
 from services.retrieval.config import RunLLMConfig
+from services.intent.logging import IntentStageResult
+from services.intent.models import IntentClassification, SolutionPressure, Specificity, TargetState, TaskIntent, TurnRelation
 from services.retrieval.workspace.bm25 import load_index
 from testing.codeRepoQA.run_case import (
     evaluate_case,
@@ -67,6 +69,9 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir, patch(
             "testing.codeRepoQA.run_case.WorkspaceRetrievalStage",
             _RecordingWorkspaceRetrievalStage,
+        ), patch("core.control_layer.classify_intent", return_value=_intent_result()), patch(
+            "core.control_layer._render_response",
+            return_value=ResponsePayload(TurnType.GUIDED_EXPLANATION, "test explanation"),
         ):
             root = Path(temp_dir)
             repo = root / "repo-pre"
@@ -162,6 +167,9 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir, patch(
             "testing.codeRepoQA.run_case.WorkspaceRetrievalStage",
             _RecordingWorkspaceRetrievalStage,
+        ), patch("core.control_layer.classify_intent", return_value=_intent_result()), patch(
+            "core.control_layer._render_response",
+            return_value=ResponsePayload(TurnType.GUIDED_EXPLANATION, "test explanation"),
         ):
             root = Path(temp_dir)
             source_repo = root / "source-repo"
@@ -368,6 +376,26 @@ def _llm_config() -> RunLLMConfig:
         endpoint_url="http://example.test/v1/chat/completions",
         model="test-model",
         api_key="test-key",
+    )
+
+
+def _intent_result() -> IntentStageResult:
+    return IntentStageResult(
+        status="success",
+        classification=IntentClassification(
+            intents=(TaskIntent.CHANGE,),
+            turn_relation=TurnRelation.NEW_TASK,
+            solution_pressure=SolutionPressure.GUIDANCE,
+            specificity=Specificity.MEDIUM,
+            target_state=TargetState.UNRESOLVED,
+            explicit_targets=(),
+            confidence=0.9,
+            classification_basis=("test",),
+        ),
+        error=None,
+        fallback_used=False,
+        latency_ms=1,
+        classifier_model="test",
     )
 
 

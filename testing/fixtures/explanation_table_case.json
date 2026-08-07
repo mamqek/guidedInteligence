@@ -1,0 +1,63 @@
+{
+  "user_prompt": "Compare API and Codex explanation generation in a table. Show how each provider is selected, how its model is chosen, which transport or credentials it uses, and how token and timeout settings differ.",
+  "selected_intents": ["explain"],
+  "coverage_status": "complete",
+  "sufficient": true,
+  "expectations": {
+    "min_tables": 1
+  },
+  "evidence": [
+    {
+      "source_category": "source_code",
+      "source_id": "workspace:configs/web-ui/workspace.json:L45-L51",
+      "rank": 1,
+      "snippet": "\"generation\": {\n  \"provider\": \"api\",\n  \"api_model\": \"gpt-5.6-luna\",\n  \"codex_model\": \"gpt-5.4-mini\",\n  \"max_tokens\": 4000,\n  \"timeout_seconds\": 120\n}",
+      "metadata": {
+        "path": "configs/web-ui/workspace.json",
+        "line_range": "L45-L51",
+        "claim_supported": "Explanation generation has an explicit provider selector plus separate API and Codex model fields, with shared maximum-token and timeout settings.",
+        "why_relevant": "It establishes the configuration dimensions shared by the two generation providers.",
+        "coverage_area": "generation provider configuration"
+      }
+    },
+    {
+      "source_category": "source_code",
+      "source_id": "workspace:services/retrieval/server.py:L1393-L1404",
+      "rank": 2,
+      "snippet": "def _generation_llm_config(self) -> RunLLMConfig:\n    generation = _generation_settings(self.config)\n    if str(generation.get(\"provider\") or \"api\") == \"codex\":\n        return self._codex_llm_config(\n            model=str(generation.get(\"codex_model\") or _retrieval_settings(self.config).get(\"codex_model\") or \"\"),\n            timeout_seconds=int(generation.get(\"timeout_seconds\") or 120),\n        )\n    return self._api_llm_config(\n        model_override=str(generation.get(\"api_model\") or \"\"),\n        max_tokens_override=int(generation.get(\"max_tokens\") or 4000),\n        timeout_override=int(generation.get(\"timeout_seconds\") or 120),\n    )",
+      "metadata": {
+        "path": "services/retrieval/server.py",
+        "line_range": "L1393-L1404",
+        "claim_supported": "The provider switch sends Codex generation to `_codex_llm_config` with the Codex model and timeout, while API generation receives the API model, maximum tokens, and timeout.",
+        "why_relevant": "It directly shows the runtime branch and the settings passed to each provider.",
+        "coverage_area": "generation provider selection"
+      }
+    },
+    {
+      "source_category": "source_code",
+      "source_id": "workspace:services/retrieval/server.py:L1347-L1372",
+      "rank": 3,
+      "snippet": "def _api_llm_config(self, *, model_override: str = \"\", max_tokens_override: int | None = None, timeout_override: int | None = None, settings: Mapping[str, Any] | None = None) -> RunLLMConfig:\n    api_settings = settings or _connections_mapping(self.config).get(\"api_llm\", {})\n    api_settings = _normalize_api_llm_connection(api_settings)\n    model = model_override.strip() or str(api_settings.get(\"model\") or \"\").strip()\n    endpoint_url = str(api_settings.get(\"endpoint_url\") or \"\").strip()\n    api_key = str(api_settings.get(\"api_key\") or \"\").strip() or self._api_llm_key()\n    api_style = str(api_settings.get(\"api_style\") or \"\").strip() or \"openai_chat_completions\"\n    if not model or not endpoint_url or not api_key:\n        raise ValueError(\"OpenAI-compatible API connection requires endpoint URL, API key, and model.\")\n    return RunLLMConfig(api_style=api_style, model=model, endpoint_url=endpoint_url, api_key=api_key, temperature=float(api_settings.get(\"temperature\") if api_settings.get(\"temperature\") is not None else 0.0), max_tokens=max_tokens_override or int(api_settings.get(\"max_tokens\") or 800), timeout_seconds=timeout_override or int(api_settings.get(\"timeout_seconds\") or 30), continuity_enabled=False)",
+      "metadata": {
+        "path": "services/retrieval/server.py",
+        "line_range": "L1347-L1372",
+        "claim_supported": "API generation resolves a model override before the connection model and requires an endpoint URL, API key, and model; it uses an OpenAI-compatible API style with maximum tokens and timeout.",
+        "why_relevant": "It establishes the API provider's transport, credential, model, token, and timeout behavior.",
+        "coverage_area": "API generation runtime"
+      }
+    },
+    {
+      "source_category": "source_code",
+      "source_id": "workspace:services/retrieval/server.py:L1374-L1384",
+      "rank": 4,
+      "snippet": "def _codex_llm_config(self, *, model: str, timeout_seconds: int | None = None) -> RunLLMConfig:\n    codex = _normalize_codex_connection(_connections_mapping(self.config).get(\"codex\", {}), retrieval=_retrieval_settings(self.config))\n    resolved_model = model.strip() or str(_retrieval_settings(self.config).get(\"codex_model\") or \"gpt-5.4-mini\").strip() or \"gpt-5.4-mini\"\n    return RunLLMConfig(\n        api_style=\"codex_cli\",\n        model=resolved_model,\n        timeout_seconds=timeout_seconds or int(codex.get(\"timeout_seconds\") or 30),\n        codex_command=tuple(resolve_codex_command(_string_list(codex.get(\"command\", [\"codex\"])))),\n        codex_ignore_user_config=bool(codex.get(\"ignore_user_config\", True)),\n    )",
+      "metadata": {
+        "path": "services/retrieval/server.py",
+        "line_range": "L1374-L1384",
+        "claim_supported": "Codex generation uses the `codex_cli` API style, resolves the requested or retrieval Codex model, applies a timeout, and launches the configured Codex command without an API endpoint or API key in this configuration object.",
+        "why_relevant": "It establishes the Codex provider's transport, model fallback, and timeout behavior.",
+        "coverage_area": "Codex generation runtime"
+      }
+    }
+  ]
+}

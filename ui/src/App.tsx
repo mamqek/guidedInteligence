@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import dagre from "@dagrejs/dagre";
 import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge, type Node } from "@xyflow/react";
-import { api, AnswerEvaluation, AppConfig, CodexModelOption, EvidenceConnection, EvidenceConnectionsGraph, EvidenceItem, Health, IndexEstimate, IndexPrepareJob, NextCheck, ProviderAuthState, RemoteMcpSource, RunDetail, RunSummary, RunTrace, SourceAttribution, UnderstandingCheck, WorkspaceEntry } from "./api";
+import { api, AnswerEvaluation, AppConfig, CodexModelOption, EvidenceAssessmentStatus, EvidenceConnection, EvidenceConnectionsGraph, EvidenceItem, EvidenceOrganization, Health, IndexEstimate, IndexPrepareJob, NextCheck, ProviderAuthState, RemoteMcpSource, RunDetail, RunSummary, RunTrace, SourceAttribution, UnderstandingCheck, WorkspaceEntry } from "./api";
 import { sourceLabels, sourceOrder } from "./constants";
 
 type LoadState<T> = {
@@ -199,14 +199,6 @@ export function App() {
   const currentChecks = getUnderstandingChecks(runDetail.data);
   const currentEvaluations = runDetail.data?.answer_evaluation?.evaluations || [];
   const questionsPending = currentChecks.length > 0 && currentEvaluations.length === 0;
-  const sourceCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of currentEvidence) {
-      const source = item.source_key || item.metadata?.source_key || item.source_category;
-      counts.set(source, (counts.get(source) || 0) + 1);
-    }
-    return counts;
-  }, [currentEvidence]);
   const chatProgress = indexPrepareLoading
     ? indexPrepareJob?.message || "Preparing index."
     : runLoading
@@ -273,8 +265,18 @@ export function App() {
               />
             </div>
             <RunSummaryPanel runs={runs} selectedRunId={selectedRunId} setSelectedRunId={setSelectedRunId} runDetail={runDetail} />
-            <EvidenceGraphPanel graph={runDetail.data?.evidence_connections} evidence={currentEvidence} />
-            <EvidencePanel runId={runDetail.data?.run_id} evidence={currentEvidence} sourceCounts={sourceCounts} />
+            <EvidenceGraphPanel
+              graph={runDetail.data?.evidence_connections}
+              selectedEvidence={currentEvidence}
+              candidates={runDetail.data?.candidate_evidence || currentEvidence}
+              organization={runDetail.data?.evidence_organization}
+            />
+            <EvidencePanel
+              runId={runDetail.data?.run_id}
+              selectedEvidence={currentEvidence}
+              candidates={runDetail.data?.candidate_evidence || currentEvidence}
+              organization={runDetail.data?.evidence_organization}
+            />
             <TracePanel trace={currentTrace} state={trace} />
           </section>
         )}
@@ -1643,8 +1645,8 @@ function WorkspaceIndexPanel({
             api_key: "",
             model: "",
             temperature: 0,
-            max_tokens: 800,
-            timeout_seconds: 30,
+            max_tokens: 4000,
+            timeout_seconds: 120,
             ...config.data.connections.api_llm,
             ...next,
           },
@@ -2021,11 +2023,11 @@ function WorkspaceIndexPanel({
         <div className="settingsGrid twoColumn">
           <label className="fieldLabel">
             Max tokens
-            <input type="number" min={1} value={generation.max_tokens || 800} onChange={(event) => updateGeneration({ max_tokens: Number(event.target.value) || 800 })} />
+            <input type="number" min={1} value={generation.max_tokens || 4000} onChange={(event) => updateGeneration({ max_tokens: Number(event.target.value) || 4000 })} />
           </label>
           <label className="fieldLabel">
             Timeout seconds
-            <input type="number" min={1} value={generation.timeout_seconds || 30} onChange={(event) => updateGeneration({ timeout_seconds: Number(event.target.value) || 30 })} />
+            <input type="number" min={1} value={generation.timeout_seconds || 120} onChange={(event) => updateGeneration({ timeout_seconds: Number(event.target.value) || 120 })} />
           </label>
         </div>
       </section>
@@ -2334,6 +2336,12 @@ function RunSummaryPanel({ runs, selectedRunId, setSelectedRunId, runDetail }: {
           <Metric label="Evidence" value={String(selected.selected_count)} />
           <Metric label="Time" value={formatOptionalDuration(selected.elapsed_seconds)} />
           <Metric label="Tokens" value={formatTokenUsage(selected.token_usage)} />
+          {selected.prompt && (
+            <div className="selectedRunPrompt">
+              <span>Prompt</span>
+              <p>{selected.prompt}</p>
+            </div>
+          )}
         </div>
       )}
       {selected?.status === "running" && selected.index_estimate && (
@@ -2458,39 +2466,63 @@ function GuidedResponsePanel({
   onSubmit: (answers: Record<string, string>) => void;
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [expandedSourceHref, setExpandedSourceHref] = useState("");
 
   useEffect(() => {
     const next: Record<string, string> = {};
     for (const check of checks) next[check.id] = answers[check.id] || "";
     setAnswers(next);
-    setExpandedSourceHref("");
   }, [runDetail?.run_id]);
 
   const content = getResponseContent(runDetail);
+  const responseHeadings = getMarkdownHeadings(content);
   const canSubmit = checks.length > 0 && checks.every((check) => (answers[check.id] || "").trim()) && !loading && evaluations.length === 0;
   const conceptDefinitions = getConceptDefinitions(runDetail);
   const sourceAttributions = getSourceAttributions(runDetail);
   const nextChecks = getNextChecks(runDetail);
+  const intentSufficiency = getIntentSufficiency(runDetail);
   const evidence = runDetail?.evidence || [];
+  const totalEvidence = runDetail?.candidate_evidence?.length
+    ?? runDetail?.evidence_organization?.candidate_count
+    ?? evidence.length;
+  const selectedEvidence = runDetail?.evidence_organization?.selected_refs?.length ?? evidence.length;
   return (
     <section className="panel" id="guided-response">
       <div className="panelHeader">
         <h2>Guided Explanation</h2>
-        <span className="panelMeta">{checks.length ? `${checks.length} checks` : "no checks"}</span>
+        <span className="panelMeta">
+          {checks.length ? `${checks.length} checks` : "no checks"} · {totalEvidence} total evidence · {selectedEvidence} selected
+        </span>
       </div>
       {content ? (
-        <div className="responseText">
-          {renderMarkdown(content, {
-            conceptDefinitions,
-            sourceAttributions,
-            evidence,
-            runId: runDetail?.run_id,
-            expandedSourceHref,
-            onSourceLink: (source) => setExpandedSourceHref((current) => current === source.href ? "" : source.href),
-          })}
+        <div className="responseReadingArea">
+          {responseHeadings.length >= 3 && (
+            <nav className="responseOutline" aria-label="Explanation sections">
+              <strong>Sections</strong>
+              <div>
+                {responseHeadings.map((heading) => (
+                  <a className={`responseOutlineLevel-${heading.level}`} href={`#${heading.id}`} key={heading.id}>
+                    {heading.label}
+                  </a>
+                ))}
+              </div>
+            </nav>
+          )}
+          <div className="responseText">
+            {renderMarkdown(content, {
+              conceptDefinitions,
+              sourceAttributions,
+              evidence,
+              runId: runDetail?.run_id,
+            })}
+          </div>
         </div>
       ) : <p className="emptyText">Run retrieval to generate an explanation.</p>}
+      {intentSufficiency.length > 0 && (
+        <details className="hintBox">
+          <summary>Experimental evidence sufficiency</summary>
+          {intentSufficiency.map((item) => <p key={item.intent}><strong>{item.intent}</strong>: {item.overall}</p>)}
+        </details>
+      )}
       {nextChecks.length > 0 && <NextChecksBox checks={nextChecks} />}
       {checks.length > 0 && (
         <div className="questionBox">
@@ -2510,10 +2542,7 @@ function GuidedResponsePanel({
                   onChange={(event) => setAnswers({ ...answers, [check.id]: event.target.value })}
                   placeholder="Write your answer..."
                 />
-                <details className="hintBox">
-                  <summary>Show hint</summary>
-                  <p>{check.hint}</p>
-                </details>
+                <HintLadder check={check} />
                 {evaluation && (
                   <div className={`evaluation ${evaluation.status}`}>
                     <strong>{evaluation.status}</strong>
@@ -2533,6 +2562,24 @@ function GuidedResponsePanel({
         </div>
       )}
     </section>
+  );
+}
+
+function HintLadder({ check }: { check: UnderstandingCheck }) {
+  const [visibleCount, setVisibleCount] = useState(0);
+  const visibleHints = check.hints.slice(0, visibleCount);
+  const nextHint = check.hints[visibleCount];
+  return (
+    <div className="hintBox">
+      {visibleHints.map((hint, index) => (
+        <p key={hint.kind}><strong>Hint {index + 1}</strong>: {hint.text}</p>
+      ))}
+      {nextHint && (
+        <button type="button" className="hintRevealButton" onClick={() => setVisibleCount((count) => count + 1)}>
+          {visibleCount === 0 ? "Show first hint" : "Reveal next hint"}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -2573,46 +2620,101 @@ const evidenceConnectionColors: Record<EvidenceConnection["relationship_kind"], 
   other: "#64748b",
 };
 
-function EvidenceGraphPanel({ graph, evidence }: { graph?: EvidenceConnectionsGraph; evidence: EvidenceItem[] }) {
+type EvidenceGraphMode = "all" | "selected";
+
+const evidenceStatusLabels: Record<EvidenceAssessmentStatus, string> = {
+  core: "Core",
+  supporting: "Supporting",
+  adjacent: "Adjacent",
+  redundant: "Redundant",
+  unclear: "Unclear",
+};
+
+function EvidenceGraphPanel({ graph, selectedEvidence, candidates, organization }: {
+  graph?: EvidenceConnectionsGraph;
+  selectedEvidence: EvidenceItem[];
+  candidates: EvidenceItem[];
+  organization?: EvidenceOrganization;
+}) {
   const connections = graph?.connections || [];
+  const [mode, setMode] = useState<EvidenceGraphMode>("all");
   const [selectedEdgeId, setSelectedEdgeId] = useState("");
-  const activeEdgeId = selectedEdgeId || (connections.length ? "connection-0" : "");
-  const selectedConnection = connections[Number(activeEdgeId.replace("connection-", ""))] || connections[0];
-  const evidenceByRef = useMemo(() => new Map(evidence.map((item) => [item.source_id, item])), [evidence]);
-  const flow = useMemo(
-    () => evidenceGraphElements(connections, evidenceByRef, activeEdgeId),
-    [connections, evidenceByRef, activeEdgeId],
+  const [selectedNodeRef, setSelectedNodeRef] = useState("");
+  const visibleConnections = mode === "all" ? (graph?.candidate_connections || connections) : connections;
+  const activeEdgeId = selectedEdgeId || (visibleConnections.length ? "connection-0" : "");
+  const selectedConnection = visibleConnections[Number(activeEdgeId.replace("connection-", ""))] || visibleConnections[0];
+  const selectedRefs = useMemo(
+    () => new Set(organization?.selected_refs?.length ? organization.selected_refs : selectedEvidence.map((item) => item.source_id)),
+    [organization?.selected_refs, selectedEvidence],
   );
+  const visibleEvidence = useMemo(
+    () => mode === "selected" ? candidates.filter((item) => selectedRefs.has(item.source_id)) : candidates,
+    [candidates, mode, selectedRefs],
+  );
+  const assessmentsByRef = useMemo(
+    () => new Map((organization?.assessments || []).map((assessment) => [assessment.evidence_ref, assessment])),
+    [organization?.assessments],
+  );
+  const evidenceByRef = useMemo(() => new Map(candidates.map((item) => [item.source_id, item])), [candidates]);
+  const flow = useMemo(
+    () => evidenceGraphElements(visibleConnections, visibleEvidence, assessmentsByRef, selectedRefs, activeEdgeId, mode === "all"),
+    [visibleConnections, visibleEvidence, assessmentsByRef, selectedRefs, activeEdgeId, mode],
+  );
+  const selectedNode = selectedNodeRef ? evidenceByRef.get(selectedNodeRef) : undefined;
+  const selectedAssessment = selectedNodeRef ? assessmentsByRef.get(selectedNodeRef) : undefined;
+  const disconnectedReason = graph?.disconnected_evidence?.find((item) => item.evidence_ref === selectedNodeRef)?.reason;
+  const connectedRefs = useMemo(() => new Set(connections.flatMap((item) => [item.source_ref, item.target_ref])), [connections]);
+  const connectedSelectedCount = [...selectedRefs].filter((ref) => connectedRefs.has(ref)).length;
+  const disconnectedSelectedCount = selectedRefs.size - connectedSelectedCount;
 
-  useEffect(() => setSelectedEdgeId(""), [graph]);
+  useEffect(() => {
+    setSelectedEdgeId("");
+    setSelectedNodeRef("");
+    setMode("all");
+  }, [graph]);
 
-  if (graph?.status === "error") {
-    return (
-      <section className="panel evidenceGraphPanel" id="evidence-flow">
-        <div className="panelHeader"><h2>Evidence Flow</h2><span className="panelMeta">unavailable</span></div>
-        <p className="errorText">{graph.error || "Evidence graph generation failed."}</p>
-      </section>
-    );
-  }
-  if (!connections.length || !flow.nodes.length) return null;
+  if (!flow.nodes.length) return null;
   const source = selectedConnection ? evidenceByRef.get(selectedConnection.source_ref) : undefined;
   const target = selectedConnection ? evidenceByRef.get(selectedConnection.target_ref) : undefined;
   return (
     <section className="panel evidenceGraphPanel" id="evidence-flow">
-      <div className="panelHeader">
-        <h2>Evidence Flow</h2>
-        <span className="panelMeta">{flow.nodes.length} nodes · {flow.edges.length} connections</span>
+      <div className="panelHeader evidenceGraphHeader">
+        <div>
+          <h2>Evidence Flow</h2>
+          <span className="panelMeta">
+            {mode === "all"
+              ? `${candidates.length} candidates · ${selectedRefs.size} selected`
+              : `${selectedRefs.size} selected · ${connectedSelectedCount} connected · ${disconnectedSelectedCount} disconnected`}
+          </span>
+        </div>
+        <div className="evidenceGraphModeSwitch" aria-label="Evidence graph mode">
+          <button className={mode === "all" ? "active" : ""} type="button" onClick={() => setMode("all")}>All candidates</button>
+          <button className={mode === "selected" ? "active" : ""} type="button" onClick={() => setMode("selected")}>Selected only</button>
+        </div>
       </div>
+      {mode === "all" && organization?.assessments?.length ? (
+        <div className="evidenceGraphLegend">
+          {(Object.keys(evidenceStatusLabels) as EvidenceAssessmentStatus[]).map((status) => (
+            <span className={`evidenceStatus evidenceStatus-${status}`} key={status}>{evidenceStatusLabels[status]}</span>
+          ))}
+          <span className="selectedEvidenceLegend">Selected for generation</span>
+        </div>
+      ) : null}
+      {graph?.status === "error" && <p className="errorText">{graph.error || "Evidence connections could not be generated; candidates remain inspectable."}</p>}
+      {mode === "all" && graph?.candidate_connections_error && <p className="errorText">{graph.candidate_connections_error}</p>}
       <div className="evidenceGraphCanvas">
         <ReactFlow
+          key={mode}
           nodes={flow.nodes}
           edges={flow.edges}
-          defaultViewport={{ x: 26, y: 120, zoom: 0.72 }}
+          fitView
+          fitViewOptions={{ padding: 0.16, maxZoom: 0.9 }}
           minZoom={0.2}
           maxZoom={1.5}
           nodesDraggable={false}
           nodesConnectable={false}
           onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
+          onNodeClick={(_, node) => setSelectedNodeRef(node.id)}
           proOptions={{ hideAttribution: true }}
         >
           <Background color="#d7dee9" gap={22} size={1} />
@@ -2641,19 +2743,49 @@ function EvidenceGraphPanel({ graph, evidence }: { graph?: EvidenceConnectionsGr
           </dl>
         </article>
       )}
+      {selectedNode && (
+        <div className="dialogOverlay" role="presentation" onClick={() => setSelectedNodeRef("")}>
+          <article className="evidenceNodeDialog" role="dialog" aria-modal="true" aria-labelledby="evidence-node-dialog-title" onClick={(event) => event.stopPropagation()}>
+            <div className="dialogHeader">
+              <div>
+                <div className="evidenceNodeDialogBadges">
+                  {selectedRefs.has(selectedNode.source_id) && <span className="selectedEvidenceLegend">Selected for generation</span>}
+                  {selectedAssessment && <span className={`evidenceStatus evidenceStatus-${selectedAssessment.status}`}>{evidenceStatusLabels[selectedAssessment.status]}</span>}
+                </div>
+                <h3 id="evidence-node-dialog-title">{String(selectedNode.metadata?.coverage_area || "Evidence candidate")}</h3>
+                <code>{evidenceNodePath(selectedNode, selectedNode.source_id)}</code>
+              </div>
+              <button className="textButton compactButton" type="button" onClick={() => setSelectedNodeRef("")}>Close</button>
+            </div>
+            <dl className="evidenceNodeDetails">
+              <div><dt>Claim supported</dt><dd>{String(selectedNode.metadata?.claim_supported || "Not supplied")}</dd></div>
+              <div><dt>Why relevant</dt><dd>{String(selectedNode.metadata?.why_relevant || "Not supplied")}</dd></div>
+              {selectedAssessment && <div><dt>Organizer assessment</dt><dd>{selectedAssessment.reason}</dd></div>}
+              {selectedAssessment?.facet_ids?.length ? <div><dt>Coverage facets</dt><dd>{selectedAssessment.facet_ids.join(", ")}</dd></div> : null}
+              <div><dt>Artifact kind</dt><dd>{String(selectedNode.metadata?.deterministic_artifact_kind || selectedNode.metadata?.artifact_kind || "unknown")}</dd></div>
+              {disconnectedReason && <div><dt>Why disconnected</dt><dd>{disconnectedReason}</dd></div>}
+            </dl>
+            <pre className="evidenceDialogCode">{selectedNode.snippet}</pre>
+          </article>
+        </div>
+      )}
     </section>
   );
 }
 
 function evidenceGraphElements(
   connections: EvidenceConnection[],
-  evidenceByRef: Map<string, EvidenceItem>,
+  evidence: EvidenceItem[],
+  assessments: Map<string, NonNullable<EvidenceOrganization["assessments"]>[number]>,
+  selectedRefs: Set<string>,
   activeEdgeId: string,
+  emphasizeSelected: boolean,
 ): { nodes: Node[]; edges: Edge[] } {
+  const evidenceByRef = new Map(evidence.map((item) => [item.source_id, item]));
   const validConnections = connections.filter(
     (connection) => evidenceByRef.has(connection.source_ref) && evidenceByRef.has(connection.target_ref),
   );
-  const nodeRefs = [...new Set(validConnections.flatMap((connection) => [connection.source_ref, connection.target_ref]))];
+  const nodeRefs = evidence.map((item) => item.source_id);
   const graph = new dagre.graphlib.Graph();
   graph.setDefaultEdgeLabel(() => ({}));
   graph.setGraph({ rankdir: "LR", ranksep: 105, nodesep: 42, marginx: 24, marginy: 24 });
@@ -2667,13 +2799,22 @@ function evidenceGraphElements(
     const path = String(item.metadata?.path || sourcePathFromId(item.source_id));
     const lineRange = String(item.metadata?.line_range || "");
     const role = String(item.metadata?.coverage_area || "Source evidence");
+    const assessment = assessments.get(ref);
     return {
       id: ref,
+      className: [
+        "evidenceCandidateNode",
+        assessment ? `evidenceCandidateNode-${assessment.status}` : "evidenceCandidateNode-unassessed",
+        emphasizeSelected && selectedRefs.has(ref) ? "evidenceCandidateNode-selected" : "",
+      ].filter(Boolean).join(" "),
       position: { x: position.x - EVIDENCE_GRAPH_NODE_WIDTH / 2, y: position.y - EVIDENCE_GRAPH_NODE_HEIGHT / 2 },
       data: {
         label: (
           <div className="evidenceGraphNodeLabel" title={String(item.metadata?.claim_supported || "")}>
-            <strong>{role}</strong>
+            <div className="evidenceGraphNodeHeading">
+              <strong>{role}</strong>
+              {assessment && <small>{evidenceStatusLabels[assessment.status]}</small>}
+            </div>
             <span>{path}</span>
             <small>{lineRange}</small>
           </div>
@@ -2714,12 +2855,24 @@ function formatConnectionKind(value: EvidenceConnection["relationship_kind"]): s
   return value.replaceAll("_", " ");
 }
 
-function EvidencePanel({ runId, evidence, sourceCounts }: { runId?: string; evidence: EvidenceItem[]; sourceCounts: Map<string, number> }) {
+function EvidencePanel({ runId, selectedEvidence, candidates, organization }: {
+  runId?: string;
+  selectedEvidence: EvidenceItem[];
+  candidates: EvidenceItem[];
+  organization?: EvidenceOrganization;
+}) {
+  const selectedRefs = new Set(organization?.selected_refs?.length ? organization.selected_refs : selectedEvidence.map((item) => item.source_id));
+  const assessments = new Map((organization?.assessments || []).map((assessment) => [assessment.evidence_ref, assessment]));
+  const sourceCounts = new Map<string, number>();
+  for (const item of candidates) {
+    const source = item.source_key || item.metadata?.source_key || item.source_category;
+    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
+  }
   return (
     <section className="panel evidencePanel" id="evidence">
       <div className="panelHeader">
         <h2>Evidence</h2>
-        <span className="panelMeta">{evidence.length} selected</span>
+        <span className="panelMeta">{candidates.length} total · {selectedRefs.size} selected</span>
       </div>
       <div className="sourcePills">
         {[...sourceCounts.entries()].map(([source, count]) => (
@@ -2727,16 +2880,30 @@ function EvidencePanel({ runId, evidence, sourceCounts }: { runId?: string; evid
         ))}
       </div>
       <div className="evidenceList">
-        {evidence.map((item) => (
-          <EvidenceCard item={item} runId={runId} key={item.source_id} />
+        {candidates.map((item) => (
+          <EvidenceCard
+            item={item}
+            runId={runId}
+            assessment={assessments.get(item.source_id)}
+            selected={selectedRefs.has(item.source_id)}
+            key={item.source_id}
+          />
         ))}
-        {!evidence.length && <p className="emptyText">Run retrieval to inspect selected code and connected-source evidence.</p>}
+        {!candidates.length && <p className="emptyText">Run retrieval to inspect code and connected-source evidence.</p>}
       </div>
     </section>
   );
 }
 
-function EvidenceCard({ item, runId, source }: { item?: EvidenceItem; runId?: string; source?: SelectedSource }) {
+type EvidenceAssessment = NonNullable<EvidenceOrganization["assessments"]>[number];
+
+function EvidenceCard({ item, runId, source, assessment, selected = false }: {
+  item?: EvidenceItem;
+  runId?: string;
+  source?: SelectedSource;
+  assessment?: EvidenceAssessment;
+  selected?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState("");
@@ -2745,6 +2912,9 @@ function EvidenceCard({ item, runId, source }: { item?: EvidenceItem; runId?: st
   const sourceId = source ? `${source.path}${source.lineRange ? `:${source.lineRange}` : ""}` : evidence?.source_id || source?.href || "";
   const openPath = source?.href || (evidence ? evidenceHrefFromItem(evidence) : "");
   const snippet = evidence?.snippet || "";
+  const claimSupported = String(evidence?.metadata?.claim_supported || "").trim();
+  const whyRelevant = String(evidence?.metadata?.why_relevant || "").trim();
+  const coverageArea = String(evidence?.metadata?.coverage_area || "").trim();
 
   useEffect(() => {
     if (!expanded) return;
@@ -2772,6 +2942,14 @@ function EvidenceCard({ item, runId, source }: { item?: EvidenceItem; runId?: st
     <article className="evidenceCard">
       <div className="evidenceCardHeader">
         <div className="evidenceMeta">
+          {item && (
+            <div className="evidenceCardBadges">
+              {assessment
+                ? <span className={`evidenceStatus evidenceStatus-${assessment.status}`}>{evidenceStatusLabels[assessment.status]}</span>
+                : <span className="evidenceStatus evidenceStatus-unassessed">Unassessed</span>}
+              {selected && <span className="selectedEvidenceLegend">Selected</span>}
+            </div>
+          )}
           {title && <span>{title}</span>}
           <strong>{sourceId}</strong>
         </div>
@@ -2784,7 +2962,13 @@ function EvidenceCard({ item, runId, source }: { item?: EvidenceItem; runId?: st
           </button>
         </div>
       </div>
-      {evidence?.metadata?.claim_supported && <p className="evidenceCardClaim">{evidence.metadata.claim_supported}</p>}
+      {(claimSupported || whyRelevant || coverageArea) && (
+        <dl className="evidenceReferenceDetails">
+          {claimSupported && <div><dt>What this code shows</dt><dd>{claimSupported}</dd></div>}
+          {whyRelevant && <div><dt>How it helps answer your question</dt><dd>{whyRelevant}</dd></div>}
+          {coverageArea && <div><dt>Part of the answer</dt><dd>{coverageArea}</dd></div>}
+        </dl>
+      )}
       {snippet ? (
         <pre>{snippet}</pre>
       ) : (
@@ -2803,6 +2987,13 @@ function EvidenceCard({ item, runId, source }: { item?: EvidenceItem; runId?: st
                 Close
               </button>
             </div>
+            {(claimSupported || whyRelevant || coverageArea) && (
+              <dl className="evidenceReferenceDetails expandedEvidenceReferenceDetails">
+                {claimSupported && <div><dt>What this code shows</dt><dd>{claimSupported}</dd></div>}
+                {whyRelevant && <div><dt>How it helps answer your question</dt><dd>{whyRelevant}</dd></div>}
+                {coverageArea && <div><dt>Part of the answer</dt><dd>{coverageArea}</dd></div>}
+              </dl>
+            )}
             <pre className="evidenceDialogCode">{snippet}</pre>
           </article>
         </div>
@@ -2840,8 +3031,6 @@ type MarkdownRenderContext = {
   sourceAttributions: SourceAttribution[];
   evidence: EvidenceItem[];
   runId?: string;
-  expandedSourceHref?: string;
-  onSourceLink?: (source: SelectedSource) => void;
 };
 
 type SelectedSource = {
@@ -2864,6 +3053,7 @@ function renderMarkdown(markdown: string, context: MarkdownRenderContext): React
       continue;
     }
     if (trimmed.startsWith("```")) {
+      const language = trimmed.slice(3).trim();
       const codeLines: string[] = [];
       index += 1;
       while (index < lines.length && !lines[index].trim().startsWith("```")) {
@@ -2871,17 +3061,46 @@ function renderMarkdown(markdown: string, context: MarkdownRenderContext): React
         index += 1;
       }
       if (index < lines.length) index += 1;
-      nodes.push(<pre className="markdownCode" key={`code-${index}`}>{codeLines.join("\n")}</pre>);
+      nodes.push(<MarkdownCodeBlock code={codeLines.join("\n")} language={language} key={`code-${index}`} />);
       continue;
     }
     const heading = /^(#{1,4})\s+(.+)$/.exec(trimmed);
     if (heading) {
       const level = heading[1].length;
       const text = renderInlineMarkdown(heading[2], context);
-      if (level === 1) nodes.push(<h1 key={`h-${index}`}>{text}</h1>);
-      else if (level === 2) nodes.push(<h2 key={`h-${index}`}>{text}</h2>);
-      else nodes.push(<h3 key={`h-${index}`}>{text}</h3>);
+      const id = markdownHeadingId(heading[2], index);
+      if (level === 1) nodes.push(<h1 id={id} key={`h-${index}`}>{text}</h1>);
+      else if (level === 2) nodes.push(<h2 id={id} key={`h-${index}`}>{text}</h2>);
+      else nodes.push(<h3 id={id} key={`h-${index}`}>{text}</h3>);
       index += 1;
+      continue;
+    }
+    if (isMarkdownTableStart(lines, index)) {
+      const headers = parseMarkdownTableRow(lines[index]);
+      index += 2;
+      const rows: string[][] = [];
+      while (index < lines.length && isMarkdownTableRow(lines[index])) {
+        rows.push(parseMarkdownTableRow(lines[index]));
+        index += 1;
+      }
+      nodes.push(
+        <div className="markdownTableWrap" key={`table-${index}`}>
+          <table className="markdownTable">
+            <thead>
+              <tr>{headers.map((cell, cellIndex) => <th key={`th-${cellIndex}`}>{renderInlineMarkdown(cell, context)}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={`tr-${rowIndex}`}>
+                  {headers.map((_header, cellIndex) => (
+                    <td key={`td-${rowIndex}-${cellIndex}`}>{renderInlineMarkdown(row[cellIndex] || "", context)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
       continue;
     }
     if (/^[-*]\s+/.test(trimmed)) {
@@ -2928,6 +3147,7 @@ function renderMarkdown(markdown: string, context: MarkdownRenderContext): React
       lines[index].trim() &&
       !lines[index].trim().startsWith("```") &&
       !/^(#{1,4})\s+/.test(lines[index].trim()) &&
+      !isMarkdownTableStart(lines, index) &&
       !/^[-*]\s+/.test(lines[index].trim()) &&
       !/^\d+[.)]\s+/.test(lines[index].trim())
     ) {
@@ -2937,6 +3157,82 @@ function renderMarkdown(markdown: string, context: MarkdownRenderContext): React
     nodes.push(<p key={`p-${index}`}>{renderInlineMarkdown(paragraph.join(" "), context)}</p>);
   }
   return nodes;
+}
+
+type MarkdownHeading = {
+  id: string;
+  label: string;
+  level: number;
+};
+
+function getMarkdownHeadings(markdown: string): MarkdownHeading[] {
+  if (!markdown) return [];
+  const headings: MarkdownHeading[] = [];
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  let insideCodeFence = false;
+  lines.forEach((line, index) => {
+    if (line.trim().startsWith("```")) {
+      insideCodeFence = !insideCodeFence;
+      return;
+    }
+    if (insideCodeFence) return;
+    const match = /^(#{1,4})\s+(.+)$/.exec(line.trim());
+    if (!match) return;
+    headings.push({
+      id: markdownHeadingId(match[2], index),
+      label: plainMarkdownLabel(match[2]),
+      level: match[1].length,
+    });
+  });
+  return headings;
+}
+
+function markdownHeadingId(text: string, lineIndex: number): string {
+  const slug = plainMarkdownLabel(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `explanation-${slug || "section"}-${lineIndex}`;
+}
+
+function plainMarkdownLabel(text: string): string {
+  return text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[*_`~]/g, "")
+    .trim();
+}
+
+function MarkdownCodeBlock({ code, language }: { code: string; language: string }) {
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const resetTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => {
+    if (resetTimer.current !== undefined) window.clearTimeout(resetTimer.current);
+  }, []);
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+    if (resetTimer.current !== undefined) window.clearTimeout(resetTimer.current);
+    resetTimer.current = window.setTimeout(() => setCopyStatus("idle"), 1800);
+  }
+
+  const copyLabel = copyStatus === "copied" ? "Copied" : copyStatus === "error" ? "Copy failed" : "Copy";
+  return (
+    <div className="markdownCodeBlock">
+      <div className="markdownCodeToolbar">
+        <span>{language || "code"}</span>
+        <button type="button" onClick={copyCode}>{copyLabel}</button>
+      </div>
+      <pre className="markdownCode">
+        <code className={language ? `language-${language}` : undefined} data-language={language || undefined}>{code}</code>
+      </pre>
+    </div>
+  );
 }
 
 function renderInlineMarkdown(text: string, context: MarkdownRenderContext): ReactNode[] {
@@ -2977,29 +3273,55 @@ function nextNonEmptyLine(lines: string[], startIndex: number): string {
 }
 
 function SourceMarkdownLink({ label, href, context }: { label: string; href: string; context: MarkdownRenderContext }) {
+  const [expanded, setExpanded] = useState(false);
+  const itemRef = useRef<HTMLSpanElement>(null);
   const normalizedHref = href.replace(/^\.?\//, "");
   const [path, anchor = ""] = normalizedHref.split("#", 2);
   const selectedSource = sourceFromHref(label, normalizedHref, context.evidence);
-  const expanded = context.expandedSourceHref === selectedSource.href;
+
+  useEffect(() => {
+    if (!expanded) return;
+    const closeOnOutsideClick = (event: globalThis.MouseEvent) => {
+      if (!itemRef.current?.contains(event.target as Node)) setExpanded(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [expanded]);
+
   function openPanel(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
-    context.onSourceLink?.(selectedSource);
+    setExpanded((current) => !current);
   }
   return (
-    <span className={expanded ? "sourceMarkdownItem expanded" : "sourceMarkdownItem"}>
+    <span className={expanded ? "sourceMarkdownItem expanded" : "sourceMarkdownItem"} ref={itemRef}>
       <a
         className={expanded ? "sourceMarkdownLink expanded" : "sourceMarkdownLink"}
         href={normalizedHref}
         onClick={openPanel}
+        aria-expanded={expanded}
         title={`Preview ${path}${anchor ? ` at ${anchor}` : ""}`}
       >
-        <span className="sourceLinkLabel">{renderInlineMarkdown(label, context)}</span>
+        <span className="sourceLinkLabel">{sourceFileName(path) || label}</span>
       </a>
       {expanded && context.runId && (
-        <EvidenceCard runId={context.runId} source={selectedSource} />
+        <span className="sourceReferencePopover" role="dialog" aria-label={`Evidence preview for ${sourceFileName(path) || label}`}>
+          <EvidenceCard runId={context.runId} source={selectedSource} />
+        </span>
       )}
     </span>
   );
+}
+
+function sourceFileName(path: string): string {
+  const segments = normalizeSourcePath(path).split("/");
+  return segments[segments.length - 1] || path;
 }
 
 function sourceFromHref(label: string, href: string, evidence: EvidenceItem[]): SelectedSource {
@@ -3212,14 +3534,67 @@ function isUnderstandingCheck(value: unknown): value is UnderstandingCheck {
   return Boolean(
     item &&
       typeof item.id === "string" &&
-      typeof item.role === "string" &&
-      typeof item.question_type === "string" &&
+      typeof item.intent === "string" &&
+      Array.isArray(item.target_stage_ids) &&
+      Array.isArray(item.prerequisite_stage_ids) &&
+      typeof item.stem_family === "string" &&
+      typeof item.reasoning_focus === "string" &&
+      typeof item.selection_reason === "string" &&
       typeof item.question === "string" &&
-      typeof item.hint === "string" &&
+      Array.isArray(item.hints) &&
+      item.hints.length === 3 &&
+      item.hints.every((hint) => {
+        const parsed = getObject(hint);
+        return Boolean(parsed && typeof parsed.kind === "string" && typeof parsed.text === "string");
+      }) &&
       Array.isArray(item.expected_answer_points) &&
-      Array.isArray(item.evidence_refs) &&
-      typeof item.origin === "string" &&
-      Array.isArray(item.tested_concepts) &&
-      Array.isArray(item.answer_point_map),
+      Array.isArray(item.evidence_refs),
   );
+}
+
+function isMarkdownTableStart(lines: string[], index: number): boolean {
+  if (index + 1 >= lines.length || !isMarkdownTableRow(lines[index])) return false;
+  const separator = parseMarkdownTableRow(lines[index + 1]);
+  return separator.length >= 2 && separator.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+}
+
+function isMarkdownTableRow(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.startsWith("|") && trimmed.endsWith("|") && parseMarkdownTableRow(trimmed).length >= 2;
+}
+
+function parseMarkdownTableRow(line: string): string[] {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const cells: string[] = [];
+  let current = "";
+  let escaped = false;
+  for (const character of trimmed) {
+    if (escaped) {
+      current += character;
+      escaped = false;
+    } else if (character === "\\") {
+      escaped = true;
+    } else if (character === "|") {
+      cells.push(current.trim());
+      current = "";
+    } else {
+      current += character;
+    }
+  }
+  if (escaped) current += "\\";
+  cells.push(current.trim());
+  return cells;
+}
+
+function getIntentSufficiency(runDetail?: RunDetail): Array<{ intent: string; overall: string }> {
+  const response = getObject(runDetail?.result?.response_payload);
+  const metadata = getObject(response?.metadata);
+  const observation = getObject(metadata?.intent_sufficiency);
+  if (observation?.status !== "complete" || !Array.isArray(observation.results)) return [];
+  return observation.results.flatMap((value) => {
+    const item = getObject(value);
+    return typeof item?.intent === "string" && typeof item?.overall === "string"
+      ? [{ intent: item.intent, overall: item.overall }]
+      : [];
+  });
 }

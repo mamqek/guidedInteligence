@@ -29,7 +29,6 @@ from services.retrieval.workspace.responsibility import ResponsibilityExpansionI
 from services.retrieval.workspace.step2 import WorkspaceRetrievalPlan
 from services.retrieval.workspace.step2.common import ordered_unique
 from services.retrieval.workspace.step2.constants import (
-    INTENT_DEFECT_LOCALIZATION,
     OBJECTIVE_BEHAVIOR_PATH,
     OBJECTIVE_CONFIGURATION_CONTEXT,
     OBJECTIVE_DIAGNOSTIC_SURFACE,
@@ -108,7 +107,7 @@ def run_adaptive_retrieval_loop(
         "adaptive_loop_started",
         {
             "enabled": adaptive_enabled,
-            "primary_intent": retrieval_plan.primary_intent,
+            "task_intents": list(retrieval_plan.task_intents),
             "specificity": retrieval_plan.specificity,
             "required_roles": list(retrieval_plan.required_roles),
             "supporting_roles": list(retrieval_plan.supporting_roles),
@@ -552,7 +551,7 @@ def _retrieve_and_refine_roles(
 def _adaptive_loop_enabled(ctx: WorkspaceRetrievalContext, retrieval_plan: WorkspaceRetrievalPlan) -> bool:
     return (
         ctx.config.objective_role_selection_enabled
-        and retrieval_plan.primary_intent == INTENT_DEFECT_LOCALIZATION
+        and "debug" in retrieval_plan.task_intents
         and retrieval_plan.specificity == SPECIFICITY_NARROW
     )
 
