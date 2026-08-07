@@ -26,7 +26,6 @@ __all__ = [
     *_CONFIG_EXPORTS,
     "WorkspaceRetrievalStage",
     "tools",
-    "workspace_llm",
 ]
 
 
@@ -43,8 +42,4 @@ def __getattr__(name: str) -> Any:
         from services.retrieval.workspace import tools
 
         return tools
-    if name == "workspace_llm":
-        from services.retrieval.workspace import llm as workspace_llm
-
-        return workspace_llm
     raise AttributeError(name)

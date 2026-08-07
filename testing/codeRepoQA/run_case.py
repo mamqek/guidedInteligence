@@ -176,7 +176,6 @@ def run_case(
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE,
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
-    objective_role_selection_enabled: bool = False,
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
         issue_json,
@@ -209,7 +208,6 @@ def run_case(
         codex_prompt_profile=codex_prompt_profile,
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
-        objective_role_selection_enabled=objective_role_selection_enabled,
     )
     retrieval_stage = CodexRetrievalStage(retrieval_config) if retrieval_config.retrieval_mode == RETRIEVAL_MODE_CODEX else WorkspaceRetrievalStage(retrieval_config)
     control_layer = ControlLayer(
@@ -274,7 +272,6 @@ def evaluate_case(
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE,
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
-    objective_role_selection_enabled: bool = False,
 ) -> Path:
     issue_path = Path(issue_json)
     verification_path = Path(verification_json) if verification_json is not None else _default_verification_path(issue_path)
@@ -342,7 +339,6 @@ def evaluate_case(
         codex_prompt_profile=codex_prompt_profile,
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
-        objective_role_selection_enabled=objective_role_selection_enabled,
     )
     _write_run_metadata(
         run_dir=run_dir,
@@ -359,7 +355,6 @@ def evaluate_case(
         retrieval_mode=retrieval_mode,
         codex_model=codex_model,
         codex_prompt_profile=codex_prompt_profile,
-        objective_role_selection_enabled=objective_role_selection_enabled,
     )
     return run_dir
 
@@ -547,7 +542,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
-            objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
         )
         return 0
 
@@ -571,7 +565,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
-            objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
         )
         print(str(run_dir))
         return 0
@@ -599,7 +592,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ),
                 codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
                 codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
-                objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
             )
             print(str(run_dir))
         return 0
@@ -652,7 +644,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                         ),
                         codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
                         codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
-                        objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
                     )
                     artifact_dir = _copy_batch_artifacts(batch_dir, case_issue_json, retrieval_mode, run_dir)
                     elapsed_seconds = (datetime.now(timezone.utc) - started_at).total_seconds()
@@ -946,7 +937,6 @@ def _write_run_metadata(
     retrieval_mode: str,
     codex_model: str,
     codex_prompt_profile: str,
-    objective_role_selection_enabled: bool,
 ) -> None:
     metadata = {
         "case_id": visible_case.case_id,
@@ -961,8 +951,7 @@ def _write_run_metadata(
         "retrieval_mode": retrieval_mode,
         "codex_model": codex_model if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
         "codex_prompt_profile": codex_prompt_profile if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
-        "objective_role_selection_enabled": objective_role_selection_enabled,
-        "intent_system": "intent_contracts_v1",
+        "intent_system": "request_analysis_obligations_v1",
         "resolution": {
             "strategy": resolution.strategy,
             "confidence": resolution.confidence,
@@ -1307,7 +1296,6 @@ def _workspace_retrieval_config_for_case(
     codex_prompt_profile: str,
     codex_timeout_seconds: int,
     codex_ignore_user_config: bool,
-    objective_role_selection_enabled: bool,
 ) -> WorkspaceRetrievalConfig:
     # Shared boundary: both testcase retrieval modes receive the same sanitized
     # ConversationState.user_input built by _user_prompt(title, initial_body).
@@ -1342,7 +1330,6 @@ def _workspace_retrieval_config_for_case(
         qdrant_index_timeout_seconds=CODE_REPOQA_QDRANT_INDEX_TIMEOUT_SECONDS,
         index_exclude_paths=tuple(exclude_paths),
         enabled_source_categories=(SourceCategory.LOCAL_NOTES, SourceCategory.SOURCE_CODE),
-        objective_role_selection_enabled=objective_role_selection_enabled,
     )
 
 

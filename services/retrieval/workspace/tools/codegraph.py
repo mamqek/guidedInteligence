@@ -178,40 +178,58 @@ class CodeGraphFindExactSymbolTool:
         )
 
 
-class CodeGraphSearchSymbolsTool:
-    name = "structural_search_symbols"
+class CodeGraphResolveLocationsTool:
+    name = "structural_resolve_locations"
 
     def __init__(self, bridge: CodeGraphBridge) -> None:
         self.bridge = bridge
 
     def run(self, request: ToolRequest) -> ToolObservation:
-        raw_queries = request.arguments.get("queries")
-        queries = [str(value).strip() for value in raw_queries] if isinstance(raw_queries, list) else []
-        queries = [value for value in queries if value]
-        if not queries:
-            return _error(self.name, "empty_symbol_queries")
+        locations = request.arguments.get("locations")
+        if not isinstance(locations, list) or not locations:
+            return _error(self.name, "empty_locations")
         try:
-            result = self.bridge.request(
-                "search_symbols",
-                {
-                    "queries": queries[:12],
-                    "limit_per_query": int(request.arguments.get("limit_per_query") or 6),
-                },
-            )
+            result = self.bridge.request("resolve_locations", {"locations": locations[:80]})
         except Exception as exc:
-            return _error(self.name, f"structural_symbol_search_failed:{exc}")
-        files = result.get("files") if isinstance(result.get("files"), list) else []
-        match_count = sum(
-            len(item.get("matches", ()))
-            for item in result.get("results", ())
-            if isinstance(item, Mapping) and isinstance(item.get("matches"), list)
-        )
+            return _error(self.name, f"structural_location_resolution_failed:{exc}")
+        results = result.get("results") if isinstance(result.get("results"), list) else []
+        node_count = sum(len(item.get("nodes", ())) for item in results if isinstance(item, Mapping))
         return ToolObservation(
             tool_name=self.name,
             status="ok",
             payload=dict(result),
-            source_refs=tuple(str(item.get("path") or "") for item in files if isinstance(item, Mapping)),
-            metadata={"result_count": str(match_count), "match": "ranked_symbol"},
+            metadata={"result_count": str(node_count), "match": "source_location"},
+        )
+
+
+class CodeGraphExpandNodesTool:
+    name = "structural_expand_nodes"
+
+    def __init__(self, bridge: CodeGraphBridge) -> None:
+        self.bridge = bridge
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        node_ids = request.arguments.get("node_ids")
+        if not isinstance(node_ids, list) or not node_ids:
+            return _error(self.name, "empty_node_ids")
+        try:
+            result = self.bridge.request(
+                "expand_nodes",
+                {
+                    "node_ids": node_ids[:80],
+                    "depth": int(request.arguments.get("depth") or 1),
+                    "limit": int(request.arguments.get("limit") or 120),
+                },
+            )
+        except Exception as exc:
+            return _error(self.name, f"structural_node_expansion_failed:{exc}")
+        nodes = result.get("nodes") if isinstance(result.get("nodes"), list) else []
+        edges = result.get("edges") if isinstance(result.get("edges"), list) else []
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok",
+            payload=dict(result),
+            metadata={"result_count": str(len(nodes)), "edge_count": str(len(edges))},
         )
 
 
@@ -281,7 +299,8 @@ def codegraph_tools(config: WorkspaceRetrievalConfig) -> tuple[dict[str, Any], C
         {
             "structural_index_repo": CodeGraphIndexRepoTool(bridge),
             "structural_find_exact_symbol": CodeGraphFindExactSymbolTool(bridge),
-            "structural_search_symbols": CodeGraphSearchSymbolsTool(bridge),
+            "structural_resolve_locations": CodeGraphResolveLocationsTool(bridge),
+            "structural_expand_nodes": CodeGraphExpandNodesTool(bridge),
             "structural_callers": CodeGraphAnalyzeCallsTool(bridge, direction="callers"),
             "structural_callees": CodeGraphAnalyzeCallsTool(bridge, direction="callees"),
             "structural_relationship": CodeGraphRelationshipTool(bridge),

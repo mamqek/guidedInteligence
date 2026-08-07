@@ -15,7 +15,7 @@ from services.retrieval.workspace.tools.contracts import ToolRequest
 
 
 class CodeGraphToolsIntegrationTests(unittest.TestCase):
-    def test_index_ranked_symbol_search_calls_and_file_relationships(self) -> None:
+    def test_index_exact_symbol_calls_and_file_relationships(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             (root / "src").mkdir()
@@ -39,13 +39,6 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                 conceptual = tools["structural_find_exact_symbol"].run(
                     _request("structural_find_exact_symbol", query="target behavior")
                 )
-                ranked = tools["structural_search_symbols"].run(
-                    _request(
-                        "structural_search_symbols",
-                        queries=["target", "module resolution", "target behavior"],
-                        limit_per_query=5,
-                    )
-                )
                 callers = tools["structural_callers"].run(
                     _request("structural_callers", file="src/a.ts", line=1)
                 )
@@ -58,13 +51,8 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
             self.assertEqual(indexed.status, "ok")
             self.assertFalse((root / "codegraph.json").exists())
             self.assertEqual(exact.source_refs, ("src/a.ts",))
+            self.assertEqual(exact.payload["match_count"], 1)
             self.assertEqual(conceptual.source_refs, ())
-            ranked_results = {item["query"]: item["matches"] for item in ranked.payload["results"]}
-            self.assertEqual(ranked_results["target"][0]["match_type"], "exact_symbol")
-            self.assertTrue(ranked_results["target"][0]["confirmed"])
-            self.assertEqual(ranked_results["module resolution"][0]["match_type"], "segment_cooccurrence")
-            self.assertTrue(ranked_results["module resolution"][0]["confirmed"])
-            self.assertTrue(ranked_results["target behavior"])
             self.assertIn("src/a.ts", callers.source_refs)
             self.assertTrue(relation.payload["related"])
             self.assertTrue(

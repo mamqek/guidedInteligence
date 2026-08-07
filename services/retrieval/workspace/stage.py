@@ -12,7 +12,7 @@ from services.retrieval.workspace.tools.codegraph import close_codegraph_bridge
 
 
 class WorkspaceRetrievalStage:
-    """Workspace retrieval built around per-role subquery validation."""
+    """Workspace retrieval driven by shared request-analysis obligations."""
 
     def __init__(self, config: WorkspaceRetrievalConfig) -> None:
         config.validate()

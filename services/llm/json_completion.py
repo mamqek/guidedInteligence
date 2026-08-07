@@ -236,17 +236,11 @@ def _store_continuity_response(config: Any, response: Mapping[str, Any]) -> None
 
 def _compact_continuity_response(response: Mapping[str, Any]) -> Mapping[str, Any]:
     keep_keys = (
-        "prompt_summary",
-        "retrieval_terms",
-        "required_roles",
-        "supporting_roles",
-        "llm_subqueries",
-        "accepted_anchor_refs",
-        "rejected_anchor_refs",
-        "missing_areas",
-        "follow_up_queries",
-        "snippet_assessment",
-        "stop_reason",
+        "intents",
+        "specificity",
+        "anchors",
+        "search_terms",
+        "evidence_obligations",
     )
     compact: dict[str, Any] = {}
     for key in keep_keys:

@@ -2041,3 +2041,21 @@
   - Replaced the singular `hint` field with an exact `direction -> focus -> scaffold` ladder generated from the same question, expected points, stages, evidence, and graph context. No singular-hint compatibility fallback remains.
   - Added hint-only repair with its own prompt. A rejected ladder is replaced without regenerating the question or expected answer points; the UI reveals one hint at a time.
   - Live run `run-20260806T225055Z-7ffa037b`: `coverage_status=strong`, `sufficient=true`, 2 questions, 32,112 organizer+generation+repair LLM tokens, zero explanation repairs, zero hint repairs, and one question-only repair. The valid second question was preserved while only the rejected first question was regenerated. Both final ladders progressed from a reasoning operation to a concrete code relationship and then a partial causal scaffold without copying the expected points verbatim. The extra question-repair call accounted for 9,347 tokens, so this run should not be used as a clean estimate of the normal hint-ladder token increase.
+
+# 2026-08-08 - Obligation-driven native retrieval
+
+- Stage boundary: the global intent call now also extracts request anchors, conceptual search terms, and ordered evidence obligations before either retrieval provider runs. Native retrieval resolves those obligations through exact CodeGraph anchors, Qdrant discovery, graph traversal, and deterministic coverage checks.
+- Removed the old native Step2 role planner, role buckets, path/keyword ownership heuristics, and their recovery loops. They are not retained as a fallback path.
+- CodeGraph exact symbol matches are authoritative only when the repository contains one exact node. Missing or ambiguous names remain semantic discovery terms; the removed fuzzy symbol operation cannot establish graph identity.
+- Qdrant searches each obligation independently across all file roles. Semantic candidates must match obligation-specific terms before they can support an obligation, and CodeGraph expansion starts only from grounded candidates.
+- Expected quality impact: fewer support-file false positives, explicit unresolved obligations/transitions, and better implementation-owner discovery. Expected token impact: one shared request-analysis LLM call; native graph traversal itself adds no LLM tokens.
+- Regression risks: request-analysis obligations and symbol fields vary between LLM runs; excluded test trees can leave validation obligations unresolved; CodeGraph may not connect protocol or cross-format boundaries.
+- Vue verification:
+  - Before exact-anchor enforcement, `run-20260807T221550Z` incorrectly returned `strong/true`, selected watcher/patch evidence, and had zero oracle overlap.
+  - `run-20260807T222937Z` returned `strong/true`, selected only the server/runtime `dom-props.js` implementation pair, and found the oracle in the top five. `domProps`, `renderVmWithOptions`, `VTextarea`, and `VTextField` remained unresolved exact symbols and were used only for semantic discovery.
+- TypeScript verification:
+  - `run-20260807T223034Z` returned `partial/false`, selected `moduleNameResolver.ts` and `sys.ts`, and found an oracle implementation in the top five. `fs.statSync` remained unresolved as an exact symbol; missing graph transitions prevented a false `strong` result.
+- Historical native failure comparison:
+  - Old `microsoft-TypeScript-45713` workspace run `run-20260623T102628Z` ended `failed/false` after the CGC index timed out at 600 seconds; it selected zero files and had no oracle overlap.
+  - Current run `run-20260807T224650Z` completed `partial/false`, selected nine files, and found both known implementation owners: `executeCommandLine.ts` at rank 5 and `watch.ts` at rank 7. Both counted as implementation overlaps, with an oracle hit in the top five.
+  - CodeGraph indexing took 9.4 seconds and obligation retrieval took 23.1 seconds. The 667.5-second total remained poor because the cold BM25/Qdrant stage rebuilt and embedded 16,453 chunks in 582 seconds. Structural indexing is no longer the timeout source; cold semantic indexing is now the dominant cost.

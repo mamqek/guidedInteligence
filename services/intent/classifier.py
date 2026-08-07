@@ -5,6 +5,7 @@ import time
 from typing import Any, Callable, Mapping, Sequence
 
 from services.intent.logging import IntentStageResult
+from services.intent.contracts import INTENT_CONTRACTS
 from services.intent.models import IntentClassificationInput, classification_from_mapping
 from services.intent.prompts import PROMPT_PATH
 from services.intent.schema import intent_response_format
@@ -48,9 +49,20 @@ def classify_intent(
 
 
 def _messages(classification_input: IntentClassificationInput) -> Sequence[Mapping[str, str]]:
+    payload = classification_input.to_dict()
+    payload["intent_contracts"] = {
+        intent.value: {
+            "retrieval_description": contract.retrieval_description,
+            "stages": [
+                {"id": stage.id, "purpose": stage.purpose}
+                for stage in contract.stages
+            ],
+        }
+        for intent, contract in INTENT_CONTRACTS.items()
+    }
     return (
         {"role": "system", "content": PROMPT_PATH.read_text(encoding="utf-8")},
-        {"role": "user", "content": json.dumps(classification_input.to_dict(), sort_keys=True)},
+        {"role": "user", "content": json.dumps(payload, sort_keys=True)},
     )
 
 

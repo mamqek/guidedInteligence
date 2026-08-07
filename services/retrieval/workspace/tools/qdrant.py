@@ -34,7 +34,8 @@ class QdrantHybridSearchTool:
         paths = tuple(str(item) for item in request.arguments.get("paths", ()) if str(item).strip())
         min_score = float(request.arguments.get("min_score", 0.0) or 0.0)
         source_category = str(request.arguments.get("source_category", "source_code")).strip() or "source_code"
-        file_role = str(request.arguments.get("file_role", "implementation")).strip() or "implementation"
+        requested_file_role = str(request.arguments.get("file_role", "implementation")).strip()
+        file_role = "" if requested_file_role == "any" else (requested_file_role or "implementation")
         include_breakdown = bool(request.arguments.get("include_breakdown", True))
         try:
             results = self.backend.search(
@@ -109,7 +110,7 @@ def qdrant_tool_specs() -> tuple[ToolSpec, ...]:
                 "paths": "Optional list of relative repo paths. Restricts search to a narrowed file set.",
                 "min_score": "Optional number. Filters out fused results below this score.",
                 "source_category": "Optional payload filter. Defaults to source_code.",
-                "file_role": "Optional payload filter. Defaults to implementation.",
+                "file_role": "Optional payload filter. Defaults to implementation; use any to search every file role.",
                 "include_breakdown": "Optional boolean. Defaults to true and includes sparse-only, dense-only, and hybrid top-k results in the payload.",
             },
             examples=(

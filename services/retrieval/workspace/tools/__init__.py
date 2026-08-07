@@ -4,7 +4,6 @@ from services.retrieval.workspace.tools.codegraph import (
     CodeGraphFindExactSymbolTool,
     CodeGraphIndexRepoTool,
     CodeGraphRelationshipTool,
-    CodeGraphSearchSymbolsTool,
     codegraph_tools,
 )
 from services.retrieval.workspace.tools.contracts import RetrievalTool, ToolObservation, ToolRequest, ToolSpec
@@ -22,7 +21,6 @@ __all__ = [
     "CodeGraphFindExactSymbolTool",
     "CodeGraphIndexRepoTool",
     "CodeGraphRelationshipTool",
-    "CodeGraphSearchSymbolsTool",
     "BM25SearchTool",
     "QdrantHybridSearchTool",
     "OpenFileTool",

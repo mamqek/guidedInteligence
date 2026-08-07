@@ -9,6 +9,9 @@ def build_intent_context(classification: IntentClassification) -> IntentContext:
         intents=classification.intents,
         specificity=classification.specificity,
         explicit_targets=classification.explicit_targets,
+        anchors=classification.anchors,
+        search_terms=classification.search_terms,
+        evidence_obligations=classification.evidence_obligations,
     )
 
 
