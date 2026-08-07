@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from services.retrieval.workspace.tools import ToolObservation, ToolRequest
-from services.retrieval.workspace.pipeline.file_level import tool_summary_payload
 
 
 class RetrievalTrace:
@@ -27,7 +26,8 @@ class RetrievalTrace:
                 "request_reason": request.reason,
                 "request_arguments": dict(request.arguments),
                 "status": observation.status,
-                **tool_summary_payload(observation),
+                "result_count": observation.metadata.get("result_count", "0"),
+                "source_ref_count": len(observation.source_refs),
             },
         )
 

@@ -1,4 +1,4 @@
-Classify the user's repository-assistance request by the outcomes they explicitly want.
+Analyze the user's repository-assistance request once for every retrieval provider.
 
 Task intents:
 
@@ -16,5 +16,9 @@ Return every independently requested outcome and no internal work the system mer
 Question words are not intent labels by themselves. Classify by the information or outcome sought.
 
 Keep conversation relation, solution pressure, specificity, and target state separate from task intents. An explicit target must be a literal file, symbol, route, subsystem, issue, error, or other repository target present in the current prompt. Do not invent targets.
+
+Extract request anchors exactly as written when present: paths, symbols, error text, literals, and other identifiers. Return concise conceptual search terms that preserve the user's vocabulary while also naming concepts useful for repository search.
+
+Define three to eight ordered evidence obligations describing what repository retrieval must establish to answer the request. Obligations describe claims or transitions that need evidence, never expected filenames. Derive them from the selected intents and their supplied intent contracts. Use short lowercase snake-case IDs containing no labels or annotations. Use `depends_on` to express ordering or branches. Mark an obligation required only when omitting it would leave the requested outcome unsupported. For a very narrow request, one or two obligations are sufficient.
 
 Return only the JSON required by the supplied schema.

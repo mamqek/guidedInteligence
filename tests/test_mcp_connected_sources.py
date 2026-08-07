@@ -10,7 +10,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from core.models import ConversationState, EvidenceItem
 from core.source_policy import SourceCategory
 from services.retrieval.config import (
     ConnectedSourceDocument,
@@ -21,13 +20,10 @@ from services.retrieval.config import (
     RunLLMConfig,
     WorkspaceRetrievalConfig,
 )
-from services.retrieval.workspace.connected_context import ConnectedSourceContextResult
 from services.retrieval.workspace.mcp import MCPConnectedSourceAdapter, RemoteMCPConnectedSourceAdapter
 from services.retrieval.workspace.mcp.adapters import _extract_records
 from services.retrieval.workspace.mcp.remote import _canonical_notion_identifier, _canonical_record_identifier
-from services.retrieval.workspace.pipeline.evidence_flow import drop_unhinted_late_connected_file_evidence
 from services.retrieval.server import RuntimeState
-from services.retrieval.workspace import WorkspaceRetrievalStage
 
 
 class MCPConnectedSourceTests(unittest.TestCase):
@@ -66,33 +62,6 @@ class MCPConnectedSourceTests(unittest.TestCase):
                 title="GI-NOTION-CERT Codex Write Probe 2026-07-22",
             ),
         )
-
-    def test_unhinted_late_connected_file_evidence_is_dropped(self) -> None:
-        selected = drop_unhinted_late_connected_file_evidence(
-            [
-                EvidenceItem(
-                    source_category=SourceCategory.SOURCE_CODE,
-                    source_id="repo-pre:src/runtime/notionCert.ts:L1-L6",
-                    snippet="owner",
-                    metadata={"path": "src/runtime/notionCert.ts", "retrieval_path": "late_accepted_file_span"},
-                ),
-                EvidenceItem(
-                    source_category=SourceCategory.SOURCE_CODE,
-                    source_id="repo-pre:src/runtime/notionNoise.ts:L1-L1",
-                    snippet="noise",
-                    metadata={"path": "src/runtime/notionNoise.ts", "retrieval_path": "late_accepted_file_span"},
-                ),
-                EvidenceItem(
-                    source_category=SourceCategory.SOURCE_CODE,
-                    source_id="repo-pre:src/runtime/notionNoise.ts:FILE",
-                    snippet="noise file",
-                    metadata={"path": "src/runtime/notionNoise.ts", "retrieval_path": "local_in_file_refinement"},
-                ),
-            ],
-            connected_file_hints=("src/runtime/notionCert.ts",),
-        )
-
-        self.assertEqual(["repo-pre:src/runtime/notionCert.ts:L1-L6"], [item.source_id for item in selected])
 
     def test_adapter_normalizes_stdio_mcp_tool_results(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

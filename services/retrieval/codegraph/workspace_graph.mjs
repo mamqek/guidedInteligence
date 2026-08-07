@@ -83,66 +83,15 @@ function uniqueFiles(nodes, limit = 50) {
   return files;
 }
 
-function queryWords(value) {
-  return String(value || "")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .toLowerCase()
-    .match(/[a-z0-9_]+/g)
-    ?.filter((word) => word.length >= 2) || [];
-}
-
-function rankedSymbolMatches(codegraph, query, limit) {
-  const matches = [];
-  const seen = new Set();
-
-  function add(node, details) {
-    if (!node?.id || seen.has(node.id) || matches.length >= limit) return;
-    seen.add(node.id);
-    matches.push({
-      ...nodePayload(node),
-      ...details,
-      rank: matches.length + 1,
-    });
-  }
-
-  for (const node of exactNodes(codegraph, query)) {
-    add(node, {
-      match_type: "exact_symbol",
-      matched_words: queryWords(query),
-      search_score: null,
-      confirmed: true,
-    });
-  }
-
-  const words = queryWords(query);
-  if (words.length) {
-    const segments = codegraph
-      .getSegmentMatches(words, Math.max(limit * 3, 12))
-      .sort((left, right) => right.matchedWords.length - left.matchedWords.length);
-    for (const segment of segments) {
-      const node = exactNodes(codegraph, segment.name, segment.filePath).find(
-        (candidate) => Number(candidate.startLine || 0) === Number(segment.startLine || 0),
-      );
-      if (!node) continue;
-      const matchedWords = [...new Set(segment.matchedWords.map((word) => String(word).toLowerCase()))];
-      add(node, {
-        match_type: matchedWords.length >= 2 ? "segment_cooccurrence" : "segment_single",
-        matched_words: matchedWords,
-        search_score: null,
-        confirmed: matchedWords.length >= 2,
-      });
-    }
-  }
-
-  for (const result of codegraph.searchNodes(query, { limit: Math.max(limit * 3, 12) })) {
-    add(result.node, {
-      match_type: "ranked_symbol",
-      matched_words: [],
-      search_score: Number(result.score || 0),
-      confirmed: false,
-    });
-  }
-  return matches;
+function edgePayload(codegraph, edge) {
+  const source = codegraph.getNode(edge.source);
+  const target = codegraph.getNode(edge.target);
+  return {
+    kind: edge.kind,
+    provenance: edge.provenance || "",
+    source: source ? nodePayload(source) : null,
+    target: target ? nodePayload(target) : null,
+  };
 }
 
 async function indexRepository() {
@@ -163,24 +112,64 @@ async function findExactSymbol(args) {
   const codegraph = await openGraph();
   const nodes = exactNodes(codegraph, args.query);
   const limit = Math.max(1, Math.min(Number(args.limit || 20), 100));
-  return { query: String(args.query || ""), nodes: nodes.slice(0, limit).map(nodePayload), files: uniqueFiles(nodes, limit) };
+  return {
+    query: String(args.query || ""),
+    match_count: nodes.length,
+    nodes: nodes.slice(0, limit).map(nodePayload),
+    files: uniqueFiles(nodes, limit),
+  };
 }
 
-async function searchSymbols(args) {
+async function resolveLocations(args) {
   const codegraph = await openGraph();
-  const queries = [...new Set((Array.isArray(args.queries) ? args.queries : []).map((value) => String(value || "").trim()).filter(Boolean))].slice(0, 12);
-  const limit = Math.max(1, Math.min(Number(args.limit_per_query || 6), 20));
-  const results = queries.map((query) => ({ query, matches: rankedSymbolMatches(codegraph, query, limit) }));
-  const files = [];
-  const seenFiles = new Set();
-  for (const result of results) {
-    for (const match of result.matches) {
-      if (!match.path || seenFiles.has(match.path)) continue;
-      seenFiles.add(match.path);
-      files.push({ path: match.path, name: match.name, kind: match.kind, line: match.line_start });
-    }
+  const locations = Array.isArray(args.locations) ? args.locations.slice(0, 80) : [];
+  return {
+    results: locations.map((location) => ({
+      file: normalizePath(location.file),
+      line: Number(location.line || 0),
+      nodes: nodesAtLocation(codegraph, location.file, location.line).slice(0, 4).map(nodePayload),
+    })),
+  };
+}
+
+async function expandNodes(args) {
+  const codegraph = await openGraph();
+  const seedIds = [...new Set((Array.isArray(args.node_ids) ? args.node_ids : []).map(String).filter(Boolean))].slice(0, 80);
+  const depth = Math.max(1, Math.min(Number(args.depth || 1), 3));
+  const limit = Math.max(1, Math.min(Number(args.limit || 120), 400));
+  const visited = new Set(seedIds);
+  let frontier = [...seedIds];
+  const nodes = [];
+  const edges = [];
+  const edgeKeys = new Set();
+  for (const id of seedIds) {
+    const node = codegraph.getNode(id);
+    if (node) nodes.push(nodePayload(node));
   }
-  return { queries, results, files };
+  for (let level = 0; level < depth && frontier.length && nodes.length < limit; level += 1) {
+    const next = [];
+    for (const id of frontier) {
+      const adjacent = [...codegraph.getOutgoingEdges(id), ...codegraph.getIncomingEdges(id)];
+      for (const edge of adjacent) {
+        const key = `${edge.source}\0${edge.target}\0${edge.kind}`;
+        if (!edgeKeys.has(key)) {
+          edgeKeys.add(key);
+          edges.push(edgePayload(codegraph, edge));
+        }
+        const otherId = edge.source === id ? edge.target : edge.source;
+        if (visited.has(otherId)) continue;
+        const other = codegraph.getNode(otherId);
+        if (!other) continue;
+        visited.add(otherId);
+        next.push(otherId);
+        nodes.push(nodePayload(other));
+        if (nodes.length >= limit) break;
+      }
+      if (nodes.length >= limit) break;
+    }
+    frontier = next;
+  }
+  return { seed_node_ids: seedIds, nodes, edges: edges.slice(0, limit * 3) };
 }
 
 async function analyzeCalls(args, direction) {
@@ -249,7 +238,8 @@ async function relationshipBetweenFiles(args) {
 async function dispatch(operation, args) {
   if (operation === "index") return indexRepository();
   if (operation === "find_exact_symbol") return findExactSymbol(args);
-  if (operation === "search_symbols") return searchSymbols(args);
+  if (operation === "resolve_locations") return resolveLocations(args);
+  if (operation === "expand_nodes") return expandNodes(args);
   if (operation === "callers") return analyzeCalls(args, "callers");
   if (operation === "callees") return analyzeCalls(args, "callees");
   if (operation === "relationship_between_files") return relationshipBetweenFiles(args);

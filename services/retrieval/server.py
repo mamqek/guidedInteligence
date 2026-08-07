@@ -96,46 +96,19 @@ DEFAULT_REMOTE_MCP_SOURCE_KEYS = (
 )
 DEFAULT_ALLOWED_SOURCE_KEYS = (*BUILTIN_SOURCE_KEYS, *DEFAULT_REMOTE_MCP_SOURCE_KEYS)
 RETRIEVAL_STAGE_WINDOWS: dict[str, tuple[int, int]] = {
-    "index_cgc": (12, 36),
-    "index_bm25_qdrant": (36, 46),
-    "connected_context": (46, 50),
-    "repo_context": (50, 54),
-    "retrieval_planning": (54, 60),
-    "initial_narrowing": (60, 67),
-    "required_role_retrieval": (67, 79),
-    "role_refinement": (79, 86),
-    "synthesis_assessment": (86, 89),
-    "weak_role_recovery": (89, 92),
-    "protocol_bridge": (92, 94),
-    "coverage_gate": (94, 96),
+    "index_codegraph": (12, 36),
+    "index_bm25_qdrant": (36, 52),
+    "obligation_retrieval": (52, 96),
 }
 RETRIEVAL_STAGE_MESSAGES: dict[str, str] = {
-    "index_cgc": "Refreshing the code graph.",
+    "index_codegraph": "Refreshing the code graph.",
     "index_bm25_qdrant": "Syncing the local search indexes.",
-    "connected_context": "Collecting connected source context.",
-    "repo_context": "Building repository context hints.",
-    "retrieval_planning": "Planning the evidence search.",
-    "initial_narrowing": "Narrowing the likely code areas.",
-    "required_role_retrieval": "Collecting core evidence.",
-    "role_refinement": "Tightening file-level evidence.",
-    "synthesis_assessment": "Checking whether the evidence is enough.",
-    "weak_role_recovery": "Recovering weak evidence areas.",
-    "protocol_bridge": "Connecting prompt details to code paths.",
-    "coverage_gate": "Verifying coverage before explanation.",
+    "obligation_retrieval": "Resolving and connecting required evidence.",
 }
 DEFAULT_RETRIEVAL_STAGE_HINT_SECONDS: dict[str, float] = {
-    "index_cgc": 240.0,
+    "index_codegraph": 30.0,
     "index_bm25_qdrant": 45.0,
-    "connected_context": 5.0,
-    "repo_context": 12.0,
-    "retrieval_planning": 18.0,
-    "initial_narrowing": 18.0,
-    "required_role_retrieval": 60.0,
-    "role_refinement": 45.0,
-    "synthesis_assessment": 12.0,
-    "weak_role_recovery": 24.0,
-    "protocol_bridge": 6.0,
-    "coverage_gate": 12.0,
+    "obligation_retrieval": 45.0,
 }
 
 
@@ -1091,8 +1064,6 @@ class RuntimeState:
         indexing_estimate: Mapping[str, Any],
     ) -> None:
         started_at = datetime.now(timezone.utc)
-        role_subquery_count = 0
-        completed_role_subqueries = 0
         completed_embedding_batches = 0
         stage_duration_hints = _load_historical_stage_duration_hints(self.runs_root, exclude_run_id=run_id)
         try:
@@ -1135,7 +1106,7 @@ class RuntimeState:
                 original_record = retrieval_stage._record
 
             def record_retrieval_progress(event_type: str, event_payload: Mapping[str, Any]) -> None:
-                nonlocal role_subquery_count, completed_role_subqueries, completed_embedding_batches
+                nonlocal completed_embedding_batches
                 original_record(event_type, event_payload)
                 if event_type == "retrieval_stage_started":
                     stage_key = str(event_payload.get("stage_key") or "").strip()
@@ -1175,32 +1146,6 @@ class RuntimeState:
                     )
                 elif event_type == "workspace_index_reused":
                     self._update_run_progress(run_dir, phase="retrieval", percent=46, message="Index is ready.", log="Index ready.")
-                elif event_type == "role_subquery_started":
-                    role_subquery_count += 1
-                    role = str(event_payload.get("role") or "role")
-                    phase_name = str(event_payload.get("phase") or "required")
-                    percent = _subquery_progress_percent(
-                        stage_key="required_role_retrieval" if phase_name == "required" else "coverage_gate",
-                        completed=max(completed_role_subqueries, 0),
-                        total=max(role_subquery_count, 1),
-                    )
-                    self._update_run_progress(run_dir, phase="retrieval", percent=percent, message=f"Collecting {role.replace('_', ' ')} evidence.")
-                elif event_type == "role_subquery_completed":
-                    completed_role_subqueries += 1
-                    role = str(event_payload.get("role") or "role")
-                    phase_name = str(event_payload.get("phase") or "required")
-                    elapsed = _elapsed_seconds_from_payload(event_payload)
-                    log = f"Finished {role.replace('_', ' ')} evidence{_duration_suffix(elapsed)}."
-                    percent = _subquery_progress_percent(
-                        stage_key="required_role_retrieval" if phase_name == "required" else "coverage_gate",
-                        completed=completed_role_subqueries,
-                        total=max(role_subquery_count, completed_role_subqueries, 1),
-                    )
-                    self._update_run_progress(run_dir, phase="retrieval", percent=percent, message="Collecting core evidence.", log=log)
-                elif event_type in {"role_followup_completed", "deterministic_coverage_gate_completed", "gap_check_completed"}:
-                    self._update_run_progress(run_dir, phase="retrieval", percent=94, message="Verifying coverage before explanation.")
-                elif event_type == "retrieval_refinement_evaluated":
-                    self._update_run_progress(run_dir, phase="retrieval", percent=89, message="Checking whether the evidence is enough.")
                 elif event_type == "codex_retrieval_started":
                     self._update_run_progress(
                         run_dir,

@@ -5,7 +5,7 @@ from typing import Any, Mapping
 from services.intent.models import SolutionPressure, Specificity, TargetState, TargetType, TaskIntent, TurnRelation
 
 
-SCHEMA_VERSION = "intent_classification_v2"
+SCHEMA_VERSION = "request_analysis_v1"
 
 
 def intent_response_format() -> Mapping[str, Any]:
@@ -41,6 +41,35 @@ def intent_response_format() -> Mapping[str, Any]:
                     },
                     "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                     "classification_basis": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
+                    "anchors": {
+                        "type": "object",
+                        "properties": {
+                            "paths": _string_array(12),
+                            "symbols": _string_array(16),
+                            "errors": _string_array(8),
+                            "literals": _string_array(12),
+                            "identifiers": _string_array(16),
+                        },
+                        "required": ["paths", "symbols", "errors", "literals", "identifiers"],
+                        "additionalProperties": False,
+                    },
+                    "search_terms": _string_array(16),
+                    "evidence_obligations": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "description": {"type": "string"},
+                                "required": {"type": "boolean"},
+                                "depends_on": _string_array(8),
+                            },
+                            "required": ["id", "description", "required", "depends_on"],
+                            "additionalProperties": False,
+                        },
+                    },
                 },
                 "required": [
                     "intents",
@@ -51,6 +80,9 @@ def intent_response_format() -> Mapping[str, Any]:
                     "explicit_targets",
                     "confidence",
                     "classification_basis",
+                    "anchors",
+                    "search_terms",
+                    "evidence_obligations",
                 ],
                 "additionalProperties": False,
             },
@@ -60,3 +92,7 @@ def intent_response_format() -> Mapping[str, Any]:
 
 def _values(enum_type: Any) -> list[str]:
     return [item.value for item in enum_type]
+
+
+def _string_array(max_items: int) -> Mapping[str, Any]:
+    return {"type": "array", "items": {"type": "string"}, "maxItems": max_items}
