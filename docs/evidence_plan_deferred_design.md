@@ -4,7 +4,9 @@
 
 This is deferred related work for the [Intent System Design](intent_system_design.md). It is preserved as a possible future retrieval experiment, but it is not part of the recommended first intent rewrite.
 
-The first intent rewrite should leave retrieval behavior stable and focus on intent classification, intent-selected answer/story flows, intent-specific questions and hints, policy boundaries, and evaluation against real prompts.
+The first intent rewrite should leave retrieval architecture and evidence-selection contracts stable and focus on intent classification, intent-selected answer/story flows, intent-specific questions and hints, policy boundaries, and evaluation against real prompts.
+
+Retrieval may receive the selected task-intent labels, fixed neutral intent descriptions, specificity, and explicit targets. That minimal context communicates the requested outcomes without prescribing evidence categories. It is not an Evidence Plan.
 
 The active intent design may compare already retrieved evidence with a per-intent evidence contract and display a sufficiency marker. That observational comparison is not an Evidence Plan: it occurs after retrieval and cannot influence retrieval, evidence acceptance, response generation, or policy. This document concerns the separate deferred idea of using intent-derived evidence expectations to direct retrieval before or during search.
 
@@ -58,7 +60,7 @@ If this direction is revisited, it should have an isolated feature flag, an unch
 1. **Plan claims, not files.** An objective says what the answer must establish. Retrieval decides which artifact can establish it.
 2. **Separate required, alternative, optional, and deferred evidence.** Do not retrieve every possibly useful category in the first pass.
 3. **Allow `one_of` requirements.** For example, a debug explanation may establish expected behavior through a test, public contract, issue reproduction, or invariant; it should not require all four.
-4. **Compose intent defaults deterministically.** Union and deduplicate the primary and secondary contracts rather than asking a model to invent an unrestricted plan.
+4. **Compose intent defaults deterministically.** Union and deduplicate the selected intent contracts rather than asking a model to invent an unrestricted plan.
 5. **Adapt with prompt signals.** A stack trace can activate diagnostics; an explicit API can activate usage evidence; a broad architecture request can activate subsystem boundaries.
 6. **Use bounded promotion.** Promote deferred evidence only when a required claim remains unsupported after a retrieval round.
 7. **Report insufficiency honestly.** Missing required evidence produces an explicit unresolved point; it does not trigger unconditional retrieval of every old role.

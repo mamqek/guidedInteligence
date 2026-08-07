@@ -51,7 +51,7 @@ from services.retrieval.workspace.pipeline.snippet_level import (
 from services.retrieval.workspace.responsibility import profile_candidate
 from services.retrieval.workspace.step2 import WorkspaceRetrievalPlan
 from services.retrieval.workspace.step2.common import ordered_unique
-from services.retrieval.workspace.step2.constants import INTENT_DEFECT_LOCALIZATION, ROLE_BEHAVIOR_OUTPUT, ROLE_VALIDATION_CHECKING, SPECIFICITY_NARROW
+from services.retrieval.workspace.step2.constants import ROLE_BEHAVIOR_OUTPUT, ROLE_VALIDATION_CHECKING
 from services.retrieval.workspace.tools import ToolRequest
 
 

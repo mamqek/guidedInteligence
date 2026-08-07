@@ -6,10 +6,11 @@ from typing import Any, Mapping
 
 from core.source_policy import SourceCategory
 from core.violations import PolicyViolation
+from services.intent.models import IntentContext
 
 
-class UserIntent(str, Enum):
-    """Small v1 intent set used by policy before model-heavy classification exists."""
+class AssistanceRequestType(str, Enum):
+    """Coarse request shape used only by the teaching-policy gate."""
 
     UNDERSTAND_CODE = "understand_code"
     DIRECT_SOLUTION_REQUEST = "direct_solution_request"
@@ -58,43 +59,15 @@ class EvidenceItem:
 
 
 @dataclass(frozen=True)
-class RetrievalHints:
-    """Advisory intent metadata that can shape retrieval without being evidence."""
-
-    retrieval_intents: tuple[Mapping[str, str], ...] = field(default_factory=tuple)
-    response_operation: str = ""
-    primary_expected_output: str = ""
-    expected_outputs: tuple[str, ...] = field(default_factory=tuple)
-    solution_pressure: str = ""
-    user_goals: tuple[str, ...] = field(default_factory=tuple)
-    explicit_targets: tuple[Mapping[str, str], ...] = field(default_factory=tuple)
-    confidence: float = 0.0
-    product_boundary: str = "explain_plan_suggest_only"
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "retrieval_intents": [dict(item) for item in self.retrieval_intents],
-            "response_operation": self.response_operation,
-            "primary_expected_output": self.primary_expected_output,
-            "expected_outputs": list(self.expected_outputs),
-            "solution_pressure": self.solution_pressure,
-            "user_goals": list(self.user_goals),
-            "explicit_targets": [dict(item) for item in self.explicit_targets],
-            "confidence": self.confidence,
-            "product_boundary": self.product_boundary,
-        }
-
-
-@dataclass(frozen=True)
 class ConversationState:
     """Full policy-facing state for deciding the next orchestration action."""
 
     conversation_id: str
     user_input: str
-    intent: UserIntent = UserIntent.UNKNOWN
+    assistance_request: AssistanceRequestType = AssistanceRequestType.UNKNOWN
     history: tuple[ConversationMessage, ...] = field(default_factory=tuple)
     evidence: tuple[EvidenceItem, ...] = field(default_factory=tuple)
-    retrieval_hints: RetrievalHints | None = None
+    intent_context: IntentContext | None = None
 
 
 @dataclass(frozen=True)
@@ -102,7 +75,7 @@ class PolicyResult:
     """Bounded output of the policy gate."""
 
     allowed: bool
-    intent: UserIntent
+    assistance_request: AssistanceRequestType
     retrieval_required: bool
     allowed_sources: tuple[SourceCategory, ...]
     turn_type: TurnType
@@ -114,7 +87,7 @@ class PolicyResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "allowed": self.allowed,
-            "intent": self.intent.value,
+            "assistance_request": self.assistance_request.value,
             "retrieval_required": self.retrieval_required,
             "allowed_sources": [source.value for source in self.allowed_sources],
             "turn_type": self.turn_type.value,

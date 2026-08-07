@@ -1,44 +1,55 @@
-from __future__ import annotations
-
 from services.intent.classifier import classify_intent
-from services.intent.agreement import IntentAgreement, assess_intent_agreement
+from services.intent.composer import build_intent_context, compose_intent_flow, validate_stage_permutation
+from services.intent.contracts import INTENT_CONTRACTS, get_intent_contract, validate_contract_registry
 from services.intent.logging import IntentStageResult
 from services.intent.models import (
-    ExpectedOutput,
     IntentClassification,
     IntentClassificationInput,
-    RankedRetrievalIntent,
-    ResponseOperation,
-    RetrievalIntent,
+    IntentContext,
+    IntentContract,
+    IntentFlowPlan,
+    IntentQuestionContract,
+    IntentStage,
     SolutionPressure,
     Specificity,
     TargetReference,
+    TargetState,
     TargetType,
+    TaskIntent,
     TurnRelation,
-    UserGoal,
+    classification_from_mapping,
 )
 from services.intent.normalizer import NormalizedIntent, normalize_intent
-from services.intent.retrieval_hints import PRODUCT_BOUNDARY_EXPLAIN_PLAN_SUGGEST_ONLY, build_retrieval_hints
+from services.intent.sufficiency import IntentSufficiency, SufficiencyArea, evaluate_intent_sufficiency, summarize_statuses
 
 __all__ = [
-    "ExpectedOutput",
+    "INTENT_CONTRACTS",
     "IntentClassification",
     "IntentClassificationInput",
-    "IntentAgreement",
+    "IntentContext",
+    "IntentContract",
+    "IntentFlowPlan",
+    "IntentQuestionContract",
+    "IntentStage",
     "IntentStageResult",
+    "IntentSufficiency",
     "NormalizedIntent",
-    "PRODUCT_BOUNDARY_EXPLAIN_PLAN_SUGGEST_ONLY",
-    "RankedRetrievalIntent",
-    "ResponseOperation",
-    "RetrievalIntent",
     "SolutionPressure",
     "Specificity",
+    "SufficiencyArea",
     "TargetReference",
+    "TargetState",
     "TargetType",
+    "TaskIntent",
     "TurnRelation",
-    "UserGoal",
-    "assess_intent_agreement",
+    "build_intent_context",
     "classify_intent",
-    "build_retrieval_hints",
+    "classification_from_mapping",
+    "compose_intent_flow",
+    "get_intent_contract",
+    "evaluate_intent_sufficiency",
     "normalize_intent",
+    "validate_contract_registry",
+    "validate_stage_permutation",
+    "summarize_statuses",
 ]

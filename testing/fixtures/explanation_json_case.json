@@ -1,0 +1,52 @@
+{
+  "user_prompt": "Explain how API explanation generation is configured and include a concrete JSON configuration snippet that a reader could recognize in the workspace profile.",
+  "selected_intents": ["explain"],
+  "coverage_status": "complete",
+  "sufficient": true,
+  "expectations": {
+    "min_examples": 1,
+    "example_languages": ["json"],
+    "example_content_contains": ["\"generation\""]
+  },
+  "evidence": [
+    {
+      "source_category": "source_code",
+      "source_id": "workspace:configs/web-ui/workspace.json:L45-L51",
+      "rank": 1,
+      "snippet": "\"generation\": {\n  \"provider\": \"api\",\n  \"api_model\": \"gpt-5.6-luna\",\n  \"codex_model\": \"gpt-5.4-mini\",\n  \"max_tokens\": 4000,\n  \"timeout_seconds\": 120\n}",
+      "metadata": {
+        "path": "configs/web-ui/workspace.json",
+        "line_range": "L45-L51",
+        "claim_supported": "The workspace profile contains a complete generation JSON object selecting the API provider, GPT-5.6 Luna, 4,000 maximum tokens, and a 120-second timeout while retaining a Codex model for that alternative provider.",
+        "why_relevant": "It supplies an exact configuration object suitable for a direct JSON example.",
+        "coverage_area": "generation JSON configuration"
+      }
+    },
+    {
+      "source_category": "source_code",
+      "source_id": "workspace:services/retrieval/server.py:L1393-L1404",
+      "rank": 2,
+      "snippet": "def _generation_llm_config(self) -> RunLLMConfig:\n    generation = _generation_settings(self.config)\n    if str(generation.get(\"provider\") or \"api\") == \"codex\":\n        return self._codex_llm_config(model=str(generation.get(\"codex_model\") or _retrieval_settings(self.config).get(\"codex_model\") or \"\"), timeout_seconds=int(generation.get(\"timeout_seconds\") or 120))\n    return self._api_llm_config(model_override=str(generation.get(\"api_model\") or \"\"), max_tokens_override=int(generation.get(\"max_tokens\") or 4000), timeout_override=int(generation.get(\"timeout_seconds\") or 120))",
+      "metadata": {
+        "path": "services/retrieval/server.py",
+        "line_range": "L1393-L1404",
+        "claim_supported": "When `provider` is `api`, the generation settings become the API model override, maximum-token override, and timeout override passed to `_api_llm_config`.",
+        "why_relevant": "It explains how the visible JSON fields affect runtime behavior.",
+        "coverage_area": "generation configuration consumption"
+      }
+    },
+    {
+      "source_category": "source_code",
+      "source_id": "workspace:services/retrieval/server.py:L1355-L1372",
+      "rank": 3,
+      "snippet": "api_settings = settings or _connections_mapping(self.config).get(\"api_llm\", {})\napi_settings = _normalize_api_llm_connection(api_settings)\nmodel = model_override.strip() or str(api_settings.get(\"model\") or \"\").strip()\nendpoint_url = str(api_settings.get(\"endpoint_url\") or \"\").strip()\napi_key = str(api_settings.get(\"api_key\") or \"\").strip() or self._api_llm_key()\napi_style = str(api_settings.get(\"api_style\") or \"\").strip() or \"openai_chat_completions\"\nif not model or not endpoint_url or not api_key:\n    raise ValueError(\"OpenAI-compatible API connection requires endpoint URL, API key, and model.\")",
+      "metadata": {
+        "path": "services/retrieval/server.py",
+        "line_range": "L1355-L1372",
+        "claim_supported": "The generation object does not contain credentials: `_api_llm_config` combines its model override with the separate API connection's endpoint and API key and fails when any required connection value is absent.",
+        "why_relevant": "It explains the boundary between generation settings and connection credentials.",
+        "coverage_area": "API connection boundary"
+      }
+    }
+  ]
+}

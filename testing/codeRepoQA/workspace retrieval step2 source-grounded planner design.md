@@ -419,3 +419,4 @@ Mitigations:
 - Fritz and Murphy, "Using Information Fragments to Answer the Questions Developers Ask": https://www.cs.ubc.ca/~fritz/papers/icse10_infofrag_web.pdf
 - Haiduc et al., "Automatic Query Reformulations for Text Retrieval in Software Engineering": https://people.lu.usi.ch/bavotg/papers/icse2013_QueryReformulation.pdf
 - Zhang et al., "RepoCoder: Repository-Level Code Completion Through Iterative Retrieval and Generation": https://aclanthology.org/2023.emnlp-main.151/
+> Historical retrieval-planner design. The `primary_intent` and `secondary_intents` fields shown below were removed on 2026-08-06; active workspace retrieval consumes the central task `IntentContext` and does not reclassify intent. The objective/role material remains retrieval-internal research, not the task-intent contract.

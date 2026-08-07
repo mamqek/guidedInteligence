@@ -10,7 +10,7 @@ from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from core.models import ConversationState, ResponsePlan, TurnType, UserIntent
+from core.models import AssistanceRequestType, ConversationState, ResponsePlan, TurnType
 from core.policy import PolicyStage
 from core.response_builder import render_response
 from core.source_policy import SourceCategory, SourcePolicy
@@ -494,7 +494,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="live-github-source-cert",
                 user_input=f"Explain {marker} owner behavior.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             result = stage.retrieve(state, _policy_result(state))
@@ -725,7 +725,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="live-notion-source-cert",
                 user_input=f"Explain {marker} owner behavior.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             result = stage.retrieve(state, _policy_result(state))
@@ -914,7 +914,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="live-obsidian-source-cert",
                 user_input="Explain GI-OBSIDIAN-CERT checkout confirmation owner behavior.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             result = stage.retrieve(state, _policy_result(state))
@@ -1069,7 +1069,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="live-obsidian-source-conflict-cert",
                 user_input="Explain GI-OBSIDIAN-CONFLICT shipment confirmation owner behavior.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             result = stage.retrieve(state, _policy_result(state))
@@ -1263,7 +1263,7 @@ class LiveConnectedSourceCertificationTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="live-connected-source-cert",
                 user_input="Explain the live connected-source issue context for DataView and ArrayBuffer.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with _fake_structural(files=[{"path": file_hint}]):

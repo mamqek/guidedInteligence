@@ -1,82 +1,51 @@
 from __future__ import annotations
 
+import hashlib
 import json
-import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from core.models import ConversationState, EvidenceItem, RetrievalResult
-from services.comprehension import build_comprehension_plan
-from services.comprehension.models import ComprehensionPlan
-from services.guidance.questions import UnderstandingCheck
+from services.guidance.questions import UnderstandingCheck, UnderstandingHint
+from services.intent import compose_intent_flow, get_intent_contract, validate_stage_permutation
+from services.intent.models import IntentFlowPlan, TaskIntent
 from services.llm.json_completion import complete_json
+from services.response_generation.repair import repair_explanation_response, repair_hint_ladders, repair_understanding_checks
 
 
-PROMPT_TEMPLATE_ID = "comprehension_plan_explanation_v1"
-CHECK_REPAIR_PROMPT_TEMPLATE_ID = "comprehension_understanding_check_repair_v1"
-NEXT_CHECK_REPAIR_PROMPT_TEMPLATE_ID = "comprehension_next_checks_repair_v1"
-SOURCE_ATTRIBUTION_REPAIR_PROMPT_TEMPLATE_ID = "comprehension_source_attribution_repair_v1"
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-PROMPT_PATH = PROMPTS_DIR / "comprehension_plan_explanation.md"
-UNDERSTANDING_CHECK_PROMPT_PATH = PROMPTS_DIR / "comprehension_understanding_check_contract.md"
-NEXT_CHECK_PROMPT_PATH = PROMPTS_DIR / "comprehension_next_checks_contract.md"
-REPAIR_COMMON_PROMPT_PATH = PROMPTS_DIR / "comprehension_repair_common.md"
-CHECK_REPAIR_PROMPT_PATH = PROMPTS_DIR / "comprehension_understanding_check_repair.md"
-NEXT_CHECK_REPAIR_PROMPT_PATH = PROMPTS_DIR / "comprehension_next_checks_repair.md"
-SOURCE_ATTRIBUTION_REPAIR_PROMPT_PATH = PROMPTS_DIR / "comprehension_source_attribution_repair.md"
-EXPLANATION_EVIDENCE_LIMIT = 12
-RETRIEVAL_LABEL_QUESTION_PATTERN = re.compile(
-    r"\b(?:retrieved|coverage)\b"
-    r"|main implementation behavior"
-    r"|entry point or parsing"
-    r"|state or representation"
-    r"|output or emission"
-    r"|supporting context"
-    r"|validation or checking"
-    r"|diagnostic or error"
-    r"|implementation owner"
-    r"|cited lines"
-    r"|cited file"
-    r"|line range"
-    r"|\bpart matter\b",
-    re.IGNORECASE,
-)
+PROMPT_TEMPLATE_ID = "intent_composed_explanation_v5"
+PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "intent_composed_explanation.md"
+EXPLANATION_EVIDENCE_LIMIT = 16
+MAX_FLOW_REPAIR_ATTEMPTS = 1
+MAX_QUESTION_REPAIR_ATTEMPTS = 1
+MAX_HINT_REPAIR_ATTEMPTS = 1
+HINT_KINDS = ("direction", "focus", "scaffold")
+HINT_TEXT_LIMIT = 500
+QUESTION_FIELD_LIMITS = {
+    "reasoning_focus": 300,
+    "selection_reason": 500,
+    "question": 800,
+}
 
-LEAKED_METADATA_SECTION_PATTERN = re.compile(
-    r"(?ims)^\s*(?:---\s*\n\s*)?#{1,6}\s+(?:Concept Definitions|Key Concepts|Key Terms in Context|Understanding Checks?|Understanding Check Question)\s*$.*\Z"
-)
-LEAKED_SOURCE_ATTRIBUTIONS_PATTERN = re.compile(
-    r"(?ims)^\s*(?:#{1,6}\s+Source Attributions|\[source_attributions\]|\[Source Attributions\])\s*$\n(?:\s*[-*]\s+.*(?:\n|$))+"
-)
-LEAKED_CONCEPT_HEADING_SECTION_PATTERN = re.compile(
-    r"(?ims)^\s*(?:---\s*\n\s*)?#{1,6}\s+Key concepts:?\s*$\n(?:\s*[-*]\s+.*(?:\n|$))+"
-)
-LEAKED_UNDERSTANDING_CHECK_SECTION_PATTERN = re.compile(
-    r"(?ims)^\s*(?:---\s*\n\s*)?#{1,6}\s+Understanding checks?:?\s*$.*\Z"
-)
-LEAKED_INLINE_UNDERSTANDING_CHECK_PATTERN = re.compile(
-    r"(?ims)(?:\n\s*---\s*)?\n\s*(?:\*\*)?Understanding checks?(?:\*\*)?\s*:\s*.*\Z"
-)
-LEAKED_NEXT_CHECKS_PATTERN = re.compile(
-    r"(?ims)^\s*(?:---\s*\n\s*)?(?:#{1,6}\s*)?Next checks\s*:\s*$.*\Z"
-)
-LEAKED_ANSWER_PATH_PATTERN = re.compile(
-    r"(?ims)^\s*(?:#{1,6}\s*)?(?:Explicit\s+)?Answer path(?:\s+for\s+understanding\s+check)?\s*:\s*$\n(?:\s*[-*]\s+.*(?:\n|$))+"
-)
-LEAKED_BOLD_CONCEPT_DEFINITIONS_PATTERN = re.compile(
-    r"(?ims)^\s*(?:---\s*\n\s*)?(?:\*\*Concept definitions:\*\*|Concept definitions:|\[Concept definitions\]|Key terms:)\s*$\n(?:\s*[-*]\s+.*(?:\n|$))+"
-)
-LEAKED_STRUCTURED_MARKDOWN_FENCE_PATTERN = re.compile(
-    r"(?ims)\n?\s*```(?:json|concept_definitions|source_attributions|metadata)?\s*\n\s*(?:\{|\[|concept_definitions\b|source_attributions\b|metadata\b).*?\n\s*```\s*"
-)
-UNCITED_IMPLEMENTATION_RECAP_PATTERN = re.compile(
-    r"(?is)^(?:in summary|overall|this design|this layered design|this chain|this flow|together),?\s+.*"
-)
-IMPLEMENTATION_RECAP_TERMS_PATTERN = re.compile(
-    r"\b(?:backend|frontend|function|prompt|validat(?:e|es|ion)|repair|response builder|metadata|UI|renders?|next[_ -]?checks?|next_check_requirement|contract|retrieval results?|model output|JSON field|code)\b",
-    re.IGNORECASE,
-)
+
+class FlowValidationError(RuntimeError):
+    def __init__(self, errors: Sequence[str]) -> None:
+        self.errors = tuple(str(error) for error in errors if str(error).strip())
+        super().__init__("Invalid intent-composed flow: " + "; ".join(self.errors))
+
+
+class QuestionValidationError(FlowValidationError):
+    def __init__(
+        self,
+        errors: Sequence[str],
+        *,
+        accepted: Sequence[tuple[int, Mapping[str, Any]]],
+        rejected: Sequence[Mapping[str, Any]],
+    ) -> None:
+        self.accepted = tuple((int(index), dict(raw)) for index, raw in accepted)
+        self.rejected = tuple(dict(item) for item in rejected)
+        super().__init__(errors)
 
 
 @dataclass(frozen=True)
@@ -87,12 +56,20 @@ class ComprehensionGenerationResult:
     answer_flow: Mapping[str, Any]
     story_flow: tuple[Mapping[str, Any], ...]
     understanding_checks: tuple[UnderstandingCheck, ...]
-    comprehension_plan: ComprehensionPlan
+    selected_intents: tuple[str, ...]
+    presentation_sections: tuple[Mapping[str, Any], ...] = ()
+    presentation_lists: tuple[Mapping[str, Any], ...] = ()
+    examples: tuple[Mapping[str, Any], ...] = ()
+    comparison_tables: tuple[Mapping[str, Any], ...] = ()
+    additional_implementation_observations: tuple[Mapping[str, Any], ...] = ()
     concept_definitions: tuple[Mapping[str, Any], ...] = ()
     source_attributions: tuple[Mapping[str, Any], ...] = ()
     next_checks: tuple[Mapping[str, str], ...] = ()
-    next_check_requirement: Mapping[str, Any] = field(default_factory=dict)
     prompt_template_id: str = PROMPT_TEMPLATE_ID
+    flow_repair_attempts: int = 0
+    question_repair_attempts: int = 0
+    hint_repair_attempts: int = 0
+    stage_input_order_mode: str = "canonical_contract_order"
 
 
 def generate_comprehension_explanation(
@@ -102,66 +79,172 @@ def generate_comprehension_explanation(
     llm_config: Any,
     log_warning: Callable[[Mapping[str, Any]], None] | None = None,
     log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
+    neutralize_multi_intent_stage_order: bool = False,
 ) -> ComprehensionGenerationResult:
-    plan = build_comprehension_plan(
+    if state.intent_context is None or not state.intent_context.intents:
+        raise RuntimeError("Explanation generation requires classified task intents.")
+    flow_plan = compose_intent_flow(state.intent_context.intents)
+    model_intent_flow, model_stage_ids, stage_input_order_mode = _model_facing_intent_flow(
+        flow_plan,
         user_prompt=state.user_input,
-        retrieval_result=retrieval_result,
+        neutralize=neutralize_multi_intent_stage_order,
     )
-    explanation_evidence = tuple(retrieval_result.evidence[:EXPLANATION_EVIDENCE_LIMIT])
-    concept_definition_targets = _concept_definition_targets(state.user_input, explanation_evidence)
-    next_check_requirement = _next_check_requirement(plan=plan, retrieval_result=retrieval_result)
+    evidence = tuple(retrieval_result.evidence[:EXPLANATION_EVIDENCE_LIMIT])
+    selected_evidence_connections = _selected_evidence_connections(
+        retrieval_result,
+        allowed_refs={item.source_id for item in evidence},
+    )
     payload = {
         "user_prompt": state.user_input,
+        "intent_flow": model_intent_flow,
+        "question_prerequisites_by_intent": {
+            contract.intent.value: list(contract.question.prerequisite_stage_ids)
+            for contract in flow_plan.contracts
+        },
         "retrieval_sufficient": retrieval_result.sufficient,
         "coverage_status": retrieval_result.coverage_status,
-        "comprehension_plan": plan.to_dict(),
-        "next_check_requirement": next_check_requirement,
-        "concept_definition_targets": concept_definition_targets,
-        "evidence": [_compact_evidence(item) for item in explanation_evidence],
-        "allowed_evidence_refs": [item.source_id for item in explanation_evidence],
+        "request_context": {
+            "task_goal": state.user_input,
+            "answer_scope": (
+                "Ground the complete requested explanation in selected evidence."
+                if retrieval_result.sufficient
+                else "Explain only supported behavior and state unsupported parts clearly."
+            ),
+        },
+        "evidence": [_compact_evidence(item) for item in evidence],
+        "selected_evidence_connections": selected_evidence_connections,
+        "allowed_evidence_refs": [item.source_id for item in evidence],
+        "question_field_limits": dict(QUESTION_FIELD_LIMITS),
+        "hint_contract": {"ordered_kinds": list(HINT_KINDS), "text_max_characters": HINT_TEXT_LIMIT},
     }
     if log_event is not None:
-        log_event(
-            "comprehension_generation_request_payload",
-            {
-                "prompt_template_id": PROMPT_TEMPLATE_ID,
-                "payload": payload,
-            },
-        )
-    response = complete_json(
-        llm_config,
-        (
-            {"role": "system", "content": _compose_generation_prompt(next_check_requirement=next_check_requirement)},
-            {"role": "user", "content": json.dumps(payload, sort_keys=True)},
-        ),
-        response_format=_response_format(),
+        log_event("comprehension_generation_request_payload", {"prompt_template_id": PROMPT_TEMPLATE_ID, "payload": payload})
+
+    response = _complete_generation(
+        llm_config=llm_config,
+        payload=payload,
+        flow_plan=flow_plan,
+        model_stage_ids=model_stage_ids,
         log_warning=log_warning,
         log_event=log_event,
     )
-    result = _validate_response(
-        response,
-        retrieval_result.evidence,
-        plan,
-        concept_definition_targets=concept_definition_targets,
-        repair_llm_config=llm_config,
-        repair_context={
-            "user_prompt": state.user_input,
-            "coverage_status": retrieval_result.coverage_status,
-            "retrieval_sufficient": retrieval_result.sufficient,
-            "comprehension_plan": plan.to_dict(),
-            "next_check_requirement": next_check_requirement,
-            "evidence": [_compact_evidence(item) for item in explanation_evidence],
-        },
-        log_event=log_event,
+    repair_attempts = 0
+    question_repair_attempts = 0
+    hint_repair_attempts = 0
+    response, repaired_hints = _repair_invalid_hint_ladders(
+        response=response,
+        generation_payload=payload,
+        flow_plan=flow_plan,
+        llm_config=llm_config,
         log_warning=log_warning,
+        log_event=log_event,
+    )
+    hint_repair_attempts += repaired_hints
+    try:
+        result = _validate_response(response, evidence=evidence, flow_plan=flow_plan)
+    except QuestionValidationError as exc:
+        response = _repair_questions_in_response(
+            response=response,
+            validation_error=exc,
+            generation_payload=payload,
+            evidence=evidence,
+            flow_plan=flow_plan,
+            llm_config=llm_config,
+            log_warning=log_warning,
+            log_event=log_event,
+        )
+        question_repair_attempts = MAX_QUESTION_REPAIR_ATTEMPTS
+        try:
+            result = _validate_response(response, evidence=evidence, flow_plan=flow_plan)
+        except FlowValidationError as repaired_exc:
+            raise RuntimeError(
+                "Question generation failed after one isolated repair attempt: " + "; ".join(repaired_exc.errors)
+            ) from repaired_exc
+    except FlowValidationError as exc:
+        if log_event is not None:
+            log_event(
+                "intent_flow_validation_failed",
+                {
+                    "attempt": 0,
+                    "errors": list(exc.errors),
+                    "required_stage_ids": list(flow_plan.contract_stage_ids),
+                    "model_stage_ids": list(model_stage_ids),
+                    "raw_response": dict(response),
+                },
+            )
+        repair_attempts = MAX_FLOW_REPAIR_ATTEMPTS
+        repaired = repair_explanation_response(
+            llm_config=llm_config,
+            context={
+                "generation_context": payload,
+                "validation_errors": list(exc.errors),
+                "previous_response": dict(response),
+            },
+            response_format=_response_format(flow_plan, model_stage_ids=model_stage_ids),
+            log_warning=log_warning,
+            log_event=log_event,
+        )
+        repaired, repaired_hints = _repair_invalid_hint_ladders(
+            response=repaired,
+            generation_payload=payload,
+            flow_plan=flow_plan,
+            llm_config=llm_config,
+            log_warning=log_warning,
+            log_event=log_event,
+        )
+        hint_repair_attempts += repaired_hints
+        try:
+            result = _validate_response(repaired, evidence=evidence, flow_plan=flow_plan)
+        except QuestionValidationError as question_exc:
+            repaired = _repair_questions_in_response(
+                response=repaired,
+                validation_error=question_exc,
+                generation_payload=payload,
+                evidence=evidence,
+                flow_plan=flow_plan,
+                llm_config=llm_config,
+                log_warning=log_warning,
+                log_event=log_event,
+            )
+            question_repair_attempts = MAX_QUESTION_REPAIR_ATTEMPTS
+            result = _validate_response(repaired, evidence=evidence, flow_plan=flow_plan)
+        except FlowValidationError as repaired_exc:
+            if log_event is not None:
+                log_event(
+                    "intent_flow_validation_failed",
+                    {
+                        "attempt": 1,
+                        "errors": list(repaired_exc.errors),
+                        "required_stage_ids": list(flow_plan.contract_stage_ids),
+                        "model_stage_ids": list(model_stage_ids),
+                        "raw_response": dict(repaired),
+                    },
+                )
+            raise RuntimeError(
+                "Intent flow planning failed after one repair attempt: " + "; ".join(repaired_exc.errors)
+            ) from repaired_exc
+
+    result = replace(
+        result,
+        flow_repair_attempts=repair_attempts,
+        question_repair_attempts=question_repair_attempts,
+        hint_repair_attempts=hint_repair_attempts,
+        stage_input_order_mode=stage_input_order_mode,
     )
     if log_event is not None:
         log_event(
             "comprehension_generation_response_payload",
             {
                 "prompt_template_id": PROMPT_TEMPLATE_ID,
+                "selected_intents": list(result.selected_intents),
+                "ordered_stage_ids": list(result.answer_flow.get("ordered_stage_ids", ())),
                 "used_evidence_refs": list(result.used_evidence_refs),
-                "comprehension_plan": plan.to_dict(),
+                "understanding_check_count": len(result.understanding_checks),
+                "flow_repair_attempts": repair_attempts,
+                "question_repair_attempts": question_repair_attempts,
+                "hint_repair_attempts": hint_repair_attempts,
+                "stage_input_order_mode": stage_input_order_mode,
+                "model_stage_ids": list(model_stage_ids),
             },
         )
     return result
@@ -171,1460 +254,128 @@ def prompt_template_id() -> str:
     return PROMPT_TEMPLATE_ID
 
 
-def _read_prompt(path: Path) -> str:
-    return path.read_text(encoding="utf-8").strip()
+def _model_facing_intent_flow(
+    flow_plan: IntentFlowPlan,
+    *,
+    user_prompt: str,
+    neutralize: bool,
+) -> tuple[dict[str, Any], tuple[str, ...], str]:
+    if not neutralize or len(flow_plan.intents) < 2:
+        return flow_plan.to_generation_dict(), flow_plan.contract_stage_ids, "canonical_contract_order"
+
+    prompt_key = hashlib.sha256(user_prompt.strip().encode("utf-8")).hexdigest()
+    stages = tuple(stage for contract in flow_plan.contracts for stage in contract.stages)
+    model_stages = tuple(
+        sorted(
+            stages,
+            key=lambda stage: hashlib.sha256(
+                f"{prompt_key}\0{stage.id}".encode("utf-8")
+            ).hexdigest(),
+        )
+    )
+    contracts: list[dict[str, Any]] = []
+    for contract in flow_plan.contracts:
+        value = contract.to_dict(include_evidence_expectations=False)
+        value.pop("stages", None)
+        contracts.append(value)
+    model_stage_ids = tuple(stage.id for stage in model_stages)
+    return (
+        {
+            "intents": [intent.value for intent in flow_plan.intents],
+            "contract_stage_ids": list(model_stage_ids),
+            "stage_definitions": [stage.to_dict() for stage in model_stages],
+            "contracts": contracts,
+            "input_order_mode": "prompt_seeded_stable_permutation",
+        },
+        model_stage_ids,
+        "prompt_seeded_stable_permutation",
+    )
 
 
-def _compose_repair_prompt(path: Path) -> str:
-    parts = [_read_prompt(REPAIR_COMMON_PROMPT_PATH)]
-    if path == CHECK_REPAIR_PROMPT_PATH:
-        parts.append(_read_prompt(UNDERSTANDING_CHECK_PROMPT_PATH))
-    elif path == NEXT_CHECK_REPAIR_PROMPT_PATH:
-        parts.append(_read_prompt(NEXT_CHECK_PROMPT_PATH))
-    parts.append(_read_prompt(path))
-    return "\n\n".join(parts)
+def _complete_generation(
+    *,
+    llm_config: Any,
+    payload: Mapping[str, Any],
+    flow_plan: IntentFlowPlan,
+    model_stage_ids: Sequence[str],
+    log_warning: Callable[[Mapping[str, Any]], None] | None,
+    log_event: Callable[[str, Mapping[str, Any]], None] | None,
+) -> Mapping[str, Any]:
+    return complete_json(
+        llm_config,
+        (
+            {"role": "system", "content": PROMPT_PATH.read_text(encoding="utf-8")},
+            {"role": "user", "content": json.dumps(payload, sort_keys=True)},
+        ),
+        response_format=_response_format(flow_plan, model_stage_ids=model_stage_ids),
+        log_warning=log_warning,
+        log_event=log_event,
+    )
 
 
-def _compose_generation_prompt(*, next_check_requirement: Mapping[str, Any]) -> str:
-    parts = [_read_prompt(PROMPT_PATH), _read_prompt(UNDERSTANDING_CHECK_PROMPT_PATH)]
-    if bool(next_check_requirement.get("required")):
-        parts.append(_read_prompt(NEXT_CHECK_PROMPT_PATH))
-    return "\n\n".join(parts)
-
-
-def _validate_response(
+def _repair_questions_in_response(
+    *,
     response: Mapping[str, Any],
+    validation_error: QuestionValidationError,
+    generation_payload: Mapping[str, Any],
     evidence: Sequence[EvidenceItem],
-    plan: ComprehensionPlan,
-    *,
-    concept_definition_targets: Sequence[str] = (),
-    repair_llm_config: Any | None = None,
-    repair_context: Mapping[str, Any] | None = None,
-    log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
-    log_warning: Callable[[Mapping[str, Any]], None] | None = None,
-) -> ComprehensionGenerationResult:
-    allowed_refs = {item.source_id for item in evidence}
-    answer_flow = _answer_flow_from_response(response.get("answer_flow"), allowed_refs=allowed_refs)
-    if not answer_flow:
-        raise RuntimeError("Comprehension explanation generation returned no valid answer_flow.")
-    story_flow = _story_flow_from_response(
-        response.get("story_flow"),
-        allowed_refs=allowed_refs,
-    )
-    if not story_flow:
-        raise RuntimeError("Comprehension explanation generation returned no valid story_flow.")
-    if not any(
-        _string_tuple(sentence.get("evidence_refs"))
-        for stage in story_flow
-        for sentence in stage.get("sentences", ())
-        if isinstance(sentence, Mapping)
-    ):
-        raise RuntimeError("Comprehension explanation generation returned story_flow without evidence-backed stages.")
-    used_refs: list[str] = []
-    for stage in story_flow:
-        for sentence in stage.get("sentences", ()):
-            if not isinstance(sentence, Mapping):
-                continue
-            for ref in _string_tuple(sentence.get("evidence_refs")):
-                if ref not in used_refs:
-                    used_refs.append(ref)
-    markdown = _sanitize_comprehension_markdown(_render_story_flow_markdown(story_flow, evidence=evidence))
-    if not markdown:
-        raise RuntimeError("Comprehension explanation generation returned empty story_flow prose.")
-    checks, rejected, raw_count = _collect_checks_from_response(
-        response.get("understanding_checks"),
-        markdown=markdown,
-        plan=plan,
-        allowed_refs=allowed_refs,
-        answer_flow=answer_flow,
-    )
-    if not checks and repair_llm_config is not None:
-        if log_event is not None:
-            log_event(
-                "comprehension_understanding_checks_rejected",
-                {
-                    "rejected": rejected[:5],
-                    "raw_count": raw_count,
-                    "repair_attempted": True,
-                },
-            )
-        checks = _repair_understanding_checks(
-            markdown=markdown,
-            rejected=rejected,
-            allowed_refs=allowed_refs,
-            plan=plan,
-            repair_context=repair_context or {},
-            answer_flow=answer_flow,
-            llm_config=repair_llm_config,
-            log_event=log_event,
-            log_warning=log_warning,
-        )
-    if not checks:
-        if log_event is not None:
-            log_event(
-                "comprehension_understanding_checks_rejected",
-                {
-                    "rejected": rejected[:5],
-                    "raw_count": raw_count,
-                    "repair_attempted": False,
-                },
-            )
-        raise RuntimeError("Comprehension explanation generation returned no valid model-generated understanding checks.")
-    concept_definitions = _concept_definitions_from_response(
-        response.get("concept_definitions"),
-        markdown=markdown,
-        allowed_refs=allowed_refs,
-        allowed_labels=set(concept_definition_targets),
-    )
-    source_attributions = _source_attributions_from_response(
-        response.get("source_attributions"),
-        markdown=markdown,
-        allowed_refs=allowed_refs,
-    )
-    raw_source_attributions = response.get("source_attributions")
-    if (
-        not source_attributions
-        and isinstance(raw_source_attributions, list)
-        and raw_source_attributions
-        and repair_llm_config is not None
-    ):
-        source_attributions = _repair_source_attributions(
-            markdown=markdown,
-            repair_context=repair_context or {},
-            allowed_refs=allowed_refs,
-            llm_config=repair_llm_config,
-            log_event=log_event,
-            log_warning=log_warning,
-        )
-    next_check_requirement = _coerce_next_check_requirement(repair_context.get("next_check_requirement") if repair_context else None)
-    required_next_check_count = int(next_check_requirement.get("min_checks") or 0)
-    next_checks = _next_checks_from_response(response.get("next_checks")) if required_next_check_count else ()
-    if required_next_check_count and len(next_checks) < required_next_check_count and repair_llm_config is not None:
-        next_checks = _repair_next_checks(
-            markdown=markdown,
-            generated_next_checks=response.get("next_checks"),
-            repair_context=repair_context or {},
-            llm_config=repair_llm_config,
-            log_event=log_event,
-            log_warning=log_warning,
-        )
-    if required_next_check_count and len(next_checks) < required_next_check_count:
-        raise RuntimeError("Comprehension explanation generation marked an external or unverified trigger but returned no structured next checks.")
-    render_notes_raw = response.get("render_notes")
-    render_notes: dict[str, str] = {}
-    if isinstance(render_notes_raw, Mapping):
-        for key in ("title", "summary"):
-            value = str(render_notes_raw.get(key) or "").strip()
-            if value:
-                render_notes[key] = value[:500]
-    return ComprehensionGenerationResult(
-        markdown=markdown,
-        used_evidence_refs=tuple(used_refs) or tuple(item.source_id for item in evidence[:4]),
-        render_notes=render_notes,
-        answer_flow=answer_flow,
-        story_flow=story_flow,
-        understanding_checks=checks,
-        comprehension_plan=plan,
-        concept_definitions=concept_definitions,
-        source_attributions=source_attributions,
-        next_checks=next_checks,
-        next_check_requirement=next_check_requirement,
-    )
-
-
-def _sanitize_comprehension_markdown(markdown: str) -> str:
-    replacements = {
-        "main implementation behavior": "source declaration",
-        "output or emission": "build output",
-        "state or representation": "library declaration shape",
-        "supporting context": "supporting declaration context",
-        "entry point or parsing": "compiler selection point",
-    }
-    sanitized = markdown
-    for original, replacement in replacements.items():
-        sanitized = re.sub(re.escape(original), replacement, sanitized, flags=re.IGNORECASE)
-    sanitized = LEAKED_ANSWER_PATH_PATTERN.sub("", sanitized).rstrip()
-    sanitized = LEAKED_SOURCE_ATTRIBUTIONS_PATTERN.sub("", sanitized).rstrip()
-    sanitized = LEAKED_CONCEPT_HEADING_SECTION_PATTERN.sub("", sanitized).rstrip()
-    sanitized = LEAKED_UNDERSTANDING_CHECK_SECTION_PATTERN.sub("", sanitized).rstrip()
-    sanitized = LEAKED_INLINE_UNDERSTANDING_CHECK_PATTERN.sub("", sanitized).rstrip()
-    sanitized = LEAKED_NEXT_CHECKS_PATTERN.sub("", sanitized).rstrip()
-    sanitized = LEAKED_BOLD_CONCEPT_DEFINITIONS_PATTERN.sub("", sanitized).rstrip()
-    sanitized = LEAKED_METADATA_SECTION_PATTERN.sub("", sanitized).rstrip()
-    sanitized = LEAKED_STRUCTURED_MARKDOWN_FENCE_PATTERN.sub("", sanitized).rstrip()
-    sanitized = re.sub(
-        r"(?im)^\s*Concept definitions are provided[^.\n]*(?:\.\s*)?$",
-        "",
-        sanitized,
-    ).rstrip()
-    sanitized = _strip_trailing_uncited_implementation_recap(sanitized)
-    sanitized = _dedupe_repeated_absence_caveats(sanitized)
-    return sanitized
-
-
-def _strip_trailing_uncited_implementation_recap(markdown: str) -> str:
-    paragraphs = re.split(r"(\n\s*\n)", markdown.rstrip())
-    while len(paragraphs) >= 1:
-        paragraph = paragraphs[-1].strip()
-        separator_count = 0
-        while len(paragraphs) >= 2 and not paragraph:
-            paragraphs.pop()
-            paragraph = paragraphs[-1].strip() if paragraphs else ""
-            separator_count += 1
-        if not paragraph:
-            break
-        if (
-            UNCITED_IMPLEMENTATION_RECAP_PATTERN.search(paragraph)
-            and IMPLEMENTATION_RECAP_TERMS_PATTERN.search(paragraph)
-            and not re.search(r"\[[^\]]+\]\([^)]+\)", paragraph)
-        ):
-            paragraphs.pop()
-            if paragraphs and re.fullmatch(r"\n\s*\n", paragraphs[-1]):
-                paragraphs.pop()
-            continue
-        if separator_count:
-            break
-        break
-    return "".join(paragraphs).rstrip()
-
-
-def _dedupe_repeated_absence_caveats(markdown: str) -> str:
-    absence_markers = (
-        "does not show",
-        "do not show",
-        "does not explicitly",
-        "do not explicitly",
-        "not explicitly",
-        "not shown",
-        "not confirm",
-        "not confirmed",
-        "no explicit",
-    )
-    output: list[str] = []
-    seen_absence_terms: set[str] = set()
-    in_final_absence_section = False
-    for line in markdown.splitlines():
-        normalized_heading = line.strip().strip("#").strip().lower()
-        if normalized_heading.startswith("what is not shown") or normalized_heading.startswith("not shown"):
-            in_final_absence_section = True
-            output.append(line)
-            continue
-        if line.lstrip().startswith("#"):
-            in_final_absence_section = False
-        if in_final_absence_section or not line.strip():
-            output.append(line)
-            continue
-        kept_sentences: list[str] = []
-        for sentence in _split_sentences_preserving_punctuation(line):
-            lowered = sentence.lower()
-            if any(marker in lowered for marker in absence_markers):
-                terms = _absence_caveat_terms(lowered)
-                if terms and terms & seen_absence_terms:
-                    continue
-                seen_absence_terms.update(terms)
-            kept_sentences.append(sentence)
-        cleaned_line = "".join(kept_sentences).strip()
-        if cleaned_line:
-            output.append(cleaned_line)
-    return "\n".join(output).strip()
-
-
-def _split_sentences_preserving_punctuation(text: str) -> list[str]:
-    if not text:
-        return []
-    parts = re.split(r"(?<=[.!?])(\s+)", text)
-    sentences: list[str] = []
-    current = ""
-    for part in parts:
-        current += part
-        if re.search(r"[.!?]\s*$", current):
-            sentences.append(current)
-            current = ""
-    if current:
-        sentences.append(current)
-    return sentences
-
-
-def _absence_caveat_terms(text: str) -> set[str]:
-    stop_words = {
-        "the",
-        "this",
-        "that",
-        "these",
-        "those",
-        "snippet",
-        "snippets",
-        "current",
-        "code",
-        "show",
-        "shows",
-        "shown",
-        "mention",
-        "explicitly",
-        "explicit",
-        "handling",
-        "checks",
-        "support",
-    }
-    return {
-        token
-        for token in re.findall(r"\b[A-Za-z][A-Za-z0-9_]{3,}\b", text)
-        if token not in stop_words
-    }
-
-
-def _concept_definitions_from_response(
-    value: Any,
-    *,
-    markdown: str,
-    allowed_refs: set[str],
-    allowed_labels: set[str],
-) -> tuple[Mapping[str, Any], ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    definitions: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for item in value:
-        if not isinstance(item, Mapping):
-            continue
-        label = str(item.get("label") or "").strip()
-        description = str(item.get("description") or "").strip()
-        if not label or not description:
-            continue
-        if allowed_labels and label not in allowed_labels:
-            continue
-        if _is_retrieval_role_label(label):
-            continue
-        key = label.casefold()
-        if key in seen:
-            continue
-        if label not in markdown:
-            continue
-        refs = tuple(ref for ref in _string_tuple(item.get("evidence_refs")) if ref in allowed_refs)
-        definitions.append(
-            {
-                "label": label[:80],
-                "description": description[:320],
-                "evidence_refs": list(refs[:3]),
-            }
-        )
-        seen.add(key)
-        if len(definitions) >= 12:
-            break
-    return tuple(definitions)
-
-
-def _source_attributions_from_response(
-    value: Any,
-    *,
-    markdown: str,
-    allowed_refs: set[str],
-) -> tuple[Mapping[str, Any], ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    attributions: list[dict[str, Any]] = []
-    seen: set[tuple[str, str, str]] = set()
-    for item in value:
-        if not isinstance(item, Mapping):
-            continue
-        quote = str(item.get("quote") or "").strip()
-        source_kind = str(item.get("source_kind") or "").strip()
-        source_ref = str(item.get("source_ref") or "").strip()
-        note = str(item.get("note") or "").strip()
-        if not quote or not source_kind or quote not in markdown:
-            continue
-        if source_kind in {"source_code", "repo_docs", "local_notes", "notebooklm", "connected_source"} and source_ref not in allowed_refs:
-            continue
-        key = (quote.casefold(), source_kind.casefold(), source_ref)
-        if key in seen:
-            continue
-        attributions.append(
-            {
-                "quote": quote[:180],
-                "source_kind": source_kind[:80],
-                "source_ref": source_ref[:220],
-                "note": note[:320],
-            }
-        )
-        seen.add(key)
-        if len(attributions) >= 16:
-            break
-    return tuple(attributions)
-
-
-def _story_flow_from_response(
-    value: Any,
-    *,
-    allowed_refs: set[str],
-) -> tuple[Mapping[str, Any], ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    stages: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for item in value:
-        if not isinstance(item, Mapping):
-            continue
-        stage = str(item.get("stage") or "").strip()
-        relation = str(item.get("relation_to_answer_flow") or "").strip()
-        raw_sentences = item.get("sentences")
-        if (
-            not stage
-            or relation not in {"symptom", "evidence", "cause", "bridge"}
-            or not isinstance(raw_sentences, Sequence)
-            or isinstance(raw_sentences, (str, bytes))
-        ):
-            continue
-        sentences: list[dict[str, Any]] = []
-        for raw_sentence in raw_sentences:
-            if not isinstance(raw_sentence, Mapping):
-                continue
-            text = str(raw_sentence.get("text") or "").strip()
-            kind = str(raw_sentence.get("kind") or "").strip()
-            refs = tuple(ref for ref in _string_tuple(raw_sentence.get("evidence_refs")) if ref in allowed_refs)
-            if not text:
-                continue
-            if kind == "code_claim":
-                if not refs:
-                    continue
-            elif kind == "connective":
-                refs = ()
-            else:
-                continue
-            sentences.append(
-                {
-                    "text": text[:700],
-                    "kind": kind,
-                    "evidence_refs": list(refs[:4]),
-                }
-            )
-            if len(sentences) >= 6:
-                break
-        if not sentences:
-            continue
-        key = stage.casefold()
-        if key in seen:
-            continue
-        stages.append(
-            {
-                "stage": stage[:80],
-                "relation_to_answer_flow": relation[:40],
-                "sentences": sentences,
-            }
-        )
-        seen.add(key)
-        if len(stages) >= 8:
-            break
-    relations = [str(stage.get("relation_to_answer_flow") or "") for stage in stages]
-    opening_sentences = stages[0].get("sentences", ()) if stages else ()
-    if (
-        not relations
-        or relations[0] != "symptom"
-        or relations[-1] != "cause"
-        or "evidence" not in relations
-        or not opening_sentences
-        or any(
-            not isinstance(sentence, Mapping)
-            or str(sentence.get("kind") or "") != "connective"
-            or bool(_string_tuple(sentence.get("evidence_refs")))
-            for sentence in opening_sentences
-        )
-    ):
-        return ()
-    return tuple(stages)
-
-
-def _render_story_flow_markdown(
-    story_flow: Sequence[Mapping[str, Any]],
-    *,
-    evidence: Sequence[EvidenceItem],
-) -> str:
-    evidence_by_ref = {item.source_id: item for item in evidence}
-    paragraphs: list[str] = []
-    for stage in story_flow:
-        rendered_sentences: list[str] = []
-        for sentence in stage.get("sentences", ()):
-            if not isinstance(sentence, Mapping):
-                continue
-            text = str(sentence.get("text") or "").strip()
-            if not text:
-                continue
-            links: list[str] = []
-            for ref in _string_tuple(sentence.get("evidence_refs")):
-                evidence_item = evidence_by_ref.get(ref)
-                if evidence_item is None:
-                    continue
-                link = _evidence_link(evidence_item)
-                if link not in links:
-                    links.append(link)
-            rendered_sentences.append(f"{text} {' '.join(links)}".strip())
-        if rendered_sentences:
-            paragraphs.append(" ".join(rendered_sentences))
-    return "\n\n".join(paragraphs).strip()
-
-
-def _next_checks_from_response(value: Any) -> tuple[Mapping[str, str], ...]:
-    checks, _rejected = _collect_next_checks_from_response(value)
-    return checks
-
-
-def _collect_next_checks_from_response(value: Any) -> tuple[tuple[Mapping[str, str], ...], tuple[Mapping[str, str], ...]]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return (), ()
-    checks: list[dict[str, str]] = []
-    rejected: list[dict[str, str]] = []
-    seen_actions: set[str] = set()
-    seen_scenarios: set[str] = set()
-    for item in value:
-        if not isinstance(item, Mapping):
-            continue
-        scenario = str(item.get("scenario") or "").strip()
-        action = str(item.get("action") or "").strip()
-        if_result = str(item.get("if_result") or "").strip()
-        then_interpretation = str(item.get("then_interpretation") or "").strip()
-        if not scenario or not action or not if_result or not then_interpretation:
-            continue
-        if _is_low_level_next_check(scenario=scenario, action=action):
-            rejected.append({"reason": "low_level_next_check", "scenario": scenario[:120], "action": action[:320]})
-            continue
-        action_key = " ".join(action.casefold().split())
-        scenario_key = " ".join(scenario.casefold().split())
-        if action_key in seen_actions or scenario_key in seen_scenarios:
-            rejected.append({"reason": "duplicate_next_check", "scenario": scenario[:120], "action": action[:320]})
-            continue
-        checks.append(
-            {
-                "scenario": scenario[:120],
-                "action": action[:320],
-                "if_result": if_result[:320],
-                "then_interpretation": then_interpretation[:420],
-            }
-        )
-        seen_actions.add(action_key)
-        seen_scenarios.add(scenario_key)
-        if len(checks) >= 4:
-            break
-    return tuple(checks), tuple(rejected)
-
-
-def _is_low_level_next_check(*, scenario: str, action: str) -> bool:
-    text = f"{scenario}\n{action}".casefold()
-    return bool(
-        re.search(r"\bmetadata\b", text)
-        or re.search(r"\bdebug(?:ger|ging)?\b", text)
-        or re.search(r"\bbreakpoints?\b", text)
-        or re.search(r"\binstrument(?:ation|ing)?\b", text)
-        or re.search(r"\b(?:add|modify|insert|replace|instrument)\b.*\blog(?:s|ging)?\b", text)
-        or re.search(r"\bmodify\b.*\b(?:measure|count)\b.*\b(?:calls?|stat(?:sync)?)\b", text)
-        or re.search(r"\b(?:measure|count)\b.*\b(?:stat(?:sync)?|internal)\s+calls?\b", text)
-        or re.search(r"\btemporary\s+(?:diagnostic\s+)?log(?:ging|s)?\b", text)
-        or re.search(r"\bdebug\s+prints?\b", text)
-        or re.search(r"\bruntime\s+object\s+state\b", text)
-        or re.search(r"\bbinary\s+file\b", text)
-        or re.search(r"\bfile-format\s+investigation\b", text)
-    )
-
-
-def _answer_flow_from_response(value: Any, *, allowed_refs: set[str]) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
-        return {}
-    symptom = str(value.get("symptom") or "").strip()
-    evidence_point = str(value.get("evidence") or "").strip()
-    cause = str(value.get("cause") or "").strip()
-    tested_concepts = _string_tuple(value.get("tested_concepts"))
-    refs = tuple(ref for ref in _string_tuple(value.get("evidence_refs")) if ref in allowed_refs)
-    if not symptom or not evidence_point or not cause or not tested_concepts or not refs:
-        return {}
-    return {
-        "symptom": symptom[:500],
-        "evidence": evidence_point[:500],
-        "cause": cause[:650],
-        "tested_concepts": list(tested_concepts[:6]),
-        "evidence_refs": list(refs[:6]),
-    }
-
-
-def _next_check_requirement(*, plan: ComprehensionPlan, retrieval_result: RetrievalResult) -> dict[str, Any]:
-    summary = retrieval_result.retrieval_summary if isinstance(retrieval_result.retrieval_summary, Mapping) else {}
-    answer_blocking_uncertainties = _string_tuple(summary.get("answer_blocking_uncertainties"))
-    scope_notes = _string_tuple(summary.get("scope_notes"))
-    if answer_blocking_uncertainties:
-        return {
-            "mode": "bounded_inference",
-            "required": True,
-            "min_checks": 1,
-            "target_checks": 2,
-            "reason": "The retrieval result reports unresolved uncertainty that can affect the user-facing answer.",
-            "signals": {"answer_blocking_uncertainties": list(answer_blocking_uncertainties[:4])},
-        }
-    if not retrieval_result.evidence:
-        return {
-            "mode": "insufficient",
-            "required": True,
-            "min_checks": 2,
-            "reason": "Retrieval selected no evidence.",
-            "signals": {"coverage_status": retrieval_result.coverage_status, "retrieval_sufficient": retrieval_result.sufficient},
-        }
-    return {
-        "mode": "direct",
-        "required": False,
-        "min_checks": 0,
-        "reason": "Selected evidence is sufficient and no answer-blocking retrieval uncertainty was reported.",
-        "signals": {"scope_notes": list(scope_notes[:4])} if scope_notes else {},
-    }
-
-
-def _coerce_next_check_requirement(value: Any) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
-        return {"mode": "direct", "required": False, "min_checks": 0, "reason": "", "signals": {}}
-    min_checks = value.get("min_checks")
-    try:
-        parsed_min = int(min_checks)
-    except (TypeError, ValueError):
-        parsed_min = 0
-    try:
-        parsed_target = int(value.get("target_checks"))
-    except (TypeError, ValueError):
-        parsed_target = parsed_min
-    return {
-        "mode": str(value.get("mode") or "direct"),
-        "required": bool(value.get("required")),
-        "min_checks": max(0, min(parsed_min, 4)),
-        "target_checks": max(0, min(parsed_target, 4)),
-        "reason": str(value.get("reason") or ""),
-        "signals": value.get("signals") if isinstance(value.get("signals"), Mapping) else {},
-    }
-
-
-def _concept_definition_targets(user_prompt: str, evidence: Sequence[EvidenceItem]) -> list[str]:
-    ordered: list[str] = []
-    text = "\n".join((user_prompt, *(item.snippet for item in evidence), *(str(item.metadata.get("path") or "") for item in evidence)))
-    high_signal_terms = (
-        "ArrayBuffer",
-        "ArrayBufferView",
-        "DataView",
-        "Int16Array",
-        "lib.d.ts",
-        "lib.es6.d.ts",
-        "es6.d.ts",
-        "extensions.d.ts",
-        "src/lib/es6.d.ts",
-        "src/lib/extensions.d.ts",
-        "bin/lib.d.ts",
-        "Jakefile.js",
-        "getDefaultLibFileName",
-    )
-    for term in high_signal_terms:
-        if term in text and term not in ordered:
-            ordered.append(term)
-    for item in evidence:
-        path = str(item.metadata.get("path") or _path_from_source_id(item.source_id) or "").strip()
-        if path and path not in ordered:
-            ordered.append(path)
-    return ordered[:16]
-
-
-def _is_retrieval_role_label(label: str) -> bool:
-    normalized = re.sub(r"[_\s/-]+", " ", label).strip().casefold()
-    return normalized in {
-        "entry point or parsing",
-        "entry or parsing",
-        "state or representation",
-        "implementation owner",
-        "validation or checking",
-        "diagnostic or error",
-        "output or emission",
-        "test or expected behavior",
-        "supporting context",
-    }
-
-
-def _checks_from_response(
-    value: Any,
-    *,
-    markdown: str,
-    plan: ComprehensionPlan,
-    allowed_refs: set[str],
-    answer_flow: Mapping[str, Any],
-    log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
-) -> tuple[UnderstandingCheck, ...]:
-    checks, rejected, raw_count = _collect_checks_from_response(
-        value,
-        markdown=markdown,
-        plan=plan,
-        allowed_refs=allowed_refs,
-        answer_flow=answer_flow,
-    )
-    if checks:
-        return checks
-    if log_event is not None:
-        log_event(
-            "comprehension_understanding_checks_rejected",
-            {
-                "rejected": rejected[:5],
-                "raw_count": raw_count,
-                "repair_attempted": False,
-            },
-        )
-    raise RuntimeError("Comprehension explanation generation returned no valid model-generated understanding checks.")
-
-
-def _collect_checks_from_response(
-    value: Any,
-    *,
-    markdown: str,
-    plan: ComprehensionPlan,
-    allowed_refs: set[str],
-    answer_flow: Mapping[str, Any],
-) -> tuple[tuple[UnderstandingCheck, ...], list[dict[str, Any]], int]:
-    checks: list[UnderstandingCheck] = []
-    rejected: list[dict[str, Any]] = []
-    if isinstance(value, list):
-        if len(value) > 3:
-            return (), [{"reason": "too_many_understanding_checks", "count": len(value)}], len(value)
-        for item in value:
-            if not isinstance(item, Mapping):
-                rejected.append({"reason": "not_mapping"})
-                continue
-            check_id = str(item.get("id") or "").strip()
-            role = str(item.get("role") or "").strip()
-            question_type = str(item.get("question_type") or "").strip()
-            origin = str(item.get("origin") or "").strip()
-            raw_refs = _string_tuple(item.get("evidence_refs"))
-            tested_concepts = _string_tuple(item.get("tested_concepts"))
-            expected_answer_points = _string_tuple(item.get("expected_answer_points"))
-            answer_point_map = _answer_point_map_from_response(item.get("answer_point_map"))
-            question = str(item.get("question") or "").strip()
-            hint = str(item.get("hint") or "").strip()
-            if not all((check_id, role, question_type, origin, raw_refs, tested_concepts, expected_answer_points, answer_point_map, question, hint)):
-                rejected.append({"reason": "missing_required_fields", "question": question[:200]})
-                continue
-            invalid_refs = tuple(ref for ref in raw_refs if ref not in allowed_refs)
-            if invalid_refs:
-                rejected.append({"reason": "invalid_evidence_refs", "question": question[:200], "invalid_refs": list(invalid_refs)})
-                continue
-            if len(raw_refs) > 4 or len(tested_concepts) > 6 or len(question) > 600 or len(hint) > 500:
-                rejected.append({"reason": "field_limit_exceeded", "question": question[:200]})
-                continue
-            expected_flow_points = _answer_flow_expected_points(answer_flow)
-            expected_flow_map = _answer_flow_answer_point_map(answer_flow)
-            if expected_answer_points != expected_flow_points:
-                rejected.append({"reason": "expected_answer_points_do_not_match_answer_flow", "question": question[:200]})
-                continue
-            if answer_point_map != expected_flow_map:
-                rejected.append({"reason": "answer_point_map_does_not_match_answer_flow", "question": question[:200]})
-                continue
-            grounding_error = _check_grounding_contract(
-                question=question,
-                tested_concepts=tested_concepts,
-                plan=plan,
-                markdown=markdown,
-                answer_flow=answer_flow,
-            )
-            if grounding_error:
-                rejected.append({"reason": grounding_error, "question": question[:200]})
-                continue
-            if _uses_retrieval_label_wording(question) or _uses_retrieval_label_wording(hint):
-                rejected.append({"reason": "retrieval_label_wording", "question": question[:200], "hint": hint[:200]})
-                continue
-            checks.append(
-                UnderstandingCheck(
-                    id=check_id,
-                    role=role,
-                    question_type=question_type,
-                    question=question,
-                    expected_answer_points=expected_answer_points,
-                    hint=hint,
-                    evidence_refs=raw_refs,
-                    origin=origin,
-                    tested_concepts=tested_concepts,
-                    answer_point_map=answer_point_map,
-                )
-            )
-    if checks:
-        return tuple(checks), rejected, len(value) if isinstance(value, list) else 0
-    return (), rejected, len(value) if isinstance(value, list) else 0
-
-
-def _repair_understanding_checks(
-    *,
-    markdown: str,
-    rejected: Sequence[Mapping[str, Any]],
-    allowed_refs: set[str],
-    plan: ComprehensionPlan,
-    repair_context: Mapping[str, Any],
-    answer_flow: Mapping[str, Any],
+    flow_plan: IntentFlowPlan,
     llm_config: Any,
-    log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
-    log_warning: Callable[[Mapping[str, Any]], None] | None = None,
-) -> tuple[UnderstandingCheck, ...]:
-    payload = {
-        "user_prompt": repair_context.get("user_prompt", ""),
-        "coverage_status": repair_context.get("coverage_status", ""),
-        "retrieval_sufficient": repair_context.get("retrieval_sufficient", False),
-        "generated_markdown": markdown,
-        "answer_flow": dict(answer_flow),
-        "rejected_checks": [dict(item) for item in rejected[:5]],
-        "allowed_refs": sorted(allowed_refs),
-        "comprehension_plan": repair_context.get("comprehension_plan") or plan.to_dict(),
-        "evidence": list(repair_context.get("evidence") or ()),
-        "repair_rules": {
-            "return_only_understanding_checks": True,
-            "do_not_rewrite_markdown": True,
-            "question_must_be_answerable_from_generated_markdown": True,
-            "avoid_retrieval_or_evidence_label_wording": True,
-            "test_semantic_chain": "symptom -> observed evidence -> cause",
+    log_warning: Callable[[Mapping[str, Any]], None] | None,
+    log_event: Callable[[str, Mapping[str, Any]], None] | None,
+) -> Mapping[str, Any]:
+    rejected = list(validation_error.rejected)
+    replacements = repair_understanding_checks(
+        llm_config=llm_config,
+        context={
+            "generation_context": dict(generation_payload),
+            "completed_explanation": {
+                key: value for key, value in response.items() if key != "understanding_checks"
+            },
+            "accepted_questions": [raw for _, raw in validation_error.accepted],
+            "rejected_questions": rejected,
+            "question_field_limits": dict(QUESTION_FIELD_LIMITS),
         },
-    }
-    if log_event is not None:
-        log_event(
-            "comprehension_understanding_check_repair_requested",
-            {
-                "prompt_template_id": CHECK_REPAIR_PROMPT_TEMPLATE_ID,
-                "rejected_count": len(rejected),
-                "allowed_ref_count": len(allowed_refs),
-                "payload": payload,
-            },
-        )
-    response = complete_json(
-        llm_config,
-        (
-            {"role": "system", "content": _compose_repair_prompt(CHECK_REPAIR_PROMPT_PATH)},
-            {"role": "user", "content": json.dumps(payload, sort_keys=True)},
-        ),
-        response_format=_check_repair_response_format(),
+        response_format=_question_repair_response_format(flow_plan, count=len(rejected)),
         log_warning=log_warning,
         log_event=log_event,
     )
-    checks, repair_rejected, raw_count = _collect_checks_from_response(
-        response.get("understanding_checks"),
-        markdown=markdown,
-        plan=plan,
-        allowed_refs=allowed_refs,
-        answer_flow=answer_flow,
-    )
+    if len(replacements) != len(rejected):
+        raise RuntimeError("Question repair did not return one replacement per rejected question.")
+    raw_checks = response.get("understanding_checks")
+    merged = list(raw_checks) if isinstance(raw_checks, list) else []
+    for rejected_item, replacement in zip(rejected, replacements):
+        index = int(rejected_item.get("index", len(merged)))
+        if index < len(merged):
+            merged[index] = dict(replacement)
+        else:
+            merged.append(dict(replacement))
     if log_event is not None:
         log_event(
-            "comprehension_understanding_check_repair_received",
+            "understanding_check_repair_completed",
             {
-                "prompt_template_id": CHECK_REPAIR_PROMPT_TEMPLATE_ID,
-                "accepted_count": len(checks),
-                "raw_count": raw_count,
-                "rejected": repair_rejected[:5],
+                "repaired_indexes": [int(item.get("index", -1)) for item in rejected],
+                "preserved_indexes": [index for index, _ in validation_error.accepted],
             },
         )
-    return checks
+    return {**dict(response), "understanding_checks": merged}
 
 
-def _repair_next_checks(
-    *,
-    markdown: str,
-    repair_context: Mapping[str, Any],
-    llm_config: Any,
-    generated_next_checks: Any = None,
-    log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
-    log_warning: Callable[[Mapping[str, Any]], None] | None = None,
-) -> tuple[Mapping[str, str], ...]:
-    accepted_next_checks, rejected_next_checks = _collect_next_checks_from_response(generated_next_checks)
-    payload = {
-        "user_prompt": repair_context.get("user_prompt", ""),
-        "coverage_status": repair_context.get("coverage_status", ""),
-        "retrieval_sufficient": repair_context.get("retrieval_sufficient", False),
-        "generated_markdown": markdown,
-        "generated_next_checks": generated_next_checks if isinstance(generated_next_checks, list) else [],
-        "accepted_next_checks": list(accepted_next_checks),
-        "rejected_next_checks": [dict(item) for item in rejected_next_checks],
-        "evidence": list(repair_context.get("evidence") or ()),
-        "next_check_requirement": repair_context.get("next_check_requirement") or {},
-        "task": "Keep accepted_next_checks when useful and replace rejected_next_checks with different feasible checks until next_check_requirement.min_checks is satisfied.",
-    }
-    if log_event is not None:
-        log_event(
-            "comprehension_next_checks_repair_requested",
-            {
-                "prompt_template_id": NEXT_CHECK_REPAIR_PROMPT_TEMPLATE_ID,
-                "payload": payload,
-            },
-        )
-    response = complete_json(
-        llm_config,
-        (
-            {"role": "system", "content": _compose_repair_prompt(NEXT_CHECK_REPAIR_PROMPT_PATH)},
-            {"role": "user", "content": json.dumps(payload, sort_keys=True)},
-        ),
-        response_format=_next_check_repair_response_format(),
-        log_warning=log_warning,
-        log_event=log_event,
-    )
-    next_checks = _next_checks_from_response(response.get("next_checks"))
-    if log_event is not None:
-        log_event(
-            "comprehension_next_checks_repair_received",
-            {
-                "prompt_template_id": NEXT_CHECK_REPAIR_PROMPT_TEMPLATE_ID,
-                "accepted_count": len(next_checks),
-            },
-        )
-    return next_checks
-
-
-def _repair_source_attributions(
-    *,
-    markdown: str,
-    repair_context: Mapping[str, Any],
-    allowed_refs: set[str],
-    llm_config: Any,
-    log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
-    log_warning: Callable[[Mapping[str, Any]], None] | None = None,
-) -> tuple[Mapping[str, Any], ...]:
-    quote_candidates = _source_attribution_quote_candidates(markdown)
-    if not quote_candidates:
-        return ()
-    quote_ids = {f"q{index + 1}": quote for index, quote in enumerate(quote_candidates)}
-    payload = {
-        "user_prompt": repair_context.get("user_prompt", ""),
-        "generated_markdown": markdown,
-        "quote_candidates": [{"id": quote_id, "quote": quote} for quote_id, quote in quote_ids.items()],
-        "allowed_refs": sorted(allowed_refs),
-        "evidence": list(repair_context.get("evidence") or ()),
-        "task": "Return source_attributions whose quote values are selected from quote_candidates.",
-    }
-    if log_event is not None:
-        log_event(
-            "comprehension_source_attribution_repair_requested",
-            {
-                "prompt_template_id": SOURCE_ATTRIBUTION_REPAIR_PROMPT_TEMPLATE_ID,
-                "payload": payload,
-            },
-        )
-    response = complete_json(
-        llm_config,
-        (
-            {"role": "system", "content": _compose_repair_prompt(SOURCE_ATTRIBUTION_REPAIR_PROMPT_PATH)},
-            {"role": "user", "content": json.dumps(payload, sort_keys=True)},
-        ),
-        response_format=_source_attribution_repair_response_format(tuple(quote_ids)),
-        log_warning=log_warning,
-        log_event=log_event,
-    )
-    attributions = _source_attributions_from_repair_response(
-        response.get("source_attributions"),
-        quote_ids=quote_ids,
-        allowed_refs=allowed_refs,
-    )
-    if log_event is not None:
-        log_event(
-            "comprehension_source_attribution_repair_received",
-            {
-                "prompt_template_id": SOURCE_ATTRIBUTION_REPAIR_PROMPT_TEMPLATE_ID,
-                "accepted_count": len(attributions),
-            },
-        )
-    return attributions
-
-
-def _source_attributions_from_repair_response(
-    value: Any,
-    *,
-    quote_ids: Mapping[str, str],
-    allowed_refs: set[str],
-) -> tuple[Mapping[str, Any], ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    expanded: list[dict[str, Any]] = []
-    for item in value:
-        if not isinstance(item, Mapping):
-            continue
-        quote_id = str(item.get("quote_id") or "").strip()
-        quote = quote_ids.get(quote_id)
-        if not quote:
-            continue
-        expanded.append(
-            {
-                "quote": quote,
-                "source_kind": str(item.get("source_kind") or ""),
-                "source_ref": str(item.get("source_ref") or ""),
-                "note": str(item.get("note") or ""),
-            }
-        )
-    return _source_attributions_from_response(expanded, markdown="\n".join(quote_ids.values()), allowed_refs=allowed_refs)
-
-
-def _source_attribution_quote_candidates(markdown: str) -> list[str]:
-    candidates: list[str] = []
-    for sentence in _split_sentences_preserving_punctuation(markdown):
-        pieces = [sentence]
-        if "([" in sentence:
-            pieces.append(sentence.split("([", 1)[0])
-        for piece in pieces:
-            quote = re.sub(r"\s+", " ", piece).strip()
-            quote = re.sub(r"\s*\($", "", quote).strip()
-            if not quote or len(quote) > 220 or "[" in quote or "](" in quote:
-                continue
-            lowered = quote.casefold()
-            if (
-                "issue" in lowered
-                or "reported" in lowered
-                or "retrieved code" in lowered
-                or "code shows" in lowered
-                or "`" in quote
-                or "pandas" in lowered
-                or "pytables" in lowered
-                or "categorical" in lowered
-                or "group" in lowered
-                or "append" in lowered
-            ):
-                if quote not in candidates:
-                    candidates.append(quote)
-            if len(candidates) >= 18:
-                break
-        if len(candidates) >= 18:
-            break
-    return candidates
-
-
-def _uses_retrieval_label_wording(text: str) -> bool:
-    return bool(RETRIEVAL_LABEL_QUESTION_PATTERN.search(text))
-
-
-def _answer_flow_expected_points(answer_flow: Mapping[str, Any]) -> tuple[str, ...]:
-    return tuple(
-        point
-        for point in (
-            str(answer_flow.get("symptom") or "").strip(),
-            str(answer_flow.get("evidence") or "").strip(),
-            str(answer_flow.get("cause") or "").strip(),
-        )
-        if point
-    )
-
-
-def _answer_flow_answer_point_map(answer_flow: Mapping[str, Any]) -> tuple[Mapping[str, str], ...]:
-    return tuple(
-        {"kind": kind, "point": point}
-        for kind, point in (
-            ("symptom", str(answer_flow.get("symptom") or "").strip()),
-            ("evidence", str(answer_flow.get("evidence") or "").strip()),
-            ("cause", str(answer_flow.get("cause") or "").strip()),
-        )
-        if point
-    )
-
-
-def _answer_point_map_from_response(value: Any) -> tuple[Mapping[str, str], ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    output: list[Mapping[str, str]] = []
-    for item in value:
-        if not isinstance(item, Mapping):
-            return ()
-        kind = str(item.get("kind") or "").strip()
-        point = str(item.get("point") or "").strip()
-        if kind not in {"symptom", "evidence", "cause"} or not point:
-            return ()
-        output.append({"kind": kind, "point": point})
-    return tuple(output)
-
-
-def _check_grounding_contract(
-    *,
-    question: str,
-    tested_concepts: Sequence[str],
-    plan: ComprehensionPlan,
-    markdown: str,
-    answer_flow: Mapping[str, Any],
-) -> str:
-    if _is_generic_understanding_question(question):
-        return "generic_understanding_question"
-    if not tested_concepts:
-        return "missing_tested_concepts"
-    if any(_is_retrieval_role_label(concept) for concept in tested_concepts):
-        return "retrieval_label_concept"
-    flow_concepts = {_normalize_contract_text(concept) for concept in _string_tuple(answer_flow.get("tested_concepts"))}
-    if not flow_concepts:
-        return "missing_answer_flow_concepts"
-    if not any(_normalize_contract_text(concept) in flow_concepts for concept in tested_concepts):
-        return "tested_concept_not_in_answer_flow"
-    if not _question_names_answer_flow_term(question=question, answer_flow=answer_flow):
-        return "question_not_about_answer_flow"
-    return ""
-
-
-def _is_generic_understanding_question(question: str) -> bool:
-    normalized = re.sub(r"[^a-z0-9]+", " ", question.casefold()).strip()
-    generic_questions = {
-        "why does the reported behavior happen",
-        "why does this behavior happen",
-        "why does the issue happen",
-        "why does the reported issue happen",
-        "what causes the reported behavior",
-        "what causes this behavior",
-        "what is the cause of the reported behavior",
-    }
-    return normalized.rstrip(" ?.") in generic_questions
-
-
-def _question_names_answer_flow_term(*, question: str, answer_flow: Mapping[str, Any]) -> bool:
-    question_text = _normalize_contract_text(question)
-    if not question_text:
-        return False
-    terms = _answer_flow_question_terms(answer_flow)
-    return any(term in question_text for term in terms)
-
-
-def _answer_flow_question_terms(answer_flow: Mapping[str, Any]) -> set[str]:
-    terms: set[str] = set()
-    for concept in _string_tuple(answer_flow.get("tested_concepts")):
-        normalized = _normalize_question_term(concept)
-        if normalized and not _is_generic_question_term(normalized):
-            terms.add(normalized)
-    fields = (
-        str(answer_flow.get("symptom") or ""),
-        str(answer_flow.get("evidence") or ""),
-        str(answer_flow.get("cause") or ""),
-    )
-    for text in fields:
-        terms.update(_concrete_question_terms(text))
-    return terms
-
-
-def _concrete_question_terms(text: str) -> set[str]:
-    terms: set[str] = set()
-    for match in re.findall(r"`([^`]{2,80})`", text):
-        normalized = _normalize_question_term(match)
-        if normalized:
-            terms.add(normalized)
-    for match in re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*(?:[._/-][A-Za-z0-9_]+)+\b", text):
-        normalized = _normalize_question_term(match)
-        if normalized:
-            terms.add(normalized)
-    for match in re.findall(r"\b[A-Z][A-Za-z0-9_]{2,}\b", text):
-        normalized = _normalize_question_term(match)
-        if normalized:
-            terms.add(normalized)
-    for phrase in _string_tuple([text]):
-        normalized_phrase = _normalize_question_term(phrase)
-        if normalized_phrase and 2 <= len(normalized_phrase.split()) <= 6:
-            terms.add(normalized_phrase)
-    return {term for term in terms if not _is_generic_question_term(term)}
-
-
-def _normalize_question_term(value: str) -> str:
-    normalized = _normalize_contract_text(value)
-    if len(normalized) < 3:
-        return ""
-    return normalized
-
-
-def _is_generic_question_term(term: str) -> bool:
-    return term in {
-        "the",
-        "this",
-        "that",
-        "issue",
-        "reported",
-        "behavior",
-        "reported behavior",
-        "symptom",
-        "evidence",
-        "cause",
-        "code",
-        "selected code",
-        "user",
-        "users",
-        "data",
-        "file",
-        "files",
-        "method",
-        "function",
-        "module",
-        "path",
-    }
-
-
-def _normalized_contract_texts(*, plan: ComprehensionPlan, markdown: str) -> tuple[str, ...]:
-    plan_payload = plan.to_dict()
-    values: list[str] = [str(plan_payload.get("task_goal") or ""), _answer_path_section(markdown)]
-    for concept in plan_payload.get("concepts") or ():
-        if isinstance(concept, Mapping):
-            values.extend(
-                str(concept.get(key) or "")
-                for key in ("id", "name", "description")
-            )
-    return tuple(_normalize_contract_text(value) for value in values if str(value).strip())
-
-
-def _answer_path_section(markdown: str) -> str:
-    match = re.search(r"(?is)answer path[^:\n]*:\s*(?P<section>.*?)(?:\n\s*\n|$)", markdown)
-    return match.group("section") if match else markdown
-
-
-def _contract_text_contains(needle: str, haystacks: Sequence[str]) -> bool:
-    normalized = _normalize_contract_text(needle)
-    return bool(normalized) and any(normalized in haystack for haystack in haystacks)
-
-
-def _normalize_contract_text(value: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9_.]+", " ", value.casefold())).strip()
-
-
-def _compact_evidence(item: EvidenceItem) -> dict[str, Any]:
-    metadata = dict(item.metadata)
-    return {
-        "ref": item.source_id,
-        "citation_markdown": _evidence_link(item),
-        "path": metadata.get("path") or _path_from_source_id(item.source_id) or item.source_id,
-        "line_range": metadata.get("line_range") or _line_range_from_source_id(item.source_id),
-        "coverage_area": metadata.get("coverage_area", ""),
-        "claim_supported": metadata.get("claim_supported", ""),
-        "snippet": _compact_snippet(item.snippet),
-    }
-
-
-def _response_format() -> Mapping[str, Any]:
+def _question_repair_response_format(flow_plan: IntentFlowPlan, *, count: int) -> Mapping[str, Any]:
+    item_schema = _response_format(flow_plan)["json_schema"]["schema"]["properties"]["understanding_checks"]["items"]
     return {
         "type": "json_schema",
         "json_schema": {
-            "name": "comprehension_plan_explanation",
-            "strict": True,
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "answer_flow": {
-                        "type": "object",
-                        "properties": {
-                            "symptom": {"type": "string"},
-                            "evidence": {"type": "string"},
-                            "cause": {"type": "string"},
-                            "tested_concepts": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 6},
-                            "evidence_refs": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 6},
-                        },
-                        "required": ["symptom", "evidence", "cause", "tested_concepts", "evidence_refs"],
-                        "additionalProperties": False,
-                    },
-                    "story_flow": {
-                        "type": "array",
-                        "minItems": 1,
-                        "maxItems": 8,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "stage": {"type": "string"},
-                                "relation_to_answer_flow": {
-                                    "type": "string",
-                                    "enum": ["symptom", "evidence", "cause", "bridge"],
-                                },
-                                "sentences": {
-                                    "type": "array",
-                                    "minItems": 1,
-                                    "maxItems": 6,
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "text": {"type": "string"},
-                                            "kind": {"type": "string", "enum": ["code_claim", "connective"]},
-                                            "evidence_refs": {
-                                                "type": "array",
-                                                "items": {"type": "string"},
-                                                "maxItems": 4,
-                                            },
-                                        },
-                                        "required": ["text", "kind", "evidence_refs"],
-                                        "additionalProperties": False,
-                                    },
-                                },
-                            },
-                            "required": [
-                                "stage",
-                                "relation_to_answer_flow",
-                                "sentences",
-                            ],
-                            "additionalProperties": False,
-                        },
-                    },
-                    "understanding_checks": {
-                        "type": "array",
-                        "minItems": 1,
-                        "maxItems": 3,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "string"},
-                                "role": {"type": "string"},
-                                "question_type": {"type": "string"},
-                                "question": {"type": "string", "minLength": 1, "maxLength": 600},
-                                "expected_answer_points": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 3},
-                                "hint": {"type": "string", "minLength": 1, "maxLength": 500},
-                                "evidence_refs": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 4},
-                                "origin": {"type": "string"},
-                                "tested_concepts": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 6},
-                                "answer_point_map": {
-                                    "type": "array",
-                                    "minItems": 3,
-                                    "maxItems": 3,
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "kind": {"type": "string", "enum": ["symptom", "evidence", "cause"]},
-                                            "point": {"type": "string"},
-                                        },
-                                        "required": ["kind", "point"],
-                                        "additionalProperties": False,
-                                    },
-                                },
-                            },
-                            "required": [
-                                "id",
-                                "role",
-                                "question_type",
-                                "question",
-                                "expected_answer_points",
-                                "hint",
-                                "evidence_refs",
-                                "origin",
-                                "tested_concepts",
-                                "answer_point_map",
-                            ],
-                            "additionalProperties": False,
-                        },
-                    },
-                    "render_notes": {
-                        "type": "object",
-                        "properties": {
-                            "title": {"type": "string"},
-                            "summary": {"type": "string"},
-                        },
-                        "required": ["title", "summary"],
-                        "additionalProperties": False,
-                    },
-                    "concept_definitions": {
-                        "type": "array",
-                        "maxItems": 12,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "label": {"type": "string"},
-                                "description": {"type": "string"},
-                                "evidence_refs": {"type": "array", "items": {"type": "string"}},
-                            },
-                            "required": ["label", "description", "evidence_refs"],
-                            "additionalProperties": False,
-                        },
-                    },
-                    "source_attributions": {
-                        "type": "array",
-                        "minItems": 1,
-                        "maxItems": 16,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "quote": {"type": "string"},
-                                "source_kind": {
-                                    "type": "string",
-                                    "enum": [
-                                        "issue_title",
-                                        "issue_body",
-                                        "user_sample",
-                                        "error_text",
-                                        "source_code",
-                                        "repo_docs",
-                                        "local_notes",
-                                        "notebooklm",
-                                        "connected_source",
-                                        "external_runtime",
-                                    ],
-                                },
-                                "source_ref": {"type": "string"},
-                                "note": {"type": "string"},
-                            },
-                            "required": ["quote", "source_kind", "source_ref", "note"],
-                            "additionalProperties": False,
-                        },
-                    },
-                    "next_checks": {
-                        "type": "array",
-                        "maxItems": 4,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "scenario": {"type": "string"},
-                                "action": {"type": "string"},
-                                "if_result": {"type": "string"},
-                                "then_interpretation": {"type": "string"},
-                            },
-                            "required": ["scenario", "action", "if_result", "then_interpretation"],
-                            "additionalProperties": False,
-                        },
-                    },
-                },
-                "required": [
-                    "answer_flow",
-                    "story_flow",
-                    "understanding_checks",
-                    "render_notes",
-                    "concept_definitions",
-                    "source_attributions",
-                    "next_checks",
-                ],
-                "additionalProperties": False,
-            },
-        },
-    }
-
-
-def _check_repair_response_format() -> Mapping[str, Any]:
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "comprehension_understanding_check_repair",
+            "name": "understanding_check_repair",
             "strict": True,
             "schema": {
                 "type": "object",
                 "properties": {
                     "understanding_checks": {
                         "type": "array",
-                        "minItems": 1,
-                        "maxItems": 3,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "string"},
-                                "role": {"type": "string"},
-                                "question_type": {"type": "string"},
-                                "question": {"type": "string", "minLength": 1, "maxLength": 600},
-                                "expected_answer_points": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 3},
-                                "hint": {"type": "string", "minLength": 1, "maxLength": 500},
-                                "evidence_refs": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 4},
-                                "origin": {"type": "string"},
-                                "tested_concepts": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 6},
-                                "answer_point_map": {
-                                    "type": "array",
-                                    "minItems": 3,
-                                    "maxItems": 3,
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "kind": {"type": "string", "enum": ["symptom", "evidence", "cause"]},
-                                            "point": {"type": "string"},
-                                        },
-                                        "required": ["kind", "point"],
-                                        "additionalProperties": False,
-                                    },
-                                },
-                            },
-                            "required": [
-                                "id",
-                                "role",
-                                "question_type",
-                                "question",
-                                "expected_answer_points",
-                                "hint",
-                                "evidence_refs",
-                                "origin",
-                                "tested_concepts",
-                                "answer_point_map",
-                            ],
-                            "additionalProperties": False,
-                        },
+                        "items": item_schema,
+                        "minItems": count,
+                        "maxItems": count,
                     }
                 },
                 "required": ["understanding_checks"],
@@ -1634,135 +385,1123 @@ def _check_repair_response_format() -> Mapping[str, Any]:
     }
 
 
-def _next_check_repair_response_format() -> Mapping[str, Any]:
+def _repair_invalid_hint_ladders(
+    *,
+    response: Mapping[str, Any],
+    generation_payload: Mapping[str, Any],
+    flow_plan: IntentFlowPlan,
+    llm_config: Any,
+    log_warning: Callable[[Mapping[str, Any]], None] | None,
+    log_event: Callable[[str, Mapping[str, Any]], None] | None,
+) -> tuple[Mapping[str, Any], int]:
+    raw_checks = response.get("understanding_checks")
+    if not isinstance(raw_checks, list):
+        return response, 0
+    rejected: list[dict[str, Any]] = []
+    for index, raw in enumerate(raw_checks):
+        if not isinstance(raw, Mapping):
+            continue
+        errors = _hint_ladder_errors(raw.get("hints"))
+        if errors:
+            rejected.append({"question_index": index, "question": dict(raw), "errors": errors})
+    if not rejected:
+        return response, 0
+    ladders = repair_hint_ladders(
+        llm_config=llm_config,
+        context={
+            "generation_context": dict(generation_payload),
+            "completed_explanation": {key: value for key, value in response.items() if key != "understanding_checks"},
+            "all_questions": [dict(item) for item in raw_checks if isinstance(item, Mapping)],
+            "rejected_hint_ladders": rejected,
+            "hint_contract": {"ordered_kinds": list(HINT_KINDS), "text_max_characters": HINT_TEXT_LIMIT},
+        },
+        response_format=_hint_repair_response_format(count=len(rejected)),
+        log_warning=log_warning,
+        log_event=log_event,
+    )
+    if len(ladders) != len(rejected):
+        raise RuntimeError("Hint repair did not return one ladder per rejected question.")
+    merged = [dict(item) if isinstance(item, Mapping) else item for item in raw_checks]
+    for rejected_item, ladder in zip(rejected, ladders):
+        errors = _hint_ladder_errors(ladder)
+        if errors:
+            raise RuntimeError("Hint repair returned an invalid ladder: " + "; ".join(errors))
+        index = int(rejected_item["question_index"])
+        merged[index] = {**dict(merged[index]), "hints": [dict(item) for item in ladder]}
+    if log_event is not None:
+        log_event("understanding_hint_repair_completed", {"repaired_question_indexes": [item["question_index"] for item in rejected]})
+    return {**dict(response), "understanding_checks": merged}, MAX_HINT_REPAIR_ATTEMPTS
+
+
+def _hint_ladder_errors(value: Any) -> list[str]:
+    if not isinstance(value, list) or len(value) != len(HINT_KINDS):
+        return ["hints must contain exactly direction, focus, and scaffold"]
+    errors: list[str] = []
+    texts: list[str] = []
+    for index, (raw, expected_kind) in enumerate(zip(value, HINT_KINDS), start=1):
+        if not isinstance(raw, Mapping):
+            errors.append(f"hint {index} must be an object")
+            continue
+        kind = str(raw.get("kind") or "").strip()
+        text = str(raw.get("text") or "").strip()
+        if kind != expected_kind:
+            errors.append(f"hint {index} must use kind {expected_kind}")
+        if not text:
+            errors.append(f"hint {index} has empty text")
+        elif len(text) > HINT_TEXT_LIMIT:
+            errors.append(f"hint {index} exceeds {HINT_TEXT_LIMIT} characters")
+        texts.append(" ".join(text.casefold().split()))
+    if len(texts) != len(set(texts)):
+        errors.append("hint texts must be distinct")
+    return errors
+
+
+def _hints_from_value(value: Any) -> tuple[UnderstandingHint, ...]:
+    errors = _hint_ladder_errors(value)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return tuple(
+        UnderstandingHint(kind=str(raw["kind"]).strip(), text=str(raw["text"]).strip())
+        for raw in value
+    )
+
+
+def _hint_item_schema() -> Mapping[str, Any]:
+    return {
+        "type": "array",
+        "minItems": len(HINT_KINDS),
+        "maxItems": len(HINT_KINDS),
+        "items": {
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string", "enum": list(HINT_KINDS)},
+                "text": {"type": "string", "maxLength": HINT_TEXT_LIMIT},
+            },
+            "required": ["kind", "text"],
+            "additionalProperties": False,
+        },
+    }
+
+
+def _hint_repair_response_format(*, count: int) -> Mapping[str, Any]:
     return {
         "type": "json_schema",
         "json_schema": {
-            "name": "comprehension_next_checks_repair",
+            "name": "understanding_hint_repair",
             "strict": True,
             "schema": {
                 "type": "object",
                 "properties": {
-                    "next_checks": {
+                    "hint_ladders": {
                         "type": "array",
-                        "minItems": 2,
+                        "items": _hint_item_schema(),
+                        "minItems": count,
+                        "maxItems": count,
+                    }
+                },
+                "required": ["hint_ladders"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _validate_response(
+    response: Mapping[str, Any],
+    *,
+    evidence: Sequence[EvidenceItem],
+    flow_plan: IntentFlowPlan,
+) -> ComprehensionGenerationResult:
+    allowed_refs = {item.source_id for item in evidence}
+    ordered_stage_ids = _strings(response.get("ordered_stage_ids"))
+    errors = list(validate_stage_permutation(flow_plan.contract_stage_ids, ordered_stage_ids))
+    raw_stages = response.get("stages")
+    if not isinstance(raw_stages, list):
+        errors.append("stages must be an array")
+        raw_stages = []
+    received_stage_ids = tuple(
+        str(item.get("stage_id") or "").strip() for item in raw_stages if isinstance(item, Mapping)
+    )
+    errors.extend(f"stage objects: {error}" for error in validate_stage_permutation(flow_plan.contract_stage_ids, received_stage_ids))
+    if received_stage_ids and received_stage_ids != ordered_stage_ids:
+        errors.append("stage objects are not in ordered_stage_ids order")
+    if errors:
+        raise FlowValidationError(errors)
+
+    stages: list[dict[str, Any]] = []
+    used_refs: list[str] = []
+    content_errors: list[str] = []
+    for raw_stage in raw_stages:
+        if not isinstance(raw_stage, Mapping):
+            content_errors.append("stage item is not an object")
+            continue
+        stage_id = str(raw_stage.get("stage_id") or "").strip()
+        title = str(raw_stage.get("title") or "").strip()
+        raw_sentences = raw_stage.get("sentences")
+        sentences: list[dict[str, Any]] = []
+        if not isinstance(raw_sentences, list) or not raw_sentences:
+            content_errors.append(f"{stage_id}: missing sentences")
+            raw_sentences = []
+        for raw_sentence in raw_sentences:
+            if not isinstance(raw_sentence, Mapping):
+                content_errors.append(f"{stage_id}: sentence is not an object")
+                continue
+            text = str(raw_sentence.get("text") or "").strip()
+            kind = str(raw_sentence.get("kind") or "").strip()
+            refs = _strings(raw_sentence.get("evidence_refs"))
+            invalid_refs = tuple(ref for ref in refs if ref not in allowed_refs)
+            if not text or kind not in {"code_claim", "connective"}:
+                content_errors.append(f"{stage_id}: invalid sentence text or kind")
+                continue
+            if invalid_refs:
+                content_errors.append(f"{stage_id}: invalid evidence refs {', '.join(invalid_refs)}")
+                continue
+            if kind == "code_claim" and not refs:
+                content_errors.append(f"{stage_id}: code_claim has no evidence refs")
+                continue
+            if kind == "connective" and refs:
+                content_errors.append(f"{stage_id}: connective sentence has evidence refs")
+                continue
+            for ref in refs:
+                if ref not in used_refs:
+                    used_refs.append(ref)
+            sentences.append({"text": text[:1200], "kind": kind, "evidence_refs": list(refs)})
+        stages.append({"stage_id": stage_id, "title": title[:160], "sentences": sentences})
+    if content_errors:
+        raise FlowValidationError(content_errors)
+
+    stage_ids = tuple(stage["stage_id"] for stage in stages)
+    presentation_sections = _presentation_sections(
+        response.get("presentation_sections"),
+        ordered_stage_ids=stage_ids,
+    )
+    presentation_lists = _presentation_lists(
+        response.get("presentation_lists"),
+        allowed_refs=allowed_refs,
+        allowed_stage_ids=set(stage_ids),
+    )
+    examples = _examples(
+        response.get("examples"),
+        allowed_refs=allowed_refs,
+        allowed_stage_ids=set(stage_ids),
+    )
+    comparison_tables = _comparison_tables(
+        response.get("comparison_tables"),
+        allowed_refs=allowed_refs,
+        allowed_stage_ids=set(stage_ids),
+    )
+    observations = _additional_implementation_observations(
+        response.get("additional_implementation_observations"),
+        allowed_refs=allowed_refs,
+    )
+    for ref in _presentation_evidence_refs(presentation_lists, examples, comparison_tables, observations):
+        if ref not in used_refs:
+            used_refs.append(ref)
+    render_notes = _render_notes(response.get("render_notes"))
+    evidence_by_ref = {item.source_id: item for item in evidence}
+    markdown = _render_story_flow_markdown(
+        stages,
+        presentation_sections=presentation_sections,
+        presentation_lists=presentation_lists,
+        examples=examples,
+        comparison_tables=comparison_tables,
+        observations=observations,
+        render_notes=render_notes,
+        evidence_by_ref=evidence_by_ref,
+    )
+    if not markdown.strip():
+        raise FlowValidationError(("rendered explanation is empty",))
+    answer_flow = {
+        "ordered_stage_ids": list(ordered_stage_ids),
+        "stages": [
+            {
+                "stage_id": stage["stage_id"],
+                "summary": " ".join(str(sentence["text"]) for sentence in stage["sentences"]),
+                "evidence_refs": list(dict.fromkeys(ref for sentence in stage["sentences"] for ref in sentence["evidence_refs"])),
+            }
+            for stage in stages
+        ],
+    }
+    checks = _understanding_checks_from_response(
+        response.get("understanding_checks"),
+        flow_plan=flow_plan,
+        allowed_refs=allowed_refs,
+        stage_evidence_refs={
+            stage["stage_id"]: {
+                ref
+                for sentence in stage["sentences"]
+                for ref in sentence["evidence_refs"]
+            }
+            for stage in stages
+        },
+    )
+    concept_definitions = _concept_definitions(response.get("concept_definitions"), allowed_refs=allowed_refs)
+    source_attributions = _source_attributions(response.get("source_attributions"), markdown=markdown, allowed_refs=allowed_refs)
+    next_checks = _next_checks(response.get("next_checks"))
+    return ComprehensionGenerationResult(
+        markdown=markdown,
+        used_evidence_refs=tuple(used_refs),
+        render_notes=render_notes,
+        answer_flow=answer_flow,
+        story_flow=tuple(stages),
+        understanding_checks=checks,
+        selected_intents=tuple(intent.value for intent in flow_plan.intents),
+        presentation_sections=presentation_sections,
+        presentation_lists=presentation_lists,
+        examples=examples,
+        comparison_tables=comparison_tables,
+        additional_implementation_observations=observations,
+        concept_definitions=concept_definitions,
+        source_attributions=source_attributions,
+        next_checks=next_checks,
+    )
+
+
+def _understanding_checks_from_response(
+    value: Any,
+    *,
+    flow_plan: IntentFlowPlan,
+    allowed_refs: set[str],
+    stage_evidence_refs: Mapping[str, set[str]],
+) -> tuple[UnderstandingCheck, ...]:
+    if not isinstance(value, list):
+        raise QuestionValidationError(
+            ("understanding_checks must be an array",), accepted=(), rejected=({"index": 0, "raw": None, "errors": ["must be an array"]},)
+        )
+    if not value:
+        raise QuestionValidationError(
+            ("at least one understanding check is required",),
+            accepted=(),
+            rejected=({"index": 0, "raw": None, "errors": ["at least one check is required"]},),
+        )
+    if len(value) > 3:
+        raise QuestionValidationError(
+            ("at most three understanding checks are allowed",),
+            accepted=(),
+            rejected=tuple({"index": index, "raw": raw, "errors": ["response contains more than three checks"]} for index, raw in enumerate(value)),
+        )
+
+    checks: list[UnderstandingCheck] = []
+    accepted_raw: list[tuple[int, Mapping[str, Any]]] = []
+    rejected: list[Mapping[str, Any]] = []
+    all_errors: list[str] = []
+    seen_ids: set[str] = set()
+    seen_questions: set[str] = set()
+    seen_reasoning_focuses: set[str] = set()
+    seen_support_signatures: set[tuple[str, frozenset[str], frozenset[str]]] = set()
+    prior_target_stage_ids: set[str] = set()
+    prior_evidence_refs: set[str] = set()
+    allowed_stage_ids = set(flow_plan.contract_stage_ids)
+    for position, raw in enumerate(value):
+        index = position + 1
+        prefix = f"understanding check {index}"
+        errors: list[str] = []
+        if not isinstance(raw, Mapping):
+            errors.append(f"{prefix} must be an object")
+            rejected.append({"index": position, "raw": raw, "errors": list(errors)})
+            all_errors.extend(errors)
+            continue
+        check_id = str(raw.get("id") or f"q{index}").strip() or f"q{index}"
+        normalized_id = check_id.casefold()
+        if normalized_id in seen_ids:
+            errors.append(f"{prefix} has a duplicate ID")
+        try:
+            intent = TaskIntent(str(raw.get("intent") or ""))
+        except ValueError:
+            errors.append(f"{prefix} uses an unknown intent")
+            rejected.append({"index": position, "raw": dict(raw), "errors": list(errors)})
+            all_errors.extend(errors)
+            continue
+        if intent not in flow_plan.intents:
+            errors.append(f"{prefix} intent was not selected")
+        contract = get_intent_contract(intent)
+        target_stage_ids = _strings(raw.get("target_stage_ids"))
+        stem_family = str(raw.get("stem_family") or "").strip()
+        reasoning_focus = str(raw.get("reasoning_focus") or "").strip()
+        selection_reason = str(raw.get("selection_reason") or "").strip()
+        refs = _strings(raw.get("evidence_refs"))
+        question = str(raw.get("question") or "").strip()
+        expected = _strings(raw.get("expected_answer_points"))
+        try:
+            hints = _hints_from_value(raw.get("hints"))
+        except ValueError as exc:
+            errors.append(f"{prefix} has an invalid hint ladder: {exc}")
+            hints = ()
+        normalized_question = " ".join(question.casefold().split())
+        normalized_focus = " ".join(reasoning_focus.casefold().split())
+        target_set = set(target_stage_ids)
+        intent_stage_ids = {stage.id for stage in contract.stages}
+        # Prerequisites are contract-owned metadata, not a model decision. The
+        # model still receives and returns the field for schema clarity, but a
+        # transcription mismatch must not discard an otherwise valid question
+        # or the complete explanation that contains it.
+        prerequisite_stage_ids = contract.question.prerequisite_stage_ids
+
+        if (
+            not target_stage_ids
+            or len(target_stage_ids) > 2
+            or len(target_set) != len(target_stage_ids)
+            or not target_set.issubset(allowed_stage_ids)
+        ):
+            errors.append(f"{prefix} has invalid target stages")
+        elif not target_set.intersection(intent_stage_ids):
+            errors.append(f"{prefix} does not target a stage belonging to its intent")
+        support_signature = (intent.value, frozenset(target_set), frozenset(refs))
+        if support_signature in seen_support_signatures:
+            errors.append(f"{prefix} repeats another check's intent, target stages, and evidence")
+        if checks and not (target_set - prior_target_stage_ids or set(refs) - prior_evidence_refs):
+            errors.append(f"{prefix} adds no new target stage or supporting evidence")
+        if stem_family not in contract.question.stem_families:
+            errors.append(f"{prefix} stem is not allowed by its intent contract")
+        if not refs or any(ref not in allowed_refs for ref in refs):
+            errors.append(f"{prefix} has invalid or empty evidence refs")
+        reasoning_stage_ids = target_set.union(prerequisite_stage_ids)
+        reasoning_refs = {
+            ref
+            for stage_id in reasoning_stage_ids
+            for ref in stage_evidence_refs.get(stage_id, set())
+        }
+        if refs and not set(refs).intersection(reasoning_refs):
+            errors.append(f"{prefix} evidence does not support its target or prerequisite stages")
+        if not question or not expected or not hints:
+            errors.append(f"{prefix} lacks question, expected points, or hints")
+        if not reasoning_focus or not selection_reason:
+            errors.append(f"{prefix} lacks a reasoning focus or selection reason")
+        if normalized_focus in seen_reasoning_focuses:
+            errors.append(f"{prefix} duplicates another reasoning focus")
+        if normalized_question in seen_questions:
+            errors.append(f"{prefix} duplicates another question")
+        for field_name, limit in QUESTION_FIELD_LIMITS.items():
+            field_value = str(raw.get(field_name) or "").strip()
+            if len(field_value) > limit:
+                errors.append(f"{prefix} {field_name} exceeds {limit} characters")
+        if errors:
+            rejected.append({"index": position, "raw": dict(raw), "errors": list(errors)})
+            all_errors.extend(errors)
+            continue
+        seen_ids.add(normalized_id)
+        seen_support_signatures.add(support_signature)
+        prior_target_stage_ids.update(target_set)
+        prior_evidence_refs.update(refs)
+        seen_reasoning_focuses.add(normalized_focus)
+        seen_questions.add(normalized_question)
+        accepted_raw.append((position, dict(raw)))
+        checks.append(UnderstandingCheck(
+            id=check_id,
+            intent=intent,
+            target_stage_ids=target_stage_ids,
+            prerequisite_stage_ids=prerequisite_stage_ids,
+            stem_family=stem_family,
+            reasoning_focus=reasoning_focus,
+            selection_reason=selection_reason,
+            question=question,
+            expected_answer_points=expected,
+            hints=hints,
+            evidence_refs=refs,
+        ))
+    if rejected:
+        raise QuestionValidationError(all_errors, accepted=accepted_raw, rejected=rejected)
+    return tuple(checks)
+
+
+def _presentation_sections(
+    value: Any,
+    *,
+    ordered_stage_ids: tuple[str, ...],
+) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, list) or not value:
+        raise FlowValidationError(("presentation_sections must be a non-empty array",))
+    sections: list[dict[str, Any]] = []
+    flattened: list[str] = []
+    seen_ids: set[str] = set()
+    for index, raw in enumerate(value):
+        if not isinstance(raw, Mapping):
+            raise FlowValidationError(("presentation section must be an object",))
+        section_id = str(raw.get("id") or "").strip()
+        title = str(raw.get("title") or "").strip()
+        stage_ids = _strings(raw.get("stage_ids"))
+        if not section_id or section_id in seen_ids or not stage_ids:
+            raise FlowValidationError(("presentation sections require unique IDs and at least one stage",))
+        if index > 0 and not title:
+            raise FlowValidationError(("every presentation section after the opening section requires a title",))
+        seen_ids.add(section_id)
+        flattened.extend(stage_ids)
+        sections.append({"id": section_id[:80], "title": title[:160], "stage_ids": list(stage_ids)})
+    if tuple(flattened) != ordered_stage_ids:
+        raise FlowValidationError(("presentation sections must partition ordered_stage_ids without reordering them",))
+    if len(ordered_stage_ids) > 2 and len(sections) < 2:
+        raise FlowValidationError(("flows longer than two stages require an opening section and at least one titled section",))
+    if len(sections[0]["stage_ids"]) > 2:
+        raise FlowValidationError(("the opening presentation section may contain at most two stages",))
+    if any(len(section["stage_ids"]) > 3 for section in sections[1:]):
+        raise FlowValidationError(("a titled presentation section may contain at most three stages",))
+    return tuple(sections)
+
+
+def _presentation_lists(
+    value: Any,
+    *,
+    allowed_refs: set[str],
+    allowed_stage_ids: set[str],
+) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, list):
+        raise FlowValidationError(("presentation_lists must be an array",))
+    output: list[Mapping[str, Any]] = []
+    for raw in value[:4]:
+        if not isinstance(raw, Mapping):
+            raise FlowValidationError(("presentation list must be an object",))
+        stage_id = str(raw.get("placement_stage_id") or "").strip()
+        items: list[Mapping[str, Any]] = []
+        raw_items = raw.get("items")
+        if stage_id not in allowed_stage_ids or not isinstance(raw_items, list) or not raw_items:
+            raise FlowValidationError(("presentation list has invalid placement or no items",))
+        for item in raw_items[:8]:
+            if not isinstance(item, Mapping):
+                raise FlowValidationError(("presentation list item must be an object",))
+            text = str(item.get("text") or "").strip()
+            refs = _validated_refs(item.get("evidence_refs"), allowed_refs=allowed_refs)
+            if not text or not refs:
+                raise FlowValidationError(("presentation list items require text and evidence refs",))
+            items.append({"text": text[:700], "evidence_refs": list(refs)})
+        output.append(
+            {
+                "placement_stage_id": stage_id,
+                "order": _presentation_order(raw.get("order")),
+                "title": str(raw.get("title") or "").strip()[:160],
+                "ordered": bool(raw.get("ordered")),
+                "items": items,
+            }
+        )
+    return tuple(output)
+
+
+def _examples(
+    value: Any,
+    *,
+    allowed_refs: set[str],
+    allowed_stage_ids: set[str],
+) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, list):
+        raise FlowValidationError(("examples must be an array",))
+    output: list[Mapping[str, Any]] = []
+    for raw in value[:2]:
+        if not isinstance(raw, Mapping):
+            raise FlowValidationError(("example must be an object",))
+        stage_id = str(raw.get("placement_stage_id") or "").strip()
+        title = str(raw.get("title") or "").strip()
+        content = str(raw.get("content") or "").strip()
+        provenance = str(raw.get("provenance") or "").strip()
+        refs = _validated_refs(raw.get("evidence_refs"), allowed_refs=allowed_refs)
+        if (
+            stage_id not in allowed_stage_ids
+            or not title
+            or not content
+            or provenance not in {"direct", "conceptual_from_evidence"}
+            or not refs
+        ):
+            raise FlowValidationError(("example has invalid placement, provenance, content, or evidence refs",))
+        output.append(
+            {
+                "placement_stage_id": stage_id,
+                "order": _presentation_order(raw.get("order")),
+                "title": title[:160],
+                "language": str(raw.get("language") or "text").strip()[:40] or "text",
+                "content": content[:6000],
+                "provenance": provenance,
+                "evidence_refs": list(refs),
+            }
+        )
+    return tuple(output)
+
+
+def _comparison_tables(
+    value: Any,
+    *,
+    allowed_refs: set[str],
+    allowed_stage_ids: set[str],
+) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, list):
+        raise FlowValidationError(("comparison_tables must be an array",))
+    output: list[Mapping[str, Any]] = []
+    for raw in value[:2]:
+        if not isinstance(raw, Mapping):
+            raise FlowValidationError(("comparison table must be an object",))
+        stage_id = str(raw.get("placement_stage_id") or "").strip()
+        title = str(raw.get("title") or "").strip()
+        columns = _strings(raw.get("columns"))
+        raw_rows = raw.get("rows")
+        if stage_id not in allowed_stage_ids or not title or len(columns) < 2 or len(columns) > 6 or not isinstance(raw_rows, list):
+            raise FlowValidationError(("comparison table has invalid placement, title, or columns",))
+        rows: list[Mapping[str, Any]] = []
+        for raw_row in raw_rows[:10]:
+            if not isinstance(raw_row, Mapping):
+                raise FlowValidationError(("comparison table row must be an object",))
+            cells = _strings_preserve_empty(raw_row.get("cells"))
+            refs = _validated_refs(raw_row.get("evidence_refs"), allowed_refs=allowed_refs)
+            if len(cells) != len(columns) or not refs:
+                raise FlowValidationError(("comparison table rows must match columns and include evidence refs",))
+            rows.append({"cells": list(cells), "evidence_refs": list(refs)})
+        if len(rows) < 2:
+            raise FlowValidationError(("comparison table requires at least two rows",))
+        output.append(
+            {
+                "placement_stage_id": stage_id,
+                "order": _presentation_order(raw.get("order")),
+                "title": title[:160],
+                "columns": list(columns),
+                "rows": rows,
+            }
+        )
+    return tuple(output)
+
+
+def _additional_implementation_observations(
+    value: Any,
+    *,
+    allowed_refs: set[str],
+) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, list):
+        raise FlowValidationError(("additional_implementation_observations must be an array",))
+    output: list[Mapping[str, Any]] = []
+    for raw in value[:3]:
+        if not isinstance(raw, Mapping):
+            raise FlowValidationError(("additional implementation observation must be an object",))
+        text = str(raw.get("text") or "").strip()
+        relevance = str(raw.get("why_it_matters") or "").strip()
+        refs = _validated_refs(raw.get("evidence_refs"), allowed_refs=allowed_refs)
+        if not text or not relevance or not refs:
+            raise FlowValidationError(("additional observations require text, relevance, and evidence refs",))
+        output.append({"text": text[:700], "why_it_matters": relevance[:500], "evidence_refs": list(refs)})
+    return tuple(output)
+
+
+def _validated_refs(value: Any, *, allowed_refs: set[str]) -> tuple[str, ...]:
+    refs = _strings(value)
+    if not refs or any(ref not in allowed_refs for ref in refs):
+        return ()
+    return refs
+
+
+def _presentation_order(value: Any) -> int:
+    try:
+        return max(0, min(20, int(value)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _presentation_evidence_refs(*groups: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    refs: list[str] = []
+    for group in groups:
+        for value in group:
+            candidates = [value]
+            candidates.extend(item for item in value.get("items", ()) if isinstance(item, Mapping))
+            candidates.extend(row for row in value.get("rows", ()) if isinstance(row, Mapping))
+            for candidate in candidates:
+                for ref in _strings(candidate.get("evidence_refs")):
+                    if ref not in refs:
+                        refs.append(ref)
+    return tuple(refs)
+
+
+def _render_story_flow_markdown(
+    stages: Sequence[Mapping[str, Any]],
+    *,
+    presentation_sections: Sequence[Mapping[str, Any]],
+    presentation_lists: Sequence[Mapping[str, Any]],
+    examples: Sequence[Mapping[str, Any]],
+    comparison_tables: Sequence[Mapping[str, Any]],
+    observations: Sequence[Mapping[str, Any]],
+    render_notes: Mapping[str, str],
+    evidence_by_ref: Mapping[str, EvidenceItem],
+) -> str:
+    stage_by_id = {str(stage.get("stage_id") or ""): stage for stage in stages}
+    blocks_by_stage: dict[str, list[tuple[int, str, Mapping[str, Any]]]] = {}
+    for kind, values in (
+        ("list", presentation_lists),
+        ("example", examples),
+        ("table", comparison_tables),
+    ):
+        for value in values:
+            stage_id = str(value.get("placement_stage_id") or "")
+            blocks_by_stage.setdefault(stage_id, []).append((int(value.get("order") or 0), kind, value))
+    for values in blocks_by_stage.values():
+        values.sort(key=lambda item: (item[0], item[1]))
+
+    rendered: list[str] = []
+    title = str(render_notes.get("title") or "").strip()
+    if title:
+        rendered.append(f"## {title}")
+    for section in presentation_sections:
+        section_title = str(section.get("title") or "").strip()
+        if section_title:
+            rendered.append(f"### {section_title}")
+        paragraph: list[str] = []
+        for stage_id in _strings(section.get("stage_ids")):
+            stage = stage_by_id.get(stage_id)
+            if stage is None:
+                continue
+            paragraph.extend(_render_stage_sentences(stage, evidence_by_ref=evidence_by_ref))
+            stage_blocks = blocks_by_stage.get(stage_id, ())
+            if stage_blocks:
+                if paragraph:
+                    rendered.append(" ".join(paragraph))
+                    paragraph = []
+                for _order, kind, block in stage_blocks:
+                    if kind == "list":
+                        rendered.extend(_render_presentation_list(block, evidence_by_ref=evidence_by_ref))
+                    elif kind == "example":
+                        rendered.extend(_render_example(block, evidence_by_ref=evidence_by_ref))
+                    else:
+                        rendered.extend(_render_comparison_table(block, evidence_by_ref=evidence_by_ref))
+        if paragraph:
+            rendered.append(" ".join(paragraph))
+    if observations:
+        rendered.append("### Additional implementation observations")
+        for observation in observations:
+            text = str(observation.get("text") or "").strip()
+            relevance = str(observation.get("why_it_matters") or "").strip()
+            links = _render_evidence_links(_strings(observation.get("evidence_refs")), evidence_by_ref)
+            rendered.append(f"- {text} **Why it matters:** {relevance} {links}".strip())
+    return "\n\n".join(part for part in rendered if part.strip()).strip()
+
+
+def _render_stage_sentences(stage: Mapping[str, Any], *, evidence_by_ref: Mapping[str, EvidenceItem]) -> list[str]:
+    rendered: list[str] = []
+    for sentence in stage.get("sentences", ()):
+        if not isinstance(sentence, Mapping):
+            continue
+        text = str(sentence.get("text") or "").strip()
+        links = _render_evidence_links(_strings(sentence.get("evidence_refs")), evidence_by_ref)
+        if text:
+            rendered.append(f"{text} {links}".strip())
+    return rendered
+
+
+def _render_presentation_list(value: Mapping[str, Any], *, evidence_by_ref: Mapping[str, EvidenceItem]) -> list[str]:
+    rendered: list[str] = []
+    title = str(value.get("title") or "").strip()
+    if title:
+        rendered.append(f"#### {title}")
+    ordered = bool(value.get("ordered"))
+    for index, item in enumerate(value.get("items", ()), start=1):
+        if not isinstance(item, Mapping):
+            continue
+        marker = f"{index}." if ordered else "-"
+        links = _render_evidence_links(_strings(item.get("evidence_refs")), evidence_by_ref)
+        rendered.append(f"{marker} {str(item.get('text') or '').strip()} {links}".strip())
+    return rendered
+
+
+def _render_example(value: Mapping[str, Any], *, evidence_by_ref: Mapping[str, EvidenceItem]) -> list[str]:
+    title = str(value.get("title") or "Example").strip()
+    provenance = str(value.get("provenance") or "")
+    language = str(value.get("language") or "text").strip().replace("`", "") or "text"
+    content = str(value.get("content") or "").rstrip()
+    rendered = [f"#### {title}"]
+    if provenance == "conceptual_from_evidence":
+        rendered.append("*Conceptual example synthesized from the selected evidence.*")
+    rendered.extend((f"```{language}", content, "```"))
+    links = _render_evidence_links(_strings(value.get("evidence_refs")), evidence_by_ref)
+    if links:
+        rendered.append(links)
+    return rendered
+
+
+def _render_comparison_table(value: Mapping[str, Any], *, evidence_by_ref: Mapping[str, EvidenceItem]) -> list[str]:
+    title = str(value.get("title") or "Comparison").strip()
+    columns = [str(column) for column in value.get("columns", ())]
+    rendered = [f"#### {title}"]
+    rendered.append("| " + " | ".join(_escape_table_cell(column) for column in (*columns, "Sources")) + " |")
+    rendered.append("| " + " | ".join("---" for _ in (*columns, "Sources")) + " |")
+    for row in value.get("rows", ()):
+        if not isinstance(row, Mapping):
+            continue
+        cells = [str(cell) for cell in row.get("cells", ())]
+        links = _render_evidence_links(_strings(row.get("evidence_refs")), evidence_by_ref)
+        rendered.append("| " + " | ".join(_escape_table_cell(cell) for cell in (*cells, links)) + " |")
+    return rendered
+
+
+def _render_evidence_links(refs: Sequence[str], evidence_by_ref: Mapping[str, EvidenceItem]) -> str:
+    links: list[str] = []
+    for ref in refs:
+        item = evidence_by_ref.get(ref)
+        if item is None:
+            continue
+        link = _evidence_link(item)
+        if link not in links:
+            links.append(link)
+    return " ".join(links)
+
+
+def _escape_table_cell(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("|", "\\|").replace("\r", " ").replace("\n", " ").strip()
+
+
+def _render_notes(value: Any) -> Mapping[str, str]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {key: str(value.get(key) or "").strip()[:500] for key in ("title", "summary") if str(value.get(key) or "").strip()}
+
+
+def _concept_definitions(value: Any, *, allowed_refs: set[str]) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, list):
+        return ()
+    output: list[Mapping[str, Any]] = []
+    for raw in value:
+        if not isinstance(raw, Mapping):
+            continue
+        label = str(raw.get("label") or "").strip()
+        description = str(raw.get("description") or "").strip()
+        refs = tuple(ref for ref in _strings(raw.get("evidence_refs")) if ref in allowed_refs)
+        if label and description:
+            output.append({"label": label[:120], "description": description[:600], "evidence_refs": list(refs)})
+    return tuple(output[:12])
+
+
+def _source_attributions(value: Any, *, markdown: str, allowed_refs: set[str]) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, list):
+        return ()
+    output: list[Mapping[str, Any]] = []
+    for raw in value:
+        if not isinstance(raw, Mapping):
+            continue
+        quote = str(raw.get("quote") or "").strip()
+        source_kind = str(raw.get("source_kind") or "").strip()
+        source_ref = str(raw.get("source_ref") or "").strip()
+        note = str(raw.get("note") or "").strip()
+        if not quote or quote not in markdown or not source_kind or not source_ref or not note:
+            continue
+        if source_kind in {"source_code", "connected_source"} and source_ref not in allowed_refs:
+            continue
+        output.append({"quote": quote[:500], "source_kind": source_kind[:80], "source_ref": source_ref[:500], "note": note[:500]})
+    return tuple(output[:16])
+
+
+def _next_checks(value: Any) -> tuple[Mapping[str, str], ...]:
+    if not isinstance(value, list):
+        return ()
+    output: list[Mapping[str, str]] = []
+    for raw in value:
+        if not isinstance(raw, Mapping):
+            continue
+        item = {key: str(raw.get(key) or "").strip()[:600] for key in ("scenario", "action", "if_result", "then_interpretation")}
+        if all(item.values()):
+            output.append(item)
+    return tuple(output[:3])
+
+
+def _response_format(
+    flow_plan: IntentFlowPlan,
+    *,
+    model_stage_ids: Sequence[str] | None = None,
+) -> Mapping[str, Any]:
+    stage_ids = list(model_stage_ids or flow_plan.contract_stage_ids)
+    intent_values = [intent.value for intent in flow_plan.intents]
+    stem_values = sorted({stem for contract in flow_plan.contracts for stem in contract.question.stem_families})
+    string_array = {"type": "array", "items": {"type": "string"}}
+    sentence_schema = {
+        "type": "object",
+        "properties": {
+            "text": {"type": "string"},
+            "kind": {"type": "string", "enum": ["code_claim", "connective"]},
+            "evidence_refs": string_array,
+        },
+        "required": ["text", "kind", "evidence_refs"],
+        "additionalProperties": False,
+    }
+    grounded_item_schema = {
+        "type": "object",
+        "properties": {"text": {"type": "string"}, "evidence_refs": string_array},
+        "required": ["text", "evidence_refs"],
+        "additionalProperties": False,
+    }
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "intent_composed_explanation",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "ordered_stage_ids": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": stage_ids},
+                        "minItems": len(stage_ids),
+                        "maxItems": len(stage_ids),
+                    },
+                    "stages": {
+                        "type": "array",
+                        "minItems": len(stage_ids),
+                        "maxItems": len(stage_ids),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "stage_id": {"type": "string", "enum": stage_ids},
+                                "title": {"type": "string"},
+                                "sentences": {"type": "array", "items": sentence_schema, "minItems": 1, "maxItems": 2},
+                            },
+                            "required": ["stage_id", "title", "sentences"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "presentation_sections": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": len(stage_ids),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "title": {"type": "string"},
+                                "stage_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string", "enum": stage_ids},
+                                    "minItems": 1,
+                                },
+                            },
+                            "required": ["id", "title", "stage_ids"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "presentation_lists": {
+                        "type": "array",
                         "maxItems": 4,
                         "items": {
                             "type": "object",
                             "properties": {
-                                "scenario": {"type": "string"},
-                                "action": {"type": "string"},
-                                "if_result": {"type": "string"},
-                                "then_interpretation": {"type": "string"},
+                                "placement_stage_id": {"type": "string", "enum": stage_ids},
+                                "order": {"type": "integer", "minimum": 0, "maximum": 20},
+                                "title": {"type": "string"},
+                                "ordered": {"type": "boolean"},
+                                "items": {"type": "array", "items": grounded_item_schema, "minItems": 1, "maxItems": 8},
                             },
-                            "required": ["scenario", "action", "if_result", "then_interpretation"],
+                            "required": ["placement_stage_id", "order", "title", "ordered", "items"],
                             "additionalProperties": False,
                         },
-                    }
-                },
-                "required": ["next_checks"],
-                "additionalProperties": False,
-            },
-        },
-    }
-
-
-def _source_attribution_repair_response_format(quote_ids: Sequence[str]) -> Mapping[str, Any]:
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "comprehension_source_attribution_repair",
-            "strict": True,
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "source_attributions": {
+                    },
+                    "examples": {
                         "type": "array",
-                        "minItems": 3,
-                        "maxItems": 8,
+                        "maxItems": 2,
                         "items": {
                             "type": "object",
                             "properties": {
-                                "quote_id": {"type": "string", "enum": list(quote_ids)},
-                                "source_kind": {
-                                    "type": "string",
-                                    "enum": [
-                                        "issue_title",
-                                        "issue_body",
-                                        "user_sample",
-                                        "error_text",
-                                        "source_code",
-                                        "repo_docs",
-                                        "local_notes",
-                                        "notebooklm",
-                                        "connected_source",
-                                        "external_runtime",
-                                    ],
-                                },
-                                "source_ref": {"type": "string"},
-                                "note": {"type": "string"},
+                                "placement_stage_id": {"type": "string", "enum": stage_ids},
+                                "order": {"type": "integer", "minimum": 0, "maximum": 20},
+                                "title": {"type": "string"},
+                                "language": {"type": "string"},
+                                "content": {"type": "string"},
+                                "provenance": {"type": "string", "enum": ["direct", "conceptual_from_evidence"]},
+                                "evidence_refs": string_array,
                             },
-                            "required": ["quote_id", "source_kind", "source_ref", "note"],
+                            "required": ["placement_stage_id", "order", "title", "language", "content", "provenance", "evidence_refs"],
                             "additionalProperties": False,
                         },
-                    }
+                    },
+                    "comparison_tables": {
+                        "type": "array",
+                        "maxItems": 2,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "placement_stage_id": {"type": "string", "enum": stage_ids},
+                                "order": {"type": "integer", "minimum": 0, "maximum": 20},
+                                "title": {"type": "string"},
+                                "columns": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 6},
+                                "rows": {
+                                    "type": "array",
+                                    "minItems": 2,
+                                    "maxItems": 10,
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {"cells": string_array, "evidence_refs": string_array},
+                                        "required": ["cells", "evidence_refs"],
+                                        "additionalProperties": False,
+                                    },
+                                },
+                            },
+                            "required": ["placement_stage_id", "order", "title", "columns", "rows"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "additional_implementation_observations": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "text": {"type": "string"},
+                                "why_it_matters": {"type": "string"},
+                                "evidence_refs": string_array,
+                            },
+                            "required": ["text", "why_it_matters", "evidence_refs"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "understanding_checks": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 3,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "intent": {"type": "string", "enum": intent_values},
+                                "target_stage_ids": string_array,
+                                "prerequisite_stage_ids": string_array,
+                                "stem_family": {"type": "string", "enum": stem_values},
+                                "reasoning_focus": {"type": "string", "maxLength": QUESTION_FIELD_LIMITS["reasoning_focus"]},
+                                "selection_reason": {"type": "string", "maxLength": QUESTION_FIELD_LIMITS["selection_reason"]},
+                                "question": {"type": "string", "maxLength": QUESTION_FIELD_LIMITS["question"]},
+                                "expected_answer_points": string_array,
+                                "hints": _hint_item_schema(),
+                                "evidence_refs": string_array,
+                            },
+                            "required": ["id", "intent", "target_stage_ids", "prerequisite_stage_ids", "stem_family", "reasoning_focus", "selection_reason", "question", "expected_answer_points", "hints", "evidence_refs"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "concept_definitions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"label": {"type": "string"}, "description": {"type": "string"}, "evidence_refs": string_array},
+                            "required": ["label", "description", "evidence_refs"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "source_attributions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"quote": {"type": "string"}, "source_kind": {"type": "string"}, "source_ref": {"type": "string"}, "note": {"type": "string"}},
+                            "required": ["quote", "source_kind", "source_ref", "note"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "next_checks": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"scenario": {"type": "string"}, "action": {"type": "string"}, "if_result": {"type": "string"}, "then_interpretation": {"type": "string"}},
+                            "required": ["scenario", "action", "if_result", "then_interpretation"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "render_notes": {
+                        "type": "object",
+                        "properties": {"title": {"type": "string"}, "summary": {"type": "string"}},
+                        "required": ["title", "summary"],
+                        "additionalProperties": False,
+                    },
                 },
-                "required": ["source_attributions"],
+                "required": [
+                    "ordered_stage_ids",
+                    "stages",
+                    "presentation_sections",
+                    "presentation_lists",
+                    "examples",
+                    "comparison_tables",
+                    "additional_implementation_observations",
+                    "understanding_checks",
+                    "concept_definitions",
+                    "source_attributions",
+                    "next_checks",
+                    "render_notes",
+                ],
                 "additionalProperties": False,
             },
         },
     }
+
+
+def _compact_evidence(item: EvidenceItem) -> dict[str, Any]:
+    return {
+        "source_id": item.source_id,
+        "source_category": item.source_category.value,
+        "path": str(item.metadata.get("path") or _path_from_source_id(item.source_id)),
+        "line_range": str(item.metadata.get("line_range") or _line_range_from_source_id(item.source_id)),
+        "claim_supported": str(item.metadata.get("claim_supported") or ""),
+        "snippet": _compact_snippet(item.snippet),
+    }
+
+
+def _selected_evidence_connections(
+    retrieval_result: RetrievalResult,
+    *,
+    allowed_refs: set[str],
+) -> list[dict[str, Any]]:
+    """Return only graph edges whose two endpoints are visible to generation."""
+    graph = retrieval_result.retrieval_summary.get("evidence_connections")
+    if not isinstance(graph, Mapping):
+        return []
+    raw_connections = graph.get("connections")
+    if not isinstance(raw_connections, list):
+        return []
+    output: list[dict[str, Any]] = []
+    for raw in raw_connections:
+        if not isinstance(raw, Mapping):
+            continue
+        source_ref = str(raw.get("source_ref") or "").strip()
+        target_ref = str(raw.get("target_ref") or "").strip()
+        if source_ref not in allowed_refs or target_ref not in allowed_refs:
+            continue
+        output.append(
+            {
+                "source_ref": source_ref,
+                "target_ref": target_ref,
+                "relationship_kind": str(raw.get("relationship_kind") or "").strip(),
+                "label": str(raw.get("label") or "").strip(),
+                "description": str(raw.get("description") or "").strip(),
+                "grounding": str(raw.get("grounding") or "").strip(),
+                "confidence": str(raw.get("confidence") or "").strip(),
+            }
+        )
+    return output
 
 
 def _evidence_link(item: EvidenceItem) -> str:
     label = _evidence_label(item)
-    href = _evidence_href(item)
+    path = str(item.metadata.get("path") or _path_from_source_id(item.source_id) or item.source_id)
+    line_range = str(item.metadata.get("line_range") or _line_range_from_source_id(item.source_id))
+    href = path.replace("\\", "/").replace(" ", "%20")
+    if line_range:
+        href = f"{href}#{line_range}"
     return f"[{label}]({href})"
 
 
 def _evidence_label(item: EvidenceItem) -> str:
-    metadata = dict(item.metadata)
-    path = metadata.get("path") or _path_from_source_id(item.source_id) or item.source_id
-    line_range = metadata.get("line_range") or _line_range_from_source_id(item.source_id)
-    if line_range and line_range not in path:
-        return f"{path}:{line_range}"
-    return path
-
-
-def _evidence_href(item: EvidenceItem) -> str:
-    metadata = dict(item.metadata)
-    path = str(metadata.get("path") or _path_from_source_id(item.source_id) or item.source_id)
-    line_range = str(metadata.get("line_range") or _line_range_from_source_id(item.source_id))
-    normalized = path.replace("\\", "/").replace(" ", "%20")
-    return f"{normalized}#{line_range}" if line_range else normalized
+    path = str(item.metadata.get("path") or _path_from_source_id(item.source_id) or item.source_id)
+    line_range = str(item.metadata.get("line_range") or _line_range_from_source_id(item.source_id))
+    return f"{path}:{line_range}" if line_range and line_range not in path else path
 
 
 def _path_from_source_id(source_id: str) -> str:
-    if source_id.startswith("workspace:"):
-        return source_id[len("workspace:") :].split(":L", 1)[0]
-    if source_id.startswith("repo-pre:"):
-        return source_id[len("repo-pre:") :].split(":L", 1)[0]
+    for prefix in ("workspace:", "repo-pre:"):
+        if source_id.startswith(prefix):
+            return source_id[len(prefix):].split(":L", 1)[0]
     return ""
 
 
 def _line_range_from_source_id(source_id: str) -> str:
-    marker = ":L"
-    if marker not in source_id:
-        return ""
-    return "L" + source_id.rsplit(marker, 1)[1]
+    return "L" + source_id.rsplit(":L", 1)[1] if ":L" in source_id else ""
 
 
-def _compact_snippet(snippet: str, *, max_lines: int = 8, max_line_length: int = 160) -> str:
+def _compact_snippet(snippet: str, *, max_lines: int = 12, max_line_length: int = 200) -> str:
     lines = [line.rstrip() for line in snippet.replace("```", "'''").splitlines() if line.strip()]
-    output: list[str] = []
-    for line in lines[:max_lines]:
-        output.append(line[: max_line_length - 3].rstrip() + "..." if len(line) > max_line_length else line)
+    output = [line[:max_line_length] for line in lines[:max_lines]]
     if len(lines) > len(output):
         output.append("...")
     return "\n".join(output)
 
 
-def _string_tuple(value: Any) -> tuple[str, ...]:
-    if not isinstance(value, list):
+def _strings(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
         return ()
     return tuple(str(item).strip() for item in value if str(item).strip())
+
+
+def _strings_preserve_empty(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(str(item).strip() for item in value)

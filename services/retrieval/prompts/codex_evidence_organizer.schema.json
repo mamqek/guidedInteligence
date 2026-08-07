@@ -1,0 +1,68 @@
+{
+  "type": "object",
+  "properties": {
+    "coverage_facets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "minLength": 1, "maxLength": 80},
+          "description": {"type": "string", "minLength": 1, "maxLength": 300},
+          "status": {"type": "string", "enum": ["covered", "partial", "missing", "unclear"]},
+          "selected_refs": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["id", "description", "status", "selected_refs"],
+        "additionalProperties": false
+      }
+    },
+    "assessments": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+    "selected_refs": {"type": "array", "items": {"type": "string"}},
+    "root_ref": {"type": "string"},
+    "connections": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "properties": {
+          "source_ref": {"type": "string"},
+          "target_ref": {"type": "string"},
+          "relationship_kind": {"type": "string", "enum": ["dependency", "control_flow", "data_flow", "configuration", "validation", "rendering", "other"]},
+          "label": {"type": "string", "minLength": 1, "maxLength": 100},
+          "description": {"type": "string", "minLength": 1, "maxLength": 500},
+          "grounding": {"type": "string", "enum": ["direct", "inferred"]},
+          "confidence": {"type": "string", "enum": ["high", "medium", "low"]}
+        },
+        "required": ["source_ref", "target_ref", "relationship_kind", "label", "description", "grounding", "confidence"],
+        "additionalProperties": false
+      }
+    },
+    "disconnected_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "evidence_ref": {"type": "string"},
+          "reason": {"type": "string", "minLength": 1, "maxLength": 300}
+        },
+        "required": ["evidence_ref", "reason"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["coverage_facets", "assessments", "selected_refs", "root_ref", "connections", "disconnected_evidence"],
+  "additionalProperties": false,
+  "$defs": {
+    "assessment": {
+      "type": "object",
+      "properties": {
+        "status": {"type": "string", "enum": ["core", "supporting", "adjacent", "redundant", "unclear"]},
+        "facet_ids": {"type": "array", "items": {"type": "string"}},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 300}
+      },
+      "required": ["status", "facet_ids", "reason"],
+      "additionalProperties": false
+    }
+  }
+}
