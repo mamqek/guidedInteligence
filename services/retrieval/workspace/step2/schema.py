@@ -11,12 +11,7 @@ from .common import (
 )
 from .constants import (
     ALL_RETRIEVAL_ROLES,
-    ALL_RETRIEVAL_INTENTS,
     ALL_RETRIEVAL_OBJECTIVES,
-    ALL_RETRIEVAL_SPECIFICITIES,
-    DEFAULT_PRIMARY_INTENT,
-    DEFAULT_SPECIFICITY,
-    INTENT_DEFECT_LOCALIZATION,
     MAX_LLM_CONCEPT_TERMS,
     MAX_LLM_SUBQUERIES,
     MAX_NEGATIVE_FILTERS,
@@ -31,7 +26,6 @@ from .constants import (
     OBJECTIVE_INTERFACE_ENTRY,
     OBJECTIVE_USAGE_CONTRACT,
     OBJECTIVE_VERIFICATION_REPRO,
-    SPECIFICITY_NARROW,
 )
 from .types import RoleDirectedSubquery
 
@@ -89,9 +83,6 @@ def step2_response_format() -> Mapping[str, Any]:
                     "speculative_entities": {"type": "array", "items": {"type": "string"}},
                     "source_priorities": {"type": "array", "items": {"type": "string"}},
                     "negative_filters": {"type": "array", "items": {"type": "string"}},
-                    "primary_intent": {"type": "string", "enum": list(ALL_RETRIEVAL_INTENTS)},
-                    "secondary_intents": {"type": "array", "items": {"type": "string", "enum": list(ALL_RETRIEVAL_INTENTS)}},
-                    "specificity": {"type": "string", "enum": list(ALL_RETRIEVAL_SPECIFICITIES)},
                     "active_objectives": {"type": "array", "items": {"type": "string", "enum": list(ALL_RETRIEVAL_OBJECTIVES)}},
                     "deferred_objectives": {"type": "array", "items": {"type": "string", "enum": list(ALL_RETRIEVAL_OBJECTIVES)}},
                     "preferred_relations": {"type": "array", "items": {"type": "string"}},
@@ -134,9 +125,6 @@ def step2_response_format() -> Mapping[str, Any]:
                     "speculative_entities",
                     "source_priorities",
                     "negative_filters",
-                    "primary_intent",
-                    "secondary_intents",
-                    "specificity",
                     "active_objectives",
                     "deferred_objectives",
                     "preferred_relations",
@@ -188,13 +176,6 @@ def validate_step2_planner_response(
         )
     )[:MAX_RETRIEVAL_TERMS]
 
-    primary_intent = _validated_intent(response.get("primary_intent"))
-    specificity = _validated_specificity(response.get("specificity"))
-    secondary_intents = tuple(
-        intent
-        for intent in ordered_unique(_validated_intent(value, default="") for value in _sequence(response.get("secondary_intents")))
-        if intent and intent != primary_intent
-    )
     active_objectives = _validated_objectives(response.get("active_objectives"))
     deferred_objectives = tuple(
         objective
@@ -202,7 +183,7 @@ def validate_step2_planner_response(
         if objective not in active_objectives
     )
     if not active_objectives:
-        active_objectives, deferred_objectives = _default_objectives(primary_intent, specificity)
+        active_objectives, deferred_objectives = _default_objectives()
 
     return {
         "prompt_summary": str(response.get("prompt_summary", "")).strip(),
@@ -220,9 +201,6 @@ def validate_step2_planner_response(
         "negative_filters": list(
             ordered_unique(bounded_strings(response.get("negative_filters"), limit=MAX_NEGATIVE_FILTERS))
         ),
-        "primary_intent": primary_intent,
-        "secondary_intents": list(secondary_intents),
-        "specificity": specificity,
         "active_objectives": list(active_objectives),
         "deferred_objectives": list(deferred_objectives),
         "preferred_relations": list(ordered_unique(bounded_strings(response.get("preferred_relations"), limit=8))),
@@ -237,16 +215,6 @@ def _sequence(value: object) -> tuple[object, ...]:
     return ()
 
 
-def _validated_intent(value: object, *, default: str = DEFAULT_PRIMARY_INTENT) -> str:
-    intent = str(value or "").strip()
-    return intent if intent in ALL_RETRIEVAL_INTENTS else default
-
-
-def _validated_specificity(value: object) -> str:
-    specificity = str(value or "").strip()
-    return specificity if specificity in ALL_RETRIEVAL_SPECIFICITIES else DEFAULT_SPECIFICITY
-
-
 def _validated_objectives(values: object) -> tuple[str, ...]:
     objectives: list[str] = []
     for value in _sequence(values):
@@ -256,12 +224,7 @@ def _validated_objectives(values: object) -> tuple[str, ...]:
     return tuple(objectives)
 
 
-def _default_objectives(primary_intent: str, specificity: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    if primary_intent == INTENT_DEFECT_LOCALIZATION and specificity == SPECIFICITY_NARROW:
-        return (
-            (OBJECTIVE_IMPLEMENTATION_OWNER,),
-            (OBJECTIVE_BEHAVIOR_PATH, OBJECTIVE_CONFIGURATION_CONTEXT, OBJECTIVE_USAGE_CONTRACT),
-        )
+def _default_objectives() -> tuple[tuple[str, ...], tuple[str, ...]]:
     return (
         (OBJECTIVE_INTERFACE_ENTRY, OBJECTIVE_BEHAVIOR_PATH, OBJECTIVE_EFFECTS_OUTPUT),
         (OBJECTIVE_IMPLEMENTATION_OWNER, OBJECTIVE_DIAGNOSTIC_SURFACE, OBJECTIVE_VERIFICATION_REPRO),

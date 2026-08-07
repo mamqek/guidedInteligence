@@ -11,12 +11,7 @@ from services.retrieval.workspace.pipeline.objective_flow import (
     legacy_supporting_roles_for_objectives as _legacy_supporting_roles_for_objectives,
 )
 from services.retrieval.workspace.step2 import WorkspaceRetrievalPlan
-from services.retrieval.workspace.step2.constants import (
-    INTENT_DEFECT_LOCALIZATION,
-    ROLE_BEHAVIOR_OUTPUT,
-    ROLE_VALIDATION_CHECKING,
-    SPECIFICITY_NARROW,
-)
+from services.retrieval.workspace.step2.constants import ROLE_BEHAVIOR_OUTPUT, ROLE_VALIDATION_CHECKING, SPECIFICITY_NARROW
 from services.retrieval.workspace.tools import ToolObservation
 
 
@@ -26,11 +21,11 @@ def apply_objective_role_selection(
 ) -> WorkspaceRetrievalPlan:
     if not ctx.config.objective_role_selection_enabled:
         return retrieval_plan
-    if retrieval_plan.primary_intent != INTENT_DEFECT_LOCALIZATION or retrieval_plan.specificity != SPECIFICITY_NARROW:
+    if "debug" not in retrieval_plan.task_intents or retrieval_plan.specificity != SPECIFICITY_NARROW:
         ctx.trace.record(
             "objective_role_selection_skipped",
             {
-                "primary_intent": retrieval_plan.primary_intent,
+                "task_intents": list(retrieval_plan.task_intents),
                 "specificity": retrieval_plan.specificity,
                 "reason": "only_narrow_defect_supported",
             },
@@ -57,7 +52,7 @@ def apply_objective_role_selection(
     ctx.trace.record(
         "objective_role_selection_applied",
         {
-            "primary_intent": updated.primary_intent,
+            "task_intents": list(updated.task_intents),
             "specificity": updated.specificity,
             "active_objectives": list(updated.active_objectives),
             "deferred_objectives": list(updated.deferred_objectives),

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core.models import ConversationState, PolicyResult, TurnType, UserIntent
+from core.models import AssistanceRequestType, ConversationState, PolicyResult, TurnType
 from core.source_policy import DEFAULT_SOURCE_POLICY, SourcePolicy, is_allowed_source_category
 from core.violations import PolicyViolation, PolicyViolationType
 
@@ -20,13 +20,13 @@ class PolicyStage:
         self.source_policy = source_policy
 
     def decide(self, state: ConversationState) -> PolicyResult:
-        intent = state.intent
-        if intent == UserIntent.UNKNOWN:
-            intent = self._classify_intent(state.user_input)
+        assistance_request = state.assistance_request
+        if assistance_request == AssistanceRequestType.UNKNOWN:
+            assistance_request = self._classify_assistance_request(state.user_input)
 
         violations = self._collect_state_violations(state)
 
-        if intent == UserIntent.DIRECT_SOLUTION_REQUEST:
+        if assistance_request == AssistanceRequestType.DIRECT_SOLUTION_REQUEST:
             violations = violations + (
                 PolicyViolation(
                     violation_type=PolicyViolationType.DIRECT_SOLUTION_REQUEST,
@@ -34,21 +34,21 @@ class PolicyStage:
                 ),
             )
             return self._boundary_result(
-                intent=intent,
+                assistance_request=assistance_request,
                 violations=violations,
                 reason="Direct solution request detected; offer a guided-explanation path instead.",
             )
 
         if violations:
             return self._boundary_result(
-                intent=intent,
+                assistance_request=assistance_request,
                 violations=violations,
                 reason="The request or supplied context violates the active source policy.",
             )
 
         return PolicyResult(
             allowed=True,
-            intent=intent,
+            assistance_request=assistance_request,
             retrieval_required=len(state.evidence) == 0,
             allowed_sources=self.source_policy.allowed_categories,
             turn_type=TurnType.GUIDED_EXPLANATION,
@@ -59,13 +59,13 @@ class PolicyStage:
     def _boundary_result(
         self,
         *,
-        intent: UserIntent,
+        assistance_request: AssistanceRequestType,
         violations: tuple[PolicyViolation, ...],
         reason: str,
     ) -> PolicyResult:
         return PolicyResult(
             allowed=False,
-            intent=intent,
+            assistance_request=assistance_request,
             retrieval_required=False,
             allowed_sources=self.source_policy.allowed_categories,
             turn_type=TurnType.BOUNDARY,
@@ -75,13 +75,13 @@ class PolicyStage:
             boundary_choices=("ask_for_guided_explanation", "revise_request"),
         )
 
-    def _classify_intent(self, user_input: str) -> UserIntent:
+    def _classify_assistance_request(self, user_input: str) -> AssistanceRequestType:
         normalized_input = user_input.lower()
         if any(marker in normalized_input for marker in self._DIRECT_SOLUTION_MARKERS):
-            return UserIntent.DIRECT_SOLUTION_REQUEST
+            return AssistanceRequestType.DIRECT_SOLUTION_REQUEST
         if "follow up" in normalized_input or "more detail" in normalized_input:
-            return UserIntent.FOLLOW_UP
-        return UserIntent.UNDERSTAND_CODE
+            return AssistanceRequestType.FOLLOW_UP
+        return AssistanceRequestType.UNDERSTAND_CODE
 
     def _collect_state_violations(self, state: ConversationState) -> tuple[PolicyViolation, ...]:
         violations: list[PolicyViolation] = []

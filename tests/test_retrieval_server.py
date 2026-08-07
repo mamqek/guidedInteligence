@@ -283,7 +283,6 @@ class RetrievalServerStateTests(unittest.TestCase):
                             }
                         ]
                     },
-                    "intent": {"shadow_mode": True},
                 }
             )
 
@@ -297,8 +296,11 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertEqual(config["connections"]["mcp_sources"][0]["env"]["GITHUB_TOKEN"], "secret")
             self.assertEqual(config["connections"]["mcp_sources"][0]["static_tool_arguments"]["repo"], "owner/repo")
             self.assertEqual(config["connections"]["mcp_sources"][0]["content_fields"], ["body"])
-            self.assertTrue(config["intent"]["shadow_mode"])
-            self.assertNotIn("router_mode", config["intent"])
+            self.assertNotIn("intent", config)
+            self.assertFalse(config["experiments"]["intent_sufficiency_enabled"])
+            self.assertTrue(config["experiments"]["codex_evidence_organizer_enabled"])
+            self.assertTrue(config["experiments"]["codex_candidate_order_neutralization_enabled"])
+            self.assertFalse(config["experiments"]["multi_intent_stage_order_neutralization_enabled"])
 
     def test_update_config_stores_llm_api_key_only_in_workspace_secrets(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -850,9 +852,13 @@ class RetrievalServerStateTests(unittest.TestCase):
             state = RuntimeState(Path(temp_dir))
 
             self.assertNotIn("assistance", state.get_config())
-            self.assertEqual(state.get_config()["retrieval"]["max_gap_retrieval_passes"], 0)
-            self.assertFalse(state.get_config()["intent"]["shadow_mode"])
-            self.assertNotIn("router_mode", state.get_config()["intent"])
+            self.assertNotIn("max_gap_retrieval_passes", state.get_config()["retrieval"])
+            self.assertNotIn("intent", state.get_config())
+            self.assertFalse(state.get_config()["experiments"]["intent_sufficiency_enabled"])
+            self.assertEqual(state.get_config()["generation"]["api_model"], "gpt-5.6-luna")
+            self.assertTrue(state.get_config()["experiments"]["codex_evidence_organizer_enabled"])
+            self.assertTrue(state.get_config()["experiments"]["codex_candidate_order_neutralization_enabled"])
+            self.assertFalse(state.get_config()["experiments"]["multi_intent_stage_order_neutralization_enabled"])
             sources = state.get_config()["connections"]["remote_mcp_sources"]
             providers = {source["provider"] for source in sources}
             endpoints = {source["provider"]: source["endpoint_url"] for source in sources}
@@ -1018,6 +1024,39 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertEqual(runs[0]["coverage_status"], "partial")
             self.assertEqual(runs[0]["selected_count"], 1)
 
+    def test_run_detail_exposes_all_organizer_candidates_separately_from_selected_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            state = RuntimeState(root)
+            run_dir = root / ".guided-intelligence" / "runs" / "run-1"
+            run_dir.mkdir(parents=True)
+            selected = [{"source_category": "source_code", "source_id": "workspace:a.py:L1-L1", "snippet": "a", "rank": 1, "metadata": {}}]
+            candidates = [
+                *selected,
+                {"source_category": "source_code", "source_id": "workspace:b.py:L1-L1", "snippet": "b", "rank": 2, "metadata": {}},
+            ]
+            (run_dir / "evidence-items.json").write_text(json.dumps(selected), encoding="utf-8")
+            (run_dir / "orchestration-result.json").write_text(
+                json.dumps({
+                    "retrieval_result": {
+                        "evidence": selected,
+                        "retrieval_summary": {
+                            "evidence_organization": {
+                                "selected_refs": ["workspace:a.py:L1-L1"],
+                                "candidate_evidence": candidates,
+                            }
+                        },
+                    }
+                }),
+                encoding="utf-8",
+            )
+
+            detail = state.run_detail("run-1")
+
+            self.assertEqual(len(detail["evidence"]), 1)
+            self.assertEqual(len(detail["candidate_evidence"]), 2)
+            self.assertEqual(detail["candidate_evidence"][1]["source_id"], "workspace:b.py:L1-L1")
+
     def test_comprehension_answer_evaluation_writes_followup_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -1030,57 +1069,13 @@ class RetrievalServerStateTests(unittest.TestCase):
             configure_test_api_llm(state)
             run_dir = workspace / ".guided-intelligence" / "runs" / "run-1"
             run_dir.mkdir(parents=True)
-            plan = {
-                "task_goal": "Understand validation.",
-                "answer_scope": "Explain validation.",
-                "relevant_artifacts": [
-                    {
-                        "id": "a1",
-                        "path": "src/compiler/checker.ts",
-                        "line_range": "L10-L12",
-                        "role": "validation_checking",
-                        "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                        "claim_supported": "Checker validates semantics.",
-                    }
-                ],
-                "concepts": [
-                    {
-                        "id": "validation_checking",
-                        "name": "validation checking",
-                        "role": "core",
-                        "description": "Checker validates semantics.",
-                        "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                        "status": "grounded",
-                        "required_for_answer": True,
-                        "suggested_depth": "full",
-                    }
-                ],
-                "concept_dependencies": [],
-                "explanation_sequence": [],
-                "depth_policy": {
-                    "mode": "assumption_statement",
-                    "assumption_statement": "Assume basic code navigation.",
-                    "gate_required": False,
-                    "rationale": "",
-                },
-                "understanding_check": {
-                    "id": "q1",
-                    "type": "why",
-                    "question": "Why does validation matter?",
-                    "expected_points": ["It validates semantics."],
-                    "misconceptions": [],
-                    "hidden_hints": ["Look at checker.ts."],
-                    "evidence_refs": ["repo-pre:src/compiler/checker.ts:L10-L12"],
-                    "concept_ids": ["validation_checking"],
-                },
-                "coverage_gaps": [],
-            }
             (run_dir / "orchestration-result.json").write_text(
                 json.dumps(
                     {
                         "response_payload": {
                             "metadata": {
-                                "comprehension_plan": plan,
+                                "answer_flow": {"ordered_stage_ids": ["debug.cause"], "stages": []},
+                                "story_flow": [{"stage_id": "debug.cause", "sentences": []}],
                                 "understanding_checks": [
                                     {
                                         "id": "q1",
@@ -1103,7 +1098,7 @@ class RetrievalServerStateTests(unittest.TestCase):
                     "to_dict": lambda self: {
                         "next_turn": "repair",
                         "markdown": "Repair the validation concept.",
-                        "comprehension_state": {"current_teaching_stage": "repair"},
+                        "teaching_state": {"current_teaching_stage": "repair"},
                     }
                 },
             )()

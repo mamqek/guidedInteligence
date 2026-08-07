@@ -13,14 +13,14 @@ class LogEventType(str, Enum):
     RUN_STARTED = "run_started"
     #: Policy selected or rejected a guided turn.
     TURN_DECISION = "turn_decision"
-    #: Shadow semantic intent classification was attempted.
+    #: Semantic task-intent classification was attempted.
     INTENT_CLASSIFICATION = "intent_classification"
-    #: Shadow semantic intent classification was normalized.
+    #: Semantic task-intent classification was normalized.
     INTENT_NORMALIZATION = "intent_normalization"
-    #: Shadow semantic intent was compared with retrieval-side intent signals.
-    INTENT_AGREEMENT = "intent_agreement"
-    #: Shadow or active intent router produced a pipeline decision.
-    INTENT_ROUTING_DECISION = "intent_routing_decision"
+    #: Intent-composed flow failed exact structural validation.
+    INTENT_FLOW_VALIDATION_FAILED = "intent_flow_validation_failed"
+    #: Experimental post-retrieval intent sufficiency observation completed or failed.
+    INTENT_SUFFICIENCY = "intent_sufficiency"
     #: Retrieval decided which source categories to consult and in what order.
     RETRIEVAL_PLAN = "retrieval_plan"
     #: Retrieval or context building selected concrete evidence items.
@@ -33,6 +33,14 @@ class LogEventType(str, Enum):
     EVIDENCE_GRAPH_GENERATION_COMPLETED = "evidence_graph_generation_completed"
     #: Post-retrieval evidence graph generation failed explicitly.
     EVIDENCE_GRAPH_GENERATION_FAILED = "evidence_graph_generation_failed"
+    #: Experimental Codex evidence organization has started.
+    EVIDENCE_ORGANIZATION_STARTED = "evidence_organization_started"
+    #: Experimental Codex evidence organization is attempting one repair.
+    EVIDENCE_ORGANIZATION_REPAIR_ATTEMPTED = "evidence_organization_repair_attempted"
+    #: Experimental Codex evidence organization completed.
+    EVIDENCE_ORGANIZATION_COMPLETED = "evidence_organization_completed"
+    #: Experimental Codex evidence organization failed explicitly.
+    EVIDENCE_ORGANIZATION_FAILED = "evidence_organization_failed"
     #: Control layer produced a structured response plan.
     RESPONSE_PLAN = "response_plan"
     #: Model or response builder input payload was created.

@@ -1012,3 +1012,4 @@ Say:
 > The evaluation harness initializes a `ConversationState`, lets `V1PolicyEngine` produce an `OrchestratorDecision`, uses the selected `ResponseContract` to constrain the response, retrieves only allowed pre-resolution `EvidenceItem`s, and logs the whole path. The hidden full issue discussion and post-resolution fix are only introduced after the run, as evaluator-only material.
 
 That makes the testing section much more precise, and it directly connects the implementation to your methodology and acceptance criteria.
+> Historical planning document. `UserIntent` was renamed to the policy-only `AssistanceRequestType` on 2026-08-06 so it cannot be confused with semantic task intent.

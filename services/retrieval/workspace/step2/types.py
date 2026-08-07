@@ -53,8 +53,7 @@ class WorkspaceRetrievalPlan:
     negative_filters: tuple[str, ...]
     required_roles: tuple[str, ...]
     supporting_roles: tuple[str, ...]
-    primary_intent: str = ""
-    secondary_intents: tuple[str, ...] = ()
+    task_intents: tuple[str, ...] = ()
     specificity: str = ""
     active_objectives: tuple[str, ...] = ()
     deferred_objectives: tuple[str, ...] = ()
@@ -68,7 +67,7 @@ class WorkspaceRetrievalPlan:
         data = asdict(self)
         data["llm_subqueries"] = [subquery.to_dict() for subquery in self.llm_subqueries]
         data["source_priorities"] = [category.value for category in self.source_priorities]
-        data["secondary_intents"] = list(self.secondary_intents)
+        data["task_intents"] = list(self.task_intents)
         data["active_objectives"] = list(self.active_objectives)
         data["deferred_objectives"] = list(self.deferred_objectives)
         data["preferred_relations"] = list(self.preferred_relations)

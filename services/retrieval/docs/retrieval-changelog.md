@@ -1,5 +1,177 @@
 # Retrieval Changelog
 
+## 2026-08-06
+
+### Ordering-Bias Neutralization Experiments
+
+- Experiment A boundary: change only the model-facing order of valid Codex organizer candidates; candidate generation, validity checks, CodeGraph input, selection bounds, semantic prompt, and explanation stage input remain unchanged.
+- Experiment A method: use a prompt-seeded stable hash permutation so retries are reproducible but Codex rank is not exposed as list position; preserve original candidate order in diagnostics and record the model-facing permutation.
+- Experiment A expected quality impact: reduce primacy toward early Codex candidates while retaining semantic facets and graph cohesion as selection signals.
+- Experiment A expected token impact: effectively neutral; the same candidates and compact fields enter the same organizer call.
+- Experiment A risks: Codex rank may contain useful relevance information, and neutralization may replace a helpful prior with arbitrary positional exposure.
+- Experiment B boundary: change only multi-intent model-facing stage order; retrieval and organizer ordering remain unchanged.
+- Experiment B method: flatten stage definitions, remove grouped stage arrays from model-facing contracts, apply a prompt-seeded stable permutation to stage IDs and response-schema enums, and continue validating the output against the exact canonical stage set. Single-intent contract order remains unchanged.
+- Experiment B expected quality impact: make the model choose narrative order from stage meaning rather than copying concatenated intent blocks.
+- Experiment B expected token impact: effectively neutral; stage definitions are reorganized rather than expanded.
+- Experiment B risks: removing the helpful within-intent order prior can yield unstable or less coherent flows; answer/story flow still share the resulting order.
+- Comparison: run each flag separately on the same repository prompt; compare repairs, coverage, sufficiency, selected original positions, facet representation, final stage order, repetition, and real token usage against recent organizer baselines.
+- Experiment A real runs:
+  - `run-20260806T213148Z-82567f6d` returned 14 candidates and selected 13, remained `strong` and `sufficient=true`, covered all four facets, used zero organizer/explanation repairs, and selected four candidates originally positioned after 10; organizer/API totals were 9,178/18,505 tokens;
+  - `run-20260806T215430Z-77b1072e` returned 12 candidates and selected 8, remained `strong` and `sufficient=true`, covered all four facets, used zero repairs, and split selected model positions evenly across the first and second halves; organizer/API totals were 8,617/16,702 tokens;
+  - preserved-candidate replay of the exact 18 candidates from `run-20260806T205826Z-6ac86299` selected 10 instead of the baseline 11 with seven items overlapping, covered all four facets without repair, and selected original positions spanning 3 through 17; it dropped two meta/design items while retaining direct explanation and question implementation evidence and used 12,068 organizer tokens;
+  - conclusion: candidate neutralization removes Codex rank from model-facing position without observable facet, grounding, stability, or token regression on these comparisons; it now defaults to enabled while preserving an explicit off-switch.
+- Experiment B real runs:
+  - `run-20260806T214003Z-67d9c0ee` initially returned a non-canonical explanation-first flow, but invalid question prerequisites survived one repair and correctly failed the response; the repair payload was then fixed to preserve neutralized stage input and repeat exact prerequisite contracts;
+  - clean repeats `run-20260806T214552Z-2ba74ca6` and `run-20260806T215000Z-fe14bf65` both remained `strong` and `sufficient=true`, used zero organizer and explanation repairs, and generated two valid questions, but both reconstructed the exact canonical `explore` block followed by the exact canonical `explain` block from the same shuffled stage input;
+  - their total API usage was 20,362 and 17,679 tokens respectively;
+  - conclusion: serial-order anchoring was not the only cause of block composition; stage names, purposes, and intent grouping provide enough semantic structure for the model to reconstruct the canonical blocks. The stage neutralization flag remains disabled because it adds machinery without reliably changing narrative composition.
+
+### Adaptive Understanding Checks Required For Every Guided Explanation
+
+- Explanation generation now requires an adaptive set of one to three grounded understanding checks instead of accepting zero or limiting output to one.
+- The generator chooses the smallest sufficient set: one by default, adding another only for an independently important reasoning transition with materially different semantics. Each check records one `reasoning_focus` and a `selection_reason` so the decision is inspectable.
+- Deterministic validation rejects empty or oversized sets, duplicate IDs, normalized question text or reasoning focuses, repeated intent/target/evidence signatures, additional checks that introduce neither a new target nor new evidence, invalid intent contracts, and question evidence unrelated to the target/prerequisite stage cluster.
+- Question validation uses the existing single explanation-repair attempt; a second invalid response fails explicitly and never falls back to an omitted or hard-coded question.
+- The existing UI, batch answer evaluator, and comprehension follow-up already consume arrays and require evaluation coverage for every question ID, so no parallel question-specific LLM stage was added.
+- Live comparison prompt: `Where is intent classification handled, and how does it flow into retrieval, explanation structure, and question generation?`;
+  - initial `v3` run `run-20260806T205102Z-c3e1d02d` proved the minimum-one contract but returned one overly broad check whose expected answer crossed several component handoffs;
+  - `v4` therefore added auditable `reasoning_focus` and `selection_reason` fields and permits broad stage overlap only when a later check introduces a new target or evidence reference;
+  - fresh `v4` run `run-20260806T205826Z-6ac86299` completed `strong` and `sufficient=true`, organized 18 valid candidates into 11 selected items with zero organizer repairs, and generated two distinct checks with zero explanation repairs;
+  - the two checks separately assess classification invocation and the downstream retrieval/explanation handoff, use different target-stage pairs and evidence clusters, and were produced inside the existing explanation call.
+
+### Central Task Intents Passed To Retrieval Without An Evidence Plan
+
+- Stage boundary:
+  - task-intent classification now runs once in `core/control_layer.py` before retrieval;
+  - retrieval receives only selected intent labels, neutral descriptions, specificity, and literal targets through `IntentContext`;
+  - response stages, question contracts, evidence expectations, and stop conditions remain post-retrieval generation/evaluation concerns;
+  - the optional intent sufficiency evaluator is observational, disabled by default, and does not control retrieval or generation.
+- Expected quality impact:
+  - retrieval can distinguish requested outcomes such as exploration and explanation without being anchored to intent-derived file roles or evidence keywords;
+  - one central registry now drives explanation stages and question prerequisites;
+  - native workspace retrieval no longer performs its own `primary_intent`/`secondary_intents` classification and instead consumes the central context.
+- Expected token impact:
+  - retrieval prompts gain a small intent-context object;
+  - structured API generation can be larger for combined intents because every selected contract stage remains present;
+  - the API generation budget was raised from 800 tokens/30 seconds to 4,000 tokens/120 seconds to avoid truncating valid multi-stage JSON.
+- Known regression risks:
+  - neutral descriptions may still bias retrieval more than labels alone;
+  - combined intent contracts can produce repetitive prose if the generator concatenates intent blocks;
+  - strict flow validation may require one repair call or explicitly fail when the model drops, duplicates, or invents stages.
+- Comparison method:
+  - used the same prompt and source policy for two real web-pipeline runs with Codex retrieval (`gpt-5.4-mini`, efficient profile) and OpenAI-compatible API generation (`gpt-5.4-mini`);
+  - inspected classification, retrieval-plan context, selected files, answer/story stage order, repair count, generated question, sufficiency, and real token usage.
+- Compatibility finding and fix:
+  - `run-20260806T013444Z-0772ab72` failed before retrieval because OpenAI's strict response schema does not permit `uniqueItems`;
+  - uniqueness is now enforced by deterministic parsing, and the unsupported schema keyword was removed.
+- Successful run before removing the duplicate native intent classifier:
+  - run: `.guided-intelligence/runs/run-20260806T013601Z-5123f865`;
+  - `coverage_status=strong`, `sufficient=true`, 10 selected evidence items, zero flow repairs;
+  - intents: `explore + explain`; one validated understanding question;
+  - Codex retrieval tokens: 1,082,106 input plus output, of which 122,618 were uncached input plus output;
+  - API tokens: 17,505 total (13,788 prompt, 3,717 completion);
+  - quality issue: Codex correctly exposed that native workspace retrieval still had a competing legacy intent classifier.
+- Successful run after cleanup:
+  - run: `.guided-intelligence/runs/run-20260806T014602Z-8f534439`;
+  - `coverage_status=strong`, `sufficient=true`, 10 selected evidence items, zero flow repairs;
+  - intents: `explore + explain`; answer and story flows used the same exact 11-stage order; one validated `why` question;
+  - Codex retrieval tokens: 1,219,202 input plus output, of which 120,450 were uncached input plus output;
+  - API tokens: 14,932 total (11,684 prompt, 3,248 completion);
+  - quality improvement: the answer identified one central classification owner and showed native retrieval consuming, rather than recreating, task intent;
+  - remaining presentation issue: the model preserved all stages but concatenated the intent blocks and repeated facts, so the generic composition prompt was tightened to interleave multi-intent stages and cap each stage at two sentences.
+- Stability result:
+  - both completed runs had strong coverage, were sufficient, produced ten selected evidence items, and passed flow validation without repair;
+  - uncached Codex usage was similar across the two runs, while API usage decreased in the second run;
+  - no retrieval behavior was reverted because the quality signal was stable and the duplicate intent-system defect was removed.
+- Final naming cleanup:
+  - a third run (`run-20260806T015321Z-c0f4cc50`) remained `strong` and `sufficient=true`, selected 10 items, and passed flow validation without repair; Codex used 1,370,066 retrieval tokens (124,370 uncached) and API stages used 12,857 tokens, but Codex understandably treated policy's old `UserIntent`/`classify_intent` names as another intent owner;
+  - the policy-only concept is now named `AssistanceRequestType`, its state/result field is `assistance_request`, and its deterministic helper is `_classify_assistance_request`;
+  - policy behavior is unchanged, while semantic task intent now has one unambiguous owner under `services/intent/`.
+- Codex evidence-cutoff diagnosis:
+  - the raw output for `run-20260806T015321Z-c0f4cc50` contained 25 evidence entries, including six classified by Codex as `question generation` evidence;
+  - replaying the provider's path, line, snippet, and duplicate checks against the complete raw payload found all 25 entries valid and unique: no invalid mappings, paths, line ranges, empty snippets, or duplicate source references;
+  - `services/retrieval/codex/provider.py::_evidence_from_payload` stops after the first 10 valid entries, so 15 valid entries were discarded solely by the hard-coded limit;
+  - the retained ten covered intent classification seven times, retrieval twice, and explanation structure once; the first question-generation entry was position 11, so none reached explanation generation;
+  - current Codex tracing records only the post-cutoff `selected_count=10`; the raw JSON preserves all entries, but there is no explicit raw, valid-before-limit, duplicate, invalid, or limit-dropped count;
+  - native workspace retrieval uses a different role-balanced final selector with `MAX_EVIDENCE_ITEMS=12`; inspection of 20 available native run artifacts found three runs above ten evidence items (11, 11, and 12), confirming that the Codex and native caps/stages are not shared;
+  - Codex `coverage_status=strong` currently means usable non-generated source evidence exists, and `sufficient=bool(evidence)`; neither value proves semantic coverage of every explicit clause in the user request.
+- Follow-up design direction:
+  - instrument Codex conversion with raw, valid, invalid, duplicate, retained, and dropped counts before changing selection behavior;
+  - replace first-N truncation with bounded coverage-aware selection over the already returned `coverage_area` values, then fill remaining slots by Codex order;
+  - use one explicit configurable evidence budget across providers where practical, while preserving each provider's different candidate-generation and validation stages;
+  - do not treat this post-retrieval selection improvement as an intent-derived Evidence Plan.
+- Read-only CodeGraph cohesion experiment over all 25 pre-cutoff entries:
+  - replayed the raw evidence ranges from `run-20260806T015321Z-c0f4cc50` through the current selected-evidence CodeGraph bridge; the synchronized index resolved named nodes for 23/25 entries and returned 25 direct structural edges;
+  - the two unresolved entries were Markdown prompt ranges, which CodeGraph does not represent as source symbols;
+  - manually audited labels were 20 accurate, two relevant-but-imprecise, and three conceptually misleading historical policy-intent entries;
+  - accurate entries averaged 2.00 direct neighbors and 1.15 same-coverage neighbors; misleading entries averaged 1.67 and 1.00; imprecise entries averaged 2.50 and 1.00;
+  - the signal did not cleanly separate quality: the two imprecise entries were not peripheral, and two misleading policy entries formed a structurally valid subgraph connected to orchestration;
+  - seven accurate entries were structurally isolated, including prompt, schema, and planner artifacts, so low degree cannot safely mean irrelevant;
+  - conclusion: use CodeGraph as a soft cohesion/diversity feature for grouping and tie-breaking, never as a discard rule or as proof that a `coverage_area` label is semantically correct;
+  - preserve structurally isolated evidence when it contributes a distinct coverage area, and require a separate semantic judgment before presenting an item as adjacent, confusable, or explicitly out of scope.
+- Failed Experiment A: remove independent post-retrieval evidence truncation:
+  - stage boundary: temporarily used one 25-item budget in Codex payload conversion, comprehension planning, evidence graphing, and explanation generation; intent composition, concept heuristics, graph semantics, prompts, and validation were unchanged;
+  - comparison baseline: `run-20260806T015321Z-c0f4cc50` returned 25 raw items but retained/generated from 10, used 9 references, completed its graph, consumed 12,857 API tokens, and omitted direct question-generation implementation evidence;
+  - all-evidence run `run-20260806T161759Z-49350b57` returned and retained 17 items across all four requested areas, used 16 references, and reduced uncached Codex input-plus-output from 124,370 to 113,978 despite unrelated gross cache variance;
+  - that run increased API usage to 22,634 tokens, changed the stage order from `explore -> explain` to `explain -> explore` without interleaving, and produced a more complete retrieval/explanation/question path;
+  - quality regression: several explore stages described the intent contract itself instead of performing repository exploration, showing that unrestricted relevant evidence can let meta-contract snippets dominate stage assignment;
+  - graph regression: the 17-item semantic graph failed because three prompt/contract items were neither accepted into the connected component nor reported as disconnected; explanation generation still completed because the graph is observational in the current response path;
+  - repeat run `run-20260806T162541Z-9df15dbd` returned exactly 10 balanced items, so the raised limit had no effect; it used all 10 references, completed its graph, consumed 17,580 API tokens and 71,655 uncached Codex input-plus-output, but retained concatenated `explore -> explain` ordering and repeated facts across the blocks;
+  - conclusion: passing every returned item did improve breadth when Codex returned more than ten, but quality and graph stability were not reliable; the shared 25-item budget was reverted;
+  - next comparison should keep a bounded generation budget and test coverage-aware selection separately from stage-order and CodeGraph-input changes.
+
+### Codex Evidence Organizer (Enabled By Default After Experimental Confirmation)
+
+- Intended stage boundary:
+  - Codex candidate generation and schema/path/range validation remain the retrieval provider's responsibility;
+  - when `experiments.codex_evidence_organizer_enabled=true`, as many as 40 valid Codex candidates reach one post-retrieval organizer before explanation generation;
+  - the organizer combines prompt-derived semantic facets with deterministic CodeGraph edges, replaces `RetrievalResult.evidence` with an adaptive 8-16 item set, and stores complete selection diagnostics;
+  - native workspace retrieval, native graph behavior, and intent-stage ordering are unchanged.
+- Expected quality impact:
+  - remove first-10 position bias while preserving a bounded generation context;
+  - retain direct support for classification, retrieval, explanation structure, and question generation when Codex returned it;
+  - prefer structurally coherent evidence after semantic fit without discarding isolated evidence that contributes a distinct facet.
+- Expected token impact:
+  - one existing semantic graph LLM call now also performs organization; no separate semantic-matching call was added;
+  - compact snippets and short model-facing candidate IDs limit organizer input, while explanation generation receives only selected evidence;
+  - organizer-specific usage is stored under `retrieval_summary.evidence_organization.token_usage` and remains included in normal run-wide API totals.
+- Known regression risks:
+  - semantic facet selection can still vary between model calls;
+  - hard 8-item minimum can retain supporting evidence for narrow prompts;
+  - graph components that have no accepted path to the root are deterministically reported as disconnected rather than connected speculatively;
+  - stage-order concatenation remains a known presentation issue and is intentionally deferred.
+- Validation and failure behavior:
+  - every candidate is schema-required exactly once in the assessment map;
+  - selected references must be unique, stay within adaptive bounds, and may only have `core` or `supporting` status;
+  - every covered or partial facet must retain at least one selected supporting reference;
+  - one repair call is allowed for semantically invalid output; a second invalid result fails explicitly with no first-N, all-evidence, or graph-only selection fallback;
+  - raw `codex-evidence.json` stays unchanged, while `evidence-items.json` and explanation generation contain only selected evidence.
+- Fresh-run limitation:
+  - `run-20260806T165811Z-4032dba1` retrieved 10 valid Codex candidates and correctly failed after one organizer repair under the earlier graph contract; that failure led to deterministic disconnected-component reporting and a stronger repair contract;
+  - fresh reruns `run-20260806T170854Z-98c584df` and `run-20260806T171003Z-3b67e2e7` stopped before retrieval because the Codex CLI account reported its usage limit, with the next availability date shown as 2026-08-11;
+  - therefore the initial implementation handoff could not include two fresh Codex outputs; preserved raw-artifact replays were used until the CLI became available again.
+- Exact-prompt preserved-artifact comparisons on the final implementation:
+  - prompt: `Where is intent classification handled, and how does it flow into retrieval, explanation structure, and question generation?`;
+  - `replay-organizer-20260806-baseline25-v6` replayed the untouched 25-candidate raw artifact from `run-20260806T015321Z-c0f4cc50`: all 25 were valid and visible before organization, 8 were selected, 17 excluded, all four facets covered, graph complete, zero repair calls, `coverage_status=strong`, `sufficient=true`, one grounded question, and no citation outside the selected set;
+  - that 25-candidate replay used 15,618 organizer tokens and 21,480 API tokens across organization plus explanation, below the 22,634-token all-evidence regression;
+  - `replay-organizer-20260806-baseline17-v3` replayed the untouched 17-candidate raw artifact from `run-20260806T161759Z-49350b57`: all 17 were valid and visible, 8 were selected, 9 excluded, all four facets covered, graph complete, zero repairs, `coverage_status=strong`, `sufficient=true`, one grounded question, and no citation outside the selected set;
+  - that 17-candidate replay used 10,017 organizer tokens and 15,724 API tokens across organization plus explanation;
+  - both generation payloads exposed only `task_goal`, `answer_scope`, and `coverage_gaps` from the stored comprehension plan; legacy grounded/bridge/capsule concept metadata was absent from initial generation.
+- Fresh exact-prompt end-to-end confirmations after Codex became available again:
+  - `run-20260806T182453Z-4da8db99` returned 19 raw and schema-valid candidates, selected 9, excluded 10, covered all four prompt-derived facets, completed the graph with zero organizer repairs, remained `coverage_status=strong` and `sufficient=true`, generated one grounded question, and cited no excluded evidence;
+  - that run used 1,389,404 gross Codex input-plus-output tokens (115,548 uncached), 12,106 organizer tokens, and 18,479 API tokens across organization plus explanation;
+  - `run-20260806T183130Z-494af1b2` returned 21 raw and schema-valid candidates, selected 9, excluded 12, covered all four facets, completed the graph with zero repairs, remained `coverage_status=strong` and `sufficient=true`, generated one grounded question, and cited no excluded evidence;
+  - that run used 1,372,710 gross Codex input-plus-output tokens (134,182 uncached), 12,016 organizer tokens, and 17,894 API tokens across organization plus explanation;
+  - fresh graph-confirmation run `run-20260806T201935Z-e9304821` returned 19 valid candidates, selected 9 (`6 core`, `3 supporting`), excluded 10 (`8 supporting`, `2 adjacent`), completed without organizer repair, and remained `coverage_status=strong` and `sufficient=true`;
+  - its all-candidate graph retained 19 distinct relationships connecting 14/19 candidates, while the selected graph retained 8 relationships connecting all 9 selected candidates; the remaining five candidates are explicitly visible as structurally isolated rather than silently omitted;
+  - the explanation cited all 9 selected references and no excluded reference; Codex used 2,119,496 gross input-plus-output tokens (120,648 uncached), the organizer used 11,590 API tokens, and organization plus explanation used 18,958 API tokens total;
+  - all three fresh runs stayed below the 22,634-token all-evidence API regression, selected direct evidence for classification, retrieval, explanation structure, and question generation, and avoided meta-contract dominance in the generated repository explanation;
+  - selection was stable at 9 items despite Codex returning 19 to 21 candidates, and none used the repair path or a hidden fallback.
+- Decision:
+  - the bounded organizer passes both preserved-candidate and fresh end-to-end quality, grounding, stability, and token checks;
+  - `experiments.codex_evidence_organizer_enabled` now defaults to `true` in runtime configuration and every checked-in web profile, while remaining available as an explicit diagnostic off-switch;
+  - disabling it preserves the legacy first-10 Codex path for controlled comparisons only; organizer failure while enabled still fails explicitly and never falls back to that path.
+
 ## 2026-08-05
 
 ### Verified: CodeGraph Replacement On Historical CGC Timeout Case
@@ -1851,3 +2023,21 @@
   - retrieval path `local_in_file_refinement`
   - late assessment marked the snippet `core` for `validation_checking`.
 - Final `.env` state had the legacy retrieval LLM continuity flag disabled.
+# 2026-08-07 — Selected evidence connections in explanation and question generation
+
+- Stage boundary: after evidence organization and before explanation generation, pass only graph connections whose source and target are both in the selected evidence set. The graph informs narrative links and question targets; it does not prove claims or force one question per cluster.
+- Legacy comprehension cleanup: `ComprehensionPlan`, its role-based concepts, and its consecutive-concept dependency builder were deleted. Initial generation now uses the intent flow, selected evidence, and selected evidence connections directly; follow-up teaching uses the accepted answer/story flow, question targets, and actual evaluation gaps.
+- Compatibility policy: there is no legacy `ComprehensionPlan` fallback or parallel compatibility branch. Runs missing the new accepted-flow data do not silently reconstruct the old role-based teaching model.
+- Expected quality impact: questions can target real control/data/configuration links instead of inferring relationships from evidence order. Intent question stems now also carry short intent-specific purposes.
+- Expected token impact: a small generation-prompt increase proportional to the number of selected edges. The main run-to-run token variance still comes from changing Codex candidates and organizer selections.
+- Regression risks: inferred edges could over-influence prose, clusters could be mistaken for mandatory question counts, or broad stem descriptions could make questions repetitive. The prompt explicitly keeps inferred links non-authoritative and question count dynamic.
+- Matching-prompt comparisons (`Where is intent classification handled, and how does it flow into retrieval, explanation structure, and question generation?`):
+  - Pre-change `run-20260806T215430Z-77b1072e`: `coverage_status=strong`, `sufficient=true`, 12 candidates / 8 selected, 16,702 organizer+generation LLM tokens, 2 questions.
+  - Graph-context `run-20260806T221144Z-68891821`: `coverage_status=strong`, `sufficient=true`, 15 candidates / 12 selected, 20,801 organizer+generation LLM tokens, 2 questions. The generator received 1 selected edge; the questions moved toward the classification-to-generation handoff and contract-aligned follow-up checks.
+  - Graph + stem-purpose descriptions `run-20260806T221913Z-4ec3cadf`: `coverage_status=strong`, `sufficient=true`, 16 candidates / 10 selected, 20,785 organizer+generation LLM tokens, 2 questions. Questions separated the classification-to-retrieval handoff from the intent-flow effect on explanation and checks.
+  - Final cleaned path `run-20260806T222636Z-965a3cbf`: `coverage_status=strong`, `sufficient=true`, 16 candidates / 12 selected, 21,218 organizer+generation LLM tokens, 2 questions, 8 selected edges supplied, and zero explanation or question repairs. The output asked separately about the classification-to-retrieval/explanation handoff and why follow-up questions remain aligned with classified intent. No legacy comprehension plan was present.
+- Interpretation: both changed runs kept two questions. The graph-only run produced two questions from one passed edge, while the description run had two evidence components but one question crossed their boundary. Evidence clusters are useful context, but are not a reliable question-count formula.
+- Progressive hints experiment:
+  - Replaced the singular `hint` field with an exact `direction -> focus -> scaffold` ladder generated from the same question, expected points, stages, evidence, and graph context. No singular-hint compatibility fallback remains.
+  - Added hint-only repair with its own prompt. A rejected ladder is replaced without regenerating the question or expected answer points; the UI reveals one hint at a time.
+  - Live run `run-20260806T225055Z-7ffa037b`: `coverage_status=strong`, `sufficient=true`, 2 questions, 32,112 organizer+generation+repair LLM tokens, zero explanation repairs, zero hint repairs, and one question-only repair. The valid second question was preserved while only the rejected first question was regenerated. Both final ladders progressed from a reasoning operation to a concrete code relationship and then a partial causal scaffold without copying the expected points verbatim. The extra question-repair call accounted for 9,347 tokens, so this run should not be used as a clean estimate of the normal hint-ladder token increase.

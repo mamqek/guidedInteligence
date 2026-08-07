@@ -5,10 +5,10 @@ Do not inspect CodeRepoQA raw issue JSON, verification JSON, oracle files, QA_da
 Do not produce a final explanation. Do not edit files.
 Return only JSON matching the provided schema.
 
-Advisory retrieval hints from the intent classifier:
-{{RETRIEVAL_HINTS_JSON}}
+Minimal task-intent context:
+{{INTENT_CONTEXT_JSON}}
 
-Treat these hints as planning metadata, not evidence. They may shape what supporting code you gather, but the repository files are the only source of truth.
+Treat this only as neutral outcome context, not evidence and not an Evidence Plan. It contains no required evidence categories. The repository files are the only source of truth.
 The product boundary is explain, plan, and suggest only. Never retrieve with the goal of producing a final fix, patch, or implementation for the user.
 
 Mode-aware retrieval guidance:

@@ -5,27 +5,45 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
-from services.comprehension.models import (
-    ComprehensionPlan,
-    ComprehensionState,
-    ConceptFamiliarity,
-    PlanUnderstandingCheck,
-    RepairPlan,
-    plan_from_mapping,
-)
+from services.guidance.questions import UnderstandingCheck, UnderstandingHint
+from services.intent import get_intent_contract
+from services.intent.models import TaskIntent
 from services.llm.json_completion import complete_json
 
 
-PROMPT_TEMPLATE_ID = "comprehension_followup_v1"
+PROMPT_TEMPLATE_ID = "comprehension_followup_v2"
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "followup.md"
+QUESTION_FIELD_LIMITS = {"reasoning_focus": 300, "selection_reason": 500, "question": 800}
+HINT_KINDS = ("direction", "focus", "scaffold")
+HINT_TEXT_LIMIT = 500
+
+
+@dataclass(frozen=True)
+class TeachingState:
+    stages_taught: tuple[str, ...]
+    checks_asked: tuple[str, ...]
+    check_results: tuple[Mapping[str, Any], ...]
+    current_teaching_stage: str
+    target_stage_ids: tuple[str, ...]
+    missing_points: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "stages_taught": list(self.stages_taught),
+            "checks_asked": list(self.checks_asked),
+            "check_results": [dict(item) for item in self.check_results],
+            "current_teaching_stage": self.current_teaching_stage,
+            "target_stage_ids": list(self.target_stage_ids),
+            "missing_points": list(self.missing_points),
+        }
 
 
 @dataclass(frozen=True)
 class ComprehensionFollowUpResult:
     next_turn: str
     markdown: str
-    revised_check: PlanUnderstandingCheck | None
-    comprehension_state: ComprehensionState
+    revised_check: UnderstandingCheck | None
+    teaching_state: TeachingState
     prompt_template_id: str = PROMPT_TEMPLATE_ID
 
     def to_dict(self) -> dict[str, Any]:
@@ -33,28 +51,31 @@ class ComprehensionFollowUpResult:
             "next_turn": self.next_turn,
             "markdown": self.markdown,
             "revised_check": self.revised_check.to_dict() if self.revised_check is not None else None,
-            "comprehension_state": self.comprehension_state.to_dict(),
+            "teaching_state": self.teaching_state.to_dict(),
             "prompt_template_id": self.prompt_template_id,
         }
 
 
 def generate_followup(
     *,
-    comprehension_plan: Mapping[str, Any],
+    answer_flow: Mapping[str, Any],
+    story_flow: Sequence[Mapping[str, Any]],
     checks: Sequence[Mapping[str, Any]],
     evaluations: Sequence[Mapping[str, Any]],
     answers: Mapping[str, str],
     llm_config: Any,
     log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
 ) -> ComprehensionFollowUpResult:
-    plan = plan_from_mapping(comprehension_plan)
-    state = build_comprehension_state(plan=plan, checks=checks, evaluations=evaluations)
+    state = build_teaching_state(answer_flow=answer_flow, checks=checks, evaluations=evaluations)
     payload = {
-        "comprehension_plan": plan.to_dict(),
-        "comprehension_state": state.to_dict(),
+        "answer_flow": dict(answer_flow),
+        "story_flow": [dict(stage) for stage in story_flow],
+        "teaching_state": state.to_dict(),
         "checks": [dict(check) for check in checks],
         "evaluations": [dict(evaluation) for evaluation in evaluations],
         "answers": {str(key): str(value) for key, value in answers.items()},
+        "question_field_limits": dict(QUESTION_FIELD_LIMITS),
+        "hint_contract": {"ordered_kinds": list(HINT_KINDS), "text_max_characters": HINT_TEXT_LIMIT},
         "response_rules": {
             "repair_max_words": 350,
             "deepen_max_words": 300,
@@ -63,13 +84,7 @@ def generate_followup(
         },
     }
     if log_event is not None:
-        log_event(
-            "comprehension_followup_request_payload",
-            {
-                "prompt_template_id": PROMPT_TEMPLATE_ID,
-                "payload": payload,
-            },
-        )
+        log_event("comprehension_followup_request_payload", {"prompt_template_id": PROMPT_TEMPLATE_ID, "payload": payload})
     response = complete_json(
         llm_config,
         (
@@ -81,78 +96,47 @@ def generate_followup(
     )
     result = _validate_response(response, state)
     if log_event is not None:
-        log_event(
-            "comprehension_followup_response_payload",
-            {
-                "prompt_template_id": PROMPT_TEMPLATE_ID,
-                "next_turn": result.next_turn,
-                "comprehension_state": result.comprehension_state.to_dict(),
-            },
-        )
+        log_event("comprehension_followup_response_payload", {"prompt_template_id": PROMPT_TEMPLATE_ID, "next_turn": result.next_turn, "teaching_state": state.to_dict()})
     return result
 
 
-def build_comprehension_state(
+def build_teaching_state(
     *,
-    plan: ComprehensionPlan,
+    answer_flow: Mapping[str, Any],
     checks: Sequence[Mapping[str, Any]],
     evaluations: Sequence[Mapping[str, Any]],
-) -> ComprehensionState:
-    concepts_by_check = _concepts_by_check(plan, checks)
-    familiarity: dict[str, ConceptFamiliarity] = {
-        concept.id: ConceptFamiliarity(concept_id=concept.id, level="unknown", evidence="Concept was planned but not evaluated.")
-        for concept in plan.concepts
-    }
-    failed_concepts: list[str] = []
-    repair_focus = ""
-    statuses: list[str] = []
-    for evaluation in evaluations:
-        question_id = str(evaluation.get("question_id") or "").strip()
-        status = str(evaluation.get("status") or "partial").strip()
-        statuses.append(status)
-        concept_ids = concepts_by_check.get(question_id, ())
-        level = _level_for_status(status)
-        evidence = str(evaluation.get("feedback") or status).strip()
-        for concept_id in concept_ids:
-            familiarity[concept_id] = ConceptFamiliarity(concept_id=concept_id, level=level, evidence=evidence)
-            if level in {"partial", "misunderstood"} and concept_id not in failed_concepts:
-                failed_concepts.append(concept_id)
-        if status in {"partial", "incorrect"} and not repair_focus:
-            repair_focus = str(evaluation.get("repair_focus") or "").strip()
+) -> TeachingState:
     next_stage = _next_stage(evaluations)
-    repair_plan = None
-    if next_stage == "repair":
-        repair_plan = RepairPlan(
-            failed_concept_ids=tuple(failed_concepts),
-            misconception=repair_focus,
-            repair_strategy=_repair_strategy(repair_focus),
-            follow_up_check=plan.understanding_check,
-        )
-    return ComprehensionState(
-        concepts_explained=tuple(concept.id for concept in plan.concepts),
-        concept_familiarity=tuple(familiarity.values()),
-        checks_asked=tuple(str(check.get("id") or "") for check in checks if str(check.get("id") or "").strip()),
-        check_results=tuple(dict(evaluation) for evaluation in evaluations),
-        current_teaching_stage=next_stage,
-        repair_plan=repair_plan,
-    )
-
-
-def _concepts_by_check(plan: ComprehensionPlan, checks: Sequence[Mapping[str, Any]]) -> dict[str, tuple[str, ...]]:
-    plan_check = plan.understanding_check
-    default = plan_check.concept_ids if plan_check is not None else tuple(concept.id for concept in plan.concepts if concept.role == "core")
-    mapping: dict[str, tuple[str, ...]] = {}
+    failed_question_ids = {
+        str(item.get("question_id") or "").strip()
+        for item in evaluations
+        if str(item.get("status") or "").strip() in {"partial", "incorrect"}
+    }
+    target_stage_ids: list[str] = []
     for check in checks:
-        check_id = str(check.get("id") or "").strip()
-        refs = tuple(str(ref) for ref in check.get("evidence_refs", ()) if str(ref).strip())
-        concept_ids = tuple(
-            concept.id
-            for concept in plan.concepts
-            if refs and any(ref in concept.evidence_refs for ref in refs)
+        if str(check.get("id") or "").strip() not in failed_question_ids:
+            continue
+        for stage_id in check.get("target_stage_ids", ()):
+            value = str(stage_id).strip()
+            if value and value not in target_stage_ids:
+                target_stage_ids.append(value)
+    missing_points = tuple(
+        value
+        for evaluation in evaluations
+        for value in (
+            str(evaluation.get("repair_focus") or "").strip(),
+            *(str(item).strip() for item in evaluation.get("missing_points", ()) if str(item).strip()),
         )
-        if check_id:
-            mapping[check_id] = concept_ids or default
-    return mapping
+        if value and str(evaluation.get("status") or "").strip() in {"partial", "incorrect"}
+    )
+    return TeachingState(
+        stages_taught=tuple(str(item) for item in answer_flow.get("ordered_stage_ids", ()) if str(item).strip()),
+        checks_asked=tuple(str(check.get("id") or "") for check in checks if str(check.get("id") or "").strip()),
+        check_results=tuple(dict(item) for item in evaluations),
+        current_teaching_stage=next_stage,
+        target_stage_ids=tuple(target_stage_ids),
+        missing_points=tuple(dict.fromkeys(missing_points)),
+    )
 
 
 def _next_stage(evaluations: Sequence[Mapping[str, Any]]) -> str:
@@ -165,60 +149,95 @@ def _next_stage(evaluations: Sequence[Mapping[str, Any]]) -> str:
     return "completion"
 
 
-def _level_for_status(status: str) -> str:
-    if status == "correct":
-        return "demonstrated"
-    if status == "partial":
-        return "partial"
-    if status == "incorrect":
-        return "misunderstood"
-    return "unknown"
-
-
-def _repair_strategy(repair_focus: str) -> str:
-    normalized = repair_focus.lower()
-    if "instead" in normalized or "vs" in normalized or "contrast" in normalized:
-        return "contrast"
-    if "evidence" in normalized or "file" in normalized or "line" in normalized:
-        return "evidence_revisit"
-    return "concept_capsule"
-
-
-def _validate_response(response: Mapping[str, Any], state: ComprehensionState) -> ComprehensionFollowUpResult:
+def _validate_response(response: Mapping[str, Any], state: TeachingState) -> ComprehensionFollowUpResult:
     markdown = str(response.get("markdown") or "").strip()
     if not markdown:
         raise RuntimeError("Comprehension follow-up generation returned empty markdown.")
-    next_turn = str(response.get("next_turn") or state.current_teaching_stage).strip()
+    next_turn = str(response.get("next_turn") or "").strip()
     if next_turn not in {"repair", "deepen", "completion"}:
-        next_turn = state.current_teaching_stage
+        raise RuntimeError("Comprehension follow-up returned an invalid next_turn.")
     revised_raw = response.get("revised_check")
     revised_check = _check_from_mapping(revised_raw) if isinstance(revised_raw, Mapping) else None
-    return ComprehensionFollowUpResult(
-        next_turn=next_turn,
-        markdown=markdown,
-        revised_check=revised_check,
-        comprehension_state=state,
+    return ComprehensionFollowUpResult(next_turn=next_turn, markdown=markdown, revised_check=revised_check, teaching_state=state)
+
+
+def _check_from_mapping(value: Mapping[str, Any]) -> UnderstandingCheck:
+    try:
+        intent = TaskIntent(str(value.get("intent") or ""))
+    except ValueError as exc:
+        raise RuntimeError("Follow-up check returned an unknown intent.") from exc
+    contract = get_intent_contract(intent)
+    stem_family = str(value.get("stem_family") or "").strip()
+    prerequisites = tuple(str(item) for item in value.get("prerequisite_stage_ids", ()) if str(item).strip())
+    if stem_family not in contract.question.stem_families or prerequisites != contract.question.prerequisite_stage_ids:
+        raise RuntimeError("Follow-up check does not follow its intent question contract.")
+    fields = {name: str(value.get(name) or "").strip() for name in QUESTION_FIELD_LIMITS}
+    if any(not text for text in fields.values()) or any(len(fields[name]) > limit for name, limit in QUESTION_FIELD_LIMITS.items()):
+        raise RuntimeError("Follow-up check has a missing or overlong question field.")
+    expected = tuple(str(item).strip() for item in value.get("expected_answer_points", ()) if str(item).strip())
+    refs = tuple(str(item).strip() for item in value.get("evidence_refs", ()) if str(item).strip())
+    raw_hints = value.get("hints")
+    if not isinstance(raw_hints, list) or len(raw_hints) != len(HINT_KINDS):
+        raise RuntimeError("Follow-up check lacks its three-level hint ladder.")
+    hints: list[UnderstandingHint] = []
+    for raw_hint, expected_kind in zip(raw_hints, HINT_KINDS):
+        if not isinstance(raw_hint, Mapping):
+            raise RuntimeError("Follow-up check contains an invalid hint.")
+        kind = str(raw_hint.get("kind") or "").strip()
+        text = str(raw_hint.get("text") or "").strip()
+        if kind != expected_kind or not text or len(text) > HINT_TEXT_LIMIT:
+            raise RuntimeError("Follow-up check contains an invalid hint ladder.")
+        hints.append(UnderstandingHint(kind=kind, text=text))
+    if len({hint.text.casefold() for hint in hints}) != len(hints) or not expected or not refs:
+        raise RuntimeError("Follow-up check lacks expected answer points or evidence references.")
+    return UnderstandingCheck(
+        id=str(value.get("id") or "q1").strip() or "q1",
+        intent=intent,
+        target_stage_ids=tuple(str(item) for item in value.get("target_stage_ids", ()) if str(item).strip()),
+        prerequisite_stage_ids=prerequisites,
+        stem_family=stem_family,
+        reasoning_focus=fields["reasoning_focus"],
+        selection_reason=fields["selection_reason"],
+        question=fields["question"],
+        expected_answer_points=expected,
+        hints=tuple(hints),
+        evidence_refs=refs,
     )
-
-
-def _check_from_mapping(value: Mapping[str, Any]) -> PlanUnderstandingCheck:
-    return PlanUnderstandingCheck(
-        id=str(value.get("id") or "q1"),
-        type=_literal(str(value.get("type") or "why"), {"prediction", "re_explanation", "trace", "why", "transfer"}, "why"),
-        question=str(value.get("question") or ""),
-        expected_points=tuple(str(item) for item in value.get("expected_points", ()) if str(item).strip()),
-        misconceptions=tuple(str(item) for item in value.get("misconceptions", ()) if str(item).strip()),
-        hidden_hints=tuple(str(item) for item in value.get("hidden_hints", ()) if str(item).strip()),
-        evidence_refs=tuple(str(item) for item in value.get("evidence_refs", ()) if str(item).strip()),
-        concept_ids=tuple(str(item) for item in value.get("concept_ids", ()) if str(item).strip()),
-    )
-
-
-def _literal(value: str, allowed: set[str], default: str) -> Any:
-    return value if value in allowed else default
 
 
 def _response_format() -> Mapping[str, Any]:
+    string_array = {"type": "array", "items": {"type": "string"}}
+    question = {
+        "type": ["object", "null"],
+        "properties": {
+            "id": {"type": "string"},
+            "intent": {"type": "string", "enum": [intent.value for intent in TaskIntent]},
+            "target_stage_ids": string_array,
+            "prerequisite_stage_ids": string_array,
+            "stem_family": {"type": "string"},
+            "reasoning_focus": {"type": "string", "maxLength": QUESTION_FIELD_LIMITS["reasoning_focus"]},
+            "selection_reason": {"type": "string", "maxLength": QUESTION_FIELD_LIMITS["selection_reason"]},
+            "question": {"type": "string", "maxLength": QUESTION_FIELD_LIMITS["question"]},
+            "expected_answer_points": string_array,
+            "hints": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string", "enum": list(HINT_KINDS)},
+                        "text": {"type": "string", "maxLength": HINT_TEXT_LIMIT},
+                    },
+                    "required": ["kind", "text"],
+                    "additionalProperties": False,
+                },
+            },
+            "evidence_refs": string_array,
+        },
+        "required": ["id", "intent", "target_stage_ids", "prerequisite_stage_ids", "stem_family", "reasoning_focus", "selection_reason", "question", "expected_answer_points", "hints", "evidence_refs"],
+        "additionalProperties": False,
+    }
     return {
         "type": "json_schema",
         "json_schema": {
@@ -226,34 +245,7 @@ def _response_format() -> Mapping[str, Any]:
             "strict": True,
             "schema": {
                 "type": "object",
-                "properties": {
-                    "next_turn": {"type": "string"},
-                    "markdown": {"type": "string"},
-                    "revised_check": {
-                        "type": ["object", "null"],
-                        "properties": {
-                            "id": {"type": "string"},
-                            "type": {"type": "string"},
-                            "question": {"type": "string"},
-                            "expected_points": {"type": "array", "items": {"type": "string"}},
-                            "misconceptions": {"type": "array", "items": {"type": "string"}},
-                            "hidden_hints": {"type": "array", "items": {"type": "string"}},
-                            "evidence_refs": {"type": "array", "items": {"type": "string"}},
-                            "concept_ids": {"type": "array", "items": {"type": "string"}},
-                        },
-                        "required": [
-                            "id",
-                            "type",
-                            "question",
-                            "expected_points",
-                            "misconceptions",
-                            "hidden_hints",
-                            "evidence_refs",
-                            "concept_ids",
-                        ],
-                        "additionalProperties": False,
-                    },
-                },
+                "properties": {"next_turn": {"type": "string", "enum": ["repair", "deepen", "completion"]}, "markdown": {"type": "string"}, "revised_check": question},
                 "required": ["next_turn", "markdown", "revised_check"],
                 "additionalProperties": False,
             },
