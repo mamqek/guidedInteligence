@@ -16,7 +16,7 @@ from pathlib import Path
 import sys
 from unittest.mock import patch
 
-from core.models import ConversationState, EvidenceItem, UserIntent
+from core.models import AssistanceRequestType, ConversationState, EvidenceItem
 from core.policy import PolicyStage
 from core.source_policy import SourceCategory, SourcePolicy
 from services.retrieval.workspace.bm25 import build_index_from_repo, save_index
@@ -277,7 +277,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain the parser.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
                 evidence=(
                     EvidenceItem(
                         source_category=SourceCategory.SOURCE_CODE,
@@ -324,7 +324,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             plan = _test_retrieval_plan(
                 required_roles=("behavior_output", "validation_checking"),
                 supporting_roles=("tests",),
-                primary_intent="defect_localization",
+                task_intents=("debug",),
                 specificity="narrow",
                 active_objectives=("implementation_owner",),
                 deferred_objectives=("verification_repro",),
@@ -402,7 +402,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             plan = _test_retrieval_plan(
                 required_roles=("behavior_output", "validation_checking"),
                 supporting_roles=("tests",),
-                primary_intent="defect_localization",
+                task_intents=("debug",),
                 specificity="narrow",
                 active_objectives=("implementation_owner",),
                 deferred_objectives=("verification_repro",),
@@ -496,7 +496,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             plan = _test_retrieval_plan(
                 required_roles=("behavior_output", "validation_checking"),
                 supporting_roles=("tests", "config", "docs"),
-                primary_intent="defect_localization",
+                task_intents=("debug",),
                 specificity="narrow",
                 active_objectives=("implementation_owner",),
                 deferred_objectives=("configuration_context", "verification_repro", "usage_contract"),
@@ -581,7 +581,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             plan = _test_retrieval_plan(
                 required_roles=("behavior_output",),
                 supporting_roles=("tests",),
-                primary_intent="defect_localization",
+                task_intents=("debug",),
                 specificity="narrow",
                 active_objectives=("implementation_owner",),
                 deferred_objectives=("verification_repro",),
@@ -646,7 +646,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             plan = _test_retrieval_plan(
                 required_roles=("behavior_output", "validation_checking"),
                 supporting_roles=("tests",),
-                primary_intent="defect_localization",
+                task_intents=("debug",),
                 specificity="narrow",
                 active_objectives=("implementation_owner",),
                 deferred_objectives=("verification_repro",),
@@ -785,7 +785,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain support for abstract classes and where parsing, validation, and diagnostics live.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with _fake_structural(files=[{"path": "src/compiler/parser.ts"}, {"path": "src/compiler/checker.ts"}, {"path": "src/compiler/diagnosticMessages.json"}, {"path": "tests/cases/abstractTests.ts"}]):
@@ -831,7 +831,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain where abstract parsing happens.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with _fake_structural(files=[{"path": "src/compiler/diagnosticMessages.json"}]):
@@ -888,7 +888,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain where abstract parsing and validation are implemented.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with _fake_structural(files=[{"path": "src/compiler/parser.ts"}, {"path": "src/compiler/parserHelpers.ts"}, {"path": "src/compiler/checker.ts"}]):
@@ -1395,7 +1395,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain where abstract classes are parsed and how they are represented.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with _fake_structural(
@@ -1460,7 +1460,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain parsing and validation for abstract classes.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with _fake_structural(
@@ -1548,7 +1548,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain where abstract class constraints are enforced.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with _fake_structural(files=[{"path": "src/compiler/checker.ts"}, {"path": "src/compiler/tc.ts"}, {"path": "src/services/services.ts"}]):
@@ -1586,7 +1586,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain where abstract parsing is implemented.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with _fake_structural(files=[{"path": "src/compiler/parser.ts"}]):
@@ -2115,7 +2115,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain TypeScript abstract class behavior.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with patch(
@@ -2302,7 +2302,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain why checkout confirmation stays pending.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with _fake_structural(files=[{"path": "src/runtime/checkout.ts"}]):
@@ -2614,7 +2614,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain parseClassDeclaration.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
 
             with patch.object(CodeGraphBridge, "request", side_effect=FileNotFoundError("missing CodeGraph bridge")):
@@ -2643,7 +2643,7 @@ class WorkspaceRetrievalStageTests(WorkspaceRetrievalStageFixture):
             state = ConversationState(
                 conversation_id="conv",
                 user_input="Explain parseClassDeclaration call flow.",
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
             seen_payloads: list[dict[str, object]] = []
             responses = [
@@ -2918,7 +2918,7 @@ def _test_retrieval_plan(
     *,
     required_roles: tuple[str, ...],
     supporting_roles: tuple[str, ...] = (),
-    primary_intent: str = "behavior_explanation",
+    task_intents: tuple[str, ...] = ("explain",),
     specificity: str = "medium",
     active_objectives: tuple[str, ...] = (),
     deferred_objectives: tuple[str, ...] = (),
@@ -2946,7 +2946,7 @@ def _test_retrieval_plan(
         negative_filters=("harness",),
         required_roles=required_roles,
         supporting_roles=supporting_roles,
-        primary_intent=primary_intent,
+        task_intents=task_intents,
         specificity=specificity,
         active_objectives=active_objectives,
         deferred_objectives=deferred_objectives,
@@ -3042,7 +3042,6 @@ def _test_bucket(
 def _step2_response(
     subqueries: list[tuple[str, str]] | None = None,
     *,
-    primary_intent: str = "behavior_explanation",
     specificity: str = "medium",
     active_objectives: list[str] | None = None,
     deferred_objectives: list[str] | None = None,
@@ -3059,8 +3058,6 @@ def _step2_response(
         "speculative_entities": ["checkAbstractMembers"],
         "source_priorities": ["source_code"],
         "negative_filters": ["harness"],
-        "primary_intent": primary_intent,
-        "specificity": specificity,
         "active_objectives": active_objectives or [],
         "deferred_objectives": deferred_objectives or [],
     }

@@ -116,54 +116,42 @@ It should summarize:
 
 ## Question Selection
 
-The system should ask one primary question by default.
-
-The primary question should be based on the main role or primary coverage area selected by retrieval. The pipeline already has role-oriented retrieval and role buckets; the guided explanation should use that structure directly instead of choosing an unrelated question.
-
-The primary question should usually target:
-
-- the strongest role bucket,
-- the role most central to the user's prompt,
-- the role with the highest-quality evidence,
-- or the role the retrieval planner marked as the main responsibility.
-
-Secondary questions are allowed when they improve coverage. They should be clearly traceable to other retrieved roles.
-
-For every secondary question, the response should be able to explain where it came from:
-
-```text
-Question 1: main role / primary retrieved responsibility
-Question 2: supporting role needed to understand the flow
-Question 3: verification role, such as tests, diagnostics, or caller behavior
-```
-
-Do not ask three questions just because three are allowed. Three questions are useful only when the retrieved evidence naturally separates into distinct responsibilities.
+The intent system generates one to three understanding questions and never completes a successful guided explanation with zero. It selects the smallest sufficient set: one question by default, with a second or third only for an independently important reasoning transition that tests a materially different relationship. Every check declares a single `reasoning_focus` and `selection_reason`; an added check must introduce a new target stage or supporting evidence reference. Each check selects a classified task intent, copies that intent contract's prerequisite stage IDs exactly, uses an allowed stem family, and grounds the question in evidence used by its target or prerequisite stages. Retrieval roles do not define question semantics, and additional questions are not allocated mechanically per intent or stage.
 
 ## Question Object Shape
 
-Each understanding-check question should be represented as structured data before rendering.
-
-Suggested shape:
+Each understanding-check question is represented as structured data before rendering:
 
 ```json
 {
   "id": "q1",
-  "role": "parser_modifier_handling",
-  "question_type": "primary",
+  "intent": "explain",
+  "target_stage_ids": ["explain.ordered_mechanism"],
+  "prerequisite_stage_ids": [
+    "explain.trigger",
+    "explain.ordered_mechanism",
+    "explain.resulting_effect"
+  ],
+  "stem_family": "why",
+  "reasoning_focus": "parser output enables downstream validation",
+  "selection_reason": "This handoff is the central mechanism the explanation asks the user to understand.",
   "question": "Why does this parser path matter for abstract class support?",
   "expected_answer_points": [
     "It identifies the syntax or modifier before later validation.",
     "It creates the representation that downstream stages inspect."
   ],
-  "hint": "Look at which syntax node or modifier is produced before checking happens.",
+  "hints": [
+    {"kind": "direction", "text": "Trace what representation is created before validation."},
+    {"kind": "focus", "text": "Look at which syntax node or modifier the parser produces."},
+    {"kind": "scaffold", "text": "The parser creates the representation that the later validation stage inspects; identify the important handoff."}
+  ],
   "evidence_refs": [
     "repo-pre:src/parser.ts:L10-L35"
-  ],
-  "origin": "main retrieved role"
+  ]
 }
 ```
 
-The rendered UI can show the question and keep the hint hidden behind a click-to-reveal control.
+The rendered UI reveals the three hints one at a time. The first gives only a reasoning direction, the second identifies the relevant grounded area, and the third starts the connection without supplying the complete answer. The singular `hint` field has been removed rather than retained as a compatibility fallback.
 
 ## Answer Evaluation Shape
 

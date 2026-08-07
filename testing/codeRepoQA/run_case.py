@@ -19,7 +19,7 @@ if str(ROOT) not in sys.path:
 TOOL_ENV_PATH = ROOT / ".env"
 
 from core.control_layer import ControlLayer
-from core.models import ConversationState, OrchestrationResult, UserIntent
+from core.models import AssistanceRequestType, ConversationState, OrchestrationResult
 from core.policy import PolicyStage
 from core.source_policy import SourceCategory, SourcePolicy
 from services.logging.store import JsonlLogger
@@ -177,8 +177,6 @@ def run_case(
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
     objective_role_selection_enabled: bool = False,
-    max_gap_retrieval_passes: int = 0,
-    intent_shadow_enabled: bool = False,
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
         issue_json,
@@ -193,7 +191,7 @@ def run_case(
     state = ConversationState(
         conversation_id=f"{visible_case.case_id}:{run_id}",
         user_input=_user_prompt(visible_case.title, visible_case.initial_body),
-        intent=UserIntent.UNDERSTAND_CODE,
+        assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
     )
     workspace_root = Path(repo_pre_path)
     output_dir = Path(run_dir)
@@ -219,8 +217,7 @@ def run_case(
         retrieval_stage=retrieval_stage,
         logger=logger,
         response_llm_config=llm_config,
-        max_gap_retrieval_passes=max_gap_retrieval_passes,
-        intent_shadow_enabled=intent_shadow_enabled,
+        intent_enabled=True,
     )
     result = control_layer.run(state)
     if not result.policy_result.allowed:
@@ -278,8 +275,6 @@ def evaluate_case(
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
     objective_role_selection_enabled: bool = False,
-    max_gap_retrieval_passes: int = 0,
-    intent_shadow_enabled: bool = False,
 ) -> Path:
     issue_path = Path(issue_json)
     verification_path = Path(verification_json) if verification_json is not None else _default_verification_path(issue_path)
@@ -348,8 +343,6 @@ def evaluate_case(
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
         objective_role_selection_enabled=objective_role_selection_enabled,
-        max_gap_retrieval_passes=max_gap_retrieval_passes,
-        intent_shadow_enabled=intent_shadow_enabled,
     )
     _write_run_metadata(
         run_dir=run_dir,
@@ -367,8 +360,6 @@ def evaluate_case(
         codex_model=codex_model,
         codex_prompt_profile=codex_prompt_profile,
         objective_role_selection_enabled=objective_role_selection_enabled,
-        max_gap_retrieval_passes=max_gap_retrieval_passes,
-        intent_shadow_enabled=intent_shadow_enabled,
     )
     return run_dir
 
@@ -557,8 +548,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
             objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-            max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
-            intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
         )
         return 0
 
@@ -583,8 +572,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
             objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-            max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
-            intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
         )
         print(str(run_dir))
         return 0
@@ -613,8 +600,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
                 codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
                 objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-                max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
-                intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
             )
             print(str(run_dir))
         return 0
@@ -668,8 +653,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                         codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
                         codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
                         objective_role_selection_enabled=_config_bool(run_config, "objective_role_selection_enabled", False),
-                        max_gap_retrieval_passes=_max_gap_retrieval_passes_from_config(run_config),
-                        intent_shadow_enabled=_intent_shadow_enabled_from_config(run_config),
                     )
                     artifact_dir = _copy_batch_artifacts(batch_dir, case_issue_json, retrieval_mode, run_dir)
                     elapsed_seconds = (datetime.now(timezone.utc) - started_at).total_seconds()
@@ -814,23 +797,6 @@ def _config_bool(config: Mapping[str, Any], key: str, default: bool) -> bool:
         if normalized in {"0", "false", "no", "off"}:
             return False
     return bool(value)
-
-
-def _max_gap_retrieval_passes_from_config(config: Mapping[str, Any]) -> int:
-    try:
-        value = int(config.get("max_gap_retrieval_passes") or 0)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("max_gap_retrieval_passes must be an integer") from exc
-    if value < 0:
-        raise ValueError("max_gap_retrieval_passes must be zero or greater")
-    return value
-
-
-def _intent_shadow_enabled_from_config(config: Mapping[str, Any]) -> bool:
-    intent = config.get("intent")
-    if isinstance(intent, Mapping):
-        return _config_bool(intent, "shadow_mode", False)
-    return _config_bool(config, "intent_shadow_enabled", False)
 
 
 def _codex_command(args: argparse.Namespace, config: Mapping[str, Any]) -> tuple[str, ...]:
@@ -981,8 +947,6 @@ def _write_run_metadata(
     codex_model: str,
     codex_prompt_profile: str,
     objective_role_selection_enabled: bool,
-    max_gap_retrieval_passes: int,
-    intent_shadow_enabled: bool,
 ) -> None:
     metadata = {
         "case_id": visible_case.case_id,
@@ -998,8 +962,7 @@ def _write_run_metadata(
         "codex_model": codex_model if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
         "codex_prompt_profile": codex_prompt_profile if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
         "objective_role_selection_enabled": objective_role_selection_enabled,
-        "max_gap_retrieval_passes": max_gap_retrieval_passes,
-        "intent_shadow_enabled": intent_shadow_enabled,
+        "intent_system": "intent_contracts_v1",
         "resolution": {
             "strategy": resolution.strategy,
             "confidence": resolution.confidence,

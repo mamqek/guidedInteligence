@@ -15,14 +15,30 @@ from services.llm.json_completion import complete_json
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 SEMANTIC_PROMPT_PATH = PROMPTS_DIR / "evidence_graph_semantic.md"
 SEMANTIC_SCHEMA_PATH = PROMPTS_DIR / "evidence_graph_semantic.schema.json"
+ORGANIZER_PROMPT_PATH = PROMPTS_DIR / "codex_evidence_organizer.md"
+ORGANIZER_SCHEMA_PATH = PROMPTS_DIR / "codex_evidence_organizer.schema.json"
 CODEGRAPH_BRIDGE_PATH = Path(__file__).resolve().parent / "codegraph" / "selected_evidence_edges.mjs"
 GRAPH_VERSION = 2
 GRAPH_PROMPT_VERSION = "codegraph_semantic_v8"
+ORGANIZER_VERSION = "codex_evidence_organizer_v1"
 MAX_EVIDENCE_ITEMS = 12
 MAX_CODEGRAPH_EDGES = 24
+MAX_ORGANIZER_CODEGRAPH_EDGES = 40
 MAX_CONNECTIONS = 16
+ORGANIZER_MIN_SELECTED = 8
+ORGANIZER_MAX_SELECTED = 16
 
 LogEvent = Callable[[str, Mapping[str, Any]], None]
+
+
+class EvidenceOrganizationError(RuntimeError):
+    pass
+
+
+class EvidenceOrganizationValidationError(ValueError):
+    def __init__(self, errors: Sequence[str]) -> None:
+        self.errors = tuple(str(error) for error in errors if str(error).strip())
+        super().__init__("; ".join(self.errors))
 
 
 def build_evidence_graph(
@@ -31,8 +47,21 @@ def build_evidence_graph(
     workspace_root: str | Path,
     user_prompt: str,
     llm_config: Any,
+    organizer_enabled: bool = False,
+    neutralize_candidate_order: bool = False,
+    intent_flow: Mapping[str, Any] | None = None,
     log_event: LogEvent | None = None,
 ) -> RetrievalResult:
+    if organizer_enabled:
+        return _organize_codex_evidence(
+            retrieval_result,
+            workspace_root=workspace_root,
+            user_prompt=user_prompt,
+            intent_flow=intent_flow or {},
+            neutralize_candidate_order=neutralize_candidate_order,
+            llm_config=llm_config,
+            log_event=log_event,
+        )
     evidence = tuple(retrieval_result.evidence[:MAX_EVIDENCE_ITEMS])
     if len(evidence) < 2:
         return _with_graph(
@@ -136,6 +165,573 @@ def build_evidence_graph(
         return _with_graph(retrieval_result, graph)
 
 
+def build_candidate_connections(
+    evidence: Sequence[EvidenceItem],
+    *,
+    workspace_root: str | Path,
+    existing_connections: Sequence[Mapping[str, Any]] = (),
+) -> list[dict[str, str]]:
+    """Build the deterministic graph used by the all-candidates UI mode.
+
+    This does not select, promote, or otherwise alter generation evidence.
+    Existing semantic connections may be included alongside CodeGraph and
+    document-reference relationships.
+    """
+    items = tuple(evidence)
+    if not items:
+        return []
+    root = Path(workspace_root).resolve()
+    structural = _codegraph_edges(root, items)
+    document_edges = _document_reference_edges(root, items)
+    direct = _structural_connections(
+        codegraph_edges=structural.get("direct_candidates", ()),
+        document_reference_edges=document_edges,
+    )
+    valid_refs = {item.source_id for item in items}
+    preserved = [
+        dict(connection)
+        for connection in existing_connections
+        if str(connection.get("source_ref") or "") in valid_refs
+        and str(connection.get("target_ref") or "") in valid_refs
+    ]
+    return _unique_connection_pairs([*direct, *preserved])
+
+
+def _organize_codex_evidence(
+    retrieval_result: RetrievalResult,
+    *,
+    workspace_root: str | Path,
+    user_prompt: str,
+    intent_flow: Mapping[str, Any],
+    neutralize_candidate_order: bool,
+    llm_config: Any,
+    log_event: LogEvent | None,
+) -> RetrievalResult:
+    evidence = tuple(retrieval_result.evidence)
+    model_evidence = (
+        _stable_evidence_permutation(evidence, user_prompt=user_prompt)
+        if neutralize_candidate_order
+        else evidence
+    )
+    candidate_count = len(evidence)
+    if not evidence:
+        organization = {
+            "version": ORGANIZER_VERSION,
+            "status": "complete",
+            "candidate_count": 0,
+            "selected_count": 0,
+            "excluded_count": 0,
+            "coverage_facets": [],
+            "assessments": [],
+            "selected_refs": [],
+            "excluded_refs": [],
+            "repair_attempts": 0,
+        }
+        return replace(
+            retrieval_result,
+            retrieval_summary={
+                **dict(retrieval_result.retrieval_summary),
+                "selected_count": 0,
+                "evidence_organization": organization,
+                "evidence_connections": {"version": GRAPH_VERSION, "status": "complete", "connections": []},
+            },
+        )
+
+    selected_min = min(candidate_count, ORGANIZER_MIN_SELECTED)
+    selected_max = min(candidate_count, ORGANIZER_MAX_SELECTED)
+    root = Path(workspace_root).resolve()
+    if log_event is not None:
+        log_event(
+            "evidence_organization_started",
+            {
+                "candidate_count": candidate_count,
+                "selected_min": selected_min,
+                "selected_max": selected_max,
+                "workspace_root": str(root),
+            },
+        )
+    organizer_token_usage = {
+        "request_count": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "cached_tokens": 0,
+        "reasoning_tokens": 0,
+    }
+
+    def record_organizer_event(event_type: str, event_payload: Mapping[str, Any]) -> None:
+        if log_event is not None:
+            log_event(event_type, event_payload)
+        if event_type != "llm_response_received":
+            return
+        raw_response = event_payload.get("raw_response")
+        usage = raw_response.get("usage") if isinstance(raw_response, Mapping) else None
+        if not isinstance(usage, Mapping):
+            return
+        organizer_token_usage["request_count"] += 1
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            organizer_token_usage[key] += int(usage.get(key) or 0)
+        prompt_details = usage.get("prompt_tokens_details")
+        if isinstance(prompt_details, Mapping):
+            organizer_token_usage["cached_tokens"] += int(prompt_details.get("cached_tokens") or 0)
+        completion_details = usage.get("completion_tokens_details")
+        if isinstance(completion_details, Mapping):
+            organizer_token_usage["reasoning_tokens"] += int(completion_details.get("reasoning_tokens") or 0)
+    try:
+        structural = _codegraph_edges(root, evidence)
+        document_edges = _document_reference_edges(root, evidence)
+        payload = _organizer_payload(
+            model_evidence=model_evidence,
+            user_prompt=user_prompt,
+            intent_flow=intent_flow,
+            selected_min=selected_min,
+            selected_max=selected_max,
+            codegraph_edges=structural.get("direct_candidates", ()),
+            document_reference_edges=document_edges,
+        )
+        response_format = _organizer_response_format(
+            tuple(item.source_id for item in model_evidence),
+            selected_min=selected_min,
+            selected_max=selected_max,
+        )
+        response = complete_json(
+            llm_config,
+            (
+                {"role": "system", "content": ORGANIZER_PROMPT_PATH.read_text(encoding="utf-8")},
+                {"role": "user", "content": json.dumps(payload, sort_keys=True)},
+            ),
+            response_format=response_format,
+            log_event=record_organizer_event,
+        )
+        repair_attempts = 0
+        try:
+            validated = _validate_organizer_response(
+                response,
+                evidence=evidence,
+                model_evidence=model_evidence,
+                selected_min=selected_min,
+                selected_max=selected_max,
+                codegraph_edges=payload["codegraph_edges"],
+                document_reference_edges=document_edges,
+            )
+        except EvidenceOrganizationValidationError as exc:
+            repair_attempts = 1
+            repair_errors = _organizer_model_errors(exc.errors, model_evidence)
+            if log_event is not None:
+                log_event(
+                    "evidence_organization_repair_attempted",
+                    {"errors": list(exc.errors), "candidate_count": candidate_count},
+                )
+            repaired_payload = {
+                **payload,
+                "repair": {
+                    "validation_errors": repair_errors,
+                    "previous_response": dict(response),
+                    "instruction": (
+                        "Correct every validation error exactly. Return the complete organizer response, preserve "
+                        "one assessment per candidate, and do not repeat the invalid response unchanged. When an "
+                        "error names selected evidence outside the main flow, either add honest supported "
+                        "connections that make those references reachable from root_ref or add every named "
+                        "reference to disconnected_evidence with a specific reason."
+                    ),
+                },
+            }
+            repair_directive = (
+                "REPAIR REQUIRED. The previous organizer response failed deterministic validation. "
+                "Fix every error below and return the entire corrected JSON object. Do not return the previous "
+                "response unchanged.\n\n- "
+                + "\n- ".join(repair_errors)
+            )
+            repaired = complete_json(
+                llm_config,
+                (
+                    {"role": "system", "content": ORGANIZER_PROMPT_PATH.read_text(encoding="utf-8")},
+                    {"role": "user", "content": json.dumps(repaired_payload, sort_keys=True)},
+                    {"role": "user", "content": repair_directive},
+                ),
+                response_format=response_format,
+                log_event=record_organizer_event,
+            )
+            try:
+                validated = _validate_organizer_response(
+                    repaired,
+                    evidence=evidence,
+                    model_evidence=model_evidence,
+                    selected_min=selected_min,
+                    selected_max=selected_max,
+                    codegraph_edges=payload["codegraph_edges"],
+                    document_reference_edges=document_edges,
+                )
+            except EvidenceOrganizationValidationError as repaired_exc:
+                raise EvidenceOrganizationError(
+                    "Codex evidence organization failed after one repair attempt: " + "; ".join(repaired_exc.errors)
+                ) from repaired_exc
+
+        evidence_by_ref = {item.source_id: item for item in evidence}
+        selected = tuple(
+            replace(evidence_by_ref[ref], rank=index)
+            for index, ref in enumerate(validated["selected_refs"], start=1)
+        )
+        excluded_refs = [item.source_id for item in evidence if item.source_id not in set(validated["selected_refs"])]
+        graph = {
+            "version": GRAPH_VERSION,
+            "status": "complete",
+            "connections": validated["connections"],
+            # The selected graph remains the generation-facing graph. This
+            # additional deterministic forest lets diagnostics render all
+            # candidates without promoting excluded evidence into generation.
+            "candidate_connections": validated["candidate_connections"],
+            "root_ref": validated["root_ref"],
+            "disconnected_evidence": validated["disconnected_evidence"],
+            "generation": {
+                "strategy": ORGANIZER_VERSION,
+                "structural_provider": "codegraph",
+                "semantic_provider": "llm",
+                "codegraph_candidate_count": len(payload["codegraph_edges"]),
+                "document_reference_count": len(document_edges),
+                "repair_attempts": repair_attempts,
+            },
+        }
+        organization = {
+            "version": ORGANIZER_VERSION,
+            "status": "complete",
+            "candidate_count": candidate_count,
+            "selected_count": len(selected),
+            "excluded_count": len(excluded_refs),
+            "coverage_facets": validated["coverage_facets"],
+            "assessments": validated["assessments"],
+            "selected_refs": validated["selected_refs"],
+            "excluded_refs": excluded_refs,
+            # Preserve the complete validated candidate set for diagnostics and UI
+            # inspection. Explanation generation still receives only ``selected``.
+            "candidate_evidence": [item.to_dict() for item in evidence],
+            "candidate_order_mode": "prompt_seeded_stable_permutation" if neutralize_candidate_order else "codex_order",
+            "model_candidate_order": [
+                {
+                    "candidate_id": f"c{index}",
+                    "source_ref": item.source_id,
+                    "original_position": next(
+                        original_index
+                        for original_index, original in enumerate(evidence, start=1)
+                        if original.source_id == item.source_id
+                    ),
+                }
+                for index, item in enumerate(model_evidence, start=1)
+            ],
+            "repair_attempts": repair_attempts,
+            "graph_status": "complete",
+            "token_usage": dict(organizer_token_usage),
+        }
+        summary = {
+            **dict(retrieval_result.retrieval_summary),
+            "candidate_count": candidate_count,
+            "selected_count": len(selected),
+            "evidence_organization": organization,
+            "evidence_connections": graph,
+        }
+        if log_event is not None:
+            log_event(
+                "evidence_organization_completed",
+                {
+                    "candidate_count": candidate_count,
+                    "selected_count": len(selected),
+                    "excluded_count": len(excluded_refs),
+                    "selected_refs": list(validated["selected_refs"]),
+                    "excluded_refs": excluded_refs,
+                    "coverage_facets": validated["coverage_facets"],
+                    "assessments": validated["assessments"],
+                    "graph_status": "complete",
+                    "repair_attempts": repair_attempts,
+                    "candidate_order_mode": "prompt_seeded_stable_permutation" if neutralize_candidate_order else "codex_order",
+                    "model_candidate_order": [item.source_id for item in model_evidence],
+                    "token_usage": dict(organizer_token_usage),
+                },
+            )
+        return replace(retrieval_result, evidence=selected, retrieval_summary=summary, sufficient=bool(selected))
+    except Exception as exc:
+        if log_event is not None:
+            log_event(
+                "evidence_organization_failed",
+                {
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                    "candidate_count": candidate_count,
+                    "token_usage": dict(organizer_token_usage),
+                },
+            )
+        if isinstance(exc, EvidenceOrganizationError):
+            raise
+        raise EvidenceOrganizationError(f"Codex evidence organization failed: {exc}") from exc
+
+
+def _organizer_payload(
+    *,
+    model_evidence: Sequence[EvidenceItem],
+    user_prompt: str,
+    intent_flow: Mapping[str, Any],
+    selected_min: int,
+    selected_max: int,
+    codegraph_edges: Any,
+    document_reference_edges: Sequence[Mapping[str, str]],
+) -> dict[str, Any]:
+    structural = _semantic_payload(
+        evidence=model_evidence,
+        user_prompt=user_prompt,
+        codegraph_edges=codegraph_edges,
+        document_reference_edges=document_reference_edges,
+        max_codegraph_edges=MAX_ORGANIZER_CODEGRAPH_EDGES,
+    )
+    return {
+        "user_question": user_prompt[:6000],
+        "intent_flow": dict(intent_flow),
+        "selection_bounds": {"minimum": selected_min, "maximum": selected_max},
+        "candidate_evidence": [
+            {"candidate_id": f"c{index}", **_compact_organizer_evidence(item)}
+            for index, item in enumerate(model_evidence, start=1)
+        ],
+        "codegraph_edges": structural["codegraph_edges"],
+        "document_reference_edges": structural["document_reference_edges"],
+    }
+
+
+def _compact_organizer_evidence(item: EvidenceItem) -> dict[str, Any]:
+    compact = _compact_evidence(item)
+    compact["snippet"] = "\n".join(line[:160] for line in item.snippet.splitlines()[:18])
+    return {
+        **compact,
+        "coverage_area_hint": str(item.metadata.get("coverage_area") or "")[:160],
+        "artifact_kind": str(
+            item.metadata.get("deterministic_artifact_kind") or item.metadata.get("artifact_kind") or "unknown"
+        )[:100],
+    }
+
+
+def _stable_evidence_permutation(
+    evidence: Sequence[EvidenceItem],
+    *,
+    user_prompt: str,
+) -> tuple[EvidenceItem, ...]:
+    """Return a reproducible order independent of Codex candidate rank."""
+
+    prompt_key = hashlib.sha256(user_prompt.strip().encode("utf-8")).hexdigest()
+    return tuple(
+        sorted(
+            evidence,
+            key=lambda item: hashlib.sha256(
+                f"{prompt_key}\0{item.source_id}".encode("utf-8")
+            ).hexdigest(),
+        )
+    )
+
+
+def _organizer_response_format(
+    evidence_refs: Sequence[str],
+    *,
+    selected_min: int,
+    selected_max: int,
+) -> Mapping[str, Any]:
+    schema = json.loads(ORGANIZER_SCHEMA_PATH.read_text(encoding="utf-8"))
+    refs = list(evidence_refs)
+    model_refs = [f"c{index}" for index in range(1, len(refs) + 1)]
+    schema["properties"]["selected_refs"].update({"minItems": selected_min, "maxItems": selected_max})
+    schema["properties"]["selected_refs"]["items"]["enum"] = model_refs
+    schema["properties"]["root_ref"]["enum"] = model_refs
+    assessment_item = schema.pop("$defs")["assessment"]
+    schema["properties"]["assessments"] = {
+        "type": "object",
+        "properties": {ref: json.loads(json.dumps(assessment_item)) for ref in model_refs},
+        "required": model_refs,
+        "additionalProperties": False,
+    }
+    schema["properties"]["coverage_facets"]["items"]["properties"]["selected_refs"]["items"]["enum"] = model_refs
+    connections = schema["properties"]["connections"]["items"]["properties"]
+    connections["source_ref"]["enum"] = model_refs
+    connections["target_ref"]["enum"] = model_refs
+    schema["properties"]["disconnected_evidence"]["items"]["properties"]["evidence_ref"]["enum"] = model_refs
+    return {
+        "type": "json_schema",
+        "json_schema": {"name": "codex_evidence_organizer", "strict": True, "schema": schema},
+    }
+
+
+def _validate_organizer_response(
+    response: Mapping[str, Any],
+    *,
+    evidence: Sequence[EvidenceItem],
+    model_evidence: Sequence[EvidenceItem],
+    selected_min: int,
+    selected_max: int,
+    codegraph_edges: Sequence[Mapping[str, Any]],
+    document_reference_edges: Sequence[Mapping[str, str]],
+) -> dict[str, Any]:
+    response = _expand_organizer_candidate_ids(response, model_evidence)
+    valid_refs = {item.source_id for item in evidence}
+    errors: list[str] = []
+    selected_refs = _string_sequence(response.get("selected_refs"))
+    if len(selected_refs) != len(set(selected_refs)):
+        errors.append("selected_refs contains duplicates")
+    if not selected_min <= len(selected_refs) <= selected_max:
+        errors.append(f"selected_refs must contain between {selected_min} and {selected_max} items")
+    if any(ref not in valid_refs for ref in selected_refs):
+        errors.append("selected_refs contains an unknown evidence reference")
+    selected_set = set(selected_refs)
+
+    raw_facets = response.get("coverage_facets")
+    facets = [dict(item) for item in raw_facets if isinstance(item, Mapping)] if isinstance(raw_facets, list) else []
+    facet_ids = [str(item.get("id") or "").strip() for item in facets]
+    if not facets or any(not item for item in facet_ids) or len(facet_ids) != len(set(facet_ids)):
+        errors.append("coverage_facets must contain unique non-empty IDs")
+    facet_id_set = set(facet_ids)
+    for facet in facets:
+        status = str(facet.get("status") or "")
+        refs = _string_sequence(facet.get("selected_refs"))
+        if len(refs) != len(set(refs)) or any(ref not in valid_refs for ref in refs):
+            errors.append(f"facet {facet.get('id')} contains unknown or duplicate evidence references")
+        selected_support = tuple(ref for ref in refs if ref in selected_set)
+        facet["selected_refs"] = list(selected_support)
+        if status in {"covered", "partial"} and not selected_support:
+            errors.append(f"facet {facet.get('id')} is {status} without selected support")
+        if status in {"missing", "unclear"} and refs:
+            errors.append(f"facet {facet.get('id')} is {status} but names selected support")
+
+    raw_assessments = response.get("assessments")
+    if isinstance(raw_assessments, Mapping):
+        assessments = [
+            {"evidence_ref": str(ref), **dict(value)}
+            for ref, value in raw_assessments.items()
+            if isinstance(value, Mapping)
+        ]
+    elif isinstance(raw_assessments, list):
+        assessments = [dict(item) for item in raw_assessments if isinstance(item, Mapping)]
+    else:
+        assessments = []
+    assessment_refs = [str(item.get("evidence_ref") or "").strip() for item in assessments]
+    if len(assessments) != len(evidence) or set(assessment_refs) != valid_refs or len(assessment_refs) != len(set(assessment_refs)):
+        errors.append("assessments must cover every candidate reference exactly once")
+    for assessment in assessments:
+        ref = str(assessment.get("evidence_ref") or "").strip()
+        status = str(assessment.get("status") or "").strip()
+        assigned_facets = _string_sequence(assessment.get("facet_ids"))
+        if any(facet_id not in facet_id_set for facet_id in assigned_facets):
+            errors.append(f"assessment {ref} names an unknown facet")
+        if ref in selected_set and status not in {"core", "supporting"}:
+            errors.append(f"selected assessment {ref} must be core or supporting")
+        if ref in selected_set and status == "core" and not assigned_facets:
+            errors.append(f"core assessment {ref} must support at least one facet")
+
+    root_ref = str(response.get("root_ref") or "").strip()
+    if root_ref not in selected_set:
+        errors.append("root_ref must be selected")
+    selected_evidence = tuple(item for item in evidence if item.source_id in selected_set)
+    try:
+        semantic_connections = _validated_connections(
+            response.get("connections"),
+            evidence=evidence,
+            document_reference_edges=document_reference_edges,
+            require_nonempty=False,
+        )
+    except RuntimeError as exc:
+        errors.append(str(exc))
+        semantic_connections = []
+    structural_connections = _structural_connections(
+        codegraph_edges=codegraph_edges,
+        document_reference_edges=document_reference_edges,
+    )
+    candidate_connections = _unique_connection_pairs([*structural_connections, *semantic_connections])
+    combined = [
+        connection
+        for connection in (*structural_connections, *semantic_connections)
+        if connection["source_ref"] in selected_set and connection["target_ref"] in selected_set
+    ]
+    connections = _minimal_connection_forest(combined)
+    coverage_response = {
+        "root_ref": root_ref,
+        "disconnected_evidence": response.get("disconnected_evidence"),
+    }
+    try:
+        _, disconnected, _ = _graph_coverage(
+            coverage_response,
+            connections=connections,
+            evidence=selected_evidence,
+            infer_unaccounted=True,
+        )
+    except RuntimeError as exc:
+        errors.append(str(exc))
+        disconnected = []
+    if errors:
+        raise EvidenceOrganizationValidationError(errors)
+    return {
+        "coverage_facets": facets,
+        "assessments": assessments,
+        "selected_refs": list(selected_refs),
+        "root_ref": root_ref,
+        "connections": connections,
+        "candidate_connections": candidate_connections,
+        "disconnected_evidence": disconnected,
+    }
+
+
+def _string_sequence(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    return tuple(str(item).strip() for item in value if str(item).strip())
+
+
+def _expand_organizer_candidate_ids(
+    response: Mapping[str, Any], evidence: Sequence[EvidenceItem]
+) -> dict[str, Any]:
+    id_to_ref = {f"c{index}": item.source_id for index, item in enumerate(evidence, start=1)}
+
+    def expand(value: Any) -> str:
+        text = str(value or "").strip()
+        return id_to_ref.get(text, text)
+
+    normalized = dict(response)
+    normalized["selected_refs"] = [expand(item) for item in _string_sequence(response.get("selected_refs"))]
+    normalized["root_ref"] = expand(response.get("root_ref"))
+    raw_facets = response.get("coverage_facets")
+    if isinstance(raw_facets, list):
+        normalized["coverage_facets"] = [
+            {
+                **dict(item),
+                "selected_refs": [expand(ref) for ref in _string_sequence(item.get("selected_refs"))],
+            }
+            for item in raw_facets
+            if isinstance(item, Mapping)
+        ]
+    raw_assessments = response.get("assessments")
+    if isinstance(raw_assessments, Mapping):
+        normalized["assessments"] = {expand(ref): dict(value) for ref, value in raw_assessments.items()}
+    elif isinstance(raw_assessments, list):
+        normalized["assessments"] = [
+            {**dict(item), "evidence_ref": expand(item.get("evidence_ref"))}
+            for item in raw_assessments
+            if isinstance(item, Mapping)
+        ]
+    raw_connections = response.get("connections")
+    if isinstance(raw_connections, list):
+        normalized["connections"] = [
+            {**dict(item), "source_ref": expand(item.get("source_ref")), "target_ref": expand(item.get("target_ref"))}
+            for item in raw_connections
+            if isinstance(item, Mapping)
+        ]
+    raw_disconnected = response.get("disconnected_evidence")
+    if isinstance(raw_disconnected, list):
+        normalized["disconnected_evidence"] = [
+            {**dict(item), "evidence_ref": expand(item.get("evidence_ref"))}
+            for item in raw_disconnected
+            if isinstance(item, Mapping)
+        ]
+    return normalized
+
+
+def _organizer_model_errors(errors: Sequence[str], evidence: Sequence[EvidenceItem]) -> list[str]:
+    output = list(errors)
+    for index, item in enumerate(evidence, start=1):
+        output = [error.replace(item.source_id, f"c{index}") for error in output]
+    return output
+
+
 def _codegraph_edges(workspace_root: Path, evidence: Sequence[EvidenceItem]) -> Mapping[str, Any]:
     payload = {
         "workspace_root": str(workspace_root),
@@ -178,6 +774,7 @@ def _semantic_payload(
     user_prompt: str,
     codegraph_edges: Any,
     document_reference_edges: Sequence[Mapping[str, str]],
+    max_codegraph_edges: int = MAX_CODEGRAPH_EDGES,
 ) -> dict[str, Any]:
     valid_refs = {item.source_id for item in evidence}
     compact_edges: list[dict[str, Any]] = []
@@ -202,7 +799,7 @@ def _semantic_payload(
                     "provenance": str(raw.get("provenance") or ""),
                 }
             )
-            if len(compact_edges) >= MAX_CODEGRAPH_EDGES:
+            if len(compact_edges) >= max_codegraph_edges:
                 break
     return {
         "user_question": user_prompt[:6000],
@@ -277,6 +874,7 @@ def _validated_connections(
     *,
     evidence: Sequence[EvidenceItem],
     document_reference_edges: Sequence[Mapping[str, str]] = (),
+    require_nonempty: bool = True,
 ) -> list[dict[str, str]]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise RuntimeError("Evidence graph model response is missing the connections array.")
@@ -331,7 +929,7 @@ def _validated_connections(
         )
         if len(accepted) >= MAX_CONNECTIONS:
             break
-    if not accepted:
+    if require_nonempty and not accepted:
         raise RuntimeError("Evidence graph model returned no valid connections.")
     return accepted
 
@@ -402,6 +1000,7 @@ def _graph_coverage(
     *,
     connections: Sequence[Mapping[str, str]],
     evidence: Sequence[EvidenceItem],
+    infer_unaccounted: bool = False,
 ) -> tuple[str, list[dict[str, str]], set[str]]:
     valid_refs = {item.source_id for item in evidence}
     root_ref = str(response.get("root_ref") or "").strip()
@@ -439,10 +1038,19 @@ def _graph_coverage(
         disconnected_refs = {item["evidence_ref"] for item in disconnected}
     unaccounted = valid_refs - connected - disconnected_refs
     if unaccounted:
-        raise RuntimeError(
-            "Evidence graph model left selected evidence outside the main flow without a disconnected reason: "
-            + ", ".join(sorted(unaccounted))
-        )
+        if not infer_unaccounted:
+            raise RuntimeError(
+                "Evidence graph model left selected evidence outside the main flow without a disconnected reason: "
+                + ", ".join(sorted(unaccounted))
+            )
+        for evidence_ref in sorted(unaccounted):
+            disconnected.append(
+                {
+                    "evidence_ref": evidence_ref,
+                    "reason": "No accepted CodeGraph or semantic edge connects this evidence to the main component.",
+                }
+            )
+            disconnected_refs.add(evidence_ref)
     return root_ref, disconnected, connected
 
 
@@ -464,6 +1072,23 @@ def _minimal_connection_forest(connections: Sequence[dict[str, str]]) -> list[di
             continue
         parents[target_root] = source_root
         accepted.append(connection)
+    return accepted
+
+
+def _unique_connection_pairs(connections: Sequence[dict[str, str]]) -> list[dict[str, str]]:
+    """Keep every distinct relationship pair, preferring earlier grounding."""
+    accepted: list[dict[str, str]] = []
+    seen: set[frozenset[str]] = set()
+    for connection in connections:
+        source_ref = str(connection.get("source_ref") or "")
+        target_ref = str(connection.get("target_ref") or "")
+        if not source_ref or not target_ref or source_ref == target_ref:
+            continue
+        pair = frozenset((source_ref, target_ref))
+        if pair in seen:
+            continue
+        seen.add(pair)
+        accepted.append(dict(connection))
     return accepted
 
 

@@ -15,13 +15,12 @@ from core.models import (
 )
 from core.policy import PolicyStage
 from core.response_builder import render_response
-from services.comprehension import retrieve_with_bounded_gap_pass
 from services.intent import (
     IntentClassificationInput,
     NormalizedIntent,
-    assess_intent_agreement,
-    build_retrieval_hints,
+    build_intent_context,
     classify_intent,
+    evaluate_intent_sufficiency,
     normalize_intent,
 )
 from services.logging.store import JsonlLogger
@@ -43,20 +42,19 @@ class ControlLayer:
     retrieval_stage: WorkspaceRetrievalStage
     logger: JsonlLogger | None = None
     response_llm_config: Any | None = None
-    max_gap_retrieval_passes: int = 0
-    intent_shadow_enabled: bool = False
+    intent_enabled: bool = True
+    intent_sufficiency_enabled: bool = False
     intent_llm_config: Any | None = None
     evidence_graph_builder: EvidenceGraphBuilder | None = None
+    multi_intent_stage_order_neutralization_enabled: bool = False
 
     def run(self, state: ConversationState) -> OrchestrationResult:
         self._record(LogEventType.RUN_STARTED, state.conversation_id, {"turn_request": state.user_input})
-        normalized_intent: NormalizedIntent | None = None
         retrieval_state = state
-        if self.intent_shadow_enabled:
-            normalized_intent = self._record_shadow_intent_classification(state)
-            if normalized_intent is not None:
-                retrieval_hints = build_retrieval_hints(normalized_intent)
-                retrieval_state = replace(state, retrieval_hints=retrieval_hints)
+        normalized_intent: NormalizedIntent | None = None
+        if self.intent_enabled:
+            normalized_intent = self._classify_intent(state)
+            retrieval_state = replace(state, intent_context=build_intent_context(normalized_intent.classification))
         policy_result = self.policy_stage.decide(state)
         self._record(LogEventType.TURN_DECISION, state.conversation_id, policy_result.to_dict())
 
@@ -76,20 +74,12 @@ class ControlLayer:
                     {
                         "action": "invoke",
                         "allowed_sources": [source.value for source in policy_result.allowed_sources],
-                        "retrieval_hints": retrieval_state.retrieval_hints.to_dict()
-                        if retrieval_state.retrieval_hints is not None
+                        "intent_context": retrieval_state.intent_context.to_dict()
+                        if retrieval_state.intent_context is not None
                         else {},
                     },
                 )
                 retrieval_result = self.retrieval_stage.retrieve(retrieval_state, policy_result)
-                if self.max_gap_retrieval_passes > 0:
-                    retrieval_result = retrieve_with_bounded_gap_pass(
-                        retrieval_stage=self.retrieval_stage,
-                        state=retrieval_state,
-                        policy_result=policy_result,
-                        initial_result=retrieval_result,
-                        max_gap_retrieval_passes=self.max_gap_retrieval_passes,
-                    )
             else:
                 self._record(LogEventType.RETRIEVAL_PLAN, state.conversation_id, {"action": "skip_existing_evidence"})
                 retrieval_result = RetrievalResult(
@@ -108,6 +98,31 @@ class ControlLayer:
                         payload,
                     ),
                 )
+            if self.intent_sufficiency_enabled and normalized_intent is not None:
+                sufficiency_config = self.intent_llm_config or self.response_llm_config
+                if sufficiency_config is None:
+                    sufficiency_observation: Mapping[str, Any] = {
+                        "status": "error",
+                        "error": "Intent sufficiency observation requires a configured LLM.",
+                    }
+                else:
+                    try:
+                        observations = evaluate_intent_sufficiency(
+                            intents=normalized_intent.classification.intents,
+                            evidence=retrieval_result.evidence,
+                            llm_config=sufficiency_config,
+                        )
+                        sufficiency_observation = {
+                            "status": "complete",
+                            "results": [observation.to_dict() for observation in observations],
+                        }
+                    except Exception as exc:
+                        sufficiency_observation = {"status": "error", "error": str(exc)}
+                retrieval_result = replace(
+                    retrieval_result,
+                    retrieval_summary={**dict(retrieval_result.retrieval_summary), "intent_sufficiency": sufficiency_observation},
+                )
+                self._record(LogEventType.INTENT_SUFFICIENCY, state.conversation_id, sufficiency_observation)
             self._record(
                 LogEventType.EVIDENCE_SELECTED,
                 state.conversation_id,
@@ -117,18 +132,6 @@ class ControlLayer:
                     "evidence_count": len(retrieval_result.evidence),
                 },
             )
-            if normalized_intent is not None:
-                self._record(
-                    LogEventType.INTENT_AGREEMENT,
-                    state.conversation_id,
-                    (
-                        agreement := assess_intent_agreement(
-                            classification=normalized_intent.classification,
-                            retrieval_result=retrieval_result,
-                            legacy_user_intent=policy_result.intent,
-                        )
-                    ).to_dict(),
-                )
         else:
             self._record(LogEventType.RETRIEVAL_PLAN, state.conversation_id, {"action": "blocked"})
 
@@ -155,6 +158,7 @@ class ControlLayer:
             state=retrieval_state,
             llm_config=resolved_response_llm_config,
             record_event=lambda event_type, payload: self._record(event_type, state.conversation_id, payload),
+            neutralize_multi_intent_stage_order=self.multi_intent_stage_order_neutralization_enabled,
         )
         self._record(LogEventType.RESPONSE_PAYLOAD, state.conversation_id, response_payload.to_dict())
 
@@ -170,6 +174,9 @@ class ControlLayer:
                 "retrieval_invoked": bool(policy_result.allowed and policy_result.retrieval_required),
                 "coverage_status": retrieval_result.coverage_status if retrieval_result is not None else "not_run",
                 "violation_count": len(policy_result.violations),
+                "intents": [intent.value for intent in normalized_intent.classification.intents]
+                if normalized_intent is not None
+                else [],
             },
         )
         self._record(LogEventType.RUN_COMPLETED, state.conversation_id, result.run_trace_summary)
@@ -185,7 +192,7 @@ class ControlLayer:
             return
         self.logger.record(LogEvent(event_type=event_type, conversation_id=conversation_id, payload=dict(payload)))
 
-    def _record_shadow_intent_classification(self, state: ConversationState) -> NormalizedIntent | None:
+    def _classify_intent(self, state: ConversationState) -> NormalizedIntent:
         llm_config = self.intent_llm_config
         if llm_config is None:
             llm_config = self.response_llm_config
@@ -196,23 +203,12 @@ class ControlLayer:
             current_turn_type=state.history[-1].turn_type.value if state.history and state.history[-1].turn_type else None,
         )
         if llm_config is None:
-            payload = {
-                "status": "failed",
-                "classification": None,
-                "error": "Missing LLM config for shadow intent classification.",
-                "fallback_used": False,
-                "latency_ms": 0,
-                "classifier_model": "",
-                "classifier_prompt_version": "intent_classification_v1",
-                "classifier_schema_version": "intent_classification_v1",
-            }
-            result = None
-        else:
-            result = classify_intent(classification_input, llm_config=llm_config)
-            payload = result.to_dict()
+            raise RuntimeError("Intent classification requires a configured LLM.")
+        result = classify_intent(classification_input, llm_config=llm_config)
+        payload = result.to_dict()
         self._record(LogEventType.INTENT_CLASSIFICATION, state.conversation_id, payload)
-        if result is None or result.classification is None:
-            return None
+        if result.classification is None:
+            raise RuntimeError(f"Intent classification failed: {result.error or 'unknown error'}")
         normalized = normalize_intent(
             result.classification,
             user_prompt=state.user_input,
@@ -257,6 +253,7 @@ def _render_response(
     state: ConversationState,
     llm_config: Any | None,
     record_event,
+    neutralize_multi_intent_stage_order: bool = False,
 ) -> ResponsePayload:
     return render_response(
         policy_result,
@@ -265,4 +262,5 @@ def _render_response(
         state=state,
         llm_config=llm_config,
         log_event=record_event,
+        neutralize_multi_intent_stage_order=neutralize_multi_intent_stage_order,
     )

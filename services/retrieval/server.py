@@ -24,11 +24,12 @@ from typing import Any, Mapping, Sequence
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from core.control_layer import ControlLayer
-from core.models import ConversationState, UserIntent
+from core.models import AssistanceRequestType, ConversationState
 from core.policy import PolicyStage
 from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, SourceCategory, SourcePolicy
 from services.comprehension import generate_followup
 from services.guidance.answer_evaluation import evaluate_answers
+from services.intent import compose_intent_flow
 from services.llm.json_completion import complete_json
 from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, estimate_indexing_scope, load_index
 from services.logging.store import JsonlLogger
@@ -51,8 +52,12 @@ from services.retrieval.config import (
     load_retrieval_qdrant_config,
     source_categories_from_strings,
 )
-from services.retrieval.evidence_graph import build_evidence_graph
-from services.retrieval.codex.provider import CodexRetrievalStage, _codex_subprocess_env
+from services.retrieval.evidence_graph import build_candidate_connections, build_evidence_graph
+from services.retrieval.codex.provider import (
+    CodexRetrievalStage,
+    _codex_subprocess_env,
+    _evidence_conversion_from_payload,
+)
 from services.retrieval.codex.cli import resolve_codex_command
 from services.retrieval.workspace.mcp import (
     LocalMCPConnectedSourceAdapter,
@@ -1226,20 +1231,36 @@ class RuntimeState:
                 retrieval_stage=retrieval_stage,
                 logger=progress_logger,
                 response_llm_config=generation_llm_config,
-                max_gap_retrieval_passes=int(_retrieval_settings(self.config).get("max_gap_retrieval_passes") or 0),
-                intent_shadow_enabled=bool(_intent_settings(self.config).get("shadow_mode", False)),
+                intent_enabled=True,
+                # Observational only; production profiles leave this disabled.
+                intent_sufficiency_enabled=bool(_experiments_settings(self.config).get("intent_sufficiency_enabled", False)),
                 evidence_graph_builder=lambda retrieval_result, graph_state, record_event: build_evidence_graph(
                     retrieval_result,
                     workspace_root=self.workspace_root,
                     user_prompt=graph_state.user_input,
                     llm_config=generation_llm_config,
+                    organizer_enabled=(
+                        retrieval_config.retrieval_mode == RETRIEVAL_MODE_CODEX
+                        and retrieval_config.codex_evidence_organizer_enabled
+                    ),
+                    neutralize_candidate_order=bool(
+                        _experiments_settings(self.config).get("codex_candidate_order_neutralization_enabled", True)
+                    ),
+                    intent_flow=(
+                        compose_intent_flow(graph_state.intent_context.intents).to_generation_dict()
+                        if graph_state.intent_context is not None and graph_state.intent_context.intents
+                        else {}
+                    ),
                     log_event=record_event,
+                ),
+                multi_intent_stage_order_neutralization_enabled=bool(
+                    _experiments_settings(self.config).get("multi_intent_stage_order_neutralization_enabled", False)
                 ),
             )
             state = ConversationState(
                 conversation_id=run_id,
                 user_input=prompt,
-                intent=UserIntent.UNDERSTAND_CODE,
+                assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             )
             result = control.run(state)
             retry_count = 0
@@ -1374,12 +1395,12 @@ class RuntimeState:
         if str(generation.get("provider") or "api") == "codex":
             return self._codex_llm_config(
                 model=str(generation.get("codex_model") or _retrieval_settings(self.config).get("codex_model") or ""),
-                timeout_seconds=int(generation.get("timeout_seconds") or 30),
+                timeout_seconds=int(generation.get("timeout_seconds") or 120),
             )
         return self._api_llm_config(
             model_override=str(generation.get("api_model") or ""),
-            max_tokens_override=int(generation.get("max_tokens") or 800),
-            timeout_override=int(generation.get("timeout_seconds") or 30),
+            max_tokens_override=int(generation.get("max_tokens") or 4000),
+            timeout_override=int(generation.get("timeout_seconds") or 120),
         )
 
     def _workspace_retrieval_config(
@@ -1431,6 +1452,9 @@ class RuntimeState:
             ).strip().lower(),
             codex_timeout_seconds=int(retrieval_settings.get("codex_timeout_seconds") or 900),
             codex_ignore_user_config=bool(codex_settings.get("ignore_user_config", True)),
+            codex_evidence_organizer_enabled=bool(
+                _experiments_settings(self.config).get("codex_evidence_organizer_enabled", True)
+            ),
             enable_indexing=bool(indexing.get("enable_indexing", load_retrieval_enable_indexing(tool_env_path))),
             structural_graph_timeout_seconds=900,
             index_exclude_paths=index_exclude_paths,
@@ -1493,10 +1517,12 @@ class RuntimeState:
             "run_id": run_id,
             "evaluations": [evaluation.to_dict() for evaluation in evaluations],
         }
-        plan = metadata.get("comprehension_plan", {})
-        if isinstance(plan, Mapping) and plan:
+        answer_flow = metadata.get("answer_flow", {})
+        story_flow = metadata.get("story_flow", ())
+        if isinstance(answer_flow, Mapping) and isinstance(story_flow, list):
             followup = generate_followup(
-                comprehension_plan=plan,
+                answer_flow=answer_flow,
+                story_flow=tuple(item for item in story_flow if isinstance(item, Mapping)),
                 checks=tuple(item for item in checks if isinstance(item, Mapping)),
                 evaluations=tuple(evaluation.to_dict() for evaluation in evaluations),
                 answers={str(key): str(value) for key, value in answers.items()},
@@ -1526,11 +1552,20 @@ class RuntimeState:
         result = _load_json(run_dir / "orchestration-result.json", {})
         if not result and not run_dir.exists():
             raise RetrievalServerError(f"Run not found: {run_id}", status=404)
+        evidence = _load_json(run_dir / "evidence-items.json", [])
+        candidate_evidence = _run_candidate_evidence(run_dir, result, evidence)
+        evidence_connections = _with_historical_candidate_connections(
+            run_dir,
+            result,
+            _run_evidence_connections(result),
+        )
         return {
             **_run_summary_from_payload(run_id, run_dir, result),
             "result": result,
-            "evidence": _load_json(run_dir / "evidence-items.json", []),
-            "evidence_connections": _run_evidence_connections(result),
+            "evidence": evidence,
+            "candidate_evidence": candidate_evidence,
+            "evidence_connections": evidence_connections,
+            "evidence_organization": _run_evidence_organization(result),
             "answer_evaluation": _load_json(run_dir / "answer-evaluation.json", {}),
             "comprehension_followup": _load_json(run_dir / "comprehension-followup.json", {}),
         }
@@ -1620,17 +1655,19 @@ class RuntimeState:
                 "workspace_model": "",
                 "codex_prompt_profile": DEFAULT_CODEX_PROMPT_PROFILE,
                 "codex_timeout_seconds": 900,
-                "max_gap_retrieval_passes": 0,
             },
             "generation": {
                 "provider": "api",
-                "api_model": "",
+                "api_model": "gpt-5.6-luna",
                 "codex_model": "gpt-5.4-mini",
-                "max_tokens": 800,
-                "timeout_seconds": 30,
+                "max_tokens": 4000,
+                "timeout_seconds": 120,
             },
-            "intent": {
-                "shadow_mode": False,
+            "experiments": {
+                "codex_evidence_organizer_enabled": True,
+                "codex_candidate_order_neutralization_enabled": True,
+                "multi_intent_stage_order_neutralization_enabled": False,
+                "intent_sufficiency_enabled": False,
             },
             "connected_context": {
                 "enabled": True,
@@ -2249,27 +2286,34 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     generation["api_model"] = str(generation.get("api_model") or "").strip()
     generation["codex_model"] = str(generation.get("codex_model") or retrieval["codex_model"]).strip() or retrieval["codex_model"]
     try:
-        generation_max_tokens = int(generation.get("max_tokens") or 800)
+        generation_max_tokens = int(generation.get("max_tokens") or 4000)
     except (TypeError, ValueError):
-        generation_max_tokens = 800
+        generation_max_tokens = 4000
     generation["max_tokens"] = max(1, generation_max_tokens)
     try:
-        generation_timeout_seconds = int(generation.get("timeout_seconds") or 30)
+        generation_timeout_seconds = int(generation.get("timeout_seconds") or 120)
     except (TypeError, ValueError):
-        generation_timeout_seconds = 30
+        generation_timeout_seconds = 120
     generation["timeout_seconds"] = max(1, generation_timeout_seconds)
     config.pop("assistance", None)
-    try:
-        max_gap_retrieval_passes = int(retrieval.get("max_gap_retrieval_passes") or 0)
-    except (TypeError, ValueError):
-        max_gap_retrieval_passes = 0
-    retrieval["max_gap_retrieval_passes"] = max(0, max_gap_retrieval_passes)
-    intent = config.get("intent")
-    if not isinstance(intent, dict):
-        intent = {}
-        config["intent"] = intent
-    intent["shadow_mode"] = _boolean_setting(intent.get("shadow_mode"), False)
-    intent.pop("router_mode", None)
+    retrieval.pop("max_gap_retrieval_passes", None)
+    config.pop("intent", None)
+    experiments = config.get("experiments")
+    if not isinstance(experiments, dict):
+        experiments = {}
+        config["experiments"] = experiments
+    experiments["intent_sufficiency_enabled"] = _boolean_setting(
+        experiments.get("intent_sufficiency_enabled"), False
+    )
+    experiments["codex_evidence_organizer_enabled"] = _boolean_setting(
+        experiments.get("codex_evidence_organizer_enabled"), True
+    )
+    experiments["codex_candidate_order_neutralization_enabled"] = _boolean_setting(
+        experiments.get("codex_candidate_order_neutralization_enabled"), True
+    )
+    experiments["multi_intent_stage_order_neutralization_enabled"] = _boolean_setting(
+        experiments.get("multi_intent_stage_order_neutralization_enabled"), False
+    )
     indexing = config.get("indexing")
     if isinstance(indexing, dict):
         indexing.pop("include_paths", None)
@@ -2575,17 +2619,6 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
     codex_connection = connections.get("codex", {})
     if codex_connection is not None and not isinstance(codex_connection, Mapping):
         raise RetrievalServerError("`connections.codex` must be an object.")
-    try:
-        max_gap_retrieval_passes = int(retrieval.get("max_gap_retrieval_passes") or 0)
-    except (TypeError, ValueError) as exc:
-        raise RetrievalServerError("`retrieval.max_gap_retrieval_passes` must be an integer.") from exc
-    if max_gap_retrieval_passes < 0:
-        raise RetrievalServerError("`retrieval.max_gap_retrieval_passes` must be zero or greater.")
-    intent = payload.get("intent", {})
-    if not isinstance(intent, Mapping):
-        raise RetrievalServerError("`intent` must be an object.")
-    if "shadow_mode" in intent and not _is_boolean_like(intent.get("shadow_mode")):
-        raise RetrievalServerError("`intent.shadow_mode` must be a boolean.")
     connected_context = payload.get("connected_context", {})
     if not isinstance(connected_context, Mapping):
         raise RetrievalServerError("`connected_context` must be an object.")
@@ -2595,6 +2628,21 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
             raise RetrievalServerError(f"`connected_context.{key}` must be an array.")
         if isinstance(value, list) and not _string_list(value):
             raise RetrievalServerError(f"`connected_context.{key}` must contain only strings.")
+    experiments = payload.get("experiments", {})
+    if not isinstance(experiments, Mapping):
+        raise RetrievalServerError("`experiments` must be an object.")
+    if "intent_sufficiency_enabled" in experiments and not _is_boolean_like(experiments.get("intent_sufficiency_enabled")):
+        raise RetrievalServerError("`experiments.intent_sufficiency_enabled` must be a boolean.")
+    if "codex_evidence_organizer_enabled" in experiments and not _is_boolean_like(
+        experiments.get("codex_evidence_organizer_enabled")
+    ):
+        raise RetrievalServerError("`experiments.codex_evidence_organizer_enabled` must be a boolean.")
+    for experiment_name in (
+        "codex_candidate_order_neutralization_enabled",
+        "multi_intent_stage_order_neutralization_enabled",
+    ):
+        if experiment_name in experiments and not _is_boolean_like(experiments.get(experiment_name)):
+            raise RetrievalServerError(f"`experiments.{experiment_name}` must be a boolean.")
     if not isinstance(payload.get("enabled_sources", []), list):
         raise RetrievalServerError("`enabled_sources` must be an array.")
     unknown_sources = [
@@ -2644,9 +2692,9 @@ def _generation_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
     return generation if isinstance(generation, Mapping) else {}
 
 
-def _intent_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
-    intent = config.get("intent", {})
-    return intent if isinstance(intent, Mapping) else {}
+def _experiments_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
+    experiments = config.get("experiments", {})
+    return experiments if isinstance(experiments, Mapping) else {}
 
 
 def _retrieval_mode(config: Mapping[str, Any]) -> str:
@@ -3669,10 +3717,83 @@ def _run_evidence_connections(result: Mapping[str, Any]) -> dict[str, Any]:
         "status": str(graph.get("status") or "complete"),
         "connections": _deepcopy_json(graph.get("connections") if isinstance(graph.get("connections"), list) else []),
     }
-    for key in ("root_ref", "disconnected_evidence", "generation", "error"):
+    for key in ("candidate_connections", "root_ref", "disconnected_evidence", "generation", "error"):
         if key in graph:
             output[key] = _deepcopy_json(graph[key])
     return output
+
+
+def _run_evidence_organization(result: Mapping[str, Any]) -> dict[str, Any]:
+    retrieval = result.get("retrieval_result") if isinstance(result.get("retrieval_result"), Mapping) else {}
+    summary = retrieval.get("retrieval_summary") if isinstance(retrieval.get("retrieval_summary"), Mapping) else {}
+    organization = summary.get("evidence_organization")
+    return _deepcopy_json(organization) if isinstance(organization, Mapping) else {}
+
+
+def _run_candidate_evidence(
+    run_dir: Path,
+    result: Mapping[str, Any],
+    selected_evidence: Any,
+) -> list[dict[str, Any]]:
+    """Return all valid organizer candidates without changing generation evidence.
+
+    New runs persist the converted candidates in the organizer result. For runs
+    created before that field existed, reconstruct the same UI representation
+    from the preserved raw Codex artifact.
+    """
+    organization = _run_evidence_organization(result)
+    stored = organization.get("candidate_evidence")
+    if isinstance(stored, list):
+        return _deepcopy_json(stored)
+
+    raw = _load_json(run_dir / "codex-evidence.json", {})
+    workspace_root = _run_workspace_root(run_dir)
+    if isinstance(raw, Mapping) and workspace_root is not None:
+        candidates, _ = _evidence_conversion_from_payload(raw, workspace_root=workspace_root, limit=40)
+        if candidates:
+            return [item.to_dict() for item in candidates]
+
+    return _deepcopy_json(selected_evidence) if isinstance(selected_evidence, list) else []
+
+
+def _with_historical_candidate_connections(
+    run_dir: Path,
+    result: Mapping[str, Any],
+    graph: dict[str, Any],
+) -> dict[str, Any]:
+    """Backfill candidate-wide CodeGraph edges for pre-feature Codex runs."""
+    if isinstance(graph.get("candidate_connections"), list):
+        return graph
+    organization = _run_evidence_organization(result)
+    if organization.get("status") != "complete" or not organization.get("candidate_count"):
+        return graph
+
+    cache_path = run_dir / "candidate-evidence-connections.json"
+    cached = _load_json(cache_path, {})
+    if isinstance(cached, Mapping) and cached.get("status") == "complete" and isinstance(cached.get("connections"), list):
+        return {**graph, "candidate_connections": _deepcopy_json(cached["connections"]), "candidate_connections_backfilled": True}
+
+    raw = _load_json(run_dir / "codex-evidence.json", {})
+    workspace_root = _run_workspace_root(run_dir)
+    if not isinstance(raw, Mapping) or workspace_root is None:
+        return {**graph, "candidate_connections_error": "Historical candidate graph cannot be reconstructed from this run."}
+    evidence, _ = _evidence_conversion_from_payload(raw, workspace_root=workspace_root, limit=40)
+    try:
+        connections = build_candidate_connections(
+            evidence,
+            workspace_root=workspace_root,
+            existing_connections=graph.get("connections") if isinstance(graph.get("connections"), list) else (),
+        )
+    except Exception as exc:
+        error = f"Historical candidate graph reconstruction failed: {exc}"
+        cache_path.write_text(json.dumps({"status": "error", "error": error}, indent=2), encoding="utf-8")
+        return {**graph, "candidate_connections_error": error}
+
+    cache_path.write_text(
+        json.dumps({"status": "complete", "connections": connections}, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    return {**graph, "candidate_connections": connections, "candidate_connections_backfilled": True}
 
 
 def _run_metrics(run_dir: Path, metadata: Mapping[str, Any]) -> dict[str, Any]:

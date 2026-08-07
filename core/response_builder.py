@@ -15,12 +15,15 @@ def render_response(
     state: ConversationState | None = None,
     llm_config: Any | None = None,
     log_event: Callable[[LogEventType, Mapping[str, object]], None] | None = None,
+    neutralize_multi_intent_stage_order: bool = False,
 ) -> ResponsePayload:
     evidence = tuple(retrieval_result.evidence if retrieval_result is not None else ())
     evidence_refs = tuple(item.source_id for item in evidence)
     metadata: dict[str, object] = dict(response_plan.notes)
     if retrieval_result is not None and retrieval_result.retrieval_summary.get("artifact_trace"):
         metadata["artifact_trace"] = retrieval_result.retrieval_summary["artifact_trace"]
+    if retrieval_result is not None and retrieval_result.retrieval_summary.get("intent_sufficiency"):
+        metadata["intent_sufficiency"] = retrieval_result.retrieval_summary["intent_sufficiency"]
     if response_plan.turn_type == TurnType.BOUNDARY:
         content = f"Boundary: {policy_result.reason}"
     else:
@@ -29,6 +32,7 @@ def render_response(
             state=state,
             llm_config=llm_config,
             log_event=log_event,
+            neutralize_multi_intent_stage_order=neutralize_multi_intent_stage_order,
         )
         metadata.update(generated_metadata)
     return ResponsePayload(
@@ -46,6 +50,7 @@ def _render_explanation(
     state: ConversationState | None,
     llm_config: Any | None,
     log_event: Callable[[LogEventType, Mapping[str, object]], None] | None,
+    neutralize_multi_intent_stage_order: bool = False,
 ) -> tuple[str, tuple[str, ...], Mapping[str, object]]:
     if retrieval_result is None or state is None:
         return (
@@ -88,6 +93,7 @@ def _render_explanation(
             retrieval_result=retrieval_result,
             llm_config=llm_config,
             log_event=_response_generation_log_adapter(log_event),
+            neutralize_multi_intent_stage_order=neutralize_multi_intent_stage_order,
         )
         if log_event is not None:
             log_event(
@@ -98,10 +104,17 @@ def _render_explanation(
                     "render_notes": dict(generated.render_notes),
                     "answer_flow": dict(generated.answer_flow),
                     "story_flow": list(getattr(generated, "story_flow", ())),
+                    "presentation_sections": list(generated.presentation_sections),
+                    "presentation_lists": list(generated.presentation_lists),
+                    "examples": list(generated.examples),
+                    "comparison_tables": list(generated.comparison_tables),
+                    "additional_implementation_observations": list(generated.additional_implementation_observations),
+                    "selected_intents": list(generated.selected_intents),
                     "understanding_checks": [check.to_dict() for check in generated.understanding_checks],
                     "source_attributions": list(getattr(generated, "source_attributions", ())),
                     "next_checks": list(getattr(generated, "next_checks", ())),
-                    "next_check_requirement": dict(getattr(generated, "next_check_requirement", {}) or {}),
+                    "flow_repair_attempts": generated.flow_repair_attempts,
+                    "stage_input_order_mode": generated.stage_input_order_mode,
                 },
             )
         return (
@@ -114,12 +127,20 @@ def _render_explanation(
                 "render_notes": dict(generated.render_notes),
                 "answer_flow": dict(generated.answer_flow),
                 "story_flow": list(getattr(generated, "story_flow", ())),
+                "presentation_sections": list(generated.presentation_sections),
+                "presentation_lists": list(generated.presentation_lists),
+                "examples": list(generated.examples),
+                "comparison_tables": list(generated.comparison_tables),
+                "additional_implementation_observations": list(generated.additional_implementation_observations),
+                "selected_intents": list(generated.selected_intents),
                 "understanding_checks": [check.to_dict() for check in generated.understanding_checks],
                 "concept_definitions": list(getattr(generated, "concept_definitions", ())),
                 "source_attributions": list(getattr(generated, "source_attributions", ())),
                 "next_checks": list(getattr(generated, "next_checks", ())),
-                "next_check_requirement": dict(getattr(generated, "next_check_requirement", {}) or {}),
-                "comprehension_plan": generated.comprehension_plan.to_dict(),
+                "flow_repair_attempts": generated.flow_repair_attempts,
+                "question_repair_attempts": generated.question_repair_attempts,
+                "hint_repair_attempts": generated.hint_repair_attempts,
+                "stage_input_order_mode": generated.stage_input_order_mode,
             },
         )
     except Exception as exc:

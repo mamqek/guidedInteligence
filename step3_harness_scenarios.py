@@ -5,7 +5,7 @@ from enum import Enum
 from typing import cast
 
 from core.logging_schema import LogEventType
-from core.models import ConversationState, EvidenceItem, TurnType, UserIntent
+from core.models import AssistanceRequestType, ConversationState, EvidenceItem, TurnType
 from core.source_policy import DEFAULT_ALLOWED_SOURCE_CATEGORIES, SourceCategory
 from core.violations import PolicyViolationType
 
@@ -20,7 +20,7 @@ UNSUPPORTED_SOURCE_CATEGORY = cast(SourceCategory, ScenarioOnlySourceCategory.EX
 @dataclass(frozen=True)
 class ExpectedPolicyResult:
     allowed: bool
-    intent: UserIntent
+    assistance_request: AssistanceRequestType
     retrieval_required: bool
     turn_type: TurnType
     allowed_sources: tuple[SourceCategory, ...] = DEFAULT_ALLOWED_SOURCE_CATEGORIES
@@ -84,11 +84,11 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
         state=ConversationState(
             conversation_id="step3-normal-guided-explanation",
             user_input="Can you explain how the orchestration flow decides what to do next?",
-            intent=UserIntent.UNDERSTAND_CODE,
+            assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
         ),
         expected_policy=ExpectedPolicyResult(
             allowed=True,
-            intent=UserIntent.UNDERSTAND_CODE,
+            assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             retrieval_required=True,
             turn_type=TurnType.GUIDED_EXPLANATION,
         ),
@@ -102,11 +102,11 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
         state=ConversationState(
             conversation_id="step3-direct-solution",
             user_input="Just solve this and write the solution for me.",
-            intent=UserIntent.UNKNOWN,
+            assistance_request=AssistanceRequestType.UNKNOWN,
         ),
         expected_policy=ExpectedPolicyResult(
             allowed=False,
-            intent=UserIntent.DIRECT_SOLUTION_REQUEST,
+            assistance_request=AssistanceRequestType.DIRECT_SOLUTION_REQUEST,
             retrieval_required=False,
             turn_type=TurnType.BOUNDARY,
             violations=(PolicyViolationType.DIRECT_SOLUTION_REQUEST,),
@@ -129,12 +129,12 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
         state=ConversationState(
             conversation_id="step3-unsupported-source",
             user_input="Can you explain this using the attached context?",
-            intent=UserIntent.UNDERSTAND_CODE,
+            assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             evidence=(UNSUPPORTED_EVIDENCE,),
         ),
         expected_policy=ExpectedPolicyResult(
             allowed=False,
-            intent=UserIntent.UNDERSTAND_CODE,
+            assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             retrieval_required=False,
             turn_type=TurnType.BOUNDARY,
             violations=(PolicyViolationType.UNSUPPORTED_SOURCE_USAGE,),
@@ -157,12 +157,12 @@ SCENARIOS: tuple[HarnessScenario, ...] = (
         state=ConversationState(
             conversation_id="step3-existing-evidence",
             user_input="Can you explain how the guided turn works?",
-            intent=UserIntent.UNDERSTAND_CODE,
+            assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             evidence=DEFAULT_STUB_EVIDENCE,
         ),
         expected_policy=ExpectedPolicyResult(
             allowed=True,
-            intent=UserIntent.UNDERSTAND_CODE,
+            assistance_request=AssistanceRequestType.UNDERSTAND_CODE,
             retrieval_required=False,
             turn_type=TurnType.GUIDED_EXPLANATION,
         ),

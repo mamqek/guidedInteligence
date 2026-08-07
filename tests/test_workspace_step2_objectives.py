@@ -5,7 +5,6 @@ import unittest
 from core.source_policy import SourceCategory
 from services.retrieval.workspace.step2.constants import (
     DEFAULT_REQUIRED_RETRIEVAL_ROLES,
-    INTENT_DEFECT_LOCALIZATION,
     OBJECTIVE_BEHAVIOR_PATH,
     OBJECTIVE_CONFIGURATION_CONTEXT,
     OBJECTIVE_DIAGNOSTIC_SURFACE,
@@ -36,8 +35,8 @@ class WorkspaceStep2ObjectiveTests(unittest.TestCase):
             allowed_sources=(SourceCategory.SOURCE_CODE,),
         )
 
-        self.assertEqual(validated["primary_intent"], INTENT_DEFECT_LOCALIZATION)
-        self.assertEqual(validated["specificity"], SPECIFICITY_NARROW)
+        self.assertNotIn("primary_intent", validated)
+        self.assertNotIn("secondary_intents", validated)
         self.assertEqual(
             validated["active_objectives"],
             [OBJECTIVE_IMPLEMENTATION_OWNER, OBJECTIVE_DIAGNOSTIC_SURFACE],
@@ -65,8 +64,8 @@ class WorkspaceStep2ObjectiveTests(unittest.TestCase):
             negative_filters=tuple(validated["negative_filters"]),
             required_roles=DEFAULT_REQUIRED_RETRIEVAL_ROLES,
             supporting_roles=(),
-            primary_intent=validated["primary_intent"],
-            specificity=validated["specificity"],
+            task_intents=("debug",),
+            specificity=SPECIFICITY_NARROW,
             active_objectives=tuple(validated["active_objectives"]),
             deferred_objectives=tuple(validated["deferred_objectives"]),
         )
@@ -94,7 +93,7 @@ class WorkspaceStep2ObjectiveTests(unittest.TestCase):
 
     def test_narrow_defect_normalization_defers_unproven_diagnostic_and_repro(self) -> None:
         active, deferred = _normalize_objectives(
-            primary_intent=INTENT_DEFECT_LOCALIZATION,
+            is_debug=True,
             specificity=SPECIFICITY_NARROW,
             active_objectives=(
                 OBJECTIVE_IMPLEMENTATION_OWNER,
@@ -120,7 +119,7 @@ class WorkspaceStep2ObjectiveTests(unittest.TestCase):
 
     def test_narrow_defect_wrong_output_uses_effects_not_diagnostics(self) -> None:
         active, deferred = _normalize_objectives(
-            primary_intent=INTENT_DEFECT_LOCALIZATION,
+            is_debug=True,
             specificity=SPECIFICITY_NARROW,
             active_objectives=(OBJECTIVE_IMPLEMENTATION_OWNER, OBJECTIVE_DIAGNOSTIC_SURFACE),
             deferred_objectives=(),
@@ -137,7 +136,7 @@ class WorkspaceStep2ObjectiveTests(unittest.TestCase):
 
     def test_narrow_defect_native_repro_adds_verification_objective(self) -> None:
         active, deferred = _normalize_objectives(
-            primary_intent=INTENT_DEFECT_LOCALIZATION,
+            is_debug=True,
             specificity=SPECIFICITY_NARROW,
             active_objectives=(OBJECTIVE_IMPLEMENTATION_OWNER,),
             deferred_objectives=(OBJECTIVE_CONFIGURATION_CONTEXT,),
@@ -175,9 +174,6 @@ def _planner_response(*, active_objectives: list[str], deferred_objectives: list
         "speculative_entities": [],
         "source_priorities": ["source_code"],
         "negative_filters": ["harness"],
-        "primary_intent": INTENT_DEFECT_LOCALIZATION,
-        "secondary_intents": [],
-        "specificity": SPECIFICITY_NARROW,
         "active_objectives": active_objectives,
         "deferred_objectives": deferred_objectives,
         "preferred_relations": ["implemented_by"],

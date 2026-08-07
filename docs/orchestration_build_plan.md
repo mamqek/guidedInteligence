@@ -61,7 +61,7 @@ repo/
 
 ### Main internal types and responsibilities
 
-- **UserIntent**: Represents what the user is currently trying to do, such as understanding code, asking for a direct solution, or making a follow-up request, so the policy layer can decide whether the next action is allowed.
+- **AssistanceRequestType**: Represents the coarse policy request shape—understanding code, requesting a direct solution, or following up—so the teaching-policy layer can decide whether the next action is allowed. It is deliberately not a semantic task intent.
 - **EvidenceItem**: Represents one retrieved piece of grounded context, including its source type, identifier, ranking, and snippet, so all downstream decisions can remain tied to concrete project artifacts.
 - **OrchestratorDecision**: Represents the outcome of the policy layer for a given state, including whether the action is allowed, what the next stage is, whether retrieval is needed, and which response template should be used.
 - **PolicyViolation**: Represents a failure or forbidden action, such as asking for a direct solution in the wrong stage or attempting to rely on a disallowed source, so violations are explicit and loggable rather than being handled implicitly.
@@ -100,7 +100,7 @@ These should not be implemented yet, but the architecture should remain reusable
 
 ### 2. Define the internal core contract before framework code
 
-- **Create core state types**: Implement the internal models such as `ConversationState`, `UserIntent`, `EvidenceItem`, `OrchestratorDecision`, and `PolicyViolation`, so the system has its own language before any framework-specific types appear.
+- **Create core state types**: Implement the internal models such as `ConversationState`, `AssistanceRequestType`, `EvidenceItem`, `OrchestratorDecision`, and `PolicyViolation`, so the system has its own language before any framework-specific types appear.
 - **Create stage and transition types**: Represent stages and possible transitions explicitly so the workflow is governed by code-level rules rather than being buried inside prompts.
 - **Define the policy engine interface**: Add a single entry point such as `PolicyEngine.decide(state) -> OrchestratorDecision`, which becomes the main control surface for the orchestration logic.
 - **Define the retrieval service interface**: Add a minimal interface for retrieval planning and candidate retrieval so the RAG layer stays modular and can later be swapped or extended.

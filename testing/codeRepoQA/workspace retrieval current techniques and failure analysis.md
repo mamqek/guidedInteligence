@@ -1348,4 +1348,5 @@ OK
 ```
 
 But the real Vue runs regressed, so the next implementation should be validated by at least two real Vue runs and should not be accepted on token reduction alone.
+> Historical snapshot. Retrieval-local intent fields described below are no longer active; workspace retrieval now consumes the central task `IntentContext` without reclassifying intent.
 

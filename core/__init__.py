@@ -24,7 +24,7 @@ _EXPORT_MODULES = {
     "DEFAULT_SOURCE_POLICY": "core.source_policy",
     "SourceCategory": "core.source_policy",
     "SourcePolicy": "core.source_policy",
-    "UserIntent": "core.models",
+    "AssistanceRequestType": "core.models",
 }
 
 __all__ = list(_EXPORT_MODULES)
