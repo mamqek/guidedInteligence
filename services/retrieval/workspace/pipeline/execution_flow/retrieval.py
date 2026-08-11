@@ -71,7 +71,8 @@ def run_workspace_retrieval(
             workspace_root=ctx.config.workspace_root,
             index_dir=ctx.config.index_dir,
         )
-        index = rebuild_index(ctx)
+        index_setup = rebuild_index(ctx)
+        index = index_setup.index
         ctx.trace.complete_stage(
             "index_bm25_qdrant",
             "Synchronizing semantic repository indexes",
@@ -113,6 +114,7 @@ def run_workspace_retrieval(
         index_document_count=len(index.documents),
         starting_tool_calls=tool_calls,
         connected_context=connected_context,
+        index_rebuilt=index_setup.rebuilt,
     )
     ctx.trace.complete_stage(
         "obligation_retrieval",

@@ -110,7 +110,11 @@ INTENT_CONTRACTS: dict[TaskIntent, IntentContract] = {
             ("current_behavior", "current behavior", "Establish the current behavior or limitation."),
             ("change_surface", "change surface", "Identify the relevant modification points."),
             ("constraints", "constraints", "State invariants and restrictions the change must preserve."),
-            ("affected_paths", "affected paths", "Explain important dependents and consequences."),
+            (
+                "affected_paths",
+                "affected paths",
+                "Identify affected locations and only the dependents or consequences that are plausible for the requested kind of change.",
+            ),
             ("validation", "validation", "Describe how the proposed direction would be checked."),
         )),
         evidence_expectations=("current owner and behavior", "change points", "constraints", "affected dependents", "validation surface"),

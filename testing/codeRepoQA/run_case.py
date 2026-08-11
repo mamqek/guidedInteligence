@@ -23,7 +23,13 @@ from core.models import AssistanceRequestType, ConversationState, OrchestrationR
 from core.policy import PolicyStage
 from core.source_policy import SourceCategory, SourcePolicy
 from services.logging.store import JsonlLogger
-from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, build_index_from_repo, save_index
+from services.retrieval.workspace.bm25 import (
+    BM25_INDEX_SCHEMA_VERSION,
+    DEFAULT_EXCLUDED_PATHS,
+    build_index_from_repo,
+    save_index,
+)
+from services.retrieval.workspace.pipeline.index_flow import save_sync_manifest
 from services.retrieval.cases import HiddenCodeRepoQACase, VisibleCodeRepoQACase, load_coderepoqa_case
 from services.retrieval.config import (
     DEFAULT_CODEX_PROMPT_PROFILE,
@@ -52,51 +58,6 @@ CODE_PATH_PATTERN = re.compile(r"\b(?:[\w.-]+/)+[\w.-]+\.(?:[A-Za-z0-9]+)\b|\b[\
 IDENTIFIER_PATTERN = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`|\b([A-Z][A-Za-z0-9_]{2,})\b")
 CODE_REPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS = int(os.environ.get("CODEREPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS", "900"))
 CODE_REPOQA_QDRANT_INDEX_TIMEOUT_SECONDS = 900
-CODE_REPOQA_REPO_EXCLUDE_PATHS: Mapping[tuple[str, str], tuple[str, ...]] = {
-    ("microsoft", "TypeScript"): (
-        ".github",
-        ".vscode",
-        "bin",
-        "lib",
-        "tests/baselines",
-        "tests/cases",
-        "tests/lib",
-        "tests/projects",
-        "tests/scripts",
-        "tests/webhost",
-        "loc",
-        "scripts",
-        "src/harness",
-        "src/instrumenter",
-        "src/jsTyping",
-        "src/lib",
-        "src/loc",
-        "src/testRunner",
-        "doc",
-        "docs",
-        "Herebyfile.mjs",
-    ),
-    ("pandas-dev", "pandas"): (
-        "pandas/tests",
-        "doc",
-        "docs",
-        "asv_bench",
-        "benchmarks",
-        "ci",
-        "scripts",
-        "web",
-    ),
-    ("vuejs", "vue"): (
-        "test",
-        "tests",
-        "examples",
-        "benchmarks",
-        "scripts",
-        "docs",
-        "packages",
-        "flow",
-    ),
-}
 
 
 @dataclass(frozen=True)
@@ -139,8 +100,10 @@ def prepare_index(
     chunk_line_overlap: int = 10,
     exclude_paths: Sequence[str] | None = None,
 ) -> None:
+    workspace_root = Path(repo_pre_path).resolve()
+    effective_exclude_paths = DEFAULT_EXCLUDED_PATHS if exclude_paths is None else tuple(exclude_paths)
     index = build_index_from_repo(
-        repo_path=repo_pre_path,
+        repo_path=workspace_root,
         commit=repo_pre_commit,
         chunk_line_count=chunk_line_count,
         chunk_line_overlap=chunk_line_overlap,
@@ -150,6 +113,16 @@ def prepare_index(
         exclude_paths=exclude_paths,
     )
     save_index(index, index_dir)
+    save_sync_manifest(
+        Path(index_dir) / "bm25-scope-manifest.json",
+        {
+            "index_schema_version": BM25_INDEX_SCHEMA_VERSION,
+            "workspace_root": str(workspace_root),
+            "exclude_paths": list(effective_exclude_paths),
+            "chunk_line_count": chunk_line_count,
+            "chunk_line_overlap": chunk_line_overlap,
+        },
+    )
 
 
 def _remove_structural_index_artifacts(workspace_root: Path) -> None:
@@ -176,13 +149,14 @@ def run_case(
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE,
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
+    index_exclude_paths: Sequence[str] | None = None,
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
         issue_json,
         repo_pre_path=repo_pre_path,
         repo_pre_commit=repo_pre_commit,
     )
-    exclude_paths = _coderepoqa_exclude_paths(visible_case)
+    exclude_paths = _coderepoqa_exclude_paths(visible_case, additional=index_exclude_paths)
     source_policy = SourcePolicy(
         allowed_categories=(SourceCategory.LOCAL_NOTES, SourceCategory.SOURCE_CODE),
         policy_name="coderepoqa_workspace_initial",
@@ -272,6 +246,7 @@ def evaluate_case(
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE,
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
+    index_exclude_paths: Sequence[str] | None = None,
 ) -> Path:
     issue_path = Path(issue_json)
     verification_path = Path(verification_json) if verification_json is not None else _default_verification_path(issue_path)
@@ -281,7 +256,7 @@ def evaluate_case(
         repo_pre_path="pending",
         repo_pre_commit="pending",
     )
-    exclude_paths = _coderepoqa_exclude_paths(seed_case)
+    exclude_paths = _coderepoqa_exclude_paths(seed_case, additional=index_exclude_paths)
     case_paths = _ensure_case_paths(test_root, seed_case.case_id)
     case_paths.raw_dir.mkdir(parents=True, exist_ok=True)
     case_paths.repo_dir.mkdir(parents=True, exist_ok=True)
@@ -339,6 +314,7 @@ def evaluate_case(
         codex_prompt_profile=codex_prompt_profile,
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
+        index_exclude_paths=exclude_paths,
     )
     _write_run_metadata(
         run_dir=run_dir,
@@ -467,6 +443,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_parser.add_argument("--codex-model")
     run_parser.add_argument("--codex-prompt-profile", choices=SUPPORTED_CODEX_PROMPT_PROFILES)
     run_parser.add_argument("--codex-timeout-seconds", type=int)
+    run_parser.add_argument("--exclude-path", action="append", default=[])
     evaluate_parser = subparsers.add_parser("evaluate-case")
     evaluate_parser.add_argument("--issue-json", required=True)
     evaluate_parser.add_argument("--run-config")
@@ -482,6 +459,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     evaluate_parser.add_argument("--codex-model")
     evaluate_parser.add_argument("--codex-prompt-profile", choices=SUPPORTED_CODEX_PROMPT_PROFILES)
     evaluate_parser.add_argument("--codex-timeout-seconds", type=int)
+    evaluate_parser.add_argument("--exclude-path", action="append", default=[])
     batch_parser = subparsers.add_parser("evaluate-batch")
     batch_parser.add_argument("--run-config", required=True)
     batch_parser.add_argument("--issue-json", action="append", default=[])
@@ -542,6 +520,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
+            index_exclude_paths=tuple(args.exclude_path) if args.exclude_path else None,
         )
         return 0
 
@@ -565,6 +544,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
+            index_exclude_paths=tuple(args.exclude_path) if args.exclude_path else None,
         )
         print(str(run_dir))
         return 0
@@ -880,13 +860,13 @@ def _default_clone_url(visible_case: VisibleCodeRepoQACase) -> str:
     return f"https://github.com/{visible_case.repo_owner}/{visible_case.repo_name}.git"
 
 
-def _coderepoqa_exclude_paths(visible_case: VisibleCodeRepoQACase) -> tuple[str, ...]:
-    repo_excludes = CODE_REPOQA_REPO_EXCLUDE_PATHS.get((visible_case.repo_owner, visible_case.repo_name), ())
-    merged: list[str] = []
-    for path in (*DEFAULT_EXCLUDED_PATHS, *repo_excludes):
-        if path not in merged:
-            merged.append(path)
-    return tuple(merged)
+def _coderepoqa_exclude_paths(
+    visible_case: VisibleCodeRepoQACase,
+    *,
+    additional: Sequence[str] | None = None,
+) -> tuple[str, ...]:
+    del visible_case
+    return tuple(dict.fromkeys((*DEFAULT_EXCLUDED_PATHS, *(additional or ()))))
 
 
 def _clone_or_fetch_repo(clone_url: str, repo_dir: Path) -> None:

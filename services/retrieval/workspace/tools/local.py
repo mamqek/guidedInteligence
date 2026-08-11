@@ -5,7 +5,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from services.retrieval.workspace.bm25 import BM25Index, BM25SearchResult
+from services.retrieval.workspace.bm25 import BM25Index, BM25SearchResult, file_role
 from services.retrieval.workspace.tools.contracts import ToolObservation, ToolRequest, ToolSpec
 
 
@@ -17,15 +17,6 @@ REPO_SKETCH_PATH_LIMIT = 40
 REPO_SKETCH_DIR_LIMIT = 20
 REPO_SKETCH_FILE_INDEX_LIMIT = 80
 REPO_SKETCH_IDENTIFIERS_PER_FILE = 12
-COMMON_PATH_PARTS = (
-    "/src/",
-    "/lib/",
-    "/app/",
-    "/packages/",
-    "/pkg/",
-    "/core/",
-    "/compiler/",
-)
 STOPWORDS = {
     "a",
     "an",
@@ -191,45 +182,6 @@ def build_repo_sketch(index: BM25Index) -> dict[str, Any]:
         "representative_files": _representative_files(paths, REPO_SKETCH_PATH_LIMIT),
         "file_index": _repo_sketch_file_index(documents_by_path, REPO_SKETCH_FILE_INDEX_LIMIT),
     }
-
-
-def file_role(path: str) -> str:
-    normalized_path = path.lower().replace("\\", "/")
-    normalized = f"/{normalized_path}"
-    parts = tuple(part for part in normalized.split("/") if part)
-    name = parts[-1] if parts else ""
-    suffix = Path(name).suffix.lower()
-
-    if suffix in {".md", ".rst", ".adoc"} or "docs" in parts or "documentation" in parts:
-        return "documentation"
-    if (
-        "bin" in parts
-        or normalized.startswith("/bin/")
-        or "baseline" in normalized
-        or "baselines" in parts
-        or "snapshot" in normalized
-        or "snapshots" in parts
-        or "golden" in normalized
-        or "generated" in normalized
-        or name.endswith(".generated.ts")
-        or name.endswith(".generated.js")
-    ):
-        return "baseline_or_generated"
-    if (
-        "test" in parts
-        or "tests" in parts
-        or "__tests__" in parts
-        or "spec" in parts
-        or "fixtures" in parts
-        or name.endswith(".test.ts")
-        or name.endswith(".spec.ts")
-        or name.endswith(".test.js")
-        or name.endswith(".spec.js")
-    ):
-        return "test"
-    if any(part in normalized for part in COMMON_PATH_PARTS):
-        return "implementation"
-    return "other"
 
 
 def _bm25_result_to_payload(result: BM25SearchResult) -> dict[str, Any]:

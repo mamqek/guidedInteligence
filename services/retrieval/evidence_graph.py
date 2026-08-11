@@ -10,6 +10,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from core.models import EvidenceItem, RetrievalResult
 from services.llm.json_completion import complete_json
+from services.retrieval.resource_references import RESOURCE_EXTENSIONS, resource_reference_between_files
 
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
@@ -810,48 +811,36 @@ def _semantic_payload(
 
 
 def _document_reference_edges(workspace_root: Path, evidence: Sequence[EvidenceItem]) -> list[dict[str, str]]:
-    documents = {
-        Path(_evidence_path(item)).name.lower(): item.source_id
-        for item in evidence
-        if Path(_evidence_path(item)).suffix.lower() in {".md", ".json", ".yaml", ".yml", ".toml"}
-    }
+    documents = [item for item in evidence if Path(_evidence_path(item)).suffix.lower() in RESOURCE_EXTENSIONS]
     if not documents:
         return []
     output: list[dict[str, str]] = []
     seen: set[tuple[str, str]] = set()
-    for item in evidence:
-        path = _evidence_path(item)
-        if Path(path).suffix.lower() in {".md", ".json", ".yaml", ".yml", ".toml"}:
+    for source_item in evidence:
+        source_path = _evidence_path(source_item)
+        if Path(source_path).suffix.lower() in RESOURCE_EXTENSIONS:
             continue
-        full_path = workspace_root / path
-        try:
-            source = full_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
-            continue
-        identifiers = set(re.findall(r"\b[A-Z][A-Z0-9_]{2,}\b", item.snippet))
-        for identifier in sorted(identifiers):
-            assignment = re.search(
-                rf"(?m)^\s*(?:const\s+|let\s+|var\s+)?{re.escape(identifier)}(?:\s*:[^=]+)?\s*=\s*([^\n;]+)",
-                source,
+        for document_item in documents:
+            reference = resource_reference_between_files(
+                workspace_root,
+                source_path,
+                _evidence_path(document_item),
             )
-            if assignment is None:
+            if reference is None:
                 continue
-            string_values = re.findall(r"[\"']([^\"']+)[\"']", assignment.group(1))
-            for value in string_values:
-                target_ref = documents.get(Path(value).name.lower())
-                key = (item.source_id, target_ref or "")
-                if not target_ref or key in seen:
-                    continue
-                seen.add(key)
-                output.append(
-                    {
-                        "source_ref": item.source_id,
-                        "target_ref": target_ref,
-                        "relationship": "references selected document through a path constant",
-                        "path_constant": identifier,
-                        "document": Path(value).name,
-                    }
-                )
+            key = (source_item.source_id, document_item.source_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            output.append(
+                {
+                    "source_ref": source_item.source_id,
+                    "target_ref": document_item.source_id,
+                    "relationship": "resource_reference",
+                    "resource_literal": str(reference.get("literal") or "resource path literal"),
+                    "document": Path(_evidence_path(document_item)).name,
+                }
+            )
     return output
 
 
@@ -966,7 +955,7 @@ def _structural_connections(
             }
         )
     for edge in document_reference_edges:
-        constant = str(edge.get("path_constant") or "the selected path constant")
+        resource_literal = str(edge.get("resource_literal") or "the selected resource literal")
         document = str(edge.get("document") or "the selected document")
         connections.append(
             {
@@ -974,7 +963,7 @@ def _structural_connections(
                 "target_ref": str(edge.get("target_ref") or ""),
                 "relationship_kind": "configuration",
                 "label": f"loads {document}"[:100],
-                "description": f"The selected code references {document} through {constant}."[:500],
+                "description": f"The selected code references {document} through {resource_literal}."[:500],
                 "grounding": "direct",
                 "confidence": "high",
             }

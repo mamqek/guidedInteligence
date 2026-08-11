@@ -1,24 +1,27 @@
-Analyze the user's repository-assistance request once for every retrieval provider.
+Analyze this fresh repository-assistance request before retrieval.
 
-Task intents:
+Evaluate every task intent independently in the fixed `intent_decisions` object:
 
-- explore: locate what exists, ownership, boundaries, entry points, or major relationships.
-- explain: establish how or why known or normal behavior occurs through a supported mechanism.
-- use: show how to invoke, configure, or integrate an existing interface.
-- debug: diagnose abnormal behavior by connecting a symptom to a likely cause or discriminating check.
-- change: add, fix, remove, or refactor something. Record this even when product policy may limit implementation help.
-- plan: produce an ordered future approach; the plan itself is the requested outcome.
-- review: make a qualitative or comparative judgment using criteria and trade-offs.
-- verify: determine whether a concrete factual claim is supported, refuted, or unverified.
+- `explore`: the requested outcome is locating what exists, ownership, boundaries, entry points, or major relationships.
+- `explain`: the requested outcome is establishing how or why a behavior works through a supported mechanism.
+- `use`: the requested outcome is learning how to invoke, configure, or integrate an existing interface.
+- `debug`: the requested outcome is diagnosing abnormal behavior by connecting a symptom to a cause or discriminating check.
+- `change`: the user requests adding, fixing, removing, or refactoring something.
+- `plan`: the requested outcome is an ordered future approach.
+- `review`: the requested outcome is a qualitative or comparative judgment.
+- `verify`: the requested outcome is determining whether a concrete factual claim is supported.
 
-Return every independently requested outcome and no internal work the system merely needs to perform. For example, locating code while answering "How does authentication work?" does not add explore; "Show me where authentication is implemented and explain how it works" does select explore and explain. Do not assign priority to selected intents.
+Select an intent only when it is an independently requested answer outcome. Internal work does not add an intent: locating code while explaining behavior is still `explain`, and reading a reported issue does not by itself make the request `debug`.
 
-Question words are not intent labels by themselves. Classify by the information or outcome sought.
+Use the requested outcome to distinguish adjacent intents:
 
-Keep conversation relation, solution pressure, specificity, and target state separate from task intents. An explicit target must be a literal file, symbol, route, subsystem, issue, error, or other repository target present in the current prompt. Do not invent targets.
+- "Explain how or why this code produces the behavior" selects `explain`.
+- "Diagnose this failure and determine what is wrong" selects `debug`.
+- Select both only when the user independently requests both a mechanism explanation and a diagnosis.
+- A request to "explain the code context needed for this issue" selects `explain`; expected/actual issue details are context for that explanation, not a separate debugging request.
 
-Extract request anchors exactly as written when present: paths, symbols, error text, literals, and other identifiers. Return concise conceptual search terms that preserve the user's vocabulary while also naming concepts useful for repository search.
+Question words are not intent labels by themselves. Keep conversation relation, solution pressure, specificity, and target state separate from task intents. An explicit target must be literally present in the current prompt.
 
-Define three to eight ordered evidence obligations describing what repository retrieval must establish to answer the request. Obligations describe claims or transitions that need evidence, never expected filenames. Derive them from the selected intents and their supplied intent contracts. Use short lowercase snake-case IDs containing no labels or annotations. Use `depends_on` to express ordering or branches. Mark an obligation required only when omitting it would leave the requested outcome unsupported. For a very narrow request, one or two obligations are sufficient.
+Extract error text, literals, identifiers, and concise conceptual search terms. Paths and symbols will be normalized against the prompt after this call, so do not reinterpret paths or turn natural-language phrases into symbols.
 
 Return only the JSON required by the supplied schema.

@@ -982,7 +982,8 @@ class RuntimeState:
                     )
 
             stage.context.trace.record = record_progress  # type: ignore[method-assign]
-            index = rebuild_index(stage.context)
+            index_setup = rebuild_index(stage.context)
+            index = index_setup.index
             completed_at = datetime.now(timezone.utc)
             self._finish_index_job(
                 job_id,
@@ -2109,12 +2110,24 @@ def _index_time_estimate(estimate: Mapping[str, Any]) -> dict[str, Any]:
     structural_midpoint_seconds = max(5, int(files * 0.006))
     structural_min_seconds = max(3, int(structural_midpoint_seconds * 0.6))
     structural_max_seconds = max(structural_min_seconds + 5, int(structural_midpoint_seconds * 1.8))
+    notes: list[str] = []
+    oversized_file_count = int(estimate.get("oversized_file_count") or 0)
+    if oversized_file_count:
+        notes.append(
+            f"Skipped {oversized_file_count} files above the per-file character limit; "
+            "review the excluded oversized paths if one is a required source owner."
+        )
+    if max_seconds > 900:
+        notes.append(
+            "Estimated BM25/Qdrant indexing exceeds 15 minutes. Deselect generated outputs or large corpus "
+            "directories before starting an interactive run."
+        )
     return {
         "estimated_seconds_min": min_seconds,
         "estimated_seconds_max": max_seconds,
         "structural_estimated_seconds_min": structural_min_seconds,
         "structural_estimated_seconds_max": structural_max_seconds,
-        "index_estimate_notes": [],
+        "index_estimate_notes": notes,
     }
 
 

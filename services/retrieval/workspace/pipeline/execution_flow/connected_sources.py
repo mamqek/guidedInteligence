@@ -12,6 +12,7 @@ from services.retrieval.workspace.connected_context import (
     ConnectedSourceHandle,
 )
 from services.retrieval.workspace.mcp import LocalMCPConnectedSourceAdapter, RemoteMCPConnectedSourceAdapter
+from services.retrieval.workspace.obsidian import ObsidianHybridSearchAdapter
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
 
 
@@ -91,8 +92,19 @@ def _handles(
 
     if SourceCategory.LOCAL_NOTES in allowed and (not enabled or "local_notes" in enabled):
         note_paths = tuple(Path(value) for value in ctx.config.local_note_paths)
+        obsidian = (
+            ObsidianHybridSearchAdapter(
+                vault_path=ctx.config.obsidian_vault_path,
+                command=ctx.config.obsidian_command,
+                db_path=ctx.config.obsidian_db_path,
+                mode=ctx.config.obsidian_search_mode,
+                timeout_seconds=ctx.config.obsidian_timeout_seconds,
+            )
+            if ctx.config.obsidian_vault_path
+            else None
+        )
 
-        def read_notes(_query: str) -> tuple[ConnectedSourceDocument, ...]:
+        def read_notes(query: str) -> tuple[ConnectedSourceDocument, ...]:
             documents: list[ConnectedSourceDocument] = []
             for path in note_paths:
                 if not path.is_file():
@@ -107,8 +119,25 @@ def _handles(
                         source_key="local_notes",
                     )
                 )
+            if obsidian is not None:
+                for result in obsidian.search(query, limit=ctx.config.obsidian_search_limit):
+                    documents.append(
+                        ConnectedSourceDocument(
+                            source_category=SourceCategory.LOCAL_NOTES,
+                            source_id=f"obsidian:{result.path}",
+                            title=result.title or Path(result.path).name,
+                            content=result.content or result.snippet,
+                            metadata={
+                                "path": result.path,
+                                "score": result.score,
+                                "source_key": "local_notes",
+                                **dict(result.metadata or {}),
+                            },
+                            source_key="local_notes",
+                        )
+                    )
             return tuple(documents)
 
-        if note_paths:
-            handles.append(ConnectedSourceHandle("local_notes", "local_files", "Local notes", read_notes))
+        if note_paths or obsidian is not None:
+            handles.append(ConnectedSourceHandle("local_notes", "obsidian", "Local notes", read_notes))
     return tuple(handles)

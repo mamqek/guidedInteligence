@@ -156,7 +156,7 @@ class EvidenceGraphTests(unittest.TestCase):
                 {
                     "source_ref": "b",
                     "target_ref": "doc",
-                    "path_constant": "PROMPT_PATH",
+                    "resource_literal": "contract.md",
                     "document": "contract.md",
                 }
             ],
@@ -166,6 +166,34 @@ class EvidenceGraphTests(unittest.TestCase):
         self.assertEqual(connections[0]["grounding"], "direct")
         self.assertEqual(connections[0]["relationship_kind"], "control_flow")
         self.assertEqual(connections[1]["label"], "loads contract.md")
+
+    def test_document_reference_edges_use_exact_resource_literals(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "services" / "loader.py"
+            document = root / "services" / "prompts" / "contract.md"
+            document.parent.mkdir(parents=True)
+            source.write_text('PROMPT = Path(__file__).parent / "prompts/contract.md"\n', encoding="utf-8")
+            document.write_text("Contract", encoding="utf-8")
+            evidence = (
+                _evidence("code", "services/loader.py", "PROMPT.read_text()", "Loads the prompt."),
+                _evidence("doc", "services/prompts/contract.md", "Contract", "Defines the prompt."),
+            )
+
+            edges = evidence_graph._document_reference_edges(root, evidence)
+
+        self.assertEqual(
+            edges,
+            [
+                {
+                    "source_ref": "code",
+                    "target_ref": "doc",
+                    "relationship": "resource_reference",
+                    "resource_literal": "prompts/contract.md",
+                    "document": "contract.md",
+                }
+            ],
+        )
 
     def test_codex_organizer_selects_adaptive_subset_and_replaces_evidence(self) -> None:
         evidence = tuple(

@@ -92,6 +92,10 @@ class QdrantHybridBackend:
             digest.update(b"\n")
             digest.update(chunk.text.encode("utf-8"))
             digest.update(b"\n")
+            digest.update(chunk.source_category.value.encode("utf-8"))
+            digest.update(b"\n")
+            digest.update(json.dumps(dict(chunk.metadata), sort_keys=True, separators=(",", ":")).encode("utf-8"))
+            digest.update(b"\n")
         return digest.hexdigest()
 
     def ensure_available(self) -> None:
