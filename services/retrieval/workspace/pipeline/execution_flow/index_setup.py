@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, build_index_from_repo, load_index, save_index
+from services.retrieval.workspace.bm25 import (
+    BM25_INDEX_SCHEMA_VERSION,
+    DEFAULT_EXCLUDED_PATHS,
+    build_index_from_repo,
+    load_index,
+    save_index,
+)
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
 from services.retrieval.workspace.pipeline.index_flow import (
     load_sync_manifest as _load_sync_manifest,
@@ -13,28 +20,43 @@ from services.retrieval.workspace.pipeline.index_flow import (
 from services.retrieval.workspace.tools import QdrantHybridSearchTool, codegraph_tools
 
 
+@dataclass(frozen=True)
+class IndexSetupResult:
+    index: Any
+    rebuilt: bool
+
+
 def structural_tools(ctx: WorkspaceRetrievalContext) -> dict[str, Any]:
     tools, _bridge = codegraph_tools(ctx.config)
     return tools
 
 
-def rebuild_index(ctx: WorkspaceRetrievalContext) -> Any:
-    index_dir = Path(ctx.config.index_dir)
-    index_path = index_dir / "bm25-index.json"
-    scope_manifest_path = index_dir / "bm25-scope-manifest.json"
-    scope_manifest = _load_sync_manifest(scope_manifest_path)
+def _index_scope_signature(ctx: WorkspaceRetrievalContext) -> dict[str, Any]:
     effective_exclude_paths = DEFAULT_EXCLUDED_PATHS if ctx.config.index_exclude_paths is None else ctx.config.index_exclude_paths
-    scope_signature = {
+    return {
+        "index_schema_version": BM25_INDEX_SCHEMA_VERSION,
         "workspace_root": str(Path(ctx.config.workspace_root).resolve()),
         "exclude_paths": list(effective_exclude_paths),
         "chunk_line_count": ctx.config.chunk_line_count,
         "chunk_line_overlap": ctx.config.chunk_line_overlap,
     }
-    default_scope = ctx.config.index_exclude_paths is None
+
+
+def _reuse_or_build_bm25_index(
+    ctx: WorkspaceRetrievalContext,
+    *,
+    index_dir: Path,
+    index_path: Path,
+    scope_manifest_path: Path,
+    scope_manifest: dict[str, Any],
+    scope_signature: dict[str, Any],
+    default_scope: bool,
+) -> tuple[Any, bool]:
     legacy_default_scope = index_path.exists() and not scope_manifest and default_scope
     if index_path.exists() and (_sync_manifest_scope_matches(scope_manifest, scope_signature) or legacy_default_scope):
         index = load_index(index_dir)
         ctx.trace.record("workspace_bm25_index_reused", {"document_count": len(index.documents)})
+        rebuilt = False
     else:
         if not ctx.config.enable_indexing:
             raise RuntimeError(f"Missing BM25 index while RETRIEVAL_ENABLE_INDEXING=false: {index_path}")
@@ -51,6 +73,25 @@ def rebuild_index(ctx: WorkspaceRetrievalContext) -> Any:
         save_index(index, index_dir)
         _save_sync_manifest(scope_manifest_path, scope_signature)
         ctx.trace.record("workspace_bm25_index_rebuilt", {"document_count": len(index.documents)})
+        rebuilt = True
+    return index, rebuilt
+
+
+def rebuild_index(ctx: WorkspaceRetrievalContext) -> IndexSetupResult:
+    index_dir = Path(ctx.config.index_dir)
+    index_path = index_dir / "bm25-index.json"
+    scope_manifest_path = index_dir / "bm25-scope-manifest.json"
+    scope_manifest = _load_sync_manifest(scope_manifest_path)
+    scope_signature = _index_scope_signature(ctx)
+    index, bm25_rebuilt = _reuse_or_build_bm25_index(
+        ctx,
+        index_dir=index_dir,
+        index_path=index_path,
+        scope_manifest_path=scope_manifest_path,
+        scope_manifest=scope_manifest,
+        scope_signature=scope_signature,
+        default_scope=ctx.config.index_exclude_paths is None,
+    )
 
     qdrant_tool = QdrantHybridSearchTool(
         index,
@@ -70,6 +111,7 @@ def rebuild_index(ctx: WorkspaceRetrievalContext) -> Any:
     )
     if collection_current:
         indexed_points = len(index.documents)
+        qdrant_rebuilt = False
         ctx.trace.record("workspace_index_reused", {"document_count": len(index.documents), "indexed_points": indexed_points})
     else:
         if not ctx.config.enable_indexing:
@@ -86,5 +128,10 @@ def rebuild_index(ctx: WorkspaceRetrievalContext) -> Any:
                 "index_signature": index_signature,
             },
         )
-    ctx.trace.record("workspace_index_ready", {"document_count": len(index.documents), "indexed_points": indexed_points})
-    return index
+        qdrant_rebuilt = True
+    rebuilt = bm25_rebuilt or qdrant_rebuilt
+    ctx.trace.record(
+        "workspace_index_ready",
+        {"document_count": len(index.documents), "indexed_points": indexed_points, "rebuilt": rebuilt},
+    )
+    return IndexSetupResult(index=index, rebuilt=rebuilt)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from core.logging_schema import LogEvent, LogEventType
@@ -200,6 +201,7 @@ class ControlLayer:
             llm_config = getattr(getattr(self.retrieval_stage, "config", None), "llm_config", None)
         classification_input = IntentClassificationInput(
             user_prompt=state.user_input,
+            repository_name=_retrieval_repository_name(self.retrieval_stage),
             current_turn_type=state.history[-1].turn_type.value if state.history and state.history[-1].turn_type else None,
         )
         if llm_config is None:
@@ -216,6 +218,13 @@ class ControlLayer:
         )
         self._record(LogEventType.INTENT_NORMALIZATION, state.conversation_id, normalized.to_dict())
         return normalized
+
+
+def _retrieval_repository_name(retrieval_stage: Any) -> str | None:
+    workspace_root = getattr(getattr(retrieval_stage, "config", None), "workspace_root", None)
+    if not workspace_root:
+        return None
+    return Path(str(workspace_root)).name or None
 
 
 def _build_response_plan(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import re
 from typing import Any, Mapping, Sequence
 
 
@@ -59,6 +60,27 @@ class TargetState(str, Enum):
     UNRESOLVED = "unresolved"
 
 
+class EvidenceRole(str, Enum):
+    IMPLEMENTATION = "implementation"
+    TEST = "test"
+    CONFIGURATION = "configuration"
+    DOCUMENTATION = "documentation"
+    ANY = "any"
+
+
+class EvidenceSource(str, Enum):
+    REPOSITORY = "repository"
+    PROMPT = "prompt"
+    EXTERNAL = "external"
+
+
+class EvidenceBoundary(str, Enum):
+    PROMPT = "prompt"
+    LOCAL = "local"
+    LOCAL_TO_EXTERNAL_HANDOFF = "local_to_external_handoff"
+    EXTERNAL = "external"
+
+
 @dataclass(frozen=True)
 class TargetReference:
     target_type: TargetType
@@ -71,7 +93,8 @@ class TargetReference:
 @dataclass(frozen=True)
 class RequestAnchors:
     paths: tuple[str, ...] = ()
-    symbols: tuple[str, ...] = ()
+    primary_symbols: tuple[str, ...] = ()
+    supporting_symbols: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
     literals: tuple[str, ...] = ()
     identifiers: tuple[str, ...] = ()
@@ -79,7 +102,8 @@ class RequestAnchors:
     def to_dict(self) -> dict[str, list[str]]:
         return {
             "paths": list(self.paths),
-            "symbols": list(self.symbols),
+            "primary_symbols": list(self.primary_symbols),
+            "supporting_symbols": list(self.supporting_symbols),
             "errors": list(self.errors),
             "literals": list(self.literals),
             "identifiers": list(self.identifiers),
@@ -92,6 +116,12 @@ class EvidenceObligation:
     description: str
     required: bool
     depends_on: tuple[str, ...] = ()
+    anchor_refs: tuple[str, ...] = ()
+    evidence_role: EvidenceRole = EvidenceRole.IMPLEMENTATION
+    evidence_source: EvidenceSource = EvidenceSource.REPOSITORY
+    evidence_boundary: EvidenceBoundary = EvidenceBoundary.LOCAL
+    stage_ids: tuple[str, ...] = ()
+    requires_repository_handoff: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -99,6 +129,12 @@ class EvidenceObligation:
             "description": self.description,
             "required": self.required,
             "depends_on": list(self.depends_on),
+            "anchor_refs": list(self.anchor_refs),
+            "evidence_role": self.evidence_role.value,
+            "evidence_source": self.evidence_source.value,
+            "evidence_boundary": self.evidence_boundary.value,
+            "stage_ids": list(self.stage_ids),
+            "requires_repository_handoff": self.requires_repository_handoff,
         }
 
 
@@ -183,6 +219,7 @@ class IntentClassification:
 @dataclass(frozen=True)
 class IntentClassificationInput:
     user_prompt: str
+    repository_name: str | None = None
     active_task_goal: str | None = None
     current_turn_type: str | None = None
     previous_user_request_summary: str | None = None
@@ -193,6 +230,7 @@ class IntentClassificationInput:
     def to_dict(self) -> dict[str, Any]:
         return {
             "user_prompt": self.user_prompt,
+            "repository_name": self.repository_name,
             "active_task_goal": self.active_task_goal,
             "current_turn_type": self.current_turn_type,
             "previous_user_request_summary": self.previous_user_request_summary,
@@ -248,6 +286,12 @@ def classification_from_mapping(value: Mapping[str, Any]) -> IntentClassificatio
     intents = _enum_sequence(value.get("intents"), TaskIntent)
     if not intents:
         raise ValueError("Intent classification returned no recognized task intents.")
+    anchors = _request_anchors(value.get("anchors"))
+    known_anchors = {
+        item
+        for values in anchors.to_dict().values()
+        for item in values
+    }
     return IntentClassification(
         intents=intents,
         turn_relation=_required_enum(value.get("turn_relation"), TurnRelation, "turn_relation"),
@@ -257,9 +301,9 @@ def classification_from_mapping(value: Mapping[str, Any]) -> IntentClassificatio
         explicit_targets=_target_references(value.get("explicit_targets")),
         confidence=_confidence(value.get("confidence")),
         classification_basis=_strings(value.get("classification_basis"), limit=8),
-        anchors=_request_anchors(value.get("anchors")),
+        anchors=anchors,
         search_terms=_strings(value.get("search_terms"), limit=16),
-        evidence_obligations=_evidence_obligations(value.get("evidence_obligations")),
+        evidence_obligations=_evidence_obligations(value.get("evidence_obligations"), known_anchors=known_anchors),
     )
 
 
@@ -267,14 +311,15 @@ def _request_anchors(value: object) -> RequestAnchors:
     mapping = value if isinstance(value, Mapping) else {}
     return RequestAnchors(
         paths=_strings(mapping.get("paths"), limit=12),
-        symbols=_strings(mapping.get("symbols"), limit=16),
+        primary_symbols=_strings(mapping.get("primary_symbols"), limit=16),
+        supporting_symbols=_strings(mapping.get("supporting_symbols"), limit=16),
         errors=_strings(mapping.get("errors"), limit=8),
         literals=_strings(mapping.get("literals"), limit=12),
         identifiers=_strings(mapping.get("identifiers"), limit=16),
     )
 
 
-def _evidence_obligations(value: object) -> tuple[EvidenceObligation, ...]:
+def _evidence_obligations(value: object, *, known_anchors: set[str] | None = None) -> tuple[EvidenceObligation, ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         return ()
     obligations: list[EvidenceObligation] = []
@@ -284,21 +329,80 @@ def _evidence_obligations(value: object) -> tuple[EvidenceObligation, ...]:
             continue
         obligation_id = str(raw.get("id") or "").strip()[:80]
         description = str(raw.get("description") or "").strip()[:500]
-        if not obligation_id or not description or obligation_id in seen:
+        if (
+            not re.fullmatch(r"[a-z][a-z0-9_]{0,47}", obligation_id)
+            or not description
+            or obligation_id in seen
+        ):
             raise ValueError("Request analysis returned an invalid or duplicate evidence obligation.")
+        valid_dependencies = tuple(
+            dependency
+            for dependency in _strings(raw.get("depends_on"), limit=8)
+            if dependency in seen
+        )
         seen.add(obligation_id)
+        evidence_source = _optional_enum(raw.get("evidence_source"), EvidenceSource, EvidenceSource.REPOSITORY)
+        evidence_boundary = _optional_enum(
+            raw.get("evidence_boundary"),
+            EvidenceBoundary,
+            EvidenceBoundary.PROMPT if evidence_source == EvidenceSource.PROMPT else EvidenceBoundary.LOCAL,
+        )
         obligations.append(
             EvidenceObligation(
                 id=obligation_id,
                 description=description,
                 required=bool(raw.get("required")),
-                depends_on=_strings(raw.get("depends_on"), limit=8),
+                depends_on=valid_dependencies,
+                anchor_refs=tuple(
+                    item for item in _strings(raw.get("anchor_refs"), limit=12) if known_anchors is None or item in known_anchors
+                ),
+                evidence_role=(
+                    EvidenceRole.ANY
+                    if evidence_source != EvidenceSource.REPOSITORY
+                    else _optional_enum(raw.get("evidence_role"), EvidenceRole, EvidenceRole.IMPLEMENTATION)
+                ),
+                evidence_source=evidence_source,
+                evidence_boundary=evidence_boundary,
+                stage_ids=_strings(raw.get("stage_ids"), limit=16),
+                requires_repository_handoff=(
+                    evidence_source == EvidenceSource.REPOSITORY
+                    and bool(valid_dependencies)
+                    and bool(raw.get("requires_repository_handoff"))
+                ),
             )
         )
-    obligation_ids = {item.id for item in obligations}
-    if any(dependency not in obligation_ids for item in obligations for dependency in item.depends_on):
-        raise ValueError("Request analysis returned an evidence obligation with an unknown dependency.")
+    if obligations and not any(item.required for item in obligations):
+        raise ValueError("Request analysis returned no required evidence obligation.")
+    _validate_acyclic_obligations(obligations)
     return tuple(obligations)
+
+
+def _validate_acyclic_obligations(obligations: Sequence[EvidenceObligation]) -> None:
+    dependencies = {item.id: item.depends_on for item in obligations}
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(obligation_id: str) -> None:
+        if obligation_id in visiting:
+            raise ValueError("Request analysis returned cyclic evidence obligations.")
+        if obligation_id in visited:
+            return
+        visiting.add(obligation_id)
+        for dependency_id in dependencies.get(obligation_id, ()):
+            visit(dependency_id)
+        visiting.remove(obligation_id)
+        visited.add(obligation_id)
+
+    for obligation_id in dependencies:
+        visit(obligation_id)
+
+
+def _optional_enum(value: object, enum_type: type[Enum], default: Any) -> Any:
+    candidate = str(value or "").strip()
+    for item in enum_type:
+        if item.value == candidate:
+            return item
+    return default
 
 
 def _required_enum(value: object, enum_type: type[Enum], field_name: str) -> Any:

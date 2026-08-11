@@ -11,9 +11,12 @@ ALLOWED_TOOL_NAMES = frozenset(
         "structural_index_repo",
         "structural_find_exact_symbol",
         "structural_resolve_locations",
+        "structural_resolve_ranges",
         "structural_expand_nodes",
         "structural_callers",
         "structural_callees",
+        "structural_file_neighbors",
+        "structural_qualified_references",
         "structural_relationship",
     }
 )

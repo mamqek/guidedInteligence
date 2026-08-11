@@ -202,6 +202,30 @@ class CodeGraphResolveLocationsTool:
         )
 
 
+class CodeGraphResolveRangesTool:
+    name = "structural_resolve_ranges"
+
+    def __init__(self, bridge: CodeGraphBridge) -> None:
+        self.bridge = bridge
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        ranges = request.arguments.get("ranges")
+        if not isinstance(ranges, list) or not ranges:
+            return _error(self.name, "empty_ranges")
+        try:
+            result = self.bridge.request("resolve_ranges", {"ranges": ranges[:80]})
+        except Exception as exc:
+            return _error(self.name, f"structural_range_resolution_failed:{exc}")
+        results = result.get("results") if isinstance(result.get("results"), list) else []
+        node_count = sum(len(item.get("nodes", ())) for item in results if isinstance(item, Mapping))
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok",
+            payload=dict(result),
+            metadata={"result_count": str(node_count), "match": "source_range"},
+        )
+
+
 class CodeGraphExpandNodesTool:
     name = "structural_expand_nodes"
 
@@ -287,6 +311,69 @@ class CodeGraphRelationshipTool:
         )
 
 
+class CodeGraphFileNeighborsTool:
+    name = "structural_file_neighbors"
+
+    def __init__(self, bridge: CodeGraphBridge) -> None:
+        self.bridge = bridge
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        paths = request.arguments.get("paths")
+        if not isinstance(paths, list) or not paths:
+            return _error(self.name, "empty_paths")
+        try:
+            result = self.bridge.request(
+                "file_neighbors",
+                {
+                    "paths": [str(path) for path in paths[:8]],
+                    "limit": int(request.arguments.get("limit") or 20),
+                },
+            )
+        except Exception as exc:
+            return _error(self.name, f"structural_file_neighbors_failed:{exc}")
+        neighbors = result.get("neighbors") if isinstance(result.get("neighbors"), list) else []
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok",
+            payload=dict(result),
+            source_refs=tuple(str(item.get("path") or "") for item in neighbors if isinstance(item, Mapping)),
+            metadata={"result_count": str(len(neighbors)), "relationship": "file_neighbors"},
+        )
+
+
+class CodeGraphQualifiedReferencesTool:
+    name = "structural_qualified_references"
+
+    def __init__(self, bridge: CodeGraphBridge) -> None:
+        self.bridge = bridge
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        paths = request.arguments.get("paths")
+        if not isinstance(paths, list) or not paths:
+            return _error(self.name, "empty_source_paths")
+        try:
+            result = self.bridge.request(
+                "qualified_references",
+                {
+                    "paths": paths[:12],
+                    "limit": int(request.arguments.get("limit") or 40),
+                    "exclude_paths": list(self.bridge.config.index_exclude_paths or ()),
+                },
+            )
+        except Exception as exc:
+            return _error(self.name, f"structural_qualified_references_failed:{exc}")
+        nodes = result.get("nodes") if isinstance(result.get("nodes"), list) else []
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok",
+            payload=dict(result),
+            source_refs=tuple(
+                dict.fromkeys(str(item.get("path") or "") for item in nodes if isinstance(item, Mapping))
+            ),
+            metadata={"result_count": str(len(nodes)), "relationship": "qualified_reference"},
+        )
+
+
 def codegraph_tools(config: WorkspaceRetrievalConfig) -> tuple[dict[str, Any], CodeGraphBridge]:
     workspace_root = str(Path(config.workspace_root).resolve())
     key = (workspace_root.casefold(), int(config.structural_graph_timeout_seconds))
@@ -300,9 +387,12 @@ def codegraph_tools(config: WorkspaceRetrievalConfig) -> tuple[dict[str, Any], C
             "structural_index_repo": CodeGraphIndexRepoTool(bridge),
             "structural_find_exact_symbol": CodeGraphFindExactSymbolTool(bridge),
             "structural_resolve_locations": CodeGraphResolveLocationsTool(bridge),
+            "structural_resolve_ranges": CodeGraphResolveRangesTool(bridge),
             "structural_expand_nodes": CodeGraphExpandNodesTool(bridge),
             "structural_callers": CodeGraphAnalyzeCallsTool(bridge, direction="callers"),
             "structural_callees": CodeGraphAnalyzeCallsTool(bridge, direction="callees"),
+            "structural_file_neighbors": CodeGraphFileNeighborsTool(bridge),
+            "structural_qualified_references": CodeGraphQualifiedReferencesTool(bridge),
             "structural_relationship": CodeGraphRelationshipTool(bridge),
         },
         bridge,

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from services.intent.models import SolutionPressure, Specificity, TargetState, TargetType, TaskIntent, TurnRelation
 
 
-SCHEMA_VERSION = "request_analysis_v1"
+SCHEMA_VERSION = "request_analysis_v2"
 
 
 def intent_response_format() -> Mapping[str, Any]:
@@ -17,11 +17,22 @@ def intent_response_format() -> Mapping[str, Any]:
             "schema": {
                 "type": "object",
                 "properties": {
-                    "intents": {
-                        "type": "array",
-                        "items": {"type": "string", "enum": _values(TaskIntent)},
-                        "minItems": 1,
-                        "maxItems": len(TaskIntent),
+                    "intent_decisions": {
+                        "type": "object",
+                        "properties": {
+                            intent.value: {
+                                "type": "object",
+                                "properties": {
+                                    "selected": {"type": "boolean"},
+                                    "reason": {"type": "string"},
+                                },
+                                "required": ["selected", "reason"],
+                                "additionalProperties": False,
+                            }
+                            for intent in TaskIntent
+                        },
+                        "required": _values(TaskIntent),
+                        "additionalProperties": False,
                     },
                     "turn_relation": {"type": "string", "enum": _values(TurnRelation)},
                     "solution_pressure": {"type": "string", "enum": _values(SolutionPressure)},
@@ -40,7 +51,6 @@ def intent_response_format() -> Mapping[str, Any]:
                         },
                     },
                     "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-                    "classification_basis": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
                     "anchors": {
                         "type": "object",
                         "properties": {
@@ -54,36 +64,141 @@ def intent_response_format() -> Mapping[str, Any]:
                         "additionalProperties": False,
                     },
                     "search_terms": _string_array(16),
-                    "evidence_obligations": {
-                        "type": "array",
-                        "minItems": 1,
-                        "maxItems": 8,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "string"},
-                                "description": {"type": "string"},
-                                "required": {"type": "boolean"},
-                                "depends_on": _string_array(8),
-                            },
-                            "required": ["id", "description", "required", "depends_on"],
-                            "additionalProperties": False,
-                        },
-                    },
                 },
                 "required": [
-                    "intents",
+                    "intent_decisions",
                     "turn_relation",
                     "solution_pressure",
                     "specificity",
                     "target_state",
                     "explicit_targets",
                     "confidence",
-                    "classification_basis",
                     "anchors",
                     "search_terms",
-                    "evidence_obligations",
                 ],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def stage_requirement_response_format(
+    stage_ids: Sequence[str],
+    *,
+    symbol_candidates: Sequence[str] = (),
+) -> Mapping[str, Any]:
+    ordered_ids = list(dict.fromkeys(stage_ids))
+    ordered_symbols = list(dict.fromkeys(symbol_candidates))
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "request_analysis_stage_requirements_v1",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "symbol_decisions": {
+                        "type": "object",
+                        "properties": {
+                            symbol: {
+                                "type": "object",
+                                "properties": {
+                                    "relevance": {
+                                        "type": "string",
+                                        "enum": ["primary", "supporting", "ignore"],
+                                    },
+                                    "reason": {"type": "string", "minLength": 1, "maxLength": 240},
+                                },
+                                "required": ["relevance", "reason"],
+                                "additionalProperties": False,
+                            }
+                            for symbol in ordered_symbols
+                        },
+                        "required": ordered_symbols,
+                        "additionalProperties": False,
+                    },
+                    "stage_requirements": {
+                        "type": "object",
+                        "properties": {
+                            stage_id: {
+                                "type": "object",
+                                "properties": {
+                                    "evidence_boundary": {
+                                        "type": "string",
+                                        "enum": ["prompt", "local", "local_to_external_handoff", "external"],
+                                    },
+                                    "proposition": {"type": "string", "minLength": 1, "maxLength": 500},
+                                    "anchor_refs": _string_array(12),
+                                },
+                                "required": [
+                                    "evidence_boundary",
+                                    "proposition",
+                                    "anchor_refs",
+                                ],
+                                "additionalProperties": False,
+                            }
+                            for index, stage_id in enumerate(ordered_ids)
+                        },
+                        "required": ordered_ids,
+                        "additionalProperties": False,
+                    }
+                },
+                "required": ["symbol_decisions", "stage_requirements"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def stage_group_response_format(
+    stage_ids: Sequence[str],
+    *,
+    allowed_leaders: Mapping[str, Sequence[str]] | None = None,
+) -> Mapping[str, Any]:
+    ordered_ids = list(dict.fromkeys(stage_ids))
+    leader_options = allowed_leaders or {}
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "request_analysis_stage_groups_v1",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "stage_groups": {
+                        "type": "object",
+                        "properties": {
+                            stage_id: {
+                                "type": "object",
+                                "properties": {
+                                    "evidence_group_leader": {
+                                        "type": "string",
+                                        "enum": list(
+                                            dict.fromkeys(
+                                                leader_options.get(
+                                                    stage_id,
+                                                    [
+                                                        candidate
+                                                        for candidate in ordered_ids[:index]
+                                                        if candidate.partition(".")[0]
+                                                        != stage_id.partition(".")[0]
+                                                    ]
+                                                    + [stage_id],
+                                                )
+                                            )
+                                        ),
+                                    }
+                                },
+                                "required": ["evidence_group_leader"],
+                                "additionalProperties": False,
+                            }
+                            for index, stage_id in enumerate(ordered_ids)
+                        },
+                        "required": ordered_ids,
+                        "additionalProperties": False,
+                    }
+                },
+                "required": ["stage_groups"],
                 "additionalProperties": False,
             },
         },

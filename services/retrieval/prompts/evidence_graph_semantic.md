@@ -4,7 +4,7 @@ The selected evidence is fixed. Do not request, invent, or add files. Return onl
 
 Use the user question to organize one readable flow through the selected evidence. The flow should move in a coherent direction from an initiating decision or input through processing, validation, serialization, and rendering/output as applicable. A real loop may return to an earlier stage, but do not explain the same stage twice.
 
-`codegraph_edges` contains relationships recovered from the indexed code graph. `document_reference_edges` contains selected code ranges whose referenced path constants resolve to selected Markdown or configuration files. Treat both as strong structural grounding, but include only the edges that help explain the main flow. Their direction may differ from the most readable data-flow direction, so choose the direction that accurately describes the relationship in `description`.
+`codegraph_edges` contains relationships recovered from the indexed code graph. `document_reference_edges` contains selected code ranges whose exact resource literals resolve unambiguously to selected Markdown or configuration files. Treat both as strong structural grounding, but include only the edges that help explain the main flow. Their direction may differ from the most readable data-flow direction, so choose the direction that accurately describes the relationship in `description`.
 
 Add semantic relationships that CodeGraph cannot normally recover when selected evidence directly or strongly supports them, including:
 

@@ -1,4 +1,6 @@
 import readline from "node:readline";
+import fs from "node:fs";
+import path from "node:path";
 import codegraphPackage from "@colbymchenry/codegraph";
 
 const { CodeGraph, setLogger, silentLogger } = codegraphPackage;
@@ -132,6 +134,24 @@ async function resolveLocations(args) {
   };
 }
 
+async function resolveRanges(args) {
+  const codegraph = await openGraph();
+  const ranges = Array.isArray(args.ranges) ? args.ranges.slice(0, 80) : [];
+  return {
+    results: ranges.map((range) => ({
+      file: normalizePath(range.file),
+      line_start: Number(range.line_start || 0),
+      line_end: Number(range.line_end || range.line_start || 0),
+      nodes: nodesOverlappingRange(
+        codegraph,
+        range.file,
+        range.line_start,
+        range.line_end,
+      ).slice(0, 12).map(nodePayload),
+    })),
+  };
+}
+
 async function expandNodes(args) {
   const codegraph = await openGraph();
   const seedIds = [...new Set((Array.isArray(args.node_ids) ? args.node_ids : []).map(String).filter(Boolean))].slice(0, 80);
@@ -235,13 +255,197 @@ async function relationshipBetweenFiles(args) {
   };
 }
 
+function nodesOverlappingRange(codegraph, file, lineStart, lineEnd) {
+  const normalizedFile = normalizePath(file);
+  const startLine = Number(lineStart || 0);
+  const endLine = Math.max(startLine, Number(lineEnd || startLine));
+  if (!normalizedFile || startLine <= 0) return [];
+  return uniqueNodes(codegraph.getNodesInFile(normalizedFile))
+    .filter((node) => {
+      const start = Number(node.startLine || 0);
+      const end = Number(node.endLine || start);
+      return start > 0 && start <= endLine && end >= startLine && !["file", "import"].includes(node.kind);
+    })
+    .sort((left, right) => {
+      const leftOverlap = Math.max(0, Math.min(Number(left.endLine || left.startLine || 0), endLine) - Math.max(Number(left.startLine || 0), startLine) + 1);
+      const rightOverlap = Math.max(0, Math.min(Number(right.endLine || right.startLine || 0), endLine) - Math.max(Number(right.startLine || 0), startLine) + 1);
+      const leftSpan = Number(left.endLine || left.startLine || 0) - Number(left.startLine || 0);
+      const rightSpan = Number(right.endLine || right.startLine || 0) - Number(right.startLine || 0);
+      return rightOverlap - leftOverlap || leftSpan - rightSpan;
+    });
+}
+
+function normalizedOwner(value) {
+  return String(value || "").replace(/[^A-Za-z0-9_$]/g, "").toLowerCase();
+}
+
+async function fileNeighbors(args) {
+  const codegraph = await openGraph();
+  const paths = [...new Set((Array.isArray(args.paths) ? args.paths : []).map(normalizePath).filter(Boolean))].slice(0, 8);
+  const limit = Math.max(1, Math.min(Number(args.limit || 20), 80));
+  const weights = { calls: 4, imports: 4, instantiates: 3, references: 2 };
+  const scores = new Map();
+  const seenEdges = new Set();
+
+  for (const sourcePath of paths) {
+    for (const node of codegraph.getNodesInFile(sourcePath)) {
+      for (const edge of [...codegraph.getOutgoingEdges(node.id), ...codegraph.getIncomingEdges(node.id)]) {
+        const edgeKey = `${edge.source}\0${edge.target}\0${edge.kind}`;
+        if (seenEdges.has(edgeKey)) continue;
+        seenEdges.add(edgeKey);
+        const otherId = edge.source === node.id ? edge.target : edge.source;
+        const other = codegraph.getNode(otherId);
+        const otherPath = normalizePath(other?.filePath);
+        if (!otherPath || otherPath === sourcePath || paths.includes(otherPath)) continue;
+        const entry = scores.get(otherPath) || {
+          path: otherPath,
+          score: 0,
+          edge_count: 0,
+          edge_kinds: new Set(),
+          source_paths: new Set(),
+          relationship_counts: new Map(),
+        };
+        entry.edge_count += 1;
+        entry.edge_kinds.add(edge.kind);
+        entry.source_paths.add(sourcePath);
+        const relationshipKey = `${sourcePath}\0${edge.kind}`;
+        entry.relationship_counts.set(relationshipKey, (entry.relationship_counts.get(relationshipKey) || 0) + 1);
+        scores.set(otherPath, entry);
+      }
+    }
+    for (const dependency of codegraph.getFileDependencies(sourcePath)) {
+      const dependencyPath = normalizePath(dependency);
+      if (!dependencyPath || dependencyPath === sourcePath || paths.includes(dependencyPath)) continue;
+      const entry = scores.get(dependencyPath) || {
+        path: dependencyPath,
+        score: 0,
+        edge_count: 0,
+        edge_kinds: new Set(),
+        source_paths: new Set(),
+        relationship_counts: new Map(),
+      };
+      entry.edge_kinds.add("file_dependency");
+      entry.source_paths.add(sourcePath);
+      const relationshipKey = `${sourcePath}\0file_dependency`;
+      entry.relationship_counts.set(relationshipKey, (entry.relationship_counts.get(relationshipKey) || 0) + 1);
+      scores.set(dependencyPath, entry);
+    }
+  }
+
+  for (const entry of scores.values()) {
+    entry.score = [...entry.relationship_counts.entries()].reduce((total, [key, count]) => {
+      const kind = key.slice(key.lastIndexOf("\0") + 1);
+      const repetitionBonus = Math.min(1.5, Math.log2(Math.max(1, count)) * 0.25);
+      return total + ((weights[kind] || 1) * (1 + repetitionBonus));
+    }, 0);
+    entry.score += Math.max(0, entry.source_paths.size - 1) * 2;
+  }
+
+  const neighbors = [...scores.values()]
+    .sort((left, right) => right.score - left.score || right.edge_count - left.edge_count || left.path.localeCompare(right.path))
+    .slice(0, limit)
+    .map((item) => ({
+      ...item,
+      edge_kinds: [...item.edge_kinds].sort(),
+      source_paths: [...item.source_paths].sort(),
+      relationship_counts: undefined,
+    }));
+  return { source_paths: paths, neighbors };
+}
+
+async function qualifiedReferences(args) {
+  const codegraph = await openGraph();
+  const sourcePaths = [...new Set((Array.isArray(args.paths) ? args.paths : []).map(normalizePath).filter(Boolean))].slice(0, 12);
+  const excludedPaths = [...new Set((Array.isArray(args.exclude_paths) ? args.exclude_paths : []).map(normalizePath).filter(Boolean))];
+  const limit = Math.max(1, Math.min(Number(args.limit || 40), 120));
+  const matches = new Map();
+  const expressionPattern = /\b([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*(?:<[^;{}()]*>)?\s*\(/g;
+
+  for (const sourcePath of sourcePaths) {
+    let source;
+    try {
+      source = fs.readFileSync(path.join(projectRoot, sourcePath), "utf8");
+    } catch {
+      continue;
+    }
+    const lineStarts = [0];
+    for (let offset = source.indexOf("\n"); offset >= 0; offset = source.indexOf("\n", offset + 1)) lineStarts.push(offset + 1);
+    for (const match of source.matchAll(expressionPattern)) {
+      const qualifier = match[1];
+      const member = match[2];
+      if (!/^[A-Z]/.test(qualifier)) continue;
+      const owner = normalizedOwner(qualifier);
+      const targets = exactNodes(codegraph, member).filter((node) => {
+        const targetPath = normalizePath(node.filePath);
+        if (sourcePaths.includes(targetPath)) return false;
+        if (excludedPaths.some((excluded) => targetPath === excluded || targetPath.startsWith(`${excluded}/`))) return false;
+        const fileOwner = normalizedOwner(path.basename(normalizePath(node.filePath), path.extname(node.filePath || "")));
+        const qualifiedOwner = normalizedOwner(String(node.qualifiedName || "").split("::", 1)[0]);
+        return owner && (owner === fileOwner || owner === qualifiedOwner);
+      });
+      if (!targets.length) continue;
+      const callOffset = Number(match.index || 0);
+      let sourceLine = 1;
+      for (let index = 1; index < lineStarts.length && lineStarts[index] <= callOffset; index += 1) sourceLine = index + 1;
+      const sourceNode = nodesAtLocation(codegraph, sourcePath, sourceLine)[0];
+      for (const target of targets) {
+        const current = matches.get(target.id) || {
+          ...nodePayload(target),
+          qualifier,
+          expression: `${qualifier}.${member}`,
+          source_references: [],
+        };
+        if (!current.source_references.some((item) => item.path === sourcePath && item.line === sourceLine)) {
+          current.source_references.push({
+            path: sourcePath,
+            line: sourceLine,
+            source_node: sourceNode ? nodePayload(sourceNode) : null,
+          });
+        }
+        matches.set(target.id, current);
+      }
+    }
+  }
+
+  const resolvedNodes = [...matches.values()]
+    .map((node) => ({
+      ...node,
+      source_paths: [...new Set(node.source_references.map((item) => item.path))],
+      source_count: new Set(node.source_references.map((item) => item.path)).size,
+      reference_count: node.source_references.length,
+    }));
+  const qualifierReferenceCounts = new Map();
+  for (const node of resolvedNodes) {
+    qualifierReferenceCounts.set(
+      node.qualifier,
+      (qualifierReferenceCounts.get(node.qualifier) || 0) + node.reference_count,
+    );
+  }
+  const nodes = resolvedNodes
+    .map((node) => ({
+      ...node,
+      qualifier_reference_count: qualifierReferenceCounts.get(node.qualifier) || node.reference_count,
+    }))
+    .sort((left, right) =>
+      right.source_count - left.source_count ||
+      right.reference_count - left.reference_count ||
+      right.name.length - left.name.length ||
+      left.path.localeCompare(right.path),
+    )
+    .slice(0, limit);
+  return { source_paths: sourcePaths, nodes };
+}
+
 async function dispatch(operation, args) {
   if (operation === "index") return indexRepository();
   if (operation === "find_exact_symbol") return findExactSymbol(args);
   if (operation === "resolve_locations") return resolveLocations(args);
+  if (operation === "resolve_ranges") return resolveRanges(args);
   if (operation === "expand_nodes") return expandNodes(args);
   if (operation === "callers") return analyzeCalls(args, "callers");
   if (operation === "callees") return analyzeCalls(args, "callees");
+  if (operation === "file_neighbors") return fileNeighbors(args);
+  if (operation === "qualified_references") return qualifiedReferences(args);
   if (operation === "relationship_between_files") return relationshipBetweenFiles(args);
   if (operation === "status") {
     const codegraph = await openGraph();

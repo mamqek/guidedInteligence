@@ -56,6 +56,40 @@ TEXT_EXTENSIONS = {
     ".yml",
 }
 DOCUMENTATION_EXTENSIONS = {".md", ".txt"}
+IMPLEMENTATION_EXTENSIONS = {
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cs",
+    ".css",
+    ".go",
+    ".h",
+    ".hpp",
+    ".html",
+    ".java",
+    ".js",
+    ".jsx",
+    ".py",
+    ".rs",
+    ".ts",
+    ".tsx",
+}
+MAX_INDEXED_FILE_CHARACTERS = 3_000_000
+BM25_INDEX_SCHEMA_VERSION = 3
+TEST_DIRECTORY_TOKENS = {
+    "test",
+    "tests",
+    "testing",
+    "unittest",
+    "unittests",
+    "spec",
+    "specs",
+    "fixture",
+    "fixtures",
+    "testcase",
+    "testcases",
+    "testdata",
+}
 
 
 @dataclass(frozen=True)
@@ -204,8 +238,10 @@ def build_index_from_repo(
     chunks: list[IndexedChunk] = []
     for file_path in sorted(_iter_source_files(root, exclude_paths=exclude_paths)):
         relative_path = file_path.relative_to(root).as_posix()
+        if file_role(relative_path) == "baseline_or_generated":
+            continue
         text = _read_text_file(file_path)
-        if text is None:
+        if text is None or len(text) > MAX_INDEXED_FILE_CHARACTERS:
             continue
         chunks.extend(
             _build_chunks_for_file(
@@ -254,27 +290,45 @@ def estimate_indexing_scope(
     if chunk_line_overlap >= chunk_line_count:
         raise ValueError("chunk_line_overlap must be smaller than chunk_line_count.")
     files = tuple(sorted(_iter_source_files(root, exclude_paths=exclude_paths)))
+    indexed_file_count = 0
     total_bytes = 0
     estimated_chunks = 0
+    oversized_file_count = 0
+    oversized_total_bytes = 0
+    oversized_sample_paths: list[str] = []
     for path in files:
+        relative_path = path.relative_to(root).as_posix()
+        if file_role(relative_path) == "baseline_or_generated":
+            continue
         try:
             size = path.stat().st_size
         except OSError:
             size = 0
-        total_bytes += size
         text = _read_text_file(path)
         if text is None:
             continue
+        if len(text) > MAX_INDEXED_FILE_CHARACTERS:
+            oversized_file_count += 1
+            oversized_total_bytes += size
+            if len(oversized_sample_paths) < 12:
+                oversized_sample_paths.append(relative_path)
+            continue
+        indexed_file_count += 1
+        total_bytes += size
         estimated_chunks += _estimate_chunk_count_for_text(
             text,
             chunk_line_count=chunk_line_count,
             chunk_line_overlap=chunk_line_overlap,
         )
     return {
-        "file_count": len(files),
+        "file_count": indexed_file_count,
         "total_bytes": total_bytes,
         "estimated_chunks": estimated_chunks,
         "sample_paths": [path.relative_to(root).as_posix() for path in files[:20]],
+        "oversized_file_count": oversized_file_count,
+        "oversized_total_bytes": oversized_total_bytes,
+        "oversized_sample_paths": oversized_sample_paths,
+        "max_indexed_file_characters": MAX_INDEXED_FILE_CHARACTERS,
     }
 
 
@@ -485,18 +539,35 @@ def _classify_source_category(relative_path: str) -> SourceCategory:
     return SourceCategory.SOURCE_CODE
 
 
-def _file_role(path: str) -> str:
-    normalized_path = path.lower().replace("\\", "/")
+def file_role(path: str) -> str:
+    raw_normalized_path = path.replace("\\", "/")
+    normalized_path = raw_normalized_path.lower()
     normalized = f"/{normalized_path}"
     parts = tuple(part for part in normalized.split("/") if part)
+    raw_parts = tuple(part for part in raw_normalized_path.split("/") if part)
     name = parts[-1] if parts else ""
     suffix = Path(name).suffix.lower()
+    directory_tokens = {
+        token
+        for part in raw_parts[:-1]
+        for token in _path_segment_tokens(part)
+    }
 
     if suffix in {".md", ".rst", ".adoc"} or "docs" in parts or "documentation" in parts:
         return "documentation"
     if (
+        suffix in {".yml", ".yaml", ".toml", ".ini", ".cfg"}
+        or ".github" in parts
+        or ".circleci" in parts
+        or "config" in parts
+        or "configs" in parts
+        or name.startswith(".env")
+    ):
+        return "configuration"
+    if (
         "bin" in parts
         or normalized.startswith("/bin/")
+        or "dist" in parts
         or "baseline" in normalized
         or "baselines" in parts
         or "snapshot" in normalized
@@ -505,33 +576,41 @@ def _file_role(path: str) -> str:
         or "generated" in normalized
         or name.endswith(".generated.ts")
         or name.endswith(".generated.js")
+        or re.fullmatch(
+            r"(?:build|bundle)(?:[.-](?:dev|prod|production|development|min))?(?:\.min)?\.(?:js|css)",
+            name,
+        )
     ):
         return "baseline_or_generated"
     if (
-        "test" in parts
-        or "tests" in parts
-        or "__tests__" in parts
-        or "spec" in parts
-        or "fixtures" in parts
+        bool(directory_tokens & TEST_DIRECTORY_TOKENS)
         or name.endswith(".test.ts")
         or name.endswith(".spec.ts")
         or name.endswith(".test.js")
         or name.endswith(".spec.js")
     ):
         return "test"
-    if any(part in normalized for part in ("/src/", "/lib/", "/app/", "/packages/", "/pkg/", "/core/", "/compiler/")):
+    if suffix in IMPLEMENTATION_EXTENSIONS:
         return "implementation"
     return "other"
 
 
+def _path_segment_tokens(value: str) -> tuple[str, ...]:
+    camel_split = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", value)
+    return tuple(token.casefold() for token in re.findall(r"[A-Za-z0-9]+", camel_split))
+
+
 def _should_skip_indexing(relative_path: str) -> bool:
-    role = _file_role(relative_path)
+    role = file_role(relative_path)
     if role == "baseline_or_generated":
         return True
     normalized = relative_path.lower().replace("\\", "/")
     if "/bin/" in f"/{normalized}" or normalized.startswith("bin/"):
         return True
     return False
+
+
+_file_role = file_role
 
 
 def _read_text_file(path: Path) -> str | None:

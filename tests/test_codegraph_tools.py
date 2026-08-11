@@ -29,6 +29,22 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                 "import { caller } from './a';\nexport const value = caller();\n",
                 encoding="utf-8",
             )
+            (root / "src" / "builderState.ts").write_text(
+                "export function getFilesAffectedBy() { return []; }\n"
+                "export function create() { return {}; }\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "builder.ts").write_text(
+                "import * as BuilderState from './builderState';\n"
+                "export const affected = BuilderState.getFilesAffectedBy();\n"
+                "export const state = BuilderState.create();\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "project.ts").write_text(
+                "import * as BuilderState from './builderState';\n"
+                "export const affected = BuilderState.getFilesAffectedBy();\n",
+                encoding="utf-8",
+            )
             config = _config(root)
             tools, _bridge = codegraph_tools(config)
             try:
@@ -42,8 +58,23 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                 callers = tools["structural_callers"].run(
                     _request("structural_callers", file="src/a.ts", line=1)
                 )
+                ranges = tools["structural_resolve_ranges"].run(
+                    _request(
+                        "structural_resolve_ranges",
+                        ranges=[{"file": "src/a.ts", "line_start": 1, "line_end": 2}],
+                    )
+                )
+                neighbors = tools["structural_file_neighbors"].run(
+                    _request("structural_file_neighbors", paths=["src/b.ts"], limit=10)
+                )
                 relation = tools["structural_relationship"].run(
                     _request("structural_relationship", source_path="src/b.ts", target_path="src/a.ts")
+                )
+                qualified = tools["structural_qualified_references"].run(
+                    _request(
+                        "structural_qualified_references",
+                        paths=["src/builder.ts", "src/project.ts"],
+                    )
                 )
             finally:
                 close_codegraph_bridge(config)
@@ -54,9 +85,25 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
             self.assertEqual(exact.payload["match_count"], 1)
             self.assertEqual(conceptual.source_refs, ())
             self.assertIn("src/a.ts", callers.source_refs)
+            self.assertEqual(ranges.status, "ok")
+            self.assertEqual(
+                {node["name"] for node in ranges.payload["results"][0]["nodes"]},
+                {"target", "ModuleResolutionEngine"},
+            )
+            self.assertIn("src/a.ts", neighbors.source_refs)
             self.assertTrue(relation.payload["related"])
             self.assertTrue(
                 any(edge["edge_kind"] in {"calls", "imports"} for edge in relation.payload["edges"])
+            )
+            affected = next(
+                node for node in qualified.payload["nodes"] if node["name"] == "getFilesAffectedBy"
+            )
+            self.assertEqual(affected["path"], "src/builderState.ts")
+            self.assertEqual(affected["qualifier"], "BuilderState")
+            self.assertEqual(affected["source_count"], 2)
+            self.assertEqual(
+                affected["source_paths"],
+                ["src/builder.ts", "src/project.ts"],
             )
 
 

@@ -13,7 +13,7 @@ from core.source_policy import SourceCategory
 from services.retrieval.config import RunLLMConfig
 from services.intent.logging import IntentStageResult
 from services.intent.models import IntentClassification, SolutionPressure, Specificity, TargetState, TaskIntent, TurnRelation
-from services.retrieval.workspace.bm25 import load_index
+from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, load_index
 from testing.codeRepoQA.run_case import (
     evaluate_case,
     prepare_index,
@@ -61,6 +61,9 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
                 chunk_line_count=10,
                 chunk_line_overlap=5,
             )
+            scope_manifest = json.loads((index_dir / "bm25-scope-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(scope_manifest["workspace_root"], str(repo.resolve()))
+            self.assertEqual(scope_manifest["exclude_paths"], list(DEFAULT_EXCLUDED_PATHS))
             index = load_index(index_dir)
 
             self.assertEqual([document.chunk.line_start for document in index.documents], [1, 6, 11])
@@ -102,12 +105,15 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
                 run_dir=root / "run",
                 run_id="unit",
                 llm_config=_llm_config(),
+                index_exclude_paths=("lib", "tests/cases"),
             )
 
             self.assertTrue(result.evidence)
             self.assertEqual(len(_RecordingWorkspaceRetrievalStage.instances), 1)
             config = _RecordingWorkspaceRetrievalStage.instances[0].config
             self.assertEqual(config.enabled_source_categories, (SourceCategory.LOCAL_NOTES, SourceCategory.SOURCE_CODE))
+            self.assertIn("lib", config.index_exclude_paths)
+            self.assertIn("tests/cases", config.index_exclude_paths)
             prompt = _RecordingWorkspaceRetrievalStage.captured_states[0].user_input
             self.assertIn("Title: Suggestion: abstract classes", prompt)
             self.assertIn("Support an `abstract` keyword", prompt)
