@@ -2,6 +2,7 @@ import readline from "node:readline";
 import fs from "node:fs";
 import path from "node:path";
 import codegraphPackage from "@colbymchenry/codegraph";
+import { localizeFileCall } from "./source_ast.mjs";
 
 const { CodeGraph, setLogger, silentLogger } = codegraphPackage;
 
@@ -88,12 +89,16 @@ function uniqueFiles(nodes, limit = 50) {
 function edgePayload(codegraph, edge) {
   const source = codegraph.getNode(edge.source);
   const target = codegraph.getNode(edge.target);
-  return {
+  const payload = {
     kind: edge.kind,
     provenance: edge.provenance || "",
     source: source ? nodePayload(source) : null,
     target: target ? nodePayload(target) : null,
   };
+  if (edge.kind === "calls" && source?.kind === "file" && target && target.kind !== "file") {
+    payload.file_call_localization = localizeFileCall(codegraph, projectRoot, source, target);
+  }
+  return payload;
 }
 
 async function indexRepository() {

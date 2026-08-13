@@ -1,6 +1,511 @@
 # Retrieval Changelog
 
+## 2026-08-13
+
+### Compact File-Triage Experiment Removed
+
+- Tested a conservative LLM file-triage stage between mechanism-flow construction
+  and final evidence selection. Relationship-centred cards preserved candidate
+  identities, obligation-specific semantic discoveries, and graph endpoint
+  pairs; every file had to be marked `keep`, `inspect`, or `discard`, with both
+  `keep` and `inspect` retaining full snippets. No fixed file/candidate cap or
+  silent fallback was used.
+- TypeScript 35468 `run-20260813T194329Z` completed `partial/false`, retained
+  Oracle `builder.ts` and `builderState.ts`, and reduced 226 candidates to 209.
+  The triage call cost 91,861 tokens; the remaining final selector cost 144,010.
+- Repeat `run-20260813T194645Z` also completed `partial/false`, retained the same
+  two Oracle files, and reduced 213 candidates to 176. The triage call cost
+  89,774 tokens; the remaining final selector cost 128,649.
+- Oracle `watchMode.ts` and `helpers.ts` were absent before triage in both runs,
+  so this late stage could not recover them. The compact request still measured
+  roughly 296k-310k characters and conservative uncertainty retained most
+  candidates. Because the extra ~90k-token call achieved only a 7.5%-17.4%
+  reduction, the runtime implementation and prompt were removed. The experiment
+  remains documented in `candidate-file-triage.md`; do not reintroduce it without
+  deterministic pre-LLM compression.
+
+### File-Call AST Localization And Unconditional File-Node Exclusion
+
+- Added an automatically routed TypeScript/JavaScript source adapter using the
+  existing TypeScript compiler API. When CodeGraph emits an aggregate
+  `file -> function` `calls` edge, the adapter finds matching calls, walks to
+  the outermost named executable owner below `SourceFile`, chooses one primary
+  anchor by an explicit reliability tier, and emits a bounded excerpt while
+  retaining the complete owner range and source facts. It never promotes to a
+  class or file candidate. Exact CodeGraph function calls outrank unqualified
+  AST calls, property calls, and literal element calls. Anonymous-only owners
+  are rejected.
+- Added complete `file_call_localization_decisions` logs: adapter, source file,
+  target symbol, every considered call site, rejection/selection code, selected
+  owner, full and excerpt ranges, nesting depth, and reliability tier. Added an
+  explicit `--skip-final-evidence-selection` diagnostic mode that records the
+  complete preselection inventory without substituting a deterministic final
+  selector. Raw file-node candidate rejections are separately recorded as
+  `raw_file_node_candidate_rejected` with the matched decision code and origin.
+- TypeScript 35468 diagnostic `run-20260813T185637Z` disabled both final evidence
+  selection and response generation. It completed `missing/false` by design,
+  made zero final-selection calls, and used 5,235 retrieval-stage LLM tokens.
+  The unique preselection pool was 735 candidates versus 853 in the saved
+  pre-change inventory; raw file candidates fell from 26 to zero. However, only
+  one candidate was AST-localized, in an unrelated ESLint rule. Oracle-path
+  counts were `builder.ts` 27, `builderState.ts` 14, `watch.ts` 8,
+  `watchMode.ts` 1, and `helpers.ts` 0.
+- Identical repeat `run-20260813T190123Z` also completed `missing/false` by
+  design, made zero final-selection calls, and used 5,582 retrieval-stage LLM
+  tokens. It produced 689 unique candidates, zero raw file candidates, and zero
+  localized candidates. Oracle-path counts were `builder.ts` 31,
+  `builderState.ts` 20, `watch.ts` 22, `watchMode.ts` 0, and `helpers.ts` 1.
+- The specific historical `watchMode.ts:createSolutionAndWatchModeOfProject`
+  edge was validated separately against the saved snapshot. The adapter chose
+  the exact `createSolutionAndWatchMode` caller at lines 612-614, retained
+  `verifyTransitiveReferences` as a weaker considered owner, and logged the
+  anonymous line-1101 occurrence as `rejected_no_named_outer_executable`.
+  Neither real diagnostic run traversed that aggregate edge, so the adapter had
+  no opportunity to recover the desired watch route.
+- The initial response incorrectly treated file nodes becoming later graph seeds
+  as a potentially useful role. That behavior merely expands a coarse statement
+  that something in a file calls a target into unrelated functions; it is a
+  source of noise, not trustworthy navigation. The flag was therefore removed.
+  File/import nodes are now unconditionally rejected as evidence and expansion
+  seeds. File-level call edges receive one immediate AST-localization attempt;
+  a named executable owner is retained, while unresolved edges are discarded.
+  File-level import/dependency relationships may remain graph metadata but never
+  source evidence. Future run reports should explicitly summarize both file-call
+  localization and raw-file rejection events whenever either occurs.
+
+### Factory-Handoff Bridge: First Real-Run Result
+
+- Implemented a bounded, source-derived `factory_handoff` experiment. It starts
+  from an already grounded candidate, follows visible `create...`/`build...`
+  calls through exact CodeGraph symbol resolution, and emits a special inferred
+  edge only for a visible callable default of the form
+  `value || NamedFactory`. Intermediate lookups are candidates, not fabricated
+  graph edges. The feature is retained for diagnosis; it is not yet a measured
+  improvement.
+- Real workspace TypeScript 35468 run `run-20260813T045724Z` used
+  `--skip-response-generation`, the established `lib` and `tests/cases`
+  exclusions, and reused the 20,146-document index. It completed in 147.3s as
+  `partial/false`, with Oracle overlap 3 (`builder.ts`, `builderState.ts`, and
+  `watchMode.ts`); `helpers.ts` was again absent from final selected evidence.
+  Consolidation assessed 230 candidates, 157 flows, and 337 connections in an
+  unbounded 470,410-character request. It selected 13 evidence snippets.
+- The experiment did **not** generate a factory-handoff edge in that run. The
+  relevant visible `createProgram` call was reached, but CodeGraph exact-symbol
+  lookup returned three definitions and the deliberately strict bridge recorded
+  `rejected_ambiguous_exact_symbol`. Its eight-lookup budget was also consumed
+  by unrelated `createMap`, `createTextSpan`, and watcher calls from other
+  grounded candidates. This is a precise localization-policy failure, not
+  evidence that the TypeScript factory relationship is absent.
+- Next revision, if pursued, must start from the already verified
+  `watchMode -> helpers:createWatchOfConfigFile` route and require a function
+  value/default assignment before spending a lookup. It must resolve overloads
+  by source scope and visible body/default context, rather than requiring an
+  unqualified factory name to be repository-unique. Do not loosen the global
+  exact-symbol ambiguity rule or turn every `create...` call into a bridge.
+
+### Candidate-Facts Experiment
+
+- Added an immutable `CandidateFacts` payload to `GroundedCandidate`. It
+  consolidates deterministic information that earlier stages already produced
+  separately: per-obligation semantic rank/score/matched terms plus source-local
+  visible calls, callable defaults, returned names, and field reads/writes. It
+  is merged when candidate provenance merges and is available to narrow graph
+  recovery and the consolidation request. It does not assign semantic roles or
+  decide relevance.
+- TypeScript 35468 `run-20260813T050323Z`, using the same warm scoped index and
+  `--skip-response-generation`, completed `partial/false` with Oracle overlap
+  3. It selected `watchMode.ts`, `builder.ts`, and `builderState.ts`, but not
+  `helpers.ts`. The final LLM assessed 233 candidates, 175 flows, and 336
+  connections. No factory-handoff edge was produced: the eight bounded lookups
+  again followed generic `create...` calls before reaching the specific route.
+  The serialized consolidation payload grew from 470,410 to 586,757 characters,
+  showing that raw facts must be compacted before they are sent wholesale to
+  the LLM.
+- Vue 10803 `run-20260813T050546Z`, also `--skip-response-generation`,
+  completed `partial/false`, overlap 2 / implementation overlap 1. It selected
+  the complete executable SSR chain `renderNode -> renderElement ->
+  renderStartingTag -> renderDOMProps -> setText` and the SSR test. This run
+  assessed 144 candidates, 117 flows, and 207 connections in 347,768
+  characters. No factory-handoff edge was expected or produced.
+- Therefore candidate facts are useful as a local structured analysis boundary,
+  but the current broad bridge consumer and full facts serialization are not a
+  TypeScript improvement. The next experiment must consume facts *before*
+  lookup to gate expansion to a proven route, and expose only a compact summary
+  of facts needed by the final LLM.
+
+## 2026-08-12
+
+### Exact-Endpoint Mechanism Graph Experiment
+
+Correction: the initial `--mechanism-selection-only` harness used for the
+structural measurements below skipped both evidence consolidation and prose
+generation. That was too broad for end-to-end retrieval evaluation. It has been
+replaced cleanly by `--skip-response-generation`: evidence consolidation runs;
+only the subsequent explanation writer is disabled. The earlier measurements
+remain graph-structure observations, not evidence-selection results.
+
+Corrected evidence-selection measurements (`--skip-response-generation`):
+
+- The first TypeScript attempt reached consolidation but failed explicitly with
+  HTTP 400 because repeating every candidate ID in four structured-output enum
+  locations produced 1,107 enum values, above the provider's 1,000-enum limit.
+  Candidate IDs are now schema-checked as non-empty strings and validated once
+  against the submitted candidate map in application code. No invalid returned
+  ID can become selected evidence.
+- TypeScript `run-20260812T203741Z`: the consolidation LLM assessed 242
+  candidates, 175 flows, and 309 connections in a 458,385-character unbounded
+  payload. It selected 12 snippets, including
+  `builderState.ts:updateShapeSignature` and two `builder.ts` functions, but not
+  `updateExportedModules`, `watchMode.ts`, or `helpers.ts`. Result:
+  `partial/false`, Oracle overlap 2, 132,193 retrieval tokens across four LLM
+  calls, index reused, zero response-generation events.
+- TypeScript repeat `run-20260812T204236Z`: the LLM assessed 205 candidates, 157
+  flows, and 336 connections in 429,806 characters. It selected 13 snippets,
+  including `watchMode.ts`, `builder.ts:getNextAffectedFile`, and
+  `builderState.ts:getFilesAffectedBy`/`updateShapeSignature`, but not
+  `helpers.ts`. Result: `partial/false`, Oracle overlap 3, 124,657 retrieval
+  tokens across four LLM calls, index reused, zero response-generation events.
+- Vue 10803 `run-20260812T204047Z`: the LLM assessed 182 candidates, 137 flows,
+  and 223 connections in 368,151 characters. It selected `renderDOMProps`,
+  `setText`, two basic-renderer nodes, and the SSR test, but omitted
+  `renderNode`, `renderElement`, and `renderStartingTag`. Result:
+  `partial/false`, overlap 2/implementation overlap 1, 118,041 retrieval tokens
+  across three LLM calls, index reused, zero response-generation events.
+- Vue repeat `run-20260812T204512Z`: the LLM assessed 167 candidates, 131 flows,
+  and 294 connections in 329,749 characters. It selected the complete
+  `renderNode -> renderElement -> renderStartingTag -> renderDOMProps -> setText`
+  chain and the SSR test. Result: `partial/false`, overlap 2/implementation
+  overlap 1, 107,643 retrieval tokens across three LLM calls, index reused, zero
+  response-generation events.
+
+The corrected runs prove that evidence consolidation and prose generation are
+separate stages and that only the latter is skipped. Removing the payload limit
+prevents pre-LLM exclusion but does not stabilize the selector: TypeScript moves
+from overlap 2 to 3 and Vue alternates between an owner-only and complete-flow
+selection. The 108k-132k retrieval-token cost also makes the unbounded input an
+experimental diagnostic, not a final production boundary.
+
+### Forensic Finding: Long Graph Trails Are Not Causal Evidence
+
+TypeScript 35468 `run-20260812T203741Z` contains a concrete counterexample to
+using path length, cumulative edge score, or number of newly visited endpoints
+as a positive mechanism signal. Its highest-scoring mechanism flow
+(`mechanism_flow_68`, score `142.4519`) had ten nodes:
+
+`watchMode.ts -> verifyTransitiveReferences ->
+createSolutionAndWatchModeOfProject -> createSolutionOfProject ->
+createTsBuildWatchSystem -> createWatchedSystem -> TestServerHost ->
+watch.ts:createWatchHost -> createWatchStatusReporter ->
+clearScreenIfNotWatchingForFileChanges`.
+
+The early steps do ground the issue's watch-mode scenario, but the chain then
+stays in test/harness/status-screen scaffolding. It ends in clearing the watch
+status display rather than crossing the production factory boundary into the
+builder, invalidation, signature/export update, dependent rebuild, or diagnostic
+path relevant to the issue. The trace records exact calls for the early setup
+steps (weight 7), followed by lower-confidence source-inferred same-file and
+same-field transitions (weights 5 and 4). Eight of ten nodes are test,
+harness, or status-related. Automatic role labels also over-reward this route:
+test nodes receive `validation`, and ordinary assignments can receive
+`state_owner`.
+
+The present formula nevertheless adds node and edge scores for every extension
+and admits any extension that introduces a previously unseen candidate. Its
+only length penalty begins after seven nodes and is too small to counter the
+accumulated reward. The result is a long, internally coherent trail that is not
+the causal mechanism the issue asks about.
+
+This is deliberately retained as a thesis/decision-record example. A useful
+future selector must prefer *causal progress*, not length: a path should cross
+from a prompt-grounded entry point into a distinct responsibility such as a
+factory handoff, state mutation, propagation owner, or user-visible effect.
+The contrasting Vue 10803 production path
+`renderNode -> renderElement -> renderStartingTag -> renderDOMProps -> setText`
+does that: each transition contributes a new causal role and terminates at the
+concrete DOM-props/text behavior. The distinction is not "production good,
+tests bad"—TypeScript's `watchMode.ts` and `helpers.ts` are relevant Oracle
+files—but whether later transitions demonstrably advance the mechanism rather
+than merely elaborate the scenario setup.
+
+- Removed the aggregate 50,000-character mechanism-input ceiling for the active
+  experiment. Added `--mechanism-selection-only`, which runs intent,
+  obligation-specific Qdrant retrieval, graph expansion, localization, and
+  mechanism construction, but explicitly skips final evidence consolidation and
+  response generation. It emits no accepted evidence or sufficiency claim and
+  records the complete graph size with `llm_calls=0` for the skipped stage.
+- Removed root/file occupation as a selection boundary. A file or root can now
+  participate in incoming, outgoing, and multiple outgoing branches. Only
+  parallel relationships with the same exact directed candidate endpoints
+  compete; the higher-weight relationship replaces the weaker one. Reverse
+  direction, different targets, and different intermediate paths remain
+  independent. Every replacement is recorded as
+  `rejected_weaker_parallel_connection`.
+
+Final-code warm-index measurements, with no consolidation or explanation call:
+
+- TypeScript 35468 `run-20260812T175851Z`: 238 candidates, 184 flows, 327
+  connections, 464,117 serialized characters, 91 parallel-connection
+  replacements, and 5/5/9/5 retained snippets from `watchMode.ts`, `helpers.ts`,
+  `builder.ts`, and `builderState.ts`. It retained four distinct
+  `builder.ts -> builderState.ts` connections and the connected chain
+  `getSemanticDiagnosticsOfNextAffectedFile -> getNextAffectedFile ->
+  getProgramBuildInfo -> updateShapeSignature -> updateExportedModules`.
+  Retrieval used 5,542 tokens across three upstream LLM calls; the 20,146-point
+  index was reused.
+- TypeScript repeat `run-20260812T180310Z`: 222 candidates, 172 flows, 295
+  connections, 425,918 characters, and all four Oracle files again retained
+  (23/7/10/9 snippets). It independently recovered
+  `handleDtsMayChangeOf -> updateShapeSignature -> updateExportedModules ->
+  getReferencedFileFromImportedModuleSymbol`. Retrieval used 5,046 tokens across
+  three upstream LLM calls; the index was reused.
+- Post-provenance TypeScript validation `run-20260812T180914Z` ensures an exact
+  CodeGraph relationship wins over a source-inferred duplicate with the same
+  endpoints. It retained all four Oracle files, 256 candidates, 183 flows, 318
+  connections, and the cross-file chain
+  `getSemanticDiagnosticsOfNextAffectedFile -> getNextAffectedFile ->
+  getFilesAffectedBy -> updateSignaturesFromCache`. The saved graph measured
+  500,574 characters; retrieval used 5,302 tokens across three upstream LLM
+  calls, the index was reused, run metadata records
+  `mechanism_selection_only=true`, and no response-generation event occurred.
+- Vue 10803 `run-20260812T180140Z`: 192 candidates, 161 flows, 219 connections,
+  and 377,152 characters. It retained `renderDOMProps -> setText` and the
+  `renderNode` side, but upstream localization did not produce `renderElement`
+  or `renderStartingTag`, so no complete cross-file serializer flow could be
+  constructed. Retrieval used 2,877 tokens across two upstream LLM calls; the
+  4,358-point index was reused.
+- Vue repeat `run-20260812T180524Z`: 153 candidates, 124 flows, 215 connections,
+  and 291,446 characters. It retained both
+  `renderNode -> renderElement -> renderStartingTag -> renderDOMProps` and
+  `renderDOMProps -> setText`. Retrieval used 1,877 tokens in one upstream LLM
+  call; the index was reused.
+
+All four runs contain zero response-generation events and also predate the
+corrected harness above. They are structural graph experiments, not
+`coverage_status`/`sufficient` or evidence-selection benchmark verdicts.
+They show that the late root/file collision is removed, while Vue still exposes
+stochastic upstream endpoint localization in one of two runs. The unbounded
+normal consolidation path risks exceeding model context and remains unsuitable
+for a quality verdict until a graph-derived request boundary is designed.
+
+### Directed Mechanism Flow Selection
+
+- Replaced the six connected-explanation bundles with directed mechanism flows.
+  Final evidence inputs now contain executable exact/source-inferred transitions
+  rather than file-level discovery cartesian edges. Obligation IDs assigned by
+  initial retrieval remain immutable through later localization and selection.
+- Kept one Qdrant search per repository obligation, while adding backend-owned
+  intent-stage terms to each query. Generated obligation text remains present but
+  can no longer remove generic repository mechanism terms such as caller/callee,
+  mutation, signature, invalidation, propagation, and affected dependency.
+- Added deterministic localization for call-connected implementation files,
+  exact named same-file callees, explicit `Owner.member(...)` calls, dynamic
+  collection callbacks, and prompt-relevant same-field write/read handoffs.
+  CommonJS assignment and prototype-defined functions remain explicitly out of
+  scope.
+- Reinterpreted graph `visited` state as expansion-call suppression only. A node
+  reached later from another obligation/direction may still be localized as a
+  candidate. Symbol/path responsibility, not body vocabulary or raw graph degree,
+  seeds and scores flows.
+- At this stage of the experiment the final input was source-bounded at 50,000
+  characters and no longer had an arbitrary six-flow cutoff. This limit was
+  removed by the exact-endpoint experiment above after it remained a testing
+  obstruction. Trace events record connected semantic localization, callee
+  decisions, selected flows/connections, the complete flow ledger, and
+  serialized request costs.
+
+Measured warm-index results:
+
+- Final global-selection TypeScript `run-20260812T161046Z`: `partial/false`,
+  Oracle overlap 3. One 49,489-character request contained and the LLM selected
+  `watchMode.ts`, `builder.ts`, and `builderState.ts` together. `helpers.ts` was
+  absent from this run's candidate inventory. Final consolidation used 17,909
+  tokens; measured retrieval LLM stages used 21,102 total. The 20,146-document
+  index was reused (`rebuilt=false`).
+- Near-final Vue 10803 `run-20260812T161652Z`: `partial/false`, implementation
+  Oracle overlap 1. Its 49,461-character request with 11 retained connections
+  included and selected `renderDOMProps -> setText`; `renderStartingTag` was not
+  localized. On the exact final code, `run-20260812T162738Z` was also
+  `partial/false` with implementation Oracle overlap 1. Its 49,576-character
+  request retained 11 connections and the LLM selected
+  `renderElement -> renderStartingTag -> renderDOMProps`; `renderNode` and
+  `setText` were present in inventory but not sent. Final consolidation used
+  20,265 tokens and measured retrieval LLM stages used 23,726 total. Both runs
+  reused the 4,358-document index. Together they show that both halves of the
+  desired Vue mechanism can now survive late selection, but not yet stably in
+  the same request.
+- Finalized TypeScript repeats remained unstable but no longer failed by
+  obligation-slot ownership. `run-20260812T161843Z` sent and selected
+  `watchMode.ts`, `helpers.ts`, and `builderState.ts`; `builder.ts` was present in
+  inventory but lost at the payload boundary. After limiting same-root protected
+  extensions and adding bidirectional recorded-file connectivity,
+  `run-20260812T162241Z` sent and selected `watchMode.ts`, `helpers.ts`, and
+  `builder.ts`; `builderState.ts` was present in inventory but not sent. Both were
+  `partial/false`, reused the index, kept their final payloads below 50,000
+  characters (49,546 and 49,514), and used 24,447 and 23,235 tokens respectively
+  across measured retrieval LLM stages. The residual bug is therefore competing
+  root allocation/upstream candidate instability, not obligation capture or an
+  invisible post-graph per-obligation cap.
+- Invalid diagnostic run `run-20260812T154704Z` reached a 52,532-character
+  request and then received an empty/non-JSON provider response. It produced no
+  benchmark verdict. Its ledger exposed that candidate source was budgeted while
+  duplicated flow/connection metadata was not; the active implementation now
+  budgets the complete serialized request and fails explicitly on provider
+  errors rather than falling back.
+
+- TypeScript `run-20260812T125238Z`: `partial/false`, Oracle overlap 4. The final
+  LLM accepted `watchMode.ts`, `builder.ts:getNextAffectedFile`,
+  `builderState.ts:updateShapeSignature`, and the affected-file diagnostics path.
+  The prepared 20,146-document index was reused (`rebuilt=false`). Final
+  consolidation used 30,634 tokens; total retrieval LLM usage was 36,760.
+- TypeScript regression `run-20260812T133041Z`: `partial/false`, Oracle overlap 3.
+  The final request contained `watchMode.ts`, `builder.ts:handleDtsMayChangeOf`,
+  `builderState.ts:updateShapeSignature`, and
+  `builderState.ts:updateExportedModules`. The LLM accepted `watchMode.ts` and
+  `builder.ts`; both builder-state nodes remained visible but were not selected.
+  The index again reused all 20,146 documents with `rebuilt=false`. Final
+  consolidation used 25,218 tokens; total retrieval LLM usage was 31,402.
+- Vue 10803 `run-20260812T132836Z`: `partial/false`, Oracle overlap 1. The final
+  request contained the directed
+  `renderNode -> renderElement -> renderStartingTag -> renderDOMProps` flow, with
+  the dynamic module step explicitly marked source-inferred, plus
+  `renderDOMProps -> setText`. The LLM accepted `renderDOMProps`, `setText`, and
+  `renderElement`; `renderNode` and `renderStartingTag` were visible but not
+  accepted. Final consolidation used 25,058 tokens; total retrieval LLM usage was
+  27,706. The prepared index was reused (`rebuilt=false`).
+
+All three measured runs remained `partial/false`; this change fixes the specific
+pre-final discard and mechanism-visibility bugs but does not claim complete issue
+coverage or stable final LLM acceptance of every visible owner node.
+
 ## 2026-08-11
+
+### Final-Stage Decision Ledger
+
+- Raised the bounded final source-text budget again, from 32,000 to 50,000
+  characters, leaving `MAX_EVIDENCE_EXPLANATIONS = 6` unchanged. Six is an
+  explicit safety cap introduced with connected explanations, not a measured
+  repository property or a consequence of the character budget.
+- Warm TypeScript `run-20260811T225112Z` used only 32,224/50,000 characters
+  but stopped at six explanations. It sent `builder.ts` to final assessment;
+  the final LLM rejected it. Result: `partial/false`, zero overlap, 33,786
+  retrieval tokens, index reused.
+- Unchanged `run-20260811T225352Z` used only 31,718/50,000 characters and
+  again stopped at six explanations. The ledger explicitly marks both the
+  `builder.ts` and `builderState.ts` bundles
+  `not_considered_after_explanation_limit`; neither reached final assessment.
+  It recovered the two test Oracle files `watchMode.ts` and `helpers.ts`, so
+  overlap was 2, but remained `partial/false` with 32,259 retrieval tokens and
+  index reuse. The active TypeScript builder boundary is therefore the
+  six-explanation ranking/cap, not the 50k text budget. The enlarged budget is
+  retained per user direction.
+
+- Raised the bounded final source-text budget from 16,000 to 32,000 characters
+  after the ledger proved that the former cap discarded an otherwise viable
+  `builder.ts` explanation. The cap is still global and source-text-only; it
+  replaces neither candidate provenance nor explanation selection.
+- Warm TypeScript `run-20260811T223409Z` used 31,935/32,000 characters and
+  sent `builder.ts` to final assessment, confirming the original budget gate
+  was removed for that path. The final LLM did not accept it; the run remained
+  `partial/false`, zero implementation overlap, with 33,199 retrieval tokens.
+  Index reuse was reported.
+- Unchanged `run-20260811T223649Z` remained `partial/false`, zero overlap, and
+  used 33,832 tokens with index reuse. Its ledger shows one builder-containing
+  bundle still exceeded the remaining capacity at 30,781/32,000 characters;
+  other `builder.ts` and `builderState.ts` bundles stopped at the six-
+  explanation limit. Raising the budget alone therefore does not stabilize
+  builder evidence; the later explanation-count/ranking policy is the next
+  measured boundary. The enlarged cap remains enabled per user direction.
+
+- Added a non-behavioral JSONL decision ledger for the connected-explanation
+  path. It records initial Qdrant rank-to-candidate grounding, semantic-root
+  eligibility and root-cap losses, per-root neighbor rank-cap and localization
+  outcomes, global candidate support/score/degree, every explanation-bundle
+  selection or rejection, and the final LLM's per-obligation acceptance and
+  stated reason. Raw Qdrant and CodeGraph responses remain available through
+  the existing tool events. The design and expected zero-token impact are
+  documented in `final-stage-decision-ledger.md`.
+- Real warm-index TypeScript reruns: `run-20260811T221529Z` was
+  `partial/false`, used 26,374 retrieval LLM tokens, and recovered both
+  implementation Oracle files (`builder.ts` and `builderState.ts`).
+  `builder.ts` was an initial semantic result for two obligations (including
+  rank 1) but lost the four-root cap; it nevertheless survived as an exact
+  candidate and final evidence. `builderState.ts` was initially rank 6 and did
+  not qualify as a root, but still reached final evidence through graph
+  expansion. Index reuse was reported.
+- Unchanged repeat `run-20260811T221827Z` was `partial/false`, used 26,330
+  retrieval LLM tokens, and had zero implementation Oracle overlap despite
+  index reuse. Both builder files existed as graph candidates with inherited
+  support, but their explanation bundles were rejected by the 16,000-character
+  input budget before the final LLM request. This is now a measured,
+  file-specific discard reason rather than an inference.
+- Verification: 62 focused obligation-retrieval tests and 117 retrieval tests
+  passed. The ledger is retained regardless of the quality outcome so later
+  comparisons can audit the exact decision boundary.
+
+### Connected Evidence Explanations Replace The 24-File Allocator
+
+- Removed the 24-file promotion pool, inherited file scores, reserved final
+  neighbor slots, one-representative-per-file allocation, and final component
+  filler. Direction-neutral graph discovery remains.
+- Initial per-obligation Qdrant results now retain their original obligation
+  relationship. Graph neighbors are localized with the originating root's
+  obligation descriptions and attached to every originating obligation rather
+  than redirected by a later combined query.
+- Final selection now operates on exact candidate nodes and directed productive
+  edges. It constructs diverse connected candidate explanations under a
+  16,000-character unique-snippet budget and sends those structures to the final
+  LLM with separate direct and inherited obligation provenance.
+- No root score transfers into a neighbor score, and multiple exact nodes from
+  one file may survive. The implementation framework, token expectations, and
+  known risks are documented in `connected-evidence-explanations.md`.
+- Verification passes 62 focused obligation-retrieval tests and 117 retrieval
+  tests. Five real workspace runs all reused Qdrant and remained `partial/false`:
+  TypeScript `run-20260811T202723Z` selected 3 explanations/14 candidates,
+  retained `watchMode.ts`, produced overlap 1, and used 19,317 retrieval tokens;
+  unchanged `run-20260811T203005Z` selected 5/21, retained no measured Oracle,
+  produced overlap 0, and used 24,053 tokens. Vue 242
+  `run-20260811T203316Z` sent `exp-parser.js` but the final LLM rejected it
+  (overlap 0, 24,333 tokens). Vue 10803 `run-20260811T203434Z` sent both Oracle
+  files and selected `dom-props.js` (overlap 1, 25,907 tokens). pandas 10068
+  `run-20260811T203626Z` sent no Oracle and produced overlap 0 with 18,753 tokens.
+- The design correction is retained per explicit user direction. Measurements
+  show no stable quality improvement yet; the next failure boundary is causal
+  explanation ranking and final assessment rather than obligation redirection or
+  a fixed 24-file cutoff.
+
+### Recurrence And Connected-File Promotion Replaces Role Protection
+
+- Corrected the unsupported assumption that Oracle evidence is generally
+  implementation-role. The TypeScript Oracle set includes
+  `src/testRunner/unittests/tsbuild/watchMode.ts` and
+  `src/testRunner/unittests/tscWatch/helpers.ts`; both existed in the broader
+  candidate universe but the implementation-only pool did not protect them.
+- Removed implementation-role eligibility from the 24-file allocator. Initial
+  hybrid recurrence, best rank, and exceptional top-two rank now create a
+  role-neutral semantic signal.
+- Added direction-neutral connection inheritance after graph expansion. A file
+  connected through productive edges to a recurrent or exceptional semantic
+  root inherits promotion strength based on root recurrence and distinct edge
+  count. This is intended to carry graph-only `helpers.ts` alongside recurrent
+  `watchMode.ts`.
+- Added separate file-neighbor queries for the four strongest semantic roots and
+  reserved the top two productive neighbors of each root before global-score
+  fill. This prevents one generic high-degree root from consuming all 24 slots.
+  Graph-only reserved files receive a grouped Qdrant localization and exact
+  CodeGraph range grounding. No LLM call was added.
+- Final scoped comparison `run-20260811T190625Z`: `builderState.ts`,
+  `watchMode.ts`, and graph-only `tscWatch/helpers.ts` reached both the 24-file
+  pool and final request. Oracle overlap was 1, result `partial/false`, retrieval
+  usage 18,080 tokens, and Qdrant `rebuilt=false`.
+- Unchanged repeat `run-20260811T190912Z`: all four Oracle files reached both the
+  pool and final request. Oracle overlap was 2, result `partial/false`, retrieval
+  usage 17,541 tokens, and Qdrant `rebuilt=false`.
+- In both final runs, `helpers.ts` had zero direct semantic recurrence but
+  survived through 40/39 productive connections to recurrent `watchMode.ts` and
+  a reserved-neighbor slot. Candidate survival improved from 1/4 and 2/4 in the
+  prior implementation-only pair to 3/4 and 4/4. Final LLM acceptance remains
+  incomplete. The policy remains enabled per explicit user direction.
+- Verification: 63 focused obligation tests and 118 retrieval tests pass.
 
 ### Direction-Neutral Provenance And Protected Owner Pool
 
@@ -8,12 +513,17 @@
 - Added a request-level protected pool containing `implementation` files from the top 12 hybrid results of any initial repository obligation, capped at 24. Protected files retain a grounded candidate despite weak generated-proposition overlap. One representative per protected file is allocated before the remaining positions are filled from the existing connected-component shortlist; the total TypeScript final request remained 24 candidates.
 - `run-20260811T173906Z`: 19 protected files; `builder.ts` entered the pool and final request as exact `isChangedSignagure`, was selected, and produced one implementation Oracle overlap. Result was `partial/false`, retrieval LLM usage was 15,257 tokens, and index reuse reported `rebuilt=false`.
 - Unchanged repeat `run-20260811T174132Z`: the 24-file pool contained both builder files and both reached the final request; `builderState.ts:updateExportedModules` was selected, again producing one implementation Oracle overlap. Result was `partial/false`, retrieval LLM usage was 19,037 tokens, and index reuse reported `rebuilt=false`.
-- This improves the immediately preceding backend-scope-only pair from zero/zero to one/one Oracle overlap, so the pool remains enabled. It does not yet stabilize which builder owner is selected and increased retrieval tokens by 4,799/7,420 relative to that pair. Focused verification covers direction parity, deterministic pool construction, request-level representative allocation, and the unchanged global candidate bound.
+- This historical implementation-only pool was replaced after auditing the
+  complete Oracle set. Its one/one implementation overlap did not justify
+  excluding two test-role Oracle files.
 
 ### Matched Candidate-Survival Audit
 
 - Extended the eight-run offline audit from aggregate feature means to a same-run candidate survival test. Without using Oracle labels in the policy, the union of `implementation` files appearing within the top 12 hybrid results of any initial obligation retained every causal source-owner Oracle file in all eight runs.
-- The protected pool contained only 12-22 files per run: `src/exp-parser.js`, Vue's server `dom-props.js`, both TypeScript builder files, and `pandas/core/series.py` all survived in both repetitions. Test Oracle files are intentionally outside this owner guarantee because they validate behavior rather than own the mutation mechanism.
+- The measured implementation-only pool contained 12-22 files per run, but the
+  conclusion drawn from it was incomplete: test Oracle files were excluded from
+  the analysis even though they are valid benchmark evidence. That exclusion is
+  the reason the original protected-pool policy is now considered invalid.
 - The remaining loss is caused by allocating four nodes from one winning connected component per obligation. Newer TypeScript traces show builder and builder-state functions directly adjacent to semantic seeds, frequently as upstream callers. The current provenance order favors visible downstream `graph_direct_target` nodes over upstream `graph_neighbor` owners, so edge orientation and component size can erase the causal owner before the LLM sees it.
 - The next implementation experiment should therefore protect the measured request-level file pool before component ranking, allocate one exact executable representative per protected file within a 24-file cap, and only then ask for a joint producer/state-owner/consumer selection. This changes survival/allocation, not evidence acceptance. The reproducible table is in `offline-shortlist-signal-audit.md`.
 

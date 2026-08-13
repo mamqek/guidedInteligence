@@ -21,7 +21,8 @@ from services.retrieval.workspace.tools import ToolRequest
 
 MAX_OBLIGATIONS = 10
 MAX_EVIDENCE = 14
-MAX_PER_OBLIGATION = 2
+# Final evidence is selected under one request-level budget. Obligations remain
+# retrieval lenses and explanation checks; they are not per-obligation buckets.
 DUPLICATE_PROVENANCE_PENALTY = 0.8
 OVERSIZED_UNCONNECTED_FILE_BYTES = 200_000
 OVERSIZED_UNCONNECTED_FILE_PENALTY = 1.25
@@ -32,12 +33,30 @@ FOCUSED_EXPANSION_NODE_LIMIT = 80
 MAX_FOCUSED_RESULTS = 12
 MAX_GRAPH_EXPANSION_ROUNDS = 3
 MAX_CONSOLIDATION_CANDIDATES = 4
-MAX_PROTECTED_OWNER_FILES = 24
-PROTECTED_OWNER_HYBRID_RANK = 12
+SEMANTIC_SIGNAL_RANK_LIMIT = 12
+MAX_EXPLANATION_ROOTS = 4
+MAX_NEIGHBORS_PER_ROOT = 48
+MAX_LOCALIZED_NEIGHBORS_PER_ROOT = 2
+MAX_MECHANISM_FLOW_DEPTH = 10
+MAX_MECHANISM_FLOW_SEEDS = 128
+MAX_MECHANISM_FLOW_BEAM = 8
+MAX_MECHANISM_FLOW_CANDIDATES = 1_024
+MAX_MECHANISM_FLOWS_PER_SEED = 8
+MAX_MECHANISM_CALLEE_RESOLUTIONS = 12
+MAX_MECHANISM_CALLEE_ROUNDS = 2
+MAX_FACTORY_HANDOFF_RESOLUTIONS = 8
+MAX_FACTORY_HANDOFF_DEPTH = 4
+MAX_MECHANISM_PATH_FRONTIER_FILES = 64
+MAX_MECHANISM_PATH_FRONTIER_ROUNDS = 2
+# The mechanism-graph experiment is intentionally unbounded. A request limit will
+# be reintroduced only after graph-selection behavior is stable and measured.
+MAX_EXPLANATION_INPUT_CHARS: int | None = None
 MAX_CONSOLIDATION_SNIPPET_CHARS = 2400
+EXPLANATION_PAYLOAD_SERIALIZATION_MARGIN = 512
 MAX_STANDALONE_ANCHOR_PATHS = 4
 PRODUCTIVE_RECOVERY_RELATIONSHIPS = {
     "calls",
+    "contained_call",
     "references",
     "imports",
     "file_dependency",
@@ -45,6 +64,17 @@ PRODUCTIVE_RECOVERY_RELATIONSHIPS = {
     "extends",
     "overrides",
     "instantiates",
+    "qualified_call",
+    "registered_callback",
+    "state_write_read",
+    "factory_handoff",
+}
+DIRECT_OBLIGATION_PROVENANCE = {
+    "request_anchor",
+    "exact_prompt_anchor",
+    "semantic_anchor",
+    "graph_frontier_semantic",
+    "focused_semantic_bridge",
 }
 CONSOLIDATION_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "obligation_evidence_consolidation.md"
 SEMANTIC_BRIDGE_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "focused_semantic_bridge.md"
@@ -53,6 +83,72 @@ INTENT_STAGE_PURPOSES = {
     for contract in INTENT_CONTRACTS.values()
     for stage in contract.stages
 }
+INTENT_STAGE_RETRIEVAL_TERMS = {
+    "explain.subject": ("implementation owner", "responsibility"),
+    "explain.trigger": ("entry event", "callback", "invocation"),
+    "explain.ordered_mechanism": ("caller callee", "handoff", "producer consumer"),
+    "explain.state_changes": ("mutation update", "cache signature", "dependency representation"),
+    "explain.resulting_effect": ("output diagnostic", "consumer", "report"),
+    "explain.why": ("invalidation propagation", "affected dependency", "owner condition"),
+}
+
+
+@dataclass(frozen=True)
+class SemanticDiscovery:
+    """One obligation-specific semantic retrieval observation for a candidate."""
+
+    obligation_id: str
+    rank: int
+    score: float
+    matched_terms: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "obligation_id": self.obligation_id,
+            "rank": self.rank,
+            "score": round(self.score, 4),
+            "matched_terms": list(self.matched_terms),
+        }
+
+
+@dataclass(frozen=True)
+class CandidateFacts:
+    """Deterministic observations attached to one exact candidate.
+
+    Facts record retrieval and source observations; they do not classify a
+    candidate's semantic responsibility.  This gives later graph policies one
+    auditable representation instead of repeatedly reparsing candidate text.
+    """
+
+    semantic_discoveries: tuple[SemanticDiscovery, ...] = ()
+    visible_calls: tuple[str, ...] = ()
+    callable_defaults: tuple[tuple[str, str], ...] = ()
+    returned_names: tuple[str, ...] = ()
+    written_fields: tuple[str, ...] = ()
+    read_fields: tuple[str, ...] = ()
+    full_range: tuple[int, int] = ()
+    primary_anchor: tuple[int, int] = ()
+    anchor_reliability_tier: int = 0
+    anchor_decision_code: str = ""
+    localization_adapter: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "semantic_discoveries": [item.to_dict() for item in self.semantic_discoveries],
+            "visible_calls": list(self.visible_calls),
+            "callable_defaults": [
+                {"value": value, "factory": factory}
+                for value, factory in self.callable_defaults
+            ],
+            "returned_names": list(self.returned_names),
+            "written_fields": list(self.written_fields),
+            "read_fields": list(self.read_fields),
+            "full_range": list(self.full_range),
+            "primary_anchor": list(self.primary_anchor),
+            "anchor_reliability_tier": self.anchor_reliability_tier,
+            "anchor_decision_code": self.anchor_decision_code,
+            "localization_adapter": self.localization_adapter,
+        }
 
 
 @dataclass(frozen=True)
@@ -74,6 +170,7 @@ class GroundedCandidate:
     source_paths: tuple[str, ...] = ()
     relationship_types: tuple[str, ...] = ()
     obligation_ids: tuple[str, ...] = ()
+    facts: CandidateFacts = field(default_factory=CandidateFacts)
 
 
 @dataclass(frozen=True)
@@ -127,7 +224,7 @@ class ObligationProgress:
                     "relationship_types": list(item.relationship_types or ((item.relationship,) if item.relationship else ())),
                     "obligation_ids": list(item.obligation_ids),
                 }
-                for item in self.candidates[:MAX_PER_OBLIGATION]
+                for item in self.candidates[:MAX_EVIDENCE]
             ],
             "discovery_hints": [
                 {
@@ -207,13 +304,8 @@ def run_obligation_retrieval(
         for item in repository_obligations
     }
     for obligation in repository_obligations:
-        stage_purposes = tuple(
-            INTENT_STAGE_PURPOSES[stage_id]
-            for stage_id in obligation.stage_ids
-            if stage_id in INTENT_STAGE_PURPOSES
-        )
         query = _obligation_query(
-            " ".join((*stage_purposes, obligation.description)),
+            _obligation_stage_query_text(obligation),
             (*unresolved_symbol_anchors, *ambiguous_symbol_anchors),
             anchors=tuple(anchor for anchor in obligation.anchor_refs if anchor in confirmed_values),
             search_terms=connected_search_terms,
@@ -240,20 +332,6 @@ def run_obligation_retrieval(
         semantic_by_obligation[obligation.id] = [
             dict(item) for item in observation.payload.get("results", ()) if isinstance(item, Mapping)
         ][:MAX_FOCUSED_RESULTS]
-
-    protected_owner_paths = _protected_initial_implementation_paths(
-        semantic_by_obligation,
-        rank_limit=PROTECTED_OWNER_HYBRID_RANK,
-        limit=MAX_PROTECTED_OWNER_FILES,
-    )
-    ctx.trace.record(
-        "protected_owner_file_pool_created",
-        {
-            "rank_limit": PROTECTED_OWNER_HYBRID_RANK,
-            "file_limit": MAX_PROTECTED_OWNER_FILES,
-            "paths": list(protected_owner_paths),
-        },
-    )
 
     ranges = [
         {
@@ -324,7 +402,7 @@ def run_obligation_retrieval(
             concepts=concepts_by_obligation[obligation.id],
             origin="semantic_anchor",
             workspace_root=ctx.config.workspace_root,
-            protected_paths=protected_owner_paths,
+            allow_without_obligation_overlap=True,
         )
         for candidate in progress[obligation.id].candidates:
             if candidate.node_id:
@@ -332,6 +410,29 @@ def run_obligation_retrieval(
 
     for item in progress.values():
         item.candidates = _dedupe_candidates(item.candidates)
+
+    # The Qdrant tool events contain the raw result chunks.  This companion
+    # ledger states exactly which of those results became usable candidates
+    # before later graph and explanation decisions can discard them.
+    ctx.trace.record(
+        "initial_semantic_candidates_grounded",
+        {
+            "obligations": [
+                {
+                    "obligation_id": obligation.id,
+                    "semantic_results": [
+                        _semantic_result_trace_item(result, rank=rank)
+                        for rank, result in enumerate(semantic_by_obligation[obligation.id], start=1)
+                    ],
+                    "grounded_candidates": [
+                        _candidate_trace_item(candidate)
+                        for candidate in progress[obligation.id].candidates
+                    ],
+                }
+                for obligation in repository_obligations
+            ],
+        },
+    )
 
     expanded_edges: list[dict[str, Any]] = []
     focused_expansion_count = 0
@@ -371,7 +472,14 @@ def run_obligation_retrieval(
         focused_expansion_count += 1
         if observation.status != "ok":
             raise RuntimeError(f"CodeGraph obligation expansion failed for {obligation.id}.")
-        obligation_edges = [dict(edge) for edge in observation.payload.get("edges", ()) if isinstance(edge, Mapping)]
+        raw_obligation_edges = [dict(edge) for edge in observation.payload.get("edges", ()) if isinstance(edge, Mapping)]
+        _record_file_call_localization_decisions(
+            ctx,
+            raw_obligation_edges,
+            obligation_id=obligation.id,
+            round_index=1,
+        )
+        obligation_edges = _normalized_expansion_edges(raw_obligation_edges)
         expanded_edges.extend(obligation_edges)
         node_by_id = {
             str(node.get("id") or ""): dict(node)
@@ -380,6 +488,7 @@ def run_obligation_retrieval(
             and str(node.get("id") or "")
             and file_role(str(node.get("path") or "")) != "baseline_or_generated"
         }
+        node_by_id.update(_edge_nodes_by_id(obligation_edges))
         seed_candidate_by_id = {
             candidate.node_id: candidate
             for candidate in (
@@ -629,6 +738,48 @@ def run_obligation_retrieval(
     )
     expanded_edges = _dedupe_edges(expanded_edges)
 
+    explanation_file_neighbors, explanation_neighbor_calls = _semantic_root_file_neighbors(
+        ctx,
+        structural_tools["structural_file_neighbors"],
+        semantic_by_obligation,
+        rank_limit=SEMANTIC_SIGNAL_RANK_LIMIT,
+    )
+    tool_calls += explanation_neighbor_calls
+    neighbor_grounding_calls = _ground_semantic_root_neighbors(
+        ctx,
+        states=tuple(progress[item.id] for item in repository_obligations),
+        semantic_by_obligation=semantic_by_obligation,
+        concepts_by_obligation=concepts_by_obligation,
+        file_neighbors=explanation_file_neighbors,
+        qdrant_tool=qdrant_tool,
+        resolve_ranges_tool=structural_tools["structural_resolve_ranges"],
+    )
+    tool_calls += neighbor_grounding_calls
+
+    connected_endpoint_calls = _recover_connected_semantic_endpoints(
+        ctx,
+        states=tuple(progress[item.id] for item in repository_obligations),
+        concepts_by_obligation=concepts_by_obligation,
+        qdrant_tool=qdrant_tool,
+        file_neighbors_tool=structural_tools["structural_file_neighbors"],
+        resolve_ranges_tool=structural_tools["structural_resolve_ranges"],
+    )
+    tool_calls += connected_endpoint_calls
+    callee_grounding_calls = _recover_prompt_relevant_exact_callees(
+        ctx,
+        states=tuple(progress[item.id] for item in repository_obligations),
+        find_exact_symbol_tool=structural_tools["structural_find_exact_symbol"],
+    )
+    tool_calls += callee_grounding_calls
+    factory_handoff_calls, factory_handoff_edges = _recover_factory_handoffs(
+        ctx,
+        states=tuple(progress[item.id] for item in repository_obligations),
+        find_exact_symbol_tool=structural_tools["structural_find_exact_symbol"],
+    )
+    tool_calls += factory_handoff_calls
+    expanded_edges.extend(factory_handoff_edges)
+    expanded_edges = _dedupe_edges(expanded_edges)
+
     _apply_duplicate_provenance_ranking(
         progress,
         expanded_edges=expanded_edges,
@@ -660,12 +811,64 @@ def run_obligation_retrieval(
         len(_dedupe_candidates((*item.candidates, *item.discovery_hints)))
         for item in progress.values()
     )
-    consolidation = _consolidate_obligation_evidence(
-        ctx,
-        tuple(progress[item.id] for item in repository_obligations),
-        expanded_edges=expanded_edges,
-        protected_file_paths=protected_owner_paths,
+    repository_states = tuple(progress[item.id] for item in repository_obligations)
+    preselection_candidates, direct_support, inherited_support = _candidate_support_graph(repository_states)
+    preselection_inventory = [
+        {
+            **_candidate_trace_item(candidate, candidate_id=candidate_id),
+            "direct_obligation_ids": sorted(direct_support.get(candidate_id, ())),
+            "inherited_obligation_ids": sorted(inherited_support.get(candidate_id, ())),
+            "text_chars": len(candidate.text),
+        }
+        for candidate_id, candidate in preselection_candidates.items()
+    ]
+    ctx.trace.record(
+        "preselection_candidate_pool_created",
+        {
+            "candidate_count": len(preselection_inventory),
+            "raw_file_node_candidate_count": sum(
+                str(item.get("node_id") or "").startswith("file:")
+                for item in preselection_inventory
+            ),
+            "localized_candidate_count": sum(
+                bool(item.get("facts", {}).get("localization_adapter"))
+                for item in preselection_inventory
+            ),
+            "candidates": preselection_inventory,
+        },
     )
+    if ctx.config.final_evidence_selection_enabled:
+        consolidation = _consolidate_obligation_evidence(
+            ctx,
+            repository_states,
+            expanded_edges=expanded_edges,
+        )
+    else:
+        consolidation = {
+            "strategy": "explicitly_skipped_for_candidate_pool_diagnostics",
+            "skipped": True,
+            "llm_calls": 0,
+            "accepted_candidate_ids": [],
+            "accepted_ids_by_obligation": {},
+            "rejected_candidate_ids": [],
+            "invalid_candidate_ids": [],
+            "obligation_statuses": {
+                state.obligation.id: "unresolved" for state in repository_states
+            },
+            "unresolved_reasons": {
+                state.obligation.id: "Final evidence selection was explicitly disabled for this diagnostic run."
+                for state in repository_states
+            },
+            "concepts": [],
+            "usage": {},
+        }
+        ctx.trace.record(
+            "final_evidence_selection_skipped",
+            {
+                "reason": "explicit_diagnostic_configuration",
+                "candidate_count": len(preselection_inventory),
+            },
+        )
 
     for obligation in obligations:
         item = progress[obligation.id]
@@ -679,7 +882,12 @@ def run_obligation_retrieval(
                 "so it was not searched in the selected repository."
             )
             continue
-        item.status = "supported" if item.candidates else "unresolved"
+        assessment_status = consolidation.get("obligation_statuses", {}).get(obligation.id, "unresolved")
+        item.status = (
+            "supported"
+            if assessment_status in {"prompt_grounded", "repository_supported", "jointly_supported"}
+            else "unresolved"
+        )
         if item.status == "unresolved":
             item.unresolved_reason = consolidation["unresolved_reasons"].get(
                 obligation.id,
@@ -733,17 +941,25 @@ def run_obligation_retrieval(
             item.transitions.append(transition)
 
     selected: list[EvidenceItem] = []
-    selected_keys: set[tuple[str, int, int]] = set()
-    for obligation in obligations:
-        item = progress[obligation.id]
-        if obligation.evidence_source != EvidenceSource.REPOSITORY:
+    selected_candidates_by_id = {
+        _global_candidate_id(candidate): candidate
+        for item in progress.values()
+        for candidate in item.candidates
+    }
+    accepted_ids_by_obligation = consolidation.get("accepted_ids_by_obligation", {})
+    for candidate_id in consolidation.get("accepted_candidate_ids", ()):
+        candidate = selected_candidates_by_id.get(candidate_id)
+        if candidate is None or len(selected) >= MAX_EVIDENCE:
             continue
-        for candidate in item.candidates[:MAX_PER_OBLIGATION]:
-            key = (candidate.path, candidate.line_start, candidate.line_end)
-            if key in selected_keys or len(selected) >= MAX_EVIDENCE:
-                continue
-            selected_keys.add(key)
-            selected.append(_evidence_item(candidate, obligation_id=obligation.id, rank=len(selected) + 1))
+        obligation_id = next(
+            (
+                obligation.id
+                for obligation in repository_obligations
+                if candidate_id in accepted_ids_by_obligation.get(obligation.id, ())
+            ),
+            repository_obligations[0].id if repository_obligations else "mechanism",
+        )
+        selected.append(_evidence_item(candidate, obligation_id=obligation_id, rank=len(selected) + 1))
 
     selected_external_ids = set(connected_context.selected_evidence_ids)
     for document in connected_context.documents:
@@ -802,6 +1018,8 @@ def run_obligation_retrieval(
         "focused_frontier_query_count": focused_frontier_query_count,
         "focused_qualified_reference_count": focused_qualified_reference_count,
         "candidate_graph_size_before_final_selection": candidate_graph_size,
+        "unique_candidate_count_before_final_selection": len(preselection_inventory),
+        "preselection_candidate_pool": preselection_inventory,
         "final_selection_llm_calls": consolidation.get("llm_calls", 0),
         "stop_reason": "all_required_obligations_supported" if sufficient else "required_obligations_unresolved",
         "structural_graph_provider": "codegraph",
@@ -875,7 +1093,14 @@ def _expand_grounded_candidate_graph(
             tool_calls += 1
             if observation.status != "ok":
                 raise RuntimeError(f"CodeGraph continuation failed for {state.obligation.id}.")
-            edges = [dict(edge) for edge in observation.payload.get("edges", ()) if isinstance(edge, Mapping)]
+            raw_edges = [dict(edge) for edge in observation.payload.get("edges", ()) if isinstance(edge, Mapping)]
+            _record_file_call_localization_decisions(
+                ctx,
+                raw_edges,
+                obligation_id=state.obligation.id,
+                round_index=round_index,
+            )
+            edges = _normalized_expansion_edges(raw_edges)
             expanded_edges.extend(edges)
             nodes = {
                 str(node.get("id") or ""): dict(node)
@@ -884,6 +1109,7 @@ def _expand_grounded_candidate_graph(
                 and str(node.get("id") or "")
                 and file_role(str(node.get("path") or "")) != "baseline_or_generated"
             }
+            nodes.update(_edge_nodes_by_id(edges))
             seed_by_id = {candidate.node_id: candidate for candidate in seeds}
             existing = {
                 (candidate.path, candidate.line_start, candidate.line_end)
@@ -899,7 +1125,7 @@ def _expand_grounded_candidate_graph(
                 for seed_id, other_id in ((source_id, target_id), (target_id, source_id)):
                     seed = seed_by_id.get(seed_id)
                     node = nodes.get(other_id)
-                    if seed is None or node is None or other_id in visited:
+                    if seed is None or node is None:
                         continue
                     symbol = str(node.get("name") or node.get("qualified_name") or "")
                     direct_target = _is_visible_direct_target(
@@ -935,6 +1161,103 @@ def _expand_grounded_candidate_graph(
         if round_added == 0:
             break
     return tool_calls, _dedupe_edges(expanded_edges), rounds
+
+
+def _record_file_call_localization_decisions(
+    ctx: WorkspaceRetrievalContext,
+    edges: Sequence[Mapping[str, Any]],
+    *,
+    obligation_id: str,
+    round_index: int,
+) -> None:
+    decisions = [
+        dict(localization)
+        for edge in edges
+        if isinstance((localization := edge.get("file_call_localization")), Mapping)
+    ]
+    if not decisions:
+        return
+    ctx.trace.record(
+        "file_call_localization_decisions",
+        {
+            "obligation_id": obligation_id,
+            "round": round_index,
+            "decision_count": len(decisions),
+            "localized_count": sum(item.get("status") == "localized" for item in decisions),
+            "rejected_count": sum(item.get("status") != "localized" for item in decisions),
+            "decisions": decisions,
+        },
+    )
+
+
+def _normalized_expansion_edges(
+    edges: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Replace aggregate file-call edges with their audited executable owner.
+
+    The raw file edge is a discovery hint only. A rejected localization is not
+    retained in the candidate mechanism graph.
+    """
+    normalized: list[dict[str, Any]] = []
+    for edge in edges:
+        source = edge.get("source") if isinstance(edge.get("source"), Mapping) else {}
+        localization = (
+            edge.get("file_call_localization")
+            if isinstance(edge.get("file_call_localization"), Mapping)
+            else None
+        )
+        if str(edge.get("kind") or "") != "calls" or str(source.get("kind") or "") != "file":
+            normalized.append(dict(edge))
+            continue
+        if localization is None or localization.get("status") != "localized":
+            continue
+        selected = localization.get("selected") if isinstance(localization.get("selected"), Mapping) else {}
+        owner = selected.get("owner") if isinstance(selected.get("owner"), Mapping) else {}
+        target = edge.get("target") if isinstance(edge.get("target"), Mapping) else {}
+        if not owner or not target:
+            continue
+        reliability_tier = int(selected.get("reliability_tier") or 0)
+        normalized.append(
+            {
+                "kind": "calls" if reliability_tier >= 4 else "contained_call",
+                "provenance": (
+                    "exact_codegraph_function_call"
+                    if reliability_tier >= 4
+                    else "source_localized_contained_call"
+                ),
+                "source": {
+                    **dict(owner),
+                    "localization_adapter": str(localization.get("adapter") or ""),
+                    "anchor": dict(selected.get("anchor") or {}),
+                    "anchor_reliability_tier": reliability_tier,
+                    "anchor_decision_code": str(localization.get("decision_code") or ""),
+                },
+                "target": dict(target),
+                "localization": {
+                    "adapter": str(localization.get("adapter") or ""),
+                    "decision_code": str(localization.get("decision_code") or ""),
+                    "anchor": dict(selected.get("anchor") or {}),
+                    "reliability_tier": reliability_tier,
+                    "full_line_start": int(owner.get("full_line_start") or owner.get("line_start") or 0),
+                    "full_line_end": int(owner.get("full_line_end") or owner.get("line_end") or 0),
+                },
+            }
+        )
+    return _dedupe_edges(normalized)
+
+
+def _edge_nodes_by_id(edges: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {
+        node_id: dict(endpoint)
+        for edge in edges
+        for endpoint in (
+            edge.get("source") if isinstance(edge.get("source"), Mapping) else {},
+            edge.get("target") if isinstance(edge.get("target"), Mapping) else {},
+        )
+        if (node_id := str(endpoint.get("id") or ""))
+        and str(endpoint.get("path") or "")
+        and file_role(str(endpoint.get("path") or "")) != "baseline_or_generated"
+    }
 
 
 def _has_usable_exact_graph_ranges(candidates: Sequence[GroundedCandidate]) -> bool:
@@ -1091,7 +1414,6 @@ def _run_focused_semantic_bridge(
         return {"attempted": False, "tool_calls": 0, "edges": [], "reason": "no_unresolved_structural_handoff"}
     source, target, endpoint = gap
     usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-
     def log_event(event_type: str, payload: Mapping[str, Any]) -> None:
         if event_type == "llm_response_received":
             raw = payload.get("raw_response", {})
@@ -1299,62 +1621,1281 @@ def _run_focused_semantic_bridge(
     return result
 
 
-def _consolidate_obligation_evidence(
-    ctx: WorkspaceRetrievalContext,
+def _global_candidate_id(candidate: GroundedCandidate) -> str:
+    return _candidate_ledger_key(candidate)
+
+
+def _candidate_support_graph(
     states: Sequence[ObligationProgress],
+) -> tuple[
+    dict[str, GroundedCandidate],
+    dict[str, set[str]],
+    dict[str, set[str]],
+]:
+    valid_obligations = {state.obligation.id for state in states}
+    candidates: dict[str, GroundedCandidate] = {}
+    direct_support: dict[str, set[str]] = {}
+    inherited_support: dict[str, set[str]] = {}
+    for state in states:
+        for candidate in _dedupe_candidates(state.candidates):
+            candidate_id = _global_candidate_id(candidate)
+            current = candidates.get(candidate_id)
+            candidates[candidate_id] = candidate if current is None else _merge_candidate_provenance(current, candidate)
+            mapped_obligations = {
+                value for value in (*candidate.obligation_ids, state.obligation.id) if value in valid_obligations
+            }
+            provenance = set(candidate.provenance_origins or (candidate.origin,))
+            target = direct_support if provenance & DIRECT_OBLIGATION_PROVENANCE else inherited_support
+            target.setdefault(candidate_id, set()).update(mapped_obligations)
+    for candidate_id in candidates:
+        direct_support.setdefault(candidate_id, set())
+        inherited_support.setdefault(candidate_id, set()).difference_update(direct_support[candidate_id])
+    return candidates, direct_support, inherited_support
+
+
+def _recover_connected_semantic_endpoints(
+    ctx: WorkspaceRetrievalContext,
     *,
-    expanded_edges: Sequence[Mapping[str, Any]] = (),
-    max_candidates_per_obligation: int = MAX_CONSOLIDATION_CANDIDATES,
-    protected_file_paths: Sequence[str] = (),
-) -> dict[str, Any]:
-    candidate_by_id: dict[str, GroundedCandidate] = {}
-    candidate_obligation: dict[str, str] = {}
-    candidate_ids_by_obligation: dict[str, list[str]] = {}
-    payload_obligations: list[dict[str, Any]] = []
-    connected_shortlists = _connected_candidate_shortlists(
-        states,
-        expanded_edges=expanded_edges,
-        limit=max_candidates_per_obligation,
-        protected_file_paths=protected_file_paths,
-    )
-    ctx.trace.record(
-        "obligation_candidate_shortlists_created",
-        {
-            "limit_per_obligation": max_candidates_per_obligation,
-            "request_candidate_limit": max_candidates_per_obligation * len(states),
-            "protected_file_paths": list(protected_file_paths),
-            "obligations": [
+    states: Sequence[ObligationProgress],
+    concepts_by_obligation: Mapping[str, Sequence[str]],
+    qdrant_tool: Any,
+    file_neighbors_tool: Any,
+    resolve_ranges_tool: Any,
+) -> int:
+    """Localize obligation-relevant functions inside a two-hop call frontier."""
+
+    tool_calls = 0
+    decisions: list[dict[str, Any]] = []
+    for state in states:
+        obligation_id = state.obligation.id
+        obligation_terms = _distinctive_terms(_obligation_stage_query_text(state.obligation))
+        direct_candidates = [
+            candidate
+            for candidate in _dedupe_candidates((*state.candidates, *state.discovery_hints))
+            if candidate.file_role == "implementation"
+            and set(candidate.provenance_origins or (candidate.origin,)) & DIRECT_OBLIGATION_PROVENANCE
+        ]
+        roots = tuple(
+            ordered_unique(
+                tuple(
+                    candidate.path
+                    for candidate in sorted(
+                        direct_candidates,
+                        key=lambda candidate: (
+                            -len(_mechanism_candidate_terms(candidate) & obligation_terms),
+                            -candidate.score,
+                            candidate.path,
+                        ),
+                    )
+                )
+            )[:MAX_EXPLANATION_ROOTS]
+        )
+        if not roots:
+            continue
+        visited_paths = set(roots)
+        frontier = set(roots)
+        provenance_by_path: dict[str, set[str]] = {}
+        for round_index in range(MAX_MECHANISM_PATH_FRONTIER_ROUNDS):
+            request = ToolRequest(
+                tool_name="structural_file_neighbors",
+                arguments={
+                    "paths": sorted(frontier),
+                    "limit": MAX_MECHANISM_PATH_FRONTIER_FILES,
+                },
+                reason=f"Find call-connected implementation files for {obligation_id}.",
+            )
+            observation = file_neighbors_tool.run(request)
+            ctx.trace.record_tool(request, observation, round_index=MAX_GRAPH_EXPANSION_ROUNDS + 2 + round_index)
+            tool_calls += 1
+            if observation.status != "ok":
+                raise RuntimeError(f"CodeGraph connected semantic frontier failed for {obligation_id}.")
+            next_frontier: set[str] = set()
+            for raw in observation.payload.get("neighbors", ()):
+                if not isinstance(raw, Mapping):
+                    continue
+                path = str(raw.get("path") or "").replace("\\", "/")
+                relationships = set(str(value) for value in raw.get("edge_kinds", ()) if value)
+                if (
+                    not path
+                    or path in visited_paths
+                    or file_role(path) != "implementation"
+                    or not relationships & {"calls", "qualified_call"}
+                ):
+                    continue
+                next_frontier.add(path)
+                provenance_by_path.setdefault(path, set()).update(frontier)
+            if not next_frontier:
+                break
+            frontier = set(sorted(next_frontier)[:MAX_MECHANISM_PATH_FRONTIER_FILES])
+            visited_paths.update(frontier)
+        connected_paths = sorted(provenance_by_path)
+        if not connected_paths:
+            continue
+        search = ToolRequest(
+            tool_name="qdrant_hybrid_search",
+            arguments={
+                "query": _obligation_stage_query_text(state.obligation),
+                "limit": MAX_FOCUSED_RESULTS,
+                "max_per_path": 1,
+                "source_category": "source_code",
+                "file_role": "implementation",
+                "paths": connected_paths,
+                "preferred_paths": connected_paths,
+            },
+            reason=f"Localize the mechanism inside call-connected files for {obligation_id}.",
+        )
+        searched = qdrant_tool.run(search)
+        ctx.trace.record_tool(search, searched, round_index=MAX_GRAPH_EXPANSION_ROUNDS + 4)
+        tool_calls += 1
+        if searched.status != "ok":
+            raise RuntimeError(f"Connected semantic localization failed for {obligation_id}.")
+        results = [
+            dict(item)
+            for item in searched.payload.get("results", ())
+            if isinstance(item, Mapping)
+            and str(item.get("path") or "").replace("\\", "/") in provenance_by_path
+        ][:MAX_FOCUSED_RESULTS]
+        ranges = [
+            {
+                "file": str(item.get("path") or ""),
+                "line_start": int(item.get("line_start") or 0),
+                "line_end": int(item.get("line_end") or item.get("line_start") or 0),
+            }
+            for item in results
+            if int(item.get("line_start") or 0) > 0
+        ]
+        full_file_ranges: list[dict[str, Any]] = []
+        for path in ordered_unique(tuple(str(item.get("path") or "") for item in results)):
+            source = Path(ctx.config.workspace_root) / path
+            if not path or not source.is_file():
+                continue
+            line_count = len(source.read_text(encoding="utf-8", errors="replace").splitlines())
+            if line_count:
+                full_file_ranges.append({"file": path, "line_start": 1, "line_end": line_count})
+        nodes_by_range: dict[tuple[str, int, int], list[dict[str, Any]]] = {}
+        full_nodes_by_path: dict[str, list[dict[str, Any]]] = {}
+        if ranges:
+            resolve = ToolRequest(
+                tool_name="structural_resolve_ranges",
+                arguments={"ranges": [*ranges, *full_file_ranges]},
+                reason=f"Resolve connected semantic ranges for {obligation_id}.",
+            )
+            resolved = resolve_ranges_tool.run(resolve)
+            ctx.trace.record_tool(resolve, resolved, round_index=MAX_GRAPH_EXPANSION_ROUNDS + 4)
+            tool_calls += 1
+            if resolved.status != "ok":
+                raise RuntimeError(f"Connected semantic range resolution failed for {obligation_id}.")
+            for item in resolved.payload.get("results", ()):
+                if not isinstance(item, Mapping):
+                    continue
+                key = (
+                    str(item.get("file") or ""),
+                    int(item.get("line_start") or 0),
+                    int(item.get("line_end") or item.get("line_start") or 0),
+                )
+                nodes_by_range[key] = _best_overlapping_nodes(
+                    tuple(dict(node) for node in item.get("nodes", ()) if isinstance(node, Mapping)),
+                    line_start=key[1],
+                    line_end=key[2],
+                )
+                if key[1] == 1 and any(
+                    raw["file"] == key[0] and raw["line_end"] == key[2]
+                    for raw in full_file_ranges
+                ):
+                    full_nodes_by_path[key[0]] = [
+                        dict(node)
+                        for node in item.get("nodes", ())
+                        if isinstance(node, Mapping)
+                        and str(node.get("id") or "").startswith(("function:", "method:"))
+                    ]
+        before = {_candidate_ledger_key(candidate) for candidate in state.candidates}
+        _append_semantic_candidates(
+            state,
+            results=results,
+            nodes_by_range=nodes_by_range,
+            concepts=concepts_by_obligation.get(obligation_id, ()),
+            origin="mechanism_connected_semantic",
+            relationship="call_connected_file",
+            path_provenance=tuple(
                 {
-                    "obligation_id": state.obligation.id,
-                    "candidates": [
-                        {
-                            "path": candidate.path,
-                            "line_start": candidate.line_start,
-                            "line_end": candidate.line_end,
-                            "symbol": candidate.symbol,
-                            "score": round(candidate.score, 4),
-                            "provenance_origins": list(
-                                candidate.provenance_origins or (candidate.origin,)
-                            ),
-                            "relationship_types": list(candidate.relationship_types),
-                        }
-                        for candidate in connected_shortlists.get(state.obligation.id, ())
-                    ],
+                    "path": path,
+                    "source_paths": sorted(provenance_by_path.get(path, ())),
+                    "edge_kinds": ["calls"],
                 }
-                for state in states
-            ],
+                for path in connected_paths
+            ),
+            workspace_root=ctx.config.workspace_root,
+            allow_without_obligation_overlap=True,
+        )
+        appended = [
+            candidate
+            for candidate in state.candidates
+            if _candidate_ledger_key(candidate) not in before
+        ]
+        existing_node_ids = {
+            candidate.node_id
+            for candidate in (*state.candidates, *state.discovery_hints)
+            if candidate.node_id
+        }
+        reverse_callers: list[GroundedCandidate] = []
+        for endpoint in appended:
+            target_symbol = endpoint.symbol.rsplit("::", 1)[-1]
+            if not re.fullmatch(r"[A-Za-z_$][\w$]{2,}", target_symbol):
+                continue
+            for node in full_nodes_by_path.get(endpoint.path, ()):
+                node_id = str(node.get("id") or "")
+                if not node_id or node_id in existing_node_ids:
+                    continue
+                caller = _candidate_from_node(
+                    ctx,
+                    node,
+                    score=max(0.25, endpoint.score),
+                    origin="mechanism_connected_source_caller",
+                    relationship="qualified_call",
+                    obligation_id=obligation_id,
+                    source_paths=(endpoint.path,),
+                )
+                if caller is None or not re.search(rf"\b{re.escape(target_symbol)}\s*\(", caller.text):
+                    continue
+                reverse_callers.append(caller)
+                existing_node_ids.add(node_id)
+                if len(reverse_callers) >= 2:
+                    break
+            if len(reverse_callers) >= 2:
+                break
+        state.candidates.extend(reverse_callers)
+        appended.extend(reverse_callers)
+        decisions.append(
+            {
+                "obligation_id": obligation_id,
+                "root_paths": list(roots),
+                "connected_path_count": len(connected_paths),
+                "qdrant_result_paths": [str(item.get("path") or "") for item in results],
+                "candidate_ids": [_global_candidate_id(candidate) for candidate in appended],
+            }
+        )
+    ctx.trace.record(
+        "connected_semantic_endpoint_localization",
+        {"tool_calls": tool_calls, "decisions": decisions},
+    )
+    return tool_calls
+
+
+def _recover_prompt_relevant_exact_callees(
+    ctx: WorkspaceRetrievalContext,
+    *,
+    states: Sequence[ObligationProgress],
+    find_exact_symbol_tool: Any,
+) -> int:
+    """Ground named same-file callees needed to continue a mechanism flow.
+
+    CodeGraph expansion can expose a caller without returning every local call
+    target. This stage uses visible call syntax only to choose exact-symbol
+    lookups; a result is accepted only when one source-authored definition in
+    the caller's file matches. Obligation ownership is inherited from the
+    caller and is never reassigned by Qdrant or an LLM.
+    """
+
+    request_terms = set().union(
+        *(
+            _distinctive_terms(_obligation_stage_query_text(state.obligation))
+            for state in states
+        )
+    ) if states else set()
+    known_node_ids = {
+        candidate.node_id
+        for state in states
+        for candidate in (*state.candidates, *state.discovery_hints)
+        if candidate.node_id
+    }
+    known_symbols_by_path = {
+        (candidate.path, candidate.symbol.rsplit("::", 1)[-1]): candidate.node_id
+        for state in states
+        for candidate in (*state.candidates, *state.discovery_hints)
+        if candidate.node_id and candidate.symbol
+    }
+    resolved_names: set[tuple[str, str]] = set()
+    decisions: list[dict[str, Any]] = []
+    tool_calls = 0
+    call_pattern = re.compile(r"(?<![.\w$])([A-Za-z_$][\w$]{2,})\s*\(")
+    ignored_names = {
+        "catch",
+        "constructor",
+        "else",
+        "for",
+        "function",
+        "if",
+        "return",
+        "switch",
+        "while",
+    }
+
+    for round_index in range(MAX_MECHANISM_CALLEE_ROUNDS):
+        proposals: dict[tuple[str, str], list[tuple[ObligationProgress, GroundedCandidate]]] = {}
+        for state in states:
+            for caller in _dedupe_candidates((*state.candidates, *state.discovery_hints)):
+                if not caller.node_id or not caller.symbol:
+                    continue
+                caller_overlap = _mechanism_candidate_terms(caller) & request_terms
+                provenance = set(caller.provenance_origins or (caller.origin,))
+                if not caller_overlap and not provenance & DIRECT_OBLIGATION_PROVENANCE:
+                    continue
+                for name in call_pattern.findall(caller.text):
+                    if (
+                        name in ignored_names
+                        or name[:1].isupper()
+                        or name == caller.symbol.rsplit("::", 1)[-1]
+                    ):
+                        continue
+                    name_terms = _distinctive_terms(name)
+                    if not name_terms or not (name_terms & request_terms):
+                        continue
+                    proposals.setdefault((caller.path, name), []).append((state, caller))
+
+        ranked_proposals = sorted(
+            (
+                (key, sources)
+                for key, sources in proposals.items()
+                if key not in resolved_names
+            ),
+            key=lambda item: (
+                -max(
+                    len(_mechanism_candidate_terms(caller) & request_terms)
+                    + len(_distinctive_terms(item[0][1]) & request_terms) * 10
+                        + (3 if set(caller.provenance_origins or (caller.origin,)) & DIRECT_OBLIGATION_PROVENANCE else 0)
+                    + (4 if caller.file_role == "implementation" else 0)
+                    + caller.score
+                    for _state, caller in item[1]
+                ),
+                item[0][0],
+                item[0][1],
+            ),
+        )
+        remaining_budget = MAX_MECHANISM_CALLEE_RESOLUTIONS - tool_calls
+        if remaining_budget <= 0 or not ranked_proposals:
+            break
+        added_this_round = 0
+        for (caller_path, name), sources in ranked_proposals:
+            resolved_names.add((caller_path, name))
+            known_node_id = known_symbols_by_path.get((caller_path, name), "")
+            if known_node_id:
+                decisions.append(
+                    {
+                        "round": round_index + 1,
+                        "caller_path": caller_path,
+                        "callee": name,
+                        "decision": "already_grounded",
+                        "node_id": known_node_id,
+                    }
+                )
+                continue
+            if tool_calls >= MAX_MECHANISM_CALLEE_RESOLUTIONS:
+                break
+            request = ToolRequest(
+                tool_name="structural_find_exact_symbol",
+                arguments={"query": name, "limit": 12},
+                reason=f"Resolve prompt-relevant callee {name} from {caller_path}.",
+            )
+            observation = find_exact_symbol_tool.run(request)
+            ctx.trace.record_tool(
+                request,
+                observation,
+                round_index=MAX_GRAPH_EXPANSION_ROUNDS + 2 + round_index,
+            )
+            tool_calls += 1
+            if observation.status != "ok":
+                raise RuntimeError(f"CodeGraph could not resolve prompt-relevant callee {name}.")
+            nodes = [
+                node
+                for node in _source_authored_nodes(
+                    tuple(
+                        dict(node)
+                        for node in observation.payload.get("nodes", ())
+                        if isinstance(node, Mapping)
+                    )
+                )
+                if str(node.get("path") or "").replace("\\", "/") == caller_path
+            ]
+            if len(nodes) != 1:
+                decisions.append(
+                    {
+                        "round": round_index + 1,
+                        "caller_path": caller_path,
+                        "callee": name,
+                        "decision": "rejected_not_one_same_file_definition",
+                        "same_file_match_count": len(nodes),
+                    }
+                )
+                continue
+            node = nodes[0]
+            node_id = str(node.get("id") or "")
+            if not node_id or node_id in known_node_ids:
+                decisions.append(
+                    {
+                        "round": round_index + 1,
+                        "caller_path": caller_path,
+                        "callee": name,
+                        "decision": "already_grounded",
+                        "node_id": node_id,
+                    }
+                )
+                continue
+            added_obligations: list[str] = []
+            for state, caller in sources:
+                candidate = _candidate_from_node(
+                    ctx,
+                    node,
+                    score=max(0.25, caller.score),
+                    origin="source_call_localization",
+                    relationship="source_inferred_call_target",
+                    obligation_id=state.obligation.id,
+                    source_paths=(caller.path,),
+                )
+                if candidate is not None:
+                    state.candidates.append(candidate)
+                    added_obligations.append(state.obligation.id)
+            if added_obligations:
+                known_node_ids.add(node_id)
+                known_symbols_by_path[(candidate.path, candidate.symbol.rsplit("::", 1)[-1])] = node_id
+                added_this_round += 1
+                decisions.append(
+                    {
+                        "round": round_index + 1,
+                        "caller_path": caller_path,
+                        "callee": name,
+                        "decision": "localized",
+                        "node_id": node_id,
+                        "obligation_ids": sorted(set(added_obligations)),
+                    }
+                )
+        if not added_this_round:
+            break
+
+    ctx.trace.record(
+        "prompt_relevant_callee_localization",
+        {
+            "tool_calls": tool_calls,
+            "resolution_budget": MAX_MECHANISM_CALLEE_RESOLUTIONS,
+            "round_limit": MAX_MECHANISM_CALLEE_ROUNDS,
+            "decisions": decisions,
         },
     )
+    return tool_calls
+
+
+_FACTORY_HANDOFF_CALL = re.compile(r"(?<![.\w$])((?:create|build)[A-Za-z_$][\w$]{2,})\s*\(")
+_FACTORY_HANDOFF_DEFAULT = re.compile(
+    r"\b([A-Za-z_$][\w$]*)\s*:\s*\1\s*\|\|\s*((?:create|build)[A-Za-z_$][\w$]{2,})\b"
+)
+
+
+def _recover_factory_handoffs(
+    ctx: WorkspaceRetrievalContext,
+    *,
+    states: Sequence[ObligationProgress],
+    find_exact_symbol_tool: Any,
+) -> tuple[int, list[dict[str, Any]]]:
+    """Recover a bounded function-value default handoff across source files.
+
+    This is intentionally narrower than general cross-file callee expansion.
+    It follows visible create/build calls from already grounded candidates, and
+    only creates the special final edge when source text proves a function-valued
+    property defaults to one named factory. Every intermediate lookup remains an
+    exact CodeGraph symbol lookup and every inferred edge is labelled as such.
+    """
+
+    known_node_ids = {
+        candidate.node_id
+        for state in states
+        for candidate in (*state.candidates, *state.discovery_hints)
+        if candidate.node_id
+    }
+    queue: list[tuple[ObligationProgress, GroundedCandidate, int]] = []
     for state in states:
-        candidates = connected_shortlists.get(state.obligation.id, ())
-        candidate_ids: list[str] = []
-        payload_candidates: list[dict[str, Any]] = []
-        for candidate in candidates:
-            candidate_id = _candidate_review_id(state.obligation.id, candidate)
-            candidate_by_id[candidate_id] = candidate
-            candidate_obligation[candidate_id] = state.obligation.id
-            candidate_ids.append(candidate_id)
-            payload_candidates.append(
+        for candidate in _dedupe_candidates((*state.candidates, *state.discovery_hints)):
+            if not candidate.node_id:
+                continue
+            provenance = set(candidate.provenance_origins or (candidate.origin,))
+            if provenance & DIRECT_OBLIGATION_PROVENANCE or candidate.source_paths:
+                queue.append((state, candidate, 0))
+    queue.sort(key=lambda item: (-item[1].score, item[1].path, item[1].line_start))
+
+    tool_calls = 0
+    edges: list[dict[str, Any]] = []
+    decisions: list[dict[str, Any]] = []
+    seen_steps: set[tuple[str, str]] = set()
+    while queue and tool_calls < MAX_FACTORY_HANDOFF_RESOLUTIONS:
+        state, caller, depth = queue.pop(0)
+        if depth >= MAX_FACTORY_HANDOFF_DEPTH:
+            continue
+        facts = caller.facts if (caller.facts.visible_calls or caller.facts.callable_defaults) else _candidate_facts(caller.text)
+        caller_symbol = caller.symbol.rsplit("::", 1)[-1]
+        symbols = [
+            symbol
+            for symbol in facts.visible_calls
+            if symbol != caller_symbol and re.fullmatch(r"(?:create|build)[A-Za-z_$][\w$]{2,}", symbol)
+        ]
+        symbols.extend(factory for _value, factory in facts.callable_defaults)
+        for symbol in ordered_unique(tuple(symbols)):
+            key = (caller.node_id, symbol)
+            if key in seen_steps or tool_calls >= MAX_FACTORY_HANDOFF_RESOLUTIONS:
+                continue
+            seen_steps.add(key)
+            request = ToolRequest(
+                tool_name="structural_find_exact_symbol",
+                arguments={"query": symbol, "limit": 12},
+                reason=f"Resolve the visible factory/callable handoff {symbol} from {caller.path}.",
+            )
+            observation = find_exact_symbol_tool.run(request)
+            ctx.trace.record_tool(request, observation, round_index=MAX_GRAPH_EXPANSION_ROUNDS + 5 + depth)
+            tool_calls += 1
+            if observation.status != "ok":
+                raise RuntimeError(f"CodeGraph could not resolve factory handoff symbol {symbol}.")
+            nodes = _source_authored_nodes(
+                tuple(dict(node) for node in observation.payload.get("nodes", ()) if isinstance(node, Mapping))
+            )
+            paths = {str(node.get("path") or "").replace("\\", "/") for node in nodes}
+            if len(paths) != 1 or not nodes:
+                decisions.append({"caller": caller.node_id, "symbol": symbol, "decision": "rejected_ambiguous_exact_symbol", "match_count": len(nodes)})
+                continue
+            # Overloads can yield several nodes in one file. The implementation
+            # is the last source declaration, which is the only one with a body
+            # in the TypeScript source patterns this bridge handles.
+            node = max(nodes, key=lambda item: int(item.get("line_start") or 0))
+            target = _candidate_from_node(
+                ctx,
+                node,
+                score=max(0.25, caller.score),
+                origin="factory_handoff_localization",
+                relationship="factory_handoff",
+                obligation_id=state.obligation.id,
+                source_paths=(caller.path,),
+            )
+            if target is None:
+                decisions.append({"caller": caller.node_id, "symbol": symbol, "decision": "rejected_unreadable_target"})
+                continue
+            is_default = any(factory == symbol for _value, factory in facts.callable_defaults)
+            if target.node_id not in known_node_ids:
+                state.candidates.append(target)
+                known_node_ids.add(target.node_id)
+            else:
+                # Keep the target in this obligation's provenance even when a
+                # different obligation localized it first.
+                state.candidates.append(target)
+            if is_default:
+                edges.append(
+                    {
+                        "kind": "factory_handoff",
+                        "source": {"id": caller.node_id, "path": caller.path},
+                        "target": {"id": target.node_id, "path": target.path},
+                        "_retrieval_provenance": "source_inferred_factory_handoff",
+                        "detail": f"default:{symbol}",
+                    }
+                )
+            decisions.append(
+                {
+                    "caller": caller.node_id,
+                    "symbol": symbol,
+                    "target": target.node_id,
+                    "decision": "localized_default_factory" if is_default else "localized_callable_step",
+                    "depth": depth + 1,
+                }
+            )
+            queue.append((state, target, depth + 1))
+    ctx.trace.record(
+        "factory_handoff_localization",
+        {
+            "tool_calls": tool_calls,
+            "resolution_budget": MAX_FACTORY_HANDOFF_RESOLUTIONS,
+            "depth_limit": MAX_FACTORY_HANDOFF_DEPTH,
+            "decisions": decisions,
+            "edge_count": len(edges),
+        },
+    )
+    return tool_calls, edges
+
+
+def _directed_candidate_connections(
+    candidates: Mapping[str, GroundedCandidate],
+    *,
+    expanded_edges: Sequence[Mapping[str, Any]],
+) -> list[dict[str, str]]:
+    ids_by_node: dict[str, list[str]] = {}
+    for candidate_id, candidate in candidates.items():
+        if candidate.node_id:
+            ids_by_node.setdefault(candidate.node_id, []).append(candidate_id)
+    connections: dict[tuple[str, str, str], dict[str, str]] = {}
+    for edge in expanded_edges:
+        relationship = str(edge.get("kind") or "")
+        if relationship not in PRODUCTIVE_RECOVERY_RELATIONSHIPS:
+            continue
+        source_id = str((edge.get("source") or {}).get("id") or "")
+        target_id = str((edge.get("target") or {}).get("id") or "")
+        for source_candidate_id in ids_by_node.get(source_id, ()):
+            for target_candidate_id in ids_by_node.get(target_id, ()):
+                if source_candidate_id == target_candidate_id:
+                    continue
+                key = (source_candidate_id, target_candidate_id, relationship)
+                connections[key] = {
+                    "from_candidate_id": source_candidate_id,
+                    "to_candidate_id": target_candidate_id,
+                    "relationship": relationship,
+                    "provenance": str(edge.get("_retrieval_provenance") or "exact_codegraph_edge"),
+                }
+                detail = str(edge.get("detail") or "")
+                if detail:
+                    connections[key]["detail"] = detail
+    return sorted(
+        connections.values(),
+        key=lambda item: (
+            item["from_candidate_id"],
+            item["to_candidate_id"],
+            item["relationship"],
+        ),
+    )
+
+
+_LOW_SIGNAL_STATE_FIELDS = {
+    "data",
+    "file",
+    "id",
+    "key",
+    "name",
+    "path",
+    "type",
+    "value",
+}
+
+
+def _candidate_context_segments(candidate: GroundedCandidate) -> set[str]:
+    return {
+        value
+        for value in _terms(candidate.path.replace("/", " "))
+        if value not in {"src", "source", "module", "index", "test", "tests"}
+    }
+
+
+def _candidate_first_parameter(candidate: GroundedCandidate) -> str:
+    patterns = (
+        r"(?:export\s+default\s+)?function\s+[A-Za-z_$][\w$]*\s*\(\s*([A-Za-z_$][\w$]*)",
+        r"def\s+[A-Za-z_][\w]*\s*\(\s*(?:self\s*,\s*)?([A-Za-z_][\w]*)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, candidate.text)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _source_derived_mechanism_connections(
+    candidates: Mapping[str, GroundedCandidate],
+    *,
+    direct_support: Mapping[str, set[str]],
+    existing_connections: Sequence[Mapping[str, str]],
+    request_terms: set[str],
+) -> list[dict[str, str]]:
+    """Infer narrowly scoped callback and state-flow relations between exact nodes.
+
+    These relations are deliberately distinguishable from CodeGraph proof. They
+    connect already grounded functions only; they never manufacture a candidate.
+    """
+
+    anchored: set[str] = {
+        candidate_id
+        for candidate_id, candidate in candidates.items()
+        if direct_support.get(candidate_id)
+        or (
+            candidate.node_id
+            and _mechanism_candidate_terms(candidate) & request_terms
+            and set(candidate.relationship_types) & {"calls", "qualified_call"}
+        )
+    }
+    adjacency: dict[str, set[str]] = {candidate_id: set() for candidate_id in candidates}
+    for connection in existing_connections:
+        if str(connection.get("relationship") or "") not in {
+            "calls",
+            "qualified_call",
+            "instantiates",
+            "overrides",
+        }:
+            continue
+        source_id = str(connection.get("from_candidate_id") or "")
+        target_id = str(connection.get("to_candidate_id") or "")
+        if source_id in adjacency and target_id in adjacency:
+            adjacency[source_id].add(target_id)
+            adjacency[target_id].add(source_id)
+    frontier = set(anchored)
+    for _ in range(3):
+        frontier = {
+            neighbor
+            for candidate_id in frontier
+            for neighbor in adjacency.get(candidate_id, ())
+            if neighbor not in anchored
+        }
+        if not frontier:
+            break
+        anchored.update(frontier)
+
+    inferred: dict[tuple[str, str, str], dict[str, str]] = {}
+
+    # CodeGraph can miss calls between nested or locally returned functions.
+    # Infer only same-file calls whose target symbol is an exact grounded node.
+    # This preserves executable direction without turning a file relationship
+    # into a cartesian set of invented node relationships.
+    symbols_by_path: dict[str, dict[str, list[str]]] = {}
+    for candidate_id, candidate in candidates.items():
+        if not candidate.node_id:
+            continue
+        symbol = candidate.symbol.rsplit("::", 1)[-1]
+        if re.fullmatch(r"[A-Za-z_$][\w$]{2,}", symbol):
+            symbols_by_path.setdefault(candidate.path, {}).setdefault(symbol, []).append(candidate_id)
+    for caller_id, caller in candidates.items():
+        if not caller.node_id:
+            continue
+        for symbol, target_ids in symbols_by_path.get(caller.path, {}).items():
+            if len(target_ids) != 1 or not re.search(rf"\b{re.escape(symbol)}\s*\(", caller.text):
+                continue
+            target_id = target_ids[0]
+            if target_id == caller_id:
+                continue
+            key = (caller_id, target_id, "qualified_call")
+            inferred[key] = {
+                "from_candidate_id": caller_id,
+                "to_candidate_id": target_id,
+                "relationship": "qualified_call",
+                "provenance": "source_inferred_same_file_call",
+                "detail": f"{symbol}(...)",
+            }
+
+    # Resolve explicit Owner.member(...) calls across files. The owner must
+    # equal the target filename stem and the member must name one exact target,
+    # so this does not guess through CommonJS exports or prototype mutation.
+    targets_by_member: dict[str, list[str]] = {}
+    for candidate_id, candidate in candidates.items():
+        if not candidate.node_id:
+            continue
+        member = candidate.symbol.rsplit("::", 1)[-1]
+        if re.fullmatch(r"[A-Za-z_$][\w$]{2,}", member):
+            targets_by_member.setdefault(member, []).append(candidate_id)
+    qualified_call = re.compile(
+        r"\b([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*\("
+    )
+    for caller_id, caller in candidates.items():
+        if not caller.node_id:
+            continue
+        for owner, member in qualified_call.findall(caller.text):
+            matching_targets = [
+                candidate_id
+                for candidate_id in targets_by_member.get(member, ())
+                if re.sub(r"[^a-z0-9]", "", Path(candidates[candidate_id].path).stem.casefold())
+                == re.sub(r"[^a-z0-9]", "", owner.casefold())
+            ]
+            if len(matching_targets) != 1 or matching_targets[0] == caller_id:
+                continue
+            target_id = matching_targets[0]
+            key = (caller_id, target_id, "qualified_call")
+            inferred[key] = {
+                "from_candidate_id": caller_id,
+                "to_candidate_id": target_id,
+                "relationship": "qualified_call",
+                "provenance": "source_inferred_qualified_owner_call",
+                "detail": f"{owner}.{member}(...)",
+            }
+
+    # Newly inferred named calls are valid anchoring links for the narrower
+    # callback and state hypotheses below.
+    for connection in inferred.values():
+        source_id = connection["from_candidate_id"]
+        target_id = connection["to_candidate_id"]
+        adjacency[source_id].add(target_id)
+        adjacency[target_id].add(source_id)
+    frontier = set(anchored)
+    for _ in range(3):
+        frontier = {
+            neighbor
+            for candidate_id in frontier
+            for neighbor in adjacency.get(candidate_id, ())
+            if neighbor not in anchored
+        }
+        if not frontier:
+            break
+        anchored.update(frontier)
+    callbacks_by_parameter: dict[str, list[str]] = {}
+    for candidate_id, candidate in candidates.items():
+        if not candidate.node_id or candidate_id not in anchored:
+            continue
+        parameter = _candidate_first_parameter(candidate)
+        if parameter:
+            callbacks_by_parameter.setdefault(parameter, []).append(candidate_id)
+
+    dynamic_call = re.compile(
+        r"\b([A-Za-z_$][\w$]*)\s*\[[^\]\n]+\]\s*\(\s*([A-Za-z_$][\w$]*)"
+    )
+    for dispatcher_id, dispatcher in candidates.items():
+        if not dispatcher.node_id or dispatcher_id not in anchored:
+            continue
+        dispatcher_context = _candidate_context_segments(dispatcher)
+        for match in dynamic_call.finditer(dispatcher.text):
+            collection_name, argument_name = match.groups()
+            for callback_id in callbacks_by_parameter.get(argument_name, ()):
+                if callback_id == dispatcher_id:
+                    continue
+                callback = candidates[callback_id]
+                if not (dispatcher_context & _candidate_context_segments(callback)):
+                    continue
+                if not direct_support.get(callback_id) and not adjacency.get(callback_id):
+                    continue
+                key = (dispatcher_id, callback_id, "registered_callback")
+                inferred[key] = {
+                    "from_candidate_id": dispatcher_id,
+                    "to_candidate_id": callback_id,
+                    "relationship": "registered_callback",
+                    "provenance": "source_inferred_dynamic_collection_callback",
+                    "detail": f"{collection_name}[]({argument_name})",
+                }
+
+    assignment = re.compile(
+        r"\b([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*=(?!=|>)"
+    )
+    access = re.compile(r"\b([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\b")
+    writers: dict[str, list[str]] = {}
+    readers: dict[str, list[str]] = {}
+    for candidate_id, candidate in candidates.items():
+        if not candidate.node_id or candidate_id not in anchored:
+            continue
+        written_fields = {field for _owner, field in assignment.findall(candidate.text)}
+        read_fields = {field for _owner, field in access.findall(candidate.text)} - written_fields
+        for field in written_fields - _LOW_SIGNAL_STATE_FIELDS:
+            if not (_terms(field) & request_terms):
+                continue
+            writers.setdefault(field, []).append(candidate_id)
+        for field in read_fields - _LOW_SIGNAL_STATE_FIELDS:
+            if not (_terms(field) & request_terms):
+                continue
+            readers.setdefault(field, []).append(candidate_id)
+    for field, writer_ids in writers.items():
+        reader_ids = readers.get(field, ())
+        if not reader_ids or len(writer_ids) * len(reader_ids) > 16:
+            continue
+        for writer_id in writer_ids:
+            writer = candidates[writer_id]
+            writer_context = _candidate_context_segments(writer)
+            for reader_id in reader_ids:
+                if writer_id == reader_id:
+                    continue
+                reader = candidates[reader_id]
+                if not (writer_context & _candidate_context_segments(reader)):
+                    continue
+                key = (writer_id, reader_id, "state_write_read")
+                inferred[key] = {
+                    "from_candidate_id": writer_id,
+                    "to_candidate_id": reader_id,
+                    "relationship": "state_write_read",
+                    "provenance": "source_inferred_same_field_flow",
+                    "detail": field,
+                }
+    return sorted(
+        inferred.values(),
+        key=lambda item: (
+            item["from_candidate_id"],
+            item["to_candidate_id"],
+            item["relationship"],
+        ),
+    )
+
+
+def _mechanism_candidate_terms(candidate: GroundedCandidate) -> set[str]:
+    # The exact node name and owner path state responsibility. Body vocabulary
+    # is deliberately excluded: a caller mentioning a strong callee name must
+    # not score as if it were the callee that owns that behavior.
+    return _distinctive_terms(" ".join((candidate.symbol, candidate.path)))
+
+
+def _mechanism_candidate_roles(candidate: GroundedCandidate) -> set[str]:
+    """Classify causal responsibility without using obligation ownership."""
+
+    symbol = candidate.symbol.casefold()
+    path = candidate.path.casefold()
+    text = candidate.text
+    roles: set[str] = set()
+    if re.search(r"(?:^|::)(?:update|invalidate|set|add|remove|delete|clear|mark|change|write|handle)", symbol):
+        roles.add("state_owner")
+    if re.search(r"\.(?:set|add|delete|clear|push)\s*\(|(?:^|[^=!<>])=(?![=>])", text):
+        roles.add("state_owner")
+    if re.search(r"signature|exportedmodule|affected|invalidation|resolution|cache|dependency", symbol):
+        roles.add("domain_owner")
+    if re.search(r"(?:^|::)(?:create|start|build|watch|schedule|dispatch|invoke|process|render|getnext)", symbol):
+        roles.add("controller")
+    if re.search(r"report|diagnostic|status|summary|log|assert|checkoutput", symbol):
+        roles.add("observer")
+    if candidate.file_role == "test":
+        roles.add("validation")
+    if (
+        re.search(r"(?:^|/)utilities?\.[a-z]+$", path)
+        or re.search(r"(?:^|::)node(?:map|set)::", symbol)
+        or re.search(r"(?:^|::)(?:addRange|createMap|assert[A-Z_$])", candidate.symbol)
+    ):
+        roles.add("generic_utility")
+        roles.difference_update({"state_owner", "domain_owner", "controller"})
+    if not roles:
+        roles.add("supporting")
+    return roles
+
+
+def _mechanism_edge_weight(connection: Mapping[str, str]) -> float:
+    relationship = str(connection.get("relationship") or "")
+    provenance = str(connection.get("provenance") or "")
+    if relationship in {"calls", "qualified_call"} and provenance == "exact_codegraph_edge":
+        return 7.0
+    if relationship in {"calls", "qualified_call", "instantiates"}:
+        return 5.0
+    if relationship in {"registered_callback", "state_write_read"}:
+        return 4.0
+    if relationship in {"references", "imports", "implements", "extends", "overrides"}:
+        return 2.0
+    return 1.0
+
+
+def _select_mechanism_flows(
+    states: Sequence[ObligationProgress],
+    *,
+    expanded_edges: Sequence[Mapping[str, Any]],
+    input_char_budget: int | None = MAX_EXPLANATION_INPUT_CHARS,
+) -> tuple[
+    dict[str, GroundedCandidate],
+    dict[str, set[str]],
+    dict[str, set[str]],
+    list[dict[str, Any]],
+    list[dict[str, str]],
+    dict[str, Any],
+]:
+    candidates, direct_support, inherited_support = _candidate_support_graph(states)
+    if not candidates:
+        return {}, direct_support, inherited_support, [], [], {
+            "candidate_inventory": [],
+            "connection_decisions": [],
+            "flow_decisions": [],
+            "unselected_flow_count": 0,
+        }
+    obligation_terms = {
+        state.obligation.id: _distinctive_terms(state.obligation.description)
+        for state in states
+    }
+    request_terms = set().union(*obligation_terms.values()) if obligation_terms else set()
+    connections = _directed_candidate_connections(candidates, expanded_edges=expanded_edges)
+    connections.extend(
+        _source_derived_mechanism_connections(
+            candidates,
+            direct_support=direct_support,
+            existing_connections=connections,
+            request_terms=request_terms,
+        )
+    )
+    connections = [
+        dict(item)
+        for item in {
+            (
+                item["from_candidate_id"],
+                item["to_candidate_id"],
+                item["relationship"],
+                item.get("provenance", ""),
+            ): item
+            for item in connections
+        }.values()
+    ]
+    # A connection occupies only its exact directed endpoint pair. When two
+    # extractors describe A -> B differently, keep the stronger relationship;
+    # B -> A and A -> C are independent facts and remain available. This avoids
+    # turning either a file or a flow root into an exclusive selection slot.
+    connection_decisions: list[dict[str, Any]] = []
+    strongest_connection_by_endpoints: dict[tuple[str, str], dict[str, str]] = {}
+    for connection in sorted(
+        connections,
+        key=lambda item: (
+            -_mechanism_edge_weight(item),
+            str(item.get("from_candidate_id") or ""),
+            str(item.get("to_candidate_id") or ""),
+            str(item.get("relationship") or ""),
+        ),
+    ):
+        endpoint_key = (
+            connection["from_candidate_id"],
+            connection["to_candidate_id"],
+        )
+        winner = strongest_connection_by_endpoints.get(endpoint_key)
+        if winner is None:
+            strongest_connection_by_endpoints[endpoint_key] = connection
+            continue
+        connection_decisions.append(
+            {
+                "decision": "rejected_weaker_parallel_connection",
+                "from_candidate_id": connection["from_candidate_id"],
+                "to_candidate_id": connection["to_candidate_id"],
+                "relationship": connection["relationship"],
+                "provenance": connection.get("provenance", ""),
+                "weight": _mechanism_edge_weight(connection),
+                "replaced_by_relationship": winner["relationship"],
+                "replaced_by_provenance": winner.get("provenance", ""),
+                "replaced_by_weight": _mechanism_edge_weight(winner),
+            }
+        )
+    connections = list(strongest_connection_by_endpoints.values())
+    adjacency: dict[str, list[tuple[str, dict[str, str]]]] = {
+        candidate_id: [] for candidate_id in candidates
+    }
+    incoming: dict[str, int] = {candidate_id: 0 for candidate_id in candidates}
+    for connection in connections:
+        if connection["relationship"] not in {
+            "calls",
+            "qualified_call",
+            "registered_callback",
+            "state_write_read",
+            "instantiates",
+            "overrides",
+        }:
+            continue
+        source_id = connection["from_candidate_id"]
+        target_id = connection["to_candidate_id"]
+        if source_id not in candidates or target_id not in candidates:
+            continue
+        adjacency.setdefault(source_id, []).append((target_id, connection))
+        incoming[target_id] = incoming.get(target_id, 0) + 1
+
+    def support(candidate_id: str) -> set[str]:
+        return set((*direct_support.get(candidate_id, ()), *inherited_support.get(candidate_id, ())))
+
+    terms_by_candidate = {
+        candidate_id: _mechanism_candidate_terms(candidate)
+        for candidate_id, candidate in candidates.items()
+    }
+    roles_by_candidate = {
+        candidate_id: _mechanism_candidate_roles(candidate)
+        for candidate_id, candidate in candidates.items()
+    }
+
+    def node_score(candidate_id: str) -> float:
+        candidate = candidates[candidate_id]
+        matched_terms = terms_by_candidate[candidate_id] & request_terms
+        roles = roles_by_candidate[candidate_id]
+        return (
+            float(len(direct_support.get(candidate_id, ())) * 6)
+            + float(len(inherited_support.get(candidate_id, ())))
+            + float(_candidate_provenance_tier(candidate))
+            + float(bool(candidate.node_id))
+            + float(len(matched_terms) * 2)
+            + float("state_owner" in roles) * 4.0
+            + float("domain_owner" in roles) * 5.0
+            + float("controller" in roles) * 2.0
+            - float("observer" in roles) * 2.0
+            - float("generic_utility" in roles) * 4.0
+            + max(0.0, min(3.0, candidate.score))
+        )
+
+    ranked_seed_ids = sorted(
+        (
+            candidate_id
+            for candidate_id, candidate in candidates.items()
+            if candidate.node_id
+            and (
+                direct_support.get(candidate_id)
+                or roles_by_candidate[candidate_id]
+                & {"state_owner", "domain_owner", "controller"}
+                or (
+                    candidate.file_role == "implementation"
+                    and terms_by_candidate[candidate_id] & request_terms
+                )
+            )
+        ),
+        key=lambda candidate_id: (
+            -node_score(candidate_id),
+            -len(support(candidate_id)),
+            incoming.get(candidate_id, 0),
+            candidates[candidate_id].path,
+            candidates[candidate_id].line_start,
+        ),
+    )
+    seed_ids = ranked_seed_ids[:MAX_MECHANISM_FLOW_SEEDS]
+
+    def flow_payload(path: tuple[str, ...], path_connections: tuple[dict[str, str], ...]) -> dict[str, Any]:
+        covered_obligations = {value for candidate_id in path for value in support(candidate_id)}
+        direct_obligations = {
+            value for candidate_id in path for value in direct_support.get(candidate_id, ())
+        }
+        matched_terms = set().union(*(terms_by_candidate[candidate_id] for candidate_id in path)) & request_terms
+        obligation_alignment = sum(
+            max(
+                (
+                    len(terms_by_candidate[candidate_id] & terms) / max(1, min(len(terms), 8))
+                    for candidate_id in path
+                ),
+                default=0.0,
+            )
+            for terms in obligation_terms.values()
+        )
+        edge_score = sum(_mechanism_edge_weight(item) for item in path_connections)
+        causal_roles = set().union(*(roles_by_candidate[candidate_id] for candidate_id in path))
+        responsibility_keys = {
+            f"{candidates[candidate_id].path}:{role}"
+            for candidate_id in path
+            for role in roles_by_candidate[candidate_id]
+            if role not in {"observer", "generic_utility", "supporting"}
+        }
+        # Repetition across independent obligation searches is useful discovery
+        # evidence, but must not turn obligations into ownership slots. Reward
+        # that recurrence most strongly for compact anchors; a long path with a
+        # single semantic hit must not outrank a concise issue-grounded anchor
+        # merely because it accumulated edges.
+        direct_recurrence_bonus = (
+            float(len(direct_obligations) * 20) / max(1.0, len(path) ** 0.5)
+        )
+        score = (
+            float(len(matched_terms) * 4)
+            + float(len(direct_obligations) * 8)
+            + direct_recurrence_bonus
+            + float(len(covered_obligations) * 2)
+            + obligation_alignment * 8.0
+            + edge_score
+            + float("state_owner" in causal_roles) * 5.0
+            + float("domain_owner" in causal_roles) * 6.0
+            + float("controller" in causal_roles) * 3.0
+            - float(causal_roles == {"observer"}) * 8.0
+            + sum(node_score(candidate_id) for candidate_id in path) * 0.2
+            - max(0, len(path) - 7) * 0.5
+        )
+        return {
+            "root_candidate_id": path[0],
+            "candidate_ids": list(path),
+            "covered_obligation_ids": sorted(covered_obligations),
+            "direct_obligation_ids": sorted(direct_obligations),
+            "matched_request_terms": sorted(matched_terms),
+            "connections": [dict(item) for item in path_connections],
+            "causal_roles": sorted(causal_roles),
+            "responsibility_keys": sorted(responsibility_keys),
+            "direct_recurrence_bonus": round(direct_recurrence_bonus, 4),
+            "score": round(score, 4),
+        }
+
+    # Generate a bounded number of hypotheses for every retained seed. The old
+    # global early exit let the first few branching seeds consume the entire
+    # flow budget, so a later state owner could be present in the candidate
+    # graph but never receive a flow to compare.
+    raw_flows: dict[tuple[str, ...], dict[str, Any]] = {}
+    for seed_id in seed_ids:
+        seed_flows: dict[tuple[str, ...], dict[str, Any]] = {}
+        beam: list[tuple[tuple[str, ...], tuple[dict[str, str], ...]]] = [((seed_id,), ())]
+        for _depth in range(MAX_MECHANISM_FLOW_DEPTH):
+            next_beam: list[tuple[tuple[str, ...], tuple[dict[str, str], ...]]] = []
+            for path, path_connections in beam:
+                extensions = [
+                    (target_id, connection)
+                    for target_id, connection in adjacency.get(path[-1], ())
+                    if target_id not in path
+                ]
+                if not extensions:
+                    seed_flows[path] = flow_payload(path, path_connections)
+                    continue
+                for target_id, connection in extensions:
+                    extended_path = (*path, target_id)
+                    extended_connections = (*path_connections, connection)
+                    seed_flows[extended_path] = flow_payload(extended_path, extended_connections)
+                    next_beam.append((extended_path, extended_connections))
+            if not next_beam:
+                break
+            next_beam.sort(
+                key=lambda item: flow_payload(item[0], item[1])["score"],
+                reverse=True,
+            )
+            beam = next_beam[:MAX_MECHANISM_FLOW_BEAM]
+        for path, flow in sorted(
+            seed_flows.items(),
+            key=lambda item: (
+                -float(item[1]["score"]),
+                -len(item[1]["connections"]),
+                item[0],
+            ),
+        )[:MAX_MECHANISM_FLOWS_PER_SEED]:
+            existing = raw_flows.get(path)
+            if existing is None or float(flow["score"]) > float(existing["score"]):
+                raw_flows[path] = flow
+
+    if len(raw_flows) > MAX_MECHANISM_FLOW_CANDIDATES:
+        raw_flows = dict(
+            sorted(
+                raw_flows.items(),
+                key=lambda item: (
+                    -float(item[1]["score"]),
+                    -len(item[1]["connections"]),
+                    item[0],
+                ),
+            )[:MAX_MECHANISM_FLOW_CANDIDATES]
+        )
+
+    # Direct semantic ranges can ground the reported scenario even when graph
+    # localization cannot resolve them to an exact node. Keep them as singleton
+    # hypotheses so the global comparison can retain a trigger or observable
+    # boundary alongside the implementation mechanism.
+    for candidate_id in sorted(candidates):
+        if not direct_support.get(candidate_id):
+            continue
+        path = (candidate_id,)
+        flow = flow_payload(path, ())
+        existing = raw_flows.get(path)
+        if existing is None or float(flow["score"]) > float(existing["score"]):
+            raw_flows[path] = flow
+
+    if not raw_flows:
+        for seed_id in seed_ids:
+            raw_flows[(seed_id,)] = flow_payload((seed_id,), ())
+
+    for flow in raw_flows.values():
+        flow["protected_responsibility_terms"] = []
+        if len(flow["candidate_ids"]) != 2 or len(flow["connections"]) != 1:
+            continue
+        source_id, target_id = flow["candidate_ids"]
+        direct_ids = [
+            candidate_id
+            for candidate_id in (source_id, target_id)
+            if direct_support.get(candidate_id)
+        ]
+        if not direct_ids:
+            continue
+        other_id = target_id if source_id in direct_ids else source_id
+        direct_terms = set().union(*(terms_by_candidate[candidate_id] for candidate_id in direct_ids))
+        responsibility_terms = (terms_by_candidate[other_id] - direct_terms) & request_terms
+        if responsibility_terms:
+            flow["protected_responsibility_terms"] = sorted(responsibility_terms)
+
+    remaining = list(raw_flows.values())
+    selected_flows: list[dict[str, Any]] = []
+    selected_candidates: set[str] = set()
+    selected_connections: set[tuple[str, str, str]] = set()
+    selected_responsibility_keys: set[str] = set()
+    payload_obligations = [
+        {
+            "obligation_id": state.obligation.id,
+            "description": state.obligation.description,
+            "evidence_role": state.obligation.evidence_role.value,
+            "depends_on": list(state.obligation.depends_on),
+        }
+        for state in states
+    ]
+    used_chars = EXPLANATION_PAYLOAD_SERIALIZATION_MARGIN + len(
+        json.dumps(
+            {
+                "obligations": payload_obligations,
+                "candidates": [],
+                "mechanism_flows": [],
+            },
+            sort_keys=True,
+        )
+    )
+    flow_decisions: list[dict[str, Any]] = []
+    unselected: list[dict[str, Any]] = []
+
+    def candidate_request_chars(candidate_id: str) -> int:
+        candidate = candidates[candidate_id]
+        return len(
+            json.dumps(
                 {
                     "candidate_id": candidate_id,
                     "path": candidate.path,
@@ -1363,30 +2904,373 @@ def _consolidate_obligation_evidence(
                     "symbol": candidate.symbol,
                     "file_role": candidate.file_role,
                     "semantic_score": round(candidate.score, 4),
+                    "direct_obligation_ids": sorted(direct_support.get(candidate_id, ())),
+                    "inherited_obligation_ids": sorted(inherited_support.get(candidate_id, ())),
                     "covered_concepts": list(candidate.covered_concepts),
                     "source_paths": list(candidate.source_paths),
                     "relationship_types": list(candidate.relationship_types),
                     "snippet": candidate.text[:MAX_CONSOLIDATION_SNIPPET_CHARS],
+                },
+                sort_keys=True,
+            )
+        )
+
+    def flow_request_item(flow: Mapping[str, Any], *, flow_id: str) -> dict[str, Any]:
+        return {
+            "flow_id": flow_id,
+            "candidate_ids": list(flow.get("candidate_ids", ())),
+            "score": flow.get("score", 0.0),
+        }
+    # Compare complete flows by absolute quality. Obligation coverage and
+    # discovery terms contribute to a flow's score, but they are deliberately
+    # not consumed as slots: one state-change flow cannot suppress a stronger
+    # or complementary state-owner flow later in the ranking.
+    def root_hypothesis_score(flow: Mapping[str, Any]) -> float:
+        root_id = str(flow["root_candidate_id"])
+        root = candidates[root_id]
+        return (
+            node_score(root_id)
+            + float(len(direct_support.get(root_id, ())) * 10)
+            + float(len(root.covered_concepts) * 4)
+            - float("generic_utility" in roles_by_candidate[root_id]) * 8.0
+            - float("observer" in roles_by_candidate[root_id]) * 2.0
+        )
+
+    def selected_connectivity(flow: Mapping[str, Any]) -> tuple[bool, bool]:
+        flow_ids = set(flow["candidate_ids"])
+        candidate_connected = bool(flow_ids & selected_candidates)
+        if not selected_candidates:
+            return candidate_connected, False
+        selected_paths = {candidates[candidate_id].path for candidate_id in selected_candidates}
+        selected_source_paths = {
+            source_path
+            for candidate_id in selected_candidates
+            for source_path in candidates[candidate_id].source_paths
+        }
+        flow_paths = {candidates[candidate_id].path for candidate_id in flow_ids}
+        flow_source_paths = {
+            source_path
+            for candidate_id in flow_ids
+            for source_path in candidates[candidate_id].source_paths
+        }
+        file_connected = bool(
+            (flow_source_paths & selected_paths)
+            or (selected_source_paths & flow_paths)
+        )
+        return candidate_connected, file_connected
+
+    while remaining:
+        # Re-rank after every selection. A root that can extend the mechanism
+        # already retained is more useful than a disconnected root with a
+        # slightly stronger standalone score. This is a positive connectivity
+        # bonus, not a penalty on Qdrant or graph-only discovery.
+        remaining.sort(
+            key=lambda item: (
+                -(
+                    root_hypothesis_score(item)
+                    + float(selected_connectivity(item)[0]) * 30.0
+                    + float(selected_connectivity(item)[1]) * 20.0
+                    + float(bool(item.get("protected_responsibility_terms"))) * 15.0
+                ),
+                -float(item["score"]),
+                -len(item["connections"]),
+                -len(item["candidate_ids"]),
+                item["root_candidate_id"],
+            )
+        )
+        flow = remaining.pop(0)
+        root_path = candidates[str(flow["root_candidate_id"])].path
+        candidate_connected, file_connected = selected_connectivity(flow)
+        connection_keys = {
+            (
+                item["from_candidate_id"],
+                item["to_candidate_id"],
+                item["relationship"],
+            )
+            for item in flow["connections"]
+        }
+        new_connections = connection_keys - selected_connections
+        new_ids = [value for value in flow["candidate_ids"] if value not in selected_candidates]
+        new_responsibility_keys = (
+            set(flow.get("responsibility_keys", ())) - selected_responsibility_keys
+        )
+        overlapping_selected_flows = [
+            {
+                "flow_id": selected["flow_id"],
+                "score": selected["score"],
+                "shared_candidate_ids": sorted(
+                    set(flow["candidate_ids"]) & set(selected["candidate_ids"])
+                ),
+            }
+            for selected in selected_flows
+            if set(flow["candidate_ids"]) & set(selected["candidate_ids"])
+        ]
+        if selected_flows and not new_ids:
+            dominators = [
+                item
+                for item in selected_flows
+                if set(flow["candidate_ids"]).issubset(item["candidate_ids"])
+                and connection_keys.issubset(
+                    {
+                        (
+                            connection["from_candidate_id"],
+                            connection["to_candidate_id"],
+                            connection["relationship"],
+                        )
+                        for connection in item["connections"]
+                    }
+                )
+            ]
+            flow_decisions.append(
+                {
+                    "root_candidate_id": flow["root_candidate_id"],
+                    "candidate_ids": list(flow["candidate_ids"]),
+                    "score": flow["score"],
+                    "decision": "rejected_no_new_candidate",
+                    "compared_with": overlapping_selected_flows,
+                    "dominated_by_flow_ids": [item["flow_id"] for item in dominators],
                 }
             )
-        candidate_ids_by_obligation[state.obligation.id] = candidate_ids
-        payload_obligations.append(
+            continue
+        protected_handoff_terms = set(flow.get("protected_responsibility_terms", ()))
+        new_substantive_ids = [
+            candidate_id
+            for candidate_id in new_ids
+            if roles_by_candidate[candidate_id]
+            & {"state_owner", "domain_owner", "controller"}
+            and "generic_utility" not in roles_by_candidate[candidate_id]
+        ]
+        if (
+            selected_flows
+            and new_ids
+            and not new_responsibility_keys
+            and not protected_handoff_terms
+            and not new_substantive_ids
+        ):
+            flow_decisions.append(
+                {
+                    "root_candidate_id": flow["root_candidate_id"],
+                    "candidate_ids": list(flow["candidate_ids"]),
+                    "score": flow["score"],
+                    "decision": "rejected_no_new_causal_responsibility",
+                    "causal_roles": list(flow.get("causal_roles", ())),
+                    "new_substantive_candidate_ids": [],
+                    "protected_handoff_terms": sorted(protected_handoff_terms),
+                    "compared_with": overlapping_selected_flows,
+                }
+            )
+            continue
+        added_candidate_chars = sum(candidate_request_chars(candidate_id) for candidate_id in new_ids)
+        next_flow_id = f"mechanism_flow_{len(selected_flows) + 1}"
+        added_flow_chars = len(
+            json.dumps(flow_request_item(flow, flow_id=next_flow_id), sort_keys=True)
+        )
+        added_connection_chars = 0
+        added_chars = added_candidate_chars + added_flow_chars
+        if input_char_budget is not None and used_chars + added_chars > input_char_budget:
+            flow_decisions.append(
+                {
+                    "root_candidate_id": flow["root_candidate_id"],
+                    "candidate_ids": list(flow["candidate_ids"]),
+                    "score": flow["score"],
+                    "root_path": root_path,
+                    "root_hypothesis_score": round(root_hypothesis_score(flow), 4),
+                    "decision": "rejected_input_char_budget",
+                    "added_chars": added_chars,
+                    "used_chars": used_chars,
+                    "input_char_budget": input_char_budget,
+                    "compared_with": overlapping_selected_flows,
+                }
+            )
+            unselected.append(flow)
+            continue
+        selected_flows.append(
             {
-                "obligation_id": state.obligation.id,
-                "description": state.obligation.description,
-                "evidence_role": state.obligation.evidence_role.value,
-                "depends_on": list(state.obligation.depends_on),
-                "candidates": payload_candidates,
+                "flow_id": next_flow_id,
+                **flow,
+            }
+        )
+        selected_candidates.update(new_ids)
+        selected_connections.update(connection_keys)
+        selected_responsibility_keys.update(flow.get("responsibility_keys", ()))
+        used_chars += added_chars
+        flow_decisions.append(
+            {
+                "flow_id": selected_flows[-1]["flow_id"],
+                "root_candidate_id": flow["root_candidate_id"],
+                "candidate_ids": list(flow["candidate_ids"]),
+                "score": flow["score"],
+                "root_path": root_path,
+                "root_hypothesis_score": round(root_hypothesis_score(flow), 4),
+                "connected_to_selected_candidate": candidate_connected,
+                "connected_to_selected_file": file_connected,
+                "decision": "selected",
+                "matched_mechanism_terms": list(flow["matched_request_terms"]),
+                "direct_obligation_ids": list(flow["direct_obligation_ids"]),
+                "new_responsibility_keys": sorted(new_responsibility_keys),
+                "new_substantive_candidate_ids": new_substantive_ids,
+                "protected_handoff_terms": sorted(protected_handoff_terms),
+                "new_transition_count": len(new_connections),
+                "added_chars": added_chars,
+                "added_candidate_chars": added_candidate_chars,
+                "added_flow_chars": added_flow_chars,
+                "added_connection_chars": added_connection_chars,
+                "used_chars": used_chars,
+                "compared_with": overlapping_selected_flows,
             }
         )
 
+    selected_candidate_map = {
+        candidate_id: candidates[candidate_id]
+        for candidate_id in sorted(selected_candidates)
+    }
+    eligible_connection_items = [
+        connection
+        for connection in connections
+        if connection["from_candidate_id"] in selected_candidates
+        and connection["to_candidate_id"] in selected_candidates
+    ]
+    eligible_connection_items.sort(
+        key=lambda item: (
+            -_mechanism_edge_weight(item),
+            str(item.get("from_candidate_id") or ""),
+            str(item.get("to_candidate_id") or ""),
+            str(item.get("relationship") or ""),
+        )
+    )
+    selected_connection_items: list[dict[str, str]] = []
+    for connection in eligible_connection_items:
+        connection_chars = len(json.dumps(connection, sort_keys=True)) + 2
+        if input_char_budget is not None and used_chars + connection_chars > input_char_budget:
+            continue
+        selected_connection_items.append(connection)
+        used_chars += connection_chars
+    request_flows = [
+        flow_request_item(flow, flow_id=str(flow["flow_id"]))
+        for flow in selected_flows
+    ]
+    return (
+        selected_candidate_map,
+        direct_support,
+        inherited_support,
+        request_flows,
+        selected_connection_items,
+        {
+            "candidate_inventory": [
+                {
+                    **_candidate_trace_item(candidate, candidate_id=candidate_id),
+                    "direct_obligation_ids": sorted(direct_support.get(candidate_id, ())),
+                    "inherited_obligation_ids": sorted(inherited_support.get(candidate_id, ())),
+                    "node_score": round(node_score(candidate_id), 4),
+                    "outgoing_transition_count": len(adjacency.get(candidate_id, ())),
+                    "matched_request_terms": sorted(terms_by_candidate[candidate_id] & request_terms),
+                    "causal_roles": sorted(roles_by_candidate[candidate_id]),
+                    "selected_for_final_request": candidate_id in selected_candidates,
+                }
+                for candidate_id, candidate in candidates.items()
+            ],
+            "connection_decisions": connection_decisions,
+            "flow_decisions": flow_decisions,
+            "input_char_budget": input_char_budget,
+            "used_chars": used_chars,
+            "unselected_flow_count": len(unselected),
+            "source_inferred_connection_count": sum(
+                str(item.get("provenance") or "").startswith("source_inferred_")
+                for item in connections
+            ),
+        },
+    )
+
+
+def _consolidate_obligation_evidence(
+    ctx: WorkspaceRetrievalContext,
+    states: Sequence[ObligationProgress],
+    *,
+    expanded_edges: Sequence[Mapping[str, Any]] = (),
+) -> dict[str, Any]:
+    (
+        candidate_by_id,
+        direct_support,
+        inherited_support,
+        mechanism_flows,
+        candidate_connections,
+        mechanism_flow_ledger,
+    ) = _select_mechanism_flows(
+        states,
+        expanded_edges=expanded_edges,
+    )
+    candidate_ids_by_obligation = {
+        state.obligation.id: [
+            candidate_id
+            for candidate_id in candidate_by_id
+            if state.obligation.id
+            in set((*direct_support.get(candidate_id, ()), *inherited_support.get(candidate_id, ())))
+        ]
+        for state in states
+    }
+    payload_obligations = [
+        {
+            "obligation_id": state.obligation.id,
+            "description": state.obligation.description,
+            "evidence_role": state.obligation.evidence_role.value,
+            "depends_on": list(state.obligation.depends_on),
+        }
+        for state in states
+    ]
+    payload_candidates = [
+        {
+            "candidate_id": candidate_id,
+            "path": candidate.path,
+            "line_start": candidate.line_start,
+            "line_end": candidate.line_end,
+            "symbol": candidate.symbol,
+            "file_role": candidate.file_role,
+            "semantic_score": round(candidate.score, 4),
+            "direct_obligation_ids": sorted(direct_support.get(candidate_id, ())),
+            "inherited_obligation_ids": sorted(inherited_support.get(candidate_id, ())),
+            "covered_concepts": list(candidate.covered_concepts),
+            "source_paths": list(candidate.source_paths),
+            "relationship_types": list(candidate.relationship_types),
+            "facts": candidate.facts.to_dict(),
+            "snippet": candidate.text[:MAX_CONSOLIDATION_SNIPPET_CHARS],
+        }
+        for candidate_id, candidate in candidate_by_id.items()
+    ]
+    ctx.trace.record(
+        "mechanism_flows_selected",
+        {
+            "input_char_budget": MAX_EXPLANATION_INPUT_CHARS,
+            "candidate_count": len(candidate_by_id),
+            "flow_count": len(mechanism_flows),
+            "mechanism_flows": mechanism_flows,
+            "candidate_connections": candidate_connections,
+            "candidates": [
+                {
+                    "candidate_id": candidate_id,
+                    "path": candidate.path,
+                    "line_start": candidate.line_start,
+                    "line_end": candidate.line_end,
+                    "symbol": candidate.symbol,
+                    "direct_obligation_ids": sorted(direct_support.get(candidate_id, ())),
+                    "inherited_obligation_ids": sorted(inherited_support.get(candidate_id, ())),
+                }
+                for candidate_id, candidate in candidate_by_id.items()
+            ],
+        },
+    )
+    ctx.trace.record("mechanism_flow_decision_ledger", mechanism_flow_ledger)
+
     if not candidate_by_id:
         return {
-            "strategy": "final_evidence_selection_v1",
+            "strategy": "global_causal_mechanism_selection_v2",
             "llm_calls": 0,
             "accepted_candidate_ids": [],
+            "accepted_ids_by_obligation": {},
             "rejected_candidate_ids": [],
             "invalid_candidate_ids": [],
+            "obligation_statuses": {
+                state.obligation.id: "unresolved" for state in states
+            },
             "unresolved_reasons": {
                 state.obligation.id: "No candidates reached evidence consolidation."
                 for state in states
@@ -1408,14 +3292,24 @@ def _consolidate_obligation_evidence(
 
     obligation_ids = [state.obligation.id for state in states]
     candidate_ids = list(candidate_by_id)
-    candidate_connections = _candidate_connections(
-        candidate_by_id,
-        expanded_edges=expanded_edges,
-        candidate_obligations=candidate_obligation,
-        allowed_obligation_pairs={
-            frozenset((dependency_id, state.obligation.id))
-            for state in states
-            for dependency_id in state.obligation.depends_on
+    consolidation_payload = {
+        "obligations": payload_obligations,
+        "candidates": payload_candidates,
+        "mechanism_flows": mechanism_flows,
+        "candidate_connections": candidate_connections,
+    }
+    ctx.trace.record(
+        "mechanism_flow_request_budget",
+        {
+            "input_char_budget": MAX_EXPLANATION_INPUT_CHARS,
+            "serialized_payload_chars": len(json.dumps(consolidation_payload, sort_keys=True)),
+            "candidate_payload_chars": len(json.dumps(payload_candidates, sort_keys=True)),
+            "flow_payload_chars": len(json.dumps(mechanism_flows, sort_keys=True)),
+            "connection_payload_chars": len(json.dumps(candidate_connections, sort_keys=True)),
+            "candidate_count": len(payload_candidates),
+            "flow_count": len(mechanism_flows),
+            "connection_count": len(candidate_connections),
+            "candidate_paths": sorted({item["path"] for item in payload_candidates}),
         },
     )
     response = complete_json(
@@ -1424,61 +3318,104 @@ def _consolidate_obligation_evidence(
             {"role": "system", "content": CONSOLIDATION_PROMPT_PATH.read_text(encoding="utf-8")},
             {
                 "role": "user",
-                "content": json.dumps(
-                    {
-                        "obligations": payload_obligations,
-                        "candidate_connections": candidate_connections,
-                    },
-                    sort_keys=True,
-                ),
+                "content": json.dumps(consolidation_payload, sort_keys=True),
             },
         ),
         response_format=_consolidation_response_format(obligation_ids, candidate_ids),
         log_event=log_event,
     )
 
-    decisions = response.get("decisions") if isinstance(response.get("decisions"), list) else []
-    decision_by_obligation = {
+    selected_evidence = (
+        response.get("selected_evidence")
+        if isinstance(response.get("selected_evidence"), list)
+        else []
+    )
+    assessments = (
+        response.get("obligation_assessments")
+        if isinstance(response.get("obligation_assessments"), list)
+        else []
+    )
+    assessment_by_obligation = {
         str(item.get("obligation_id") or ""): item
-        for item in decisions
-        if isinstance(item, Mapping) and str(item.get("obligation_id") or "") in candidate_ids_by_obligation
+        for item in assessments
+        if isinstance(item, Mapping) and str(item.get("obligation_id") or "") in obligation_ids
     }
     accepted_ids: list[str] = []
-    rejected_ids: list[str] = []
+    accepted_ids_by_obligation: dict[str, list[str]] = {}
     invalid_ids: list[str] = []
+    selection_records: list[dict[str, Any]] = []
+    for item in selected_evidence:
+        if not isinstance(item, Mapping):
+            continue
+        candidate_id = str(item.get("candidate_id") or "")
+        if candidate_id not in candidate_by_id:
+            invalid_ids.append(candidate_id)
+            continue
+        mapped_obligations = list(
+            ordered_unique(
+                tuple(
+                    str(value)
+                    for value in item.get("obligation_ids", ())
+                    if str(value) in obligation_ids
+                )
+            )
+        )
+        if not mapped_obligations:
+            invalid_ids.append(candidate_id)
+            continue
+        if candidate_id not in accepted_ids:
+            accepted_ids.append(candidate_id)
+            selection_records.append(
+                {
+                    "candidate_id": candidate_id,
+                    "mechanism_role": str(item.get("mechanism_role") or ""),
+                    "obligation_ids": mapped_obligations,
+                    "reason": str(item.get("reason") or ""),
+                }
+            )
+        for obligation_id in mapped_obligations:
+            accepted_ids_by_obligation.setdefault(obligation_id, []).append(candidate_id)
+
+    accepted_id_set = set(accepted_ids)
+    obligation_statuses: dict[str, str] = {}
     unresolved_reasons: dict[str, str] = {}
     for state in states:
         obligation_id = state.obligation.id
-        decision = decision_by_obligation.get(obligation_id, {})
-        requested_ids = tuple(str(value) for value in decision.get("accepted_candidate_ids", ()) if value)
-        valid_ids: list[str] = []
-        for candidate_id in requested_ids:
-            if candidate_id not in candidate_by_id or candidate_obligation[candidate_id] != obligation_id:
-                invalid_ids.append(candidate_id)
-                continue
-            if candidate_id not in valid_ids:
-                valid_ids.append(candidate_id)
-            if len(valid_ids) >= MAX_PER_OBLIGATION:
-                break
+        assessment = assessment_by_obligation.get(obligation_id, {})
+        assessment_ids = [
+            str(value)
+            for value in assessment.get("supporting_candidate_ids", ())
+            if str(value) in accepted_id_set
+        ]
+        invalid_ids.extend(
+            str(value)
+            for value in assessment.get("supporting_candidate_ids", ())
+            if str(value) not in candidate_by_id
+        )
+        valid_ids = list(
+            ordered_unique(
+                tuple((*accepted_ids_by_obligation.get(obligation_id, ()), *assessment_ids))
+            )
+        )
+        accepted_ids_by_obligation[obligation_id] = valid_ids
         accepted = [candidate_by_id[candidate_id] for candidate_id in valid_ids]
         rejected = [
             candidate_by_id[candidate_id]
-            for candidate_id in candidate_ids_by_obligation[obligation_id]
+            for candidate_id in candidate_ids
             if candidate_id not in valid_ids
         ]
         state.candidates = _dedupe_candidates(accepted)
         state.discovery_hints.extend(rejected)
-        accepted_ids.extend(valid_ids)
-        rejected_ids.extend(
-            candidate_id
-            for candidate_id in candidate_ids_by_obligation[obligation_id]
-            if candidate_id not in valid_ids
-        )
-        if not accepted:
-            unresolved_reasons[obligation_id] = str(decision.get("reason") or "No candidate directly established the obligation.")
+        status = str(assessment.get("status") or "unresolved")
+        obligation_statuses[obligation_id] = status
+        if status in {"partial", "unresolved"}:
+            missing = str(assessment.get("missing_handoff") or "").strip()
+            reason = str(assessment.get("reason") or "").strip()
+            unresolved_reasons[obligation_id] = "; ".join(value for value in (reason, missing) if value) or (
+                "The selected causal mechanism does not establish this obligation."
+            )
 
     concepts: list[dict[str, Any]] = []
-    accepted_id_set = set(accepted_ids)
     for item in response.get("concepts", ()):
         if not isinstance(item, Mapping):
             continue
@@ -1495,8 +3432,8 @@ def _consolidate_obligation_evidence(
         mapped_obligations = [
             str(value)
             for value in item.get("obligation_ids", ())
-            if str(value) in candidate_ids_by_obligation
-            and any(candidate_obligation[candidate_id] == str(value) for candidate_id in supporting_ids)
+            if str(value) in obligation_ids
+            and any(candidate_id in accepted_ids_by_obligation.get(str(value), ()) for candidate_id in supporting_ids)
         ]
         if not supporting_ids or not mapped_obligations:
             continue
@@ -1509,17 +3446,69 @@ def _consolidate_obligation_evidence(
             }
         )
 
+    selected_mechanisms: list[dict[str, Any]] = []
+    for item in response.get("mechanisms", ()):
+        if not isinstance(item, Mapping):
+            continue
+        mechanism_candidate_ids = list(
+            ordered_unique(
+                tuple(
+                    str(value)
+                    for value in item.get("candidate_ids", ())
+                    if str(value) in accepted_id_set
+                )
+            )
+        )
+        if not mechanism_candidate_ids:
+            continue
+        selected_mechanisms.append(
+            {
+                "id": str(item.get("id") or ""),
+                "status": str(item.get("status") or "partial"),
+                "candidate_ids": mechanism_candidate_ids,
+                "description": str(item.get("description") or ""),
+            }
+        )
+
+    rejected_ids = [candidate_id for candidate_id in candidate_ids if candidate_id not in accepted_id_set]
     result = {
-        "strategy": "final_evidence_selection_v1",
+        "strategy": "global_causal_mechanism_selection_v2",
         "llm_calls": 1,
-        "accepted_candidate_ids": list(ordered_unique(tuple(accepted_ids))),
-        "rejected_candidate_ids": list(ordered_unique(tuple(rejected_ids))),
+        "accepted_candidate_ids": accepted_ids,
+        "accepted_ids_by_obligation": accepted_ids_by_obligation,
+        "rejected_candidate_ids": rejected_ids,
         "invalid_candidate_ids": list(ordered_unique(tuple(invalid_ids))),
+        "selected_mechanisms": selected_mechanisms,
+        "selection_records": selection_records,
+        "obligation_statuses": obligation_statuses,
         "unresolved_reasons": unresolved_reasons,
         "concepts": concepts,
         "usage": usage,
         "candidate_connection_count": len(candidate_connections),
+        "mechanism_flow_count": len(mechanism_flows),
     }
+    ctx.trace.record(
+        "evidence_consolidation_decision_ledger",
+        {
+            "strategy": "global_causal_mechanism_selection_v2",
+            "selected_mechanisms": selected_mechanisms,
+            "selected_evidence": selection_records,
+            "globally_rejected_candidate_ids": rejected_ids,
+            "obligations": [
+                {
+                    "obligation_id": state.obligation.id,
+                    "discovery_candidate_ids": candidate_ids_by_obligation[state.obligation.id],
+                    "submitted_candidate_ids": candidate_ids,
+                    "accepted_candidate_ids": accepted_ids_by_obligation.get(state.obligation.id, []),
+                    "status": obligation_statuses.get(state.obligation.id, "unresolved"),
+                    "final_llm_reason": str(assessment_by_obligation.get(state.obligation.id, {}).get("reason") or ""),
+                    "missing_handoff": str(assessment_by_obligation.get(state.obligation.id, {}).get("missing_handoff") or ""),
+                }
+                for state in states
+            ],
+            "invalid_candidate_ids": list(ordered_unique(tuple(invalid_ids))),
+        },
+    )
     ctx.trace.record("obligation_evidence_consolidated", result)
     return result
 
@@ -1529,7 +3518,6 @@ def _connected_candidate_shortlists(
     *,
     expanded_edges: Sequence[Mapping[str, Any]],
     limit: int,
-    protected_file_paths: Sequence[str] = (),
 ) -> dict[str, tuple[GroundedCandidate, ...]]:
     candidates_by_obligation = {
         state.obligation.id: _dedupe_candidates(state.candidates)
@@ -1644,54 +3632,7 @@ def _connected_candidate_shortlists(
             ),
         )
         component_shortlists[obligation_id] = tuple(ranked[:limit])
-    if not protected_file_paths:
-        return component_shortlists
-
-    request_limit = limit * len(candidates_by_obligation)
-    selected: dict[str, list[GroundedCandidate]] = {
-        obligation_id: [] for obligation_id in candidates_by_obligation
-    }
-    selected_keys: set[tuple[str, str]] = set()
-    for path in protected_file_paths:
-        choices = [
-            (obligation_id, candidate)
-            for obligation_id, candidates in candidates_by_obligation.items()
-            for candidate in candidates
-            if candidate.path == path
-        ]
-        if not choices or len(selected_keys) >= request_limit:
-            continue
-        obligation_id, representative = max(
-            choices,
-            key=lambda item: (
-                int(
-                    "semantic_anchor"
-                    in set(item[1].provenance_origins or (item[1].origin,))
-                ),
-                int(bool(item[1].node_id)),
-                len(item[1].covered_concepts),
-                _candidate_provenance_tier(item[1]),
-                item[1].score,
-                -(item[1].line_end - item[1].line_start),
-            ),
-        )
-        selected[obligation_id].append(representative)
-        selected_keys.add((obligation_id, _candidate_ledger_key(representative)))
-
-    for rank in range(limit):
-        for obligation_id, candidates in component_shortlists.items():
-            if len(selected_keys) >= request_limit or rank >= len(candidates):
-                continue
-            candidate = candidates[rank]
-            key = (obligation_id, _candidate_ledger_key(candidate))
-            if key in selected_keys:
-                continue
-            selected[obligation_id].append(candidate)
-            selected_keys.add(key)
-    return {
-        obligation_id: tuple(candidates)
-        for obligation_id, candidates in selected.items()
-    }
+    return component_shortlists
 
 
 def _candidate_provenance_tier(candidate: GroundedCandidate) -> int:
@@ -1751,7 +3692,7 @@ def _candidate_connections(
 
 def _consolidation_response_format(
     obligation_ids: Sequence[str],
-    candidate_ids: Sequence[str],
+    _candidate_ids: Sequence[str],
 ) -> dict[str, Any]:
     return {
         "type": "json_schema",
@@ -1762,7 +3703,58 @@ def _consolidation_response_format(
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
-                    "decisions": {
+                    "mechanisms": {
+                        "type": "array",
+                        "maxItems": 8,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "id": {"type": "string"},
+                                "status": {"type": "string", "enum": ["complete", "partial"]},
+                                "candidate_ids": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "items": {"type": "string", "minLength": 1},
+                                },
+                                "description": {"type": "string"},
+                            },
+                            "required": ["id", "status", "candidate_ids", "description"],
+                        },
+                    },
+                    "selected_evidence": {
+                        "type": "array",
+                        "maxItems": MAX_EVIDENCE,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "candidate_id": {"type": "string", "minLength": 1},
+                                "mechanism_role": {
+                                    "type": "string",
+                                    "enum": [
+                                        "issue_anchor",
+                                        "entry_or_trigger",
+                                        "producer",
+                                        "controller",
+                                        "state_owner",
+                                        "handoff",
+                                        "consumer",
+                                        "observer",
+                                        "validation",
+                                    ],
+                                },
+                                "obligation_ids": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "items": {"type": "string", "enum": list(obligation_ids)},
+                                },
+                                "reason": {"type": "string"},
+                            },
+                            "required": ["candidate_id", "mechanism_role", "obligation_ids", "reason"],
+                        },
+                    },
+                    "obligation_assessments": {
                         "type": "array",
                         "minItems": len(obligation_ids),
                         "maxItems": len(obligation_ids),
@@ -1771,15 +3763,30 @@ def _consolidation_response_format(
                             "additionalProperties": False,
                             "properties": {
                                 "obligation_id": {"type": "string", "enum": list(obligation_ids)},
-                                "status": {"type": "string", "enum": ["supported", "unresolved"]},
-                                "accepted_candidate_ids": {
+                                "status": {
+                                    "type": "string",
+                                    "enum": [
+                                        "prompt_grounded",
+                                        "repository_supported",
+                                        "jointly_supported",
+                                        "partial",
+                                        "unresolved",
+                                    ],
+                                },
+                                "supporting_candidate_ids": {
                                     "type": "array",
-                                    "maxItems": MAX_PER_OBLIGATION,
-                                    "items": {"type": "string", "enum": list(candidate_ids)},
+                                    "items": {"type": "string", "minLength": 1},
                                 },
                                 "reason": {"type": "string"},
+                                "missing_handoff": {"type": "string"},
                             },
-                            "required": ["obligation_id", "status", "accepted_candidate_ids", "reason"],
+                            "required": [
+                                "obligation_id",
+                                "status",
+                                "supporting_candidate_ids",
+                                "reason",
+                                "missing_handoff",
+                            ],
                         },
                     },
                     "concepts": {
@@ -1794,7 +3801,7 @@ def _consolidation_response_format(
                                 "supporting_candidate_ids": {
                                     "type": "array",
                                     "minItems": 1,
-                                    "items": {"type": "string", "enum": list(candidate_ids)},
+                                    "items": {"type": "string", "minLength": 1},
                                 },
                                 "obligation_ids": {
                                     "type": "array",
@@ -1806,7 +3813,7 @@ def _consolidation_response_format(
                         },
                     },
                 },
-                "required": ["decisions", "concepts"],
+                "required": ["mechanisms", "selected_evidence", "obligation_assessments", "concepts"],
             },
         },
     }
@@ -2380,8 +4387,8 @@ def _transition_from_edges(
     target: ObligationProgress,
     edge_index: Mapping[frozenset[str], Sequence[Mapping[str, Any]]],
 ) -> dict[str, Any] | None:
-    source_ids = {item.node_id for item in source.candidates[:MAX_PER_OBLIGATION] if item.node_id}
-    target_ids = {item.node_id for item in target.candidates[:MAX_PER_OBLIGATION] if item.node_id}
+    source_ids = {item.node_id for item in source.candidates if item.node_id}
+    target_ids = {item.node_id for item in target.candidates if item.node_id}
     for source_id in source_ids:
         for target_id in target_ids:
             if source_id == target_id:
@@ -2403,8 +4410,8 @@ def _transition_from_focused_bridge(
 ) -> dict[str, Any]:
     endpoint_id = str(bridge_result.get("endpoint_node_id") or "")
     discovered_ids = {str(value) for value in bridge_result.get("discovered_node_ids", ()) if value}
-    selected_source_ids = {item.node_id for item in source.candidates[:MAX_PER_OBLIGATION] if item.node_id}
-    selected_target_ids = {item.node_id for item in target.candidates[:MAX_PER_OBLIGATION] if item.node_id}
+    selected_source_ids = {item.node_id for item in source.candidates if item.node_id}
+    selected_target_ids = {item.node_id for item in target.candidates if item.node_id}
     selected_consumers = sorted((selected_target_ids & discovered_ids) - {endpoint_id})
     if endpoint_id in selected_source_ids and selected_consumers:
         return {
@@ -2426,12 +4433,12 @@ def _transition_from_shared_anchors(
     target: ObligationProgress,
     confirmed_anchors: set[str],
 ) -> dict[str, Any] | None:
-    source_ids = {item.node_id for item in source.candidates[:MAX_PER_OBLIGATION] if item.node_id}
-    target_ids = {item.node_id for item in target.candidates[:MAX_PER_OBLIGATION] if item.node_id}
+    source_ids = {item.node_id for item in source.candidates if item.node_id}
+    target_ids = {item.node_id for item in target.candidates if item.node_id}
     if source_ids and source_ids == target_ids:
         return None
-    source_text = "\n".join(item.text for item in source.candidates[:MAX_PER_OBLIGATION])
-    target_text = "\n".join(item.text for item in target.candidates[:MAX_PER_OBLIGATION])
+    source_text = "\n".join(item.text for item in source.candidates)
+    target_text = "\n".join(item.text for item in target.candidates)
     shared = [
         anchor
         for anchor in sorted(confirmed_anchors, key=lambda value: (-len(value), value.casefold()))
@@ -2532,32 +4539,426 @@ def _obligation_query(
     return " ".join(ordered_unique((description.strip(), *anchors, *relevant_symbols, *relevant_terms))).strip()
 
 
-def _protected_initial_implementation_paths(
+def _obligation_stage_query_text(obligation: EvidenceObligation) -> str:
+    """Keep the repository-stage retrieval strand stable across LLM decompositions."""
+    stage_purposes = tuple(
+        INTENT_STAGE_PURPOSES[stage_id]
+        for stage_id in obligation.stage_ids
+        if stage_id in INTENT_STAGE_PURPOSES
+    )
+    stage_retrieval_terms = tuple(
+        term
+        for stage_id in obligation.stage_ids
+        for term in INTENT_STAGE_RETRIEVAL_TERMS.get(stage_id, ())
+    )
+    return " ".join((*stage_purposes, *stage_retrieval_terms, obligation.description)).strip()
+
+
+def _semantic_result_trace_item(result: Mapping[str, Any], *, rank: int) -> dict[str, Any]:
+    """Emit metadata sufficient to reconcile a raw Qdrant result with later candidates."""
+    return {
+        "rank": rank,
+        "path": str(result.get("path") or "").replace("\\", "/"),
+        "line_start": int(result.get("line_start") or 0),
+        "line_end": int(result.get("line_end") or result.get("line_start") or 0),
+        "score": round(float(result.get("score") or 0.0), 4),
+        "matched_terms": [str(value) for value in result.get("matched_terms", ()) if value],
+    }
+
+
+def _candidate_trace_item(
+    candidate: GroundedCandidate,
+    *,
+    candidate_id: str | None = None,
+) -> dict[str, Any]:
+    """Serialize decision-relevant candidate state without duplicating source text in trace logs."""
+    return {
+        "candidate_id": candidate_id or _global_candidate_id(candidate),
+        "path": candidate.path,
+        "line_start": candidate.line_start,
+        "line_end": candidate.line_end,
+        "node_id": candidate.node_id,
+        "symbol": candidate.symbol,
+        "score": round(candidate.score, 4),
+        "base_score": round(candidate.base_score or candidate.score, 4),
+        "origin": candidate.origin,
+        "provenance_origins": list(candidate.provenance_origins or (candidate.origin,)),
+        "obligation_ids": list(candidate.obligation_ids),
+        "source_paths": list(candidate.source_paths),
+        "relationship_types": list(candidate.relationship_types or ((candidate.relationship,) if candidate.relationship else ())),
+        "covered_concepts": list(candidate.covered_concepts),
+        "missing_concepts": list(candidate.missing_concepts),
+        "facts": candidate.facts.to_dict(),
+    }
+
+
+def _semantic_path_signals(
     semantic_by_obligation: Mapping[str, Sequence[Mapping[str, Any]]],
     *,
-    rank_limit: int = PROTECTED_OWNER_HYBRID_RANK,
-    limit: int = MAX_PROTECTED_OWNER_FILES,
-) -> tuple[str, ...]:
-    best_rank: dict[str, int] = {}
-    obligation_count: dict[str, int] = {}
+    rank_limit: int = SEMANTIC_SIGNAL_RANK_LIMIT,
+) -> dict[str, dict[str, float | int]]:
+    ranks_by_path: dict[str, list[int]] = {}
     for results in semantic_by_obligation.values():
         seen_in_obligation: set[str] = set()
         for rank, item in enumerate(results, start=1):
             if rank > rank_limit:
                 break
             path = str(item.get("path") or "").replace("\\", "/")
-            if not path or file_role(path) != "implementation":
+            if not path or file_role(path) == "baseline_or_generated" or path in seen_in_obligation:
                 continue
-            best_rank[path] = min(best_rank.get(path, rank), rank)
-            if path not in seen_in_obligation:
-                obligation_count[path] = obligation_count.get(path, 0) + 1
-                seen_in_obligation.add(path)
-    return tuple(
-        sorted(
-            best_rank,
-            key=lambda path: (best_rank[path], -obligation_count.get(path, 0), path),
-        )[:limit]
+            ranks_by_path.setdefault(path, []).append(rank)
+            seen_in_obligation.add(path)
+
+    signals: dict[str, dict[str, float | int]] = {}
+    for path, ranks in ranks_by_path.items():
+        best_rank = min(ranks)
+        recurrence = len(ranks)
+        rank_quality = float(rank_limit - best_rank + 1) / float(max(1, rank_limit))
+        exceptional_rank_bonus = float(max(0, 3 - best_rank) * 2)
+        signals[path] = {
+            "recurrence": recurrence,
+            "best_rank": best_rank,
+            "average_rank": sum(ranks) / float(recurrence),
+            "rank_quality": rank_quality,
+            "direct_score": (float(recurrence) * 4.0) + (rank_quality * 2.0) + exceptional_rank_bonus,
+        }
+    return signals
+
+
+def _semantic_root_file_neighbors(
+    ctx: WorkspaceRetrievalContext,
+    tool: Any,
+    semantic_by_obligation: Mapping[str, Sequence[Mapping[str, Any]]],
+    *,
+    rank_limit: int = SEMANTIC_SIGNAL_RANK_LIMIT,
+) -> tuple[tuple[dict[str, Any], ...], int]:
+    signals = _semantic_path_signals(semantic_by_obligation, rank_limit=rank_limit)
+    roots = sorted(
+        (
+            path
+            for path, signal in signals.items()
+            if int(signal["recurrence"]) >= 2 or int(signal["best_rank"]) <= 2
+        ),
+        key=lambda path: (
+            -float(signals[path]["direct_score"]),
+            -int(signals[path]["recurrence"]),
+            int(signals[path]["best_rank"]),
+            path,
+        ),
+    )[:MAX_EXPLANATION_ROOTS]
+    root_set = set(roots)
+    root_candidates = {
+        path
+        for path, signal in signals.items()
+        if int(signal["recurrence"]) >= 2 or int(signal["best_rank"]) <= 2
+    }
+    ctx.trace.record(
+        "semantic_explanation_root_decisions",
+        {
+            "rank_limit": rank_limit,
+            "max_roots": MAX_EXPLANATION_ROOTS,
+            "paths": [
+                {
+                    "path": path,
+                    **dict(signal),
+                    "decision": (
+                        "selected_explanation_root"
+                        if path in root_set
+                        else (
+                            "rejected_explanation_root_cap"
+                            if path in root_candidates
+                            else "rejected_insufficient_recurrence_and_rank"
+                        )
+                    ),
+                }
+                for path, signal in sorted(
+                    signals.items(),
+                    key=lambda item: (
+                        -float(item[1]["direct_score"]),
+                        -int(item[1]["recurrence"]),
+                        int(item[1]["best_rank"]),
+                        item[0],
+                    ),
+                )
+            ],
+        },
     )
+    combined: dict[str, dict[str, Any]] = {}
+    tool_calls = 0
+    for root in roots:
+        request = ToolRequest(
+            tool_name="structural_file_neighbors",
+            arguments={"paths": [root], "limit": MAX_NEIGHBORS_PER_ROOT},
+            reason=f"Discover productive file connections from semantic explanation root {root}.",
+        )
+        observation = tool.run(request)
+        ctx.trace.record_tool(request, observation, round_index=2)
+        tool_calls += 1
+        if observation.status != "ok":
+            raise RuntimeError(f"CodeGraph promotion-neighbor expansion failed for {root}.")
+        for raw in observation.payload.get("neighbors", ()):
+            if not isinstance(raw, Mapping):
+                continue
+            path = str(raw.get("path") or "").replace("\\", "/")
+            relationships = tuple(
+                relationship
+                for relationship in ordered_unique(tuple(str(value) for value in raw.get("edge_kinds", ()) if value))
+                if relationship in PRODUCTIVE_RECOVERY_RELATIONSHIPS
+            )
+            if not path or path == root or not relationships or file_role(path) == "baseline_or_generated":
+                continue
+            entry = combined.setdefault(
+                path,
+                {
+                    "path": path,
+                    "edge_count": 0,
+                    "edge_kinds": [],
+                    "source_paths": [],
+                    "root_connections": [],
+                },
+            )
+            entry["edge_count"] = int(entry["edge_count"]) + max(1, int(raw.get("edge_count") or 0))
+            entry["edge_kinds"] = list(ordered_unique((*entry["edge_kinds"], *relationships)))
+            entry["source_paths"] = list(ordered_unique((*entry["source_paths"], root)))
+            entry["root_connections"].append(
+                {
+                    "path": root,
+                    "edge_count": max(1, int(raw.get("edge_count") or 0)),
+                    "score": max(0.0, float(raw.get("score") or 0.0)),
+                }
+            )
+    return (
+        tuple(
+            sorted(
+                combined.values(),
+                key=lambda item: (-int(item["edge_count"]), str(item["path"])),
+            )
+        ),
+        tool_calls,
+    )
+
+
+def _ground_semantic_root_neighbors(
+    ctx: WorkspaceRetrievalContext,
+    *,
+    states: Sequence[ObligationProgress],
+    semantic_by_obligation: Mapping[str, Sequence[Mapping[str, Any]]],
+    concepts_by_obligation: Mapping[str, Sequence[str]],
+    file_neighbors: Sequence[Mapping[str, Any]],
+    qdrant_tool: Any,
+    resolve_ranges_tool: Any,
+) -> int:
+    state_by_id = {state.obligation.id: state for state in states}
+    neighbor_by_path = {
+        str(item.get("path") or "").replace("\\", "/"): dict(item)
+        for item in file_neighbors
+        if str(item.get("path") or "")
+    }
+    root_connections: dict[str, list[tuple[int, float, str]]] = {}
+    for path, item in neighbor_by_path.items():
+        for connection in item.get("root_connections", ()):
+            root = str(connection.get("path") or "").replace("\\", "/")
+            if root:
+                root_connections.setdefault(root, []).append(
+                    (
+                        int(connection.get("edge_count") or 0),
+                        float(connection.get("score") or 0.0),
+                        path,
+                    )
+                )
+
+    selected_by_root = {
+        root: tuple(
+            path
+            for _edges, _score, path in sorted(values, key=lambda value: (-value[0], -value[1], value[2]))[
+                :MAX_LOCALIZED_NEIGHBORS_PER_ROOT
+            ]
+        )
+        for root, values in root_connections.items()
+    }
+    selected_path_pairs = {
+        (root, path)
+        for root, paths in selected_by_root.items()
+        for path in paths
+    }
+    ctx.trace.record(
+        "semantic_root_neighbor_decisions",
+        {
+            "max_neighbors_localized_per_root": MAX_LOCALIZED_NEIGHBORS_PER_ROOT,
+            "roots": [
+                {
+                    "root_path": root,
+                    "neighbors": [
+                        {
+                            "path": path,
+                            "edge_count": edge_count,
+                            "graph_score": round(score, 4),
+                            "decision": (
+                                "selected_for_localization"
+                                if (root, path) in selected_path_pairs
+                                else "rejected_neighbor_rank_cap"
+                            ),
+                        }
+                        for edge_count, score, path in sorted(
+                            values,
+                            key=lambda value: (-value[0], -value[1], value[2]),
+                        )
+                    ],
+                }
+                for root, values in sorted(root_connections.items())
+            ],
+        },
+    )
+    obligations_by_root = {
+        root: tuple(
+            state.obligation.id
+            for state in states
+            if any(
+                str(item.get("path") or "").replace("\\", "/") == root
+                for item in semantic_by_obligation.get(state.obligation.id, ())
+            )
+        )
+        for root in selected_by_root
+    }
+    obligations_by_path: dict[str, set[str]] = {}
+    for root, paths in selected_by_root.items():
+        for path in paths:
+            obligations_by_path.setdefault(path, set()).update(obligations_by_root.get(root, ()))
+
+    localized_by_path: dict[str, dict[str, Any]] = {}
+    localization_decisions: list[dict[str, Any]] = []
+    tool_calls = 0
+    for root, paths in selected_by_root.items():
+        missing_paths = [path for path in paths if path not in localized_by_path]
+        obligation_ids = obligations_by_root.get(root, ())
+        if not missing_paths or not obligation_ids:
+            continue
+        request = ToolRequest(
+            tool_name="qdrant_hybrid_search",
+            arguments={
+                "query": " ".join(state_by_id[value].obligation.description for value in obligation_ids),
+                "limit": len(missing_paths),
+                "max_per_path": 1,
+                "source_category": "source_code",
+                "file_role": "any",
+                "paths": missing_paths,
+                "preferred_paths": [neighbor_by_path[path] for path in missing_paths],
+            },
+            reason=f"Localize exact graph neighbors discovered from semantic root {root}.",
+        )
+        observation = qdrant_tool.run(request)
+        ctx.trace.record_tool(request, observation, round_index=2)
+        tool_calls += 1
+        if observation.status != "ok":
+            raise RuntimeError(f"Semantic localization failed for graph neighbors of {root}.")
+        for item in observation.payload.get("results", ()):
+            if isinstance(item, Mapping) and str(item.get("path") or ""):
+                localized_by_path.setdefault(str(item.get("path") or "").replace("\\", "/"), dict(item))
+        returned_paths = {
+            str(item.get("path") or "").replace("\\", "/")
+            for item in observation.payload.get("results", ())
+            if isinstance(item, Mapping) and str(item.get("path") or "")
+        }
+        for path in missing_paths:
+            if path not in returned_paths:
+                localization_decisions.append(
+                    {
+                        "root_path": root,
+                        "path": path,
+                        "obligation_ids": list(obligation_ids),
+                        "decision": "rejected_no_qdrant_result_in_requested_neighbor_path",
+                    }
+                )
+
+    results = list(localized_by_path.values())
+
+    ranges = [
+        {
+            "file": str(item.get("path") or ""),
+            "line_start": int(item.get("line_start") or 0),
+            "line_end": int(item.get("line_end") or item.get("line_start") or 0),
+        }
+        for item in results
+        if str(item.get("path") or "") and int(item.get("line_start") or 0) > 0
+    ]
+    nodes_by_range: dict[tuple[str, int, int], list[dict[str, Any]]] = {}
+    if ranges:
+        resolve_request = ToolRequest(
+            tool_name="structural_resolve_ranges",
+            arguments={"ranges": ranges},
+            reason="Ground semantic-root graph-neighbor ranges to exact CodeGraph nodes.",
+        )
+        resolved = resolve_ranges_tool.run(resolve_request)
+        ctx.trace.record_tool(resolve_request, resolved, round_index=2)
+        tool_calls += 1
+        if resolved.status != "ok":
+            raise RuntimeError("CodeGraph localization failed for semantic-root graph neighbors.")
+        for item in resolved.payload.get("results", ()):
+            if not isinstance(item, Mapping):
+                continue
+            key = (
+                str(item.get("file") or ""),
+                int(item.get("line_start") or 0),
+                int(item.get("line_end") or item.get("line_start") or 0),
+            )
+            nodes_by_range[key] = _best_overlapping_nodes(
+                tuple(dict(node) for node in item.get("nodes", ()) if isinstance(node, Mapping)),
+                line_start=key[1],
+                line_end=key[2],
+            )
+
+    for path, obligation_ids in obligations_by_path.items():
+        neighbor = neighbor_by_path.get(path, {})
+        result = localized_by_path.get(path)
+        if result is None:
+            continue
+        for obligation_id in obligation_ids:
+            target = state_by_id[obligation_id]
+            before = {_candidate_ledger_key(candidate) for candidate in target.candidates}
+            _append_semantic_candidates(
+                target,
+                results=(result,),
+                nodes_by_range=nodes_by_range,
+                concepts=concepts_by_obligation[obligation_id],
+                origin="graph_connected_file",
+                relationship="graph_file_neighbor",
+                path_provenance=(neighbor,),
+                workspace_root=ctx.config.workspace_root,
+                allow_without_obligation_overlap=True,
+            )
+            appended = [
+                candidate
+                for candidate in target.candidates
+                if _candidate_ledger_key(candidate) not in before and candidate.path == path
+            ]
+            localization_decisions.append(
+                {
+                    "path": path,
+                    "obligation_ids": [obligation_id],
+                    "decision": (
+                        "localized_to_exact_candidate"
+                        if appended else "rejected_no_exact_candidate_after_range_resolution"
+                    ),
+                    "candidate_ids": [_global_candidate_id(candidate) for candidate in appended],
+                }
+            )
+    ctx.trace.record(
+        "semantic_root_neighbors_localized",
+        {
+            "roots": [
+                {
+                    "path": root,
+                    "obligation_ids": list(obligations_by_root.get(root, ())),
+                    "neighbor_paths": list(paths),
+                }
+                for root, paths in selected_by_root.items()
+            ],
+            "localized_paths": sorted(localized_by_path),
+            "localization_decisions": localization_decisions,
+            "tool_calls": tool_calls,
+        },
+    )
+    return tool_calls
 
 
 def _source_category_for_role(role: EvidenceRole) -> str:
@@ -2656,21 +5057,38 @@ def _term_root(token: str) -> str:
 
 _OBLIGATION_INSTRUCTION_TERMS = {
     "actual",
+    "behavior",
+    "change",
     "code",
     "compare",
     "determine",
+    "error",
     "establish",
     "expected",
     "explain",
+    "file",
     "identify",
+    "index",
+    "interface",
     "locate",
+    "modify",
+    "not",
     "path",
     "paths",
+    "project",
     "reported",
     "repository",
+    "result",
+    "scenario",
+    "source",
+    "src",
     "state",
     "supported",
     "trace",
+    "type",
+    "use",
+    "when",
+    "without",
 }
 
 
@@ -2684,6 +5102,45 @@ def _semantic_support_score(expected: set[str], result: Mapping[str, Any]) -> fl
     if len(matched) < required_matches:
         return 0.0
     return float(len(matched)) / float(max(1, min(len(expected), 8)))
+
+
+_SOURCE_CALL = re.compile(r"(?<![.\w$])([A-Za-z_$][\w$]{2,})\s*\(")
+_SOURCE_DEFAULT_FACTORY = re.compile(
+    r"\b([A-Za-z_$][\w$]*)\s*:\s*\1\s*\|\|\s*((?:create|build)[A-Za-z_$][\w$]{2,})\b"
+)
+_SOURCE_RETURN_NAME = re.compile(r"\breturn\s+([A-Za-z_$][\w$]*)\b")
+_SOURCE_FIELD_WRITE = re.compile(r"\b[A-Za-z_$][\w$]*\.([A-Za-z_$][\w$]*)\s*=(?!=|>)")
+_SOURCE_FIELD_READ = re.compile(r"\b[A-Za-z_$][\w$]*\.([A-Za-z_$][\w$]*)\b")
+
+
+def _candidate_facts(
+    text: str,
+    *,
+    semantic_discoveries: Sequence[SemanticDiscovery] = (),
+    full_range: Sequence[int] = (),
+    primary_anchor: Sequence[int] = (),
+    anchor_reliability_tier: int = 0,
+    anchor_decision_code: str = "",
+    localization_adapter: str = "",
+) -> CandidateFacts:
+    """Extract bounded syntax facts from source already localized for a node."""
+    calls = ordered_unique(tuple(_SOURCE_CALL.findall(text)))
+    defaults = tuple(dict.fromkeys(_SOURCE_DEFAULT_FACTORY.findall(text)))
+    writes = ordered_unique(tuple(_SOURCE_FIELD_WRITE.findall(text)))
+    reads = tuple(field for field in ordered_unique(tuple(_SOURCE_FIELD_READ.findall(text))) if field not in set(writes))
+    return CandidateFacts(
+        semantic_discoveries=tuple(semantic_discoveries),
+        visible_calls=calls,
+        callable_defaults=defaults,
+        returned_names=ordered_unique(tuple(_SOURCE_RETURN_NAME.findall(text))),
+        written_fields=writes,
+        read_fields=reads,
+        full_range=tuple(int(value) for value in full_range[:2]),
+        primary_anchor=tuple(int(value) for value in primary_anchor[:2]),
+        anchor_reliability_tier=anchor_reliability_tier,
+        anchor_decision_code=anchor_decision_code,
+        localization_adapter=localization_adapter,
+    )
 
 
 def _relevant_search_concepts(description: str, search_terms: Sequence[str]) -> tuple[str, ...]:
@@ -2727,10 +5184,26 @@ def _candidate_from_node(
     obligation_id: str = "",
     source_paths: Sequence[str] = (),
 ) -> GroundedCandidate | None:
+    node_kind = str(node.get("kind") or "")
+    if node_kind in {"file", "import"}:
+        ctx.trace.record(
+            "raw_file_node_candidate_rejected",
+            {
+                "decision_code": "rejected_non_executable_graph_node",
+                "node_id": str(node.get("id") or ""),
+                "node_kind": node_kind,
+                "path": str(node.get("path") or "").replace("\\", "/"),
+                "origin": origin,
+                "relationship": relationship,
+                "obligation_id": obligation_id,
+            },
+        )
+        return None
     path = str(node.get("path") or "").replace("\\", "/")
     line_start = max(1, int(node.get("line_start") or 1))
     line_end = max(line_start, int(node.get("line_end") or line_start))
-    if line_end - line_start > 100:
+    localized = bool(node.get("localization_adapter"))
+    if not localized and line_end - line_start > 100:
         line_end = line_start + 100
     source = Path(ctx.config.workspace_root) / path
     if not path or file_role(path) == "baseline_or_generated" or not source.is_file():
@@ -2738,11 +5211,28 @@ def _candidate_from_node(
     lines = source.read_text(encoding="utf-8", errors="replace").splitlines()
     line_end = min(line_end, len(lines))
     actual_role = file_role(path)
+    text = "\n".join(lines[line_start - 1 : line_end])
+    full_line_start = max(1, int(node.get("full_line_start") or line_start))
+    full_line_end = min(len(lines), max(full_line_start, int(node.get("full_line_end") or line_end)))
+    fact_text = "\n".join(lines[full_line_start - 1 : full_line_end]) if localized else text
+    anchor = node.get("anchor") if isinstance(node.get("anchor"), Mapping) else {}
+    anchor_range = (
+        int(anchor.get("line_start") or 0),
+        int(anchor.get("line_end") or anchor.get("line_start") or 0),
+    ) if anchor else ()
+    if localized and line_start > full_line_start:
+        signature_end = min(full_line_end, full_line_start + 2)
+        signature = "\n".join(lines[full_line_start - 1 : signature_end])
+        text = (
+            f"{signature}\n"
+            f"// ... lines {signature_end + 1}-{line_start - 1} omitted; primary call anchor follows ...\n"
+            f"{text}"
+        )
     return GroundedCandidate(
         path=path,
         line_start=line_start,
         line_end=line_end,
-        text="\n".join(lines[line_start - 1 : line_end]),
+        text=text,
         score=score,
         origin=origin,
         node_id=str(node.get("id") or ""),
@@ -2754,6 +5244,14 @@ def _candidate_from_node(
         source_paths=tuple(ordered_unique(tuple(source_paths))),
         relationship_types=((relationship,) if relationship else ()),
         obligation_ids=((obligation_id,) if obligation_id else ()),
+        facts=_candidate_facts(
+            fact_text,
+            full_range=(full_line_start, full_line_end) if localized else (),
+            primary_anchor=anchor_range,
+            anchor_reliability_tier=int(node.get("anchor_reliability_tier") or 0),
+            anchor_decision_code=str(node.get("anchor_decision_code") or ""),
+            localization_adapter=str(node.get("localization_adapter") or ""),
+        ),
     )
 
 
@@ -2862,7 +5360,6 @@ def _append_semantic_candidates(
     path_provenance: Sequence[Mapping[str, Any]] = (),
     workspace_root: str = "",
     allow_without_obligation_overlap: bool = False,
-    protected_paths: Sequence[str] = (),
 ) -> None:
     obligation = target.obligation
     path_provenance_by_path = {
@@ -2871,7 +5368,7 @@ def _append_semantic_candidates(
         if str(item.get("path") or "")
     }
     obligation_terms = _distinctive_terms(obligation.description)
-    for result in results:
+    for semantic_rank, result in enumerate(results, start=1):
         path = str(result.get("path") or "")
         if file_role(path) == "baseline_or_generated":
             continue
@@ -2884,9 +5381,6 @@ def _append_semantic_candidates(
         if not nodes:
             nodes = [{}]
         support_score = _semantic_support_score(obligation_terms, result)
-        protected = path in protected_paths
-        if support_score <= 0 and protected:
-            support_score = 0.01
         if support_score <= 0 and allow_without_obligation_overlap:
             support_score = 0.01
         covered_concepts, missing_concepts = _concept_coverage(concepts, str(result.get("text") or ""))
@@ -2923,23 +5417,23 @@ def _append_semantic_candidates(
             promotion_origins = ordered_unique(
                 (
                     origin,
-                    *(("protected_initial_file",) if protected else ()),
                     *(value for item in exact_promotions for value in item.provenance_origins),
                 )
             )
             promotion_obligations = ordered_unique(tuple(value for item in exact_promotions for value in item.obligation_ids))
+            text = _source_text_for_range(
+                workspace_root,
+                path,
+                candidate_start,
+                candidate_end,
+                str(result.get("text") or ""),
+            )
             target.candidates.append(
                 GroundedCandidate(
                     path=path,
                     line_start=candidate_start,
                     line_end=candidate_end,
-                    text=_source_text_for_range(
-                        workspace_root,
-                        path,
-                        candidate_start,
-                        candidate_end,
-                        str(result.get("text") or ""),
-                    ),
+                    text=text,
                     score=adjusted_score,
                     origin=origin,
                     node_id=node_id,
@@ -2955,6 +5449,17 @@ def _append_semantic_candidates(
                         ((relationship,) if relationship else ()) + promotion_relationships + graph_relationships
                     ),
                     obligation_ids=ordered_unique((obligation.id, *promotion_obligations)),
+                    facts=_candidate_facts(
+                        text,
+                        semantic_discoveries=(
+                            SemanticDiscovery(
+                                obligation_id=obligation.id,
+                                rank=semantic_rank,
+                                score=float(result.get("score") or 0.0),
+                                matched_terms=tuple(str(value) for value in result.get("matched_terms", ()) if value),
+                            ),
+                        ),
+                    ),
                 )
             )
 
@@ -2995,6 +5500,34 @@ def _merge_candidate_provenance(left: GroundedCandidate, right: GroundedCandidat
             concept
             for concept in ordered_unique((*left.missing_concepts, *right.missing_concepts))
             if concept not in set((*left.covered_concepts, *right.covered_concepts))
+        ),
+        facts=CandidateFacts(
+            semantic_discoveries=tuple(
+                sorted(
+                    {
+                        *left.facts.semantic_discoveries,
+                        *right.facts.semantic_discoveries,
+                    },
+                    key=lambda item: (item.obligation_id, item.rank, -item.score),
+                )
+            ),
+            visible_calls=ordered_unique((*left.facts.visible_calls, *right.facts.visible_calls)),
+            callable_defaults=tuple(dict.fromkeys((*left.facts.callable_defaults, *right.facts.callable_defaults))),
+            returned_names=ordered_unique((*left.facts.returned_names, *right.facts.returned_names)),
+            written_fields=ordered_unique((*left.facts.written_fields, *right.facts.written_fields)),
+            read_fields=ordered_unique((*left.facts.read_fields, *right.facts.read_fields)),
+            full_range=preferred.facts.full_range or left.facts.full_range or right.facts.full_range,
+            primary_anchor=preferred.facts.primary_anchor or left.facts.primary_anchor or right.facts.primary_anchor,
+            anchor_reliability_tier=max(
+                left.facts.anchor_reliability_tier,
+                right.facts.anchor_reliability_tier,
+            ),
+            anchor_decision_code=(
+                left.facts.anchor_decision_code
+                if left.facts.anchor_reliability_tier >= right.facts.anchor_reliability_tier
+                else right.facts.anchor_decision_code
+            ),
+            localization_adapter=preferred.facts.localization_adapter or left.facts.localization_adapter or right.facts.localization_adapter,
         ),
     )
 

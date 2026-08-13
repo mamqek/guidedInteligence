@@ -1,74 +1,103 @@
-# Protected Owner File Pool Experiment
+# Recurrence And Connected-File Promotion Pool (Superseded)
+
+This experiment was removed and replaced by
+`connected-evidence-explanations.md`. It remains here as the historical design
+and measurement record; none of its 24-file allocation behavior remains active.
+
+## Why the previous experiment was invalid
+
+The first 24-file pool admitted only files classified as `implementation`. That
+assumption was not supported by the complete TypeScript Oracle set:
+`watchMode.ts` and `tscWatch/helpers.ts` are test-role Oracle files. Both were
+present in the broader candidate universe, then excluded or not restored during
+the implementation-only allocation. The implementation-role eligibility rule
+has therefore been removed rather than retained as a fallback.
 
 ## Stage boundary
 
-After all initial obligation Qdrant searches, build one request-level pool from
-implementation files occurring in the top 12 hybrid results of any repository
-obligation. Deduplicate across obligations, order by best rank and recurrence,
-and cap the pool at 24 files.
+The replacement has two deterministic stages:
 
-During semantic grounding, protected files may retain a low-score exact range
-even when generated obligation wording has no lexical overlap. Before final LLM
-selection, allocate one exact candidate representative per protected file, then
-fill remaining positions from the existing connected-component shortlist. The
-total request-level candidate budget remains four times the repository
-obligation count; for the six-stage explain cases this is 24.
+1. After the initial per-obligation hybrid searches, compute a file-level signal
+   from independent-obligation recurrence, best rank, and an exceptional bonus
+   for ranks one and two. This role-neutral set also allows low-overlap semantic
+   results to survive exact range grounding.
+2. After graph expansion, query the file-level neighborhoods of the four
+   strongest semantic roots separately. Files can enter through their own
+   semantic score or inherit promotion from productive `calls`, `references`,
+   `imports`, dependency, inheritance, override, and instantiation edges to
+   those roots. Direction is deliberately neutral. Multiple edges and multiple
+   strong roots increase the inherited score.
+3. Reserve the top two productive neighbors of each strong root, then fill the
+   remaining positions by global direct-plus-inherited score. This prevents a
+   single high-degree generic root from consuming the entire pool. Graph-only
+   promoted files receive one grouped Qdrant localization and CodeGraph range
+   grounding so they have an exact representative for final assessment.
 
-Protection means only that a candidate reaches final assessment. It does not
-mark the candidate as evidence or bypass the two-evidence-per-obligation output
-limit.
+The final pool remains capped at 24 files. Allocation still assigns one exact
+candidate representative per promoted file before filling unused request slots
+from connected-component shortlists. Promotion means only that a file reaches
+the final LLM assessment; it does not accept the file as evidence.
 
 ## Expected quality impact
 
-The eight-run offline audit retained every causal source-owner Oracle file in a
-12-22-file pool, including both TypeScript builder files in both original runs.
-This experiment should prevent one winning graph component from consuming all
-four positions for an obligation while a directly retrieved owner disappears.
+- Repeated independent retrieval should preserve files such as `watchMode.ts`,
+  which appeared in 4/6 and 6/6 initial searches in the measured TypeScript
+  runs.
+- Exceptional obligation-specific results remain eligible even without broad
+  recurrence.
+- Graph-only files such as `tscWatch/helpers.ts` can inherit promotion from a
+  strongly recurring connected file.
+- Test, support, and implementation files compete under the same evidence
+  signals rather than a role assumption.
 
 ## Expected token impact
 
-No additional Qdrant or LLM calls. Total final-assessment candidate count stays
-within the existing request-level budget, but representation shifts from up to
-four candidates per obligation to one representative per protected file plus
-remaining connected candidates. Exact ranges should keep prompt size close to
-the current budget; actual retrieval tokens will be measured.
+No LLM calls are added. The policy adds four deterministic CodeGraph
+file-neighbor calls and, when selected graph-only files lack candidates, one
+grouped Qdrant localization plus one CodeGraph range-grounding call. The final
+request still contains at most four candidates per repository obligation, so
+the six-stage explain contract remains capped at 24 candidates.
 
-## Regression risks
+## Known regression risks
 
-- A top-12 implementation distractor receives survival protection alongside the
-  owner and may displace a better second node from the same file or obligation.
-- An obligation can receive more than four input candidates while another gets
-  fewer, although final accepted evidence remains bounded per obligation.
-- Generated propositions can change the protected pool because this experiment
-  protects candidates, not query text.
-- The eight-run rule is an empirical survival result, not proof that every
-  future owner is top-12 hybrid.
+- Generic files can recur across several broad obligations and receive a high
+  direct score without being Oracle evidence.
+- Highly connected utility files can inherit promotion from a strong root.
+- A graph-only owner not connected to a recurrent or top-two semantic root can
+  still depend on the component-fill portion of the allocator.
+- Generated obligations remain variable, so recurrence strength can vary even
+  though the number and purposes of obligation searches are stable.
 
-## Comparison and rollback
+## Comparison method and decision rule
 
-Run the scoped TypeScript case twice and record protected paths, builder-file
-presence in the final LLM request, Oracle overlap, coverage, sufficiency,
-retrieval tokens, and index reuse. If the two-run comparison does not improve
-owner survival or causes quality instability, remove only the protected-pool
-construction and allocation. Keep direction-neutral productive provenance.
+Run the scoped TypeScript case twice. Record the final promoted paths, presence
+of all four Oracle files in the 24-candidate LLM request, selected Oracle overlap,
+coverage, sufficiency, retrieval token totals, and index reuse. Compare against
+`run-20260811T173906Z` and `run-20260811T174132Z`.
 
-## Result and decision
+Per explicit user direction, this replacement remains enabled even if those two
+runs do not improve final evidence. Direction-neutral productive provenance also
+remains enabled. Any failure is recorded for follow-up tuning rather than causing
+automatic rollback.
 
-The two scoped TypeScript comparisons passed the owner-survival quality gate:
+## Final measured result
 
-- `run-20260811T173906Z` created a 19-file protected pool containing
-  `src/compiler/builder.ts`. Its exact `isChangedSignagure` candidate reached the
-  24-candidate final request and the LLM selected `builder.ts`. The run had one
-  implementation Oracle overlap, remained `partial/false`, used 15,257
-  retrieval LLM tokens, and reused the index with `rebuilt=false`.
-- `run-20260811T174132Z` filled the 24-file protected pool and contained both
-  builder files. Both reached the 24-candidate final request; the LLM selected
-  `builderState.ts:updateExportedModules`. The run had one implementation Oracle
-  overlap, remained `partial/false`, used 19,037 retrieval LLM tokens, and reused
-  the index with `rebuilt=false`.
+Two unchanged scoped TypeScript runs used `--exclude-path lib` and
+`--exclude-path tests/cases`:
 
-The immediately preceding backend-scope-only pair had zero/zero Oracle overlap;
-this pair had one/one. The pool therefore remains enabled. It did not stabilize
-which builder owner was found, and retrieval cost increased by 4,799/7,420
-tokens relative to that pair. Those limitations remain explicit rather than
-being hidden by a sufficiency claim.
+- `run-20260811T190625Z`: the 24-file pool and final LLM request contained
+  `builderState.ts`, `watchMode.ts`, and graph-only `tscWatch/helpers.ts`.
+  `helpers.ts` had zero direct semantic recurrence and survived through 40
+  productive connections plus a reserved-neighbor slot. Final Oracle overlap
+  was 1, coverage was `partial`, sufficiency was `false`, retrieval LLM usage
+  was 18,080 tokens, and Qdrant reported `rebuilt=false`.
+- `run-20260811T190912Z`: all four Oracle files entered both the pool and final
+  LLM request. `helpers.ts` again had zero direct recurrence and survived through
+  39 connections plus reservation. Final Oracle overlap was 2, coverage was
+  `partial`, sufficiency was `false`, retrieval LLM usage was 17,541 tokens, and
+  Qdrant reported `rebuilt=false`.
+
+The shortlist-survival goal improved from 1/4 and 2/4 Oracle files in the prior
+implementation-only pair to 3/4 and 4/4. Final selection remains imperfect: the
+LLM did not accept every surviving Oracle, and the selected evidence remained
+partial. The promotion policy remains enabled per the stated decision rule.
