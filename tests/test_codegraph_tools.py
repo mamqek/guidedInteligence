@@ -29,6 +29,15 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                 "import { caller } from './a';\nexport const value = caller();\n",
                 encoding="utf-8",
             )
+            (root / "src" / "nested.ts").write_text(
+                "export function nestedTarget() { return 1; }\n"
+                "export function outerOwner() {\n"
+                "  const callback = () => nestedTarget();\n"
+                "  return callback();\n"
+                "}\n"
+                "describe('anonymous-only', () => { nestedTarget(); });\n",
+                encoding="utf-8",
+            )
             (root / "src" / "builderState.ts").write_text(
                 "export function getFilesAffectedBy() { return []; }\n"
                 "export function create() { return {}; }\n",
@@ -58,6 +67,17 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                 callers = tools["structural_callers"].run(
                     _request("structural_callers", file="src/a.ts", line=1)
                 )
+                nested_exact = tools["structural_find_exact_symbol"].run(
+                    _request("structural_find_exact_symbol", query="nestedTarget")
+                )
+                expanded_nested = tools["structural_expand_nodes"].run(
+                    _request(
+                        "structural_expand_nodes",
+                        node_ids=[nested_exact.payload["nodes"][0]["id"]],
+                        depth=1,
+                        limit=100,
+                    )
+                )
                 ranges = tools["structural_resolve_ranges"].run(
                     _request(
                         "structural_resolve_ranges",
@@ -83,6 +103,19 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
             self.assertFalse((root / "codegraph.json").exists())
             self.assertEqual(exact.source_refs, ("src/a.ts",))
             self.assertEqual(exact.payload["match_count"], 1)
+            localizations = [
+                edge["file_call_localization"]
+                for edge in expanded_nested.payload["edges"]
+                if edge.get("file_call_localization")
+                and edge["file_call_localization"].get("target_symbol") == "nestedTarget"
+            ]
+            self.assertEqual(len(localizations), 1)
+            self.assertEqual(localizations[0]["status"], "localized")
+            self.assertEqual(localizations[0]["selected"]["owner"]["qualified_name"], "outerOwner")
+            self.assertIn(
+                "rejected_no_named_outer_executable",
+                {item["decision_code"] for item in localizations[0]["considered"]},
+            )
             self.assertEqual(conceptual.source_refs, ())
             self.assertIn("src/a.ts", callers.source_refs)
             self.assertEqual(ranges.status, "ok")

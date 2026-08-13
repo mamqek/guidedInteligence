@@ -150,6 +150,8 @@ def run_case(
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
     index_exclude_paths: Sequence[str] | None = None,
+    skip_response_generation: bool = False,
+    skip_final_evidence_selection: bool = False,
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
         issue_json,
@@ -182,6 +184,7 @@ def run_case(
         codex_prompt_profile=codex_prompt_profile,
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
+        final_evidence_selection_enabled=not skip_final_evidence_selection,
     )
     retrieval_stage = CodexRetrievalStage(retrieval_config) if retrieval_config.retrieval_mode == RETRIEVAL_MODE_CODEX else WorkspaceRetrievalStage(retrieval_config)
     control_layer = ControlLayer(
@@ -190,6 +193,7 @@ def run_case(
         logger=logger,
         response_llm_config=llm_config,
         intent_enabled=True,
+        response_generation_enabled=not skip_response_generation,
     )
     result = control_layer.run(state)
     if not result.policy_result.allowed:
@@ -247,6 +251,8 @@ def evaluate_case(
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
     index_exclude_paths: Sequence[str] | None = None,
+    skip_response_generation: bool = False,
+    skip_final_evidence_selection: bool = False,
 ) -> Path:
     issue_path = Path(issue_json)
     verification_path = Path(verification_json) if verification_json is not None else _default_verification_path(issue_path)
@@ -315,6 +321,8 @@ def evaluate_case(
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
         index_exclude_paths=exclude_paths,
+        skip_response_generation=skip_response_generation,
+        skip_final_evidence_selection=skip_final_evidence_selection,
     )
     _write_run_metadata(
         run_dir=run_dir,
@@ -331,6 +339,8 @@ def evaluate_case(
         retrieval_mode=retrieval_mode,
         codex_model=codex_model,
         codex_prompt_profile=codex_prompt_profile,
+        skip_response_generation=skip_response_generation,
+        skip_final_evidence_selection=skip_final_evidence_selection,
     )
     return run_dir
 
@@ -444,6 +454,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_parser.add_argument("--codex-prompt-profile", choices=SUPPORTED_CODEX_PROMPT_PROFILES)
     run_parser.add_argument("--codex-timeout-seconds", type=int)
     run_parser.add_argument("--exclude-path", action="append", default=[])
+    run_parser.add_argument("--skip-response-generation", action="store_true")
+    run_parser.add_argument("--skip-final-evidence-selection", action="store_true")
     evaluate_parser = subparsers.add_parser("evaluate-case")
     evaluate_parser.add_argument("--issue-json", required=True)
     evaluate_parser.add_argument("--run-config")
@@ -460,6 +472,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     evaluate_parser.add_argument("--codex-prompt-profile", choices=SUPPORTED_CODEX_PROMPT_PROFILES)
     evaluate_parser.add_argument("--codex-timeout-seconds", type=int)
     evaluate_parser.add_argument("--exclude-path", action="append", default=[])
+    evaluate_parser.add_argument("--skip-response-generation", action="store_true")
+    evaluate_parser.add_argument("--skip-final-evidence-selection", action="store_true")
     batch_parser = subparsers.add_parser("evaluate-batch")
     batch_parser.add_argument("--run-config", required=True)
     batch_parser.add_argument("--issue-json", action="append", default=[])
@@ -521,6 +535,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
             index_exclude_paths=tuple(args.exclude_path) if args.exclude_path else None,
+            skip_response_generation=bool(
+                args.skip_response_generation
+                or run_config.get("skip_response_generation", False)
+            ),
+            skip_final_evidence_selection=bool(
+                args.skip_final_evidence_selection
+                or run_config.get("skip_final_evidence_selection", False)
+            ),
         )
         return 0
 
@@ -545,6 +567,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
             codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
             index_exclude_paths=tuple(args.exclude_path) if args.exclude_path else None,
+            skip_response_generation=bool(
+                args.skip_response_generation
+                or run_config.get("skip_response_generation", False)
+            ),
+            skip_final_evidence_selection=bool(
+                args.skip_final_evidence_selection
+                or run_config.get("skip_final_evidence_selection", False)
+            ),
         )
         print(str(run_dir))
         return 0
@@ -917,6 +947,8 @@ def _write_run_metadata(
     retrieval_mode: str,
     codex_model: str,
     codex_prompt_profile: str,
+    skip_response_generation: bool,
+    skip_final_evidence_selection: bool,
 ) -> None:
     metadata = {
         "case_id": visible_case.case_id,
@@ -931,6 +963,8 @@ def _write_run_metadata(
         "retrieval_mode": retrieval_mode,
         "codex_model": codex_model if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
         "codex_prompt_profile": codex_prompt_profile if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
+        "skip_response_generation": skip_response_generation,
+        "skip_final_evidence_selection": skip_final_evidence_selection,
         "intent_system": "request_analysis_obligations_v1",
         "resolution": {
             "strategy": resolution.strategy,
@@ -1276,6 +1310,7 @@ def _workspace_retrieval_config_for_case(
     codex_prompt_profile: str,
     codex_timeout_seconds: int,
     codex_ignore_user_config: bool,
+    final_evidence_selection_enabled: bool = True,
 ) -> WorkspaceRetrievalConfig:
     # Shared boundary: both testcase retrieval modes receive the same sanitized
     # ConversationState.user_input built by _user_prompt(title, initial_body).
@@ -1305,6 +1340,7 @@ def _workspace_retrieval_config_for_case(
         codex_prompt_profile=codex_prompt_profile,
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
+        final_evidence_selection_enabled=final_evidence_selection_enabled,
         enable_indexing=load_retrieval_enable_indexing(TOOL_ENV_PATH) if retrieval_mode != RETRIEVAL_MODE_CODEX else False,
         structural_graph_timeout_seconds=CODE_REPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS,
         qdrant_index_timeout_seconds=CODE_REPOQA_QDRANT_INDEX_TIMEOUT_SECONDS,

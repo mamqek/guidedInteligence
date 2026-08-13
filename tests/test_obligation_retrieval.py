@@ -18,10 +18,12 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _best_bridge_nodes_in_files,
     _best_overlapping_nodes,
     _candidate_connections,
+    _candidate_from_node,
     _candidate_provenance_tier,
     _candidate_review_id,
     _candidate_conflicts_with_missing_path,
     _concept_coverage,
+    _consolidation_response_format,
     _consolidate_obligation_evidence,
     _connected_candidate_shortlists,
     _confirmed_obligation_paths,
@@ -38,14 +40,21 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _direct_target_context_score,
     _dominant_error_anchor_result,
     _graph_preferred_paths,
+    _global_candidate_id,
+    _ground_semantic_root_neighbors,
     _has_usable_exact_graph_ranges,
     _is_visible_direct_target,
     _remove_generated_candidates,
+    _recover_prompt_relevant_exact_callees,
+    _recover_factory_handoffs,
     _run_focused_semantic_bridge,
     _nodes_in_confirmed_paths,
+    _normalized_expansion_edges,
     _obligation_query,
+    _obligation_stage_query_text,
     _path_qualifications,
-    _protected_initial_implementation_paths,
+    _candidate_support_graph,
+    _select_mechanism_flows,
     _qualified_reference_priority,
     _qualified_frontier_paths,
     _update_promotion_ledger,
@@ -70,6 +79,72 @@ from services.retrieval.workspace.tools.qdrant import (
 
 
 class ObligationRetrievalTests(unittest.TestCase):
+    def test_raw_file_node_never_becomes_candidate(self) -> None:
+        with TemporaryDirectory() as root:
+            workspace = Path(root)
+            source = workspace / "src" / "large.ts"
+            source.parent.mkdir()
+            source.write_text("function target() {}\n", encoding="utf-8")
+            rejected_events = []
+            ctx = SimpleNamespace(
+                config=SimpleNamespace(workspace_root=str(workspace)),
+                trace=SimpleNamespace(
+                    record=lambda event_type, payload: rejected_events.append((event_type, payload))
+                ),
+            )
+
+            candidate = _candidate_from_node(
+                ctx,
+                {
+                    "id": "file:src/large.ts",
+                    "kind": "file",
+                    "path": "src/large.ts",
+                    "line_start": 1,
+                    "line_end": 500,
+                },
+                score=1.0,
+                origin="graph_neighbor",
+            )
+
+        self.assertIsNone(candidate)
+        self.assertEqual(rejected_events[0][0], "raw_file_node_candidate_rejected")
+        self.assertEqual(rejected_events[0][1]["decision_code"], "rejected_non_executable_graph_node")
+
+    def test_localized_file_call_replaces_file_endpoint_with_named_owner(self) -> None:
+        edges = _normalized_expansion_edges(
+            (
+                {
+                    "kind": "calls",
+                    "source": {"id": "file:src/watch.ts", "kind": "file", "path": "src/watch.ts"},
+                    "target": {"id": "function:target", "kind": "function", "path": "src/target.ts"},
+                    "file_call_localization": {
+                        "status": "localized",
+                        "adapter": "typescript_compiler_api",
+                        "decision_code": "selected_ast_unqualified_target_call",
+                        "selected": {
+                            "owner": {
+                                "id": "function:owner",
+                                "kind": "function",
+                                "name": "owner",
+                                "path": "src/watch.ts",
+                                "line_start": 10,
+                                "line_end": 30,
+                                "full_line_start": 1,
+                                "full_line_end": 100,
+                            },
+                            "anchor": {"line_start": 20, "line_end": 20},
+                            "reliability_tier": 3,
+                        },
+                    },
+                },
+            )
+        )
+
+        self.assertEqual(len(edges), 1)
+        self.assertEqual(edges[0]["source"]["id"], "function:owner")
+        self.assertEqual(edges[0]["kind"], "contained_call")
+        self.assertEqual(edges[0]["source"]["anchor_reliability_tier"], 3)
+
     def test_candidate_review_id_is_stable_across_candidate_order(self) -> None:
         first = _candidate("first", "src/first.ts")
         second = _candidate("second", "src/second.ts")
@@ -162,7 +237,7 @@ class ObligationRetrievalTests(unittest.TestCase):
         self.assertEqual({candidate.symbol for candidate in state.candidates}, {"entry", "middle", "target"})
         self.assertEqual(len(edges), 2)
 
-    def test_productive_graph_edge_is_not_gated_by_text_overlap(self) -> None:
+    def test_productive_graph_edge_localizes_node_even_if_previously_visited_elsewhere(self) -> None:
         with TemporaryDirectory() as root:
             workspace = Path(root)
             source = workspace / "src" / "owner.ts"
@@ -207,6 +282,7 @@ class ObligationRetrievalTests(unittest.TestCase):
                 states=(state,),
                 structural_expand_tool=tool,
                 max_rounds=2,
+                initially_visited={"function:internalStep"},
             )
 
         self.assertIn("function:internalStep", {candidate.node_id for candidate in state.candidates})
@@ -275,56 +351,666 @@ class ObligationRetrievalTests(unittest.TestCase):
 
         self.assertEqual(_candidate_provenance_tier(upstream), _candidate_provenance_tier(downstream))
 
-    def test_protected_file_pool_uses_initial_hybrid_rank_and_request_recurrence(self) -> None:
-        paths = _protected_initial_implementation_paths(
-            {
-                "subject": (
-                    {"path": "src/recurrent.ts"},
-                    {"path": "tests/test_owner.ts"},
-                    {"path": "src/subject.ts"},
-                ),
-                "mechanism": (
-                    {"path": "src/recurrent.ts"},
-                    {"path": "src/mechanism.ts"},
-                ),
-            },
-            rank_limit=2,
-            limit=2,
+    def test_candidate_support_graph_preserves_direct_and_inherited_obligations(self) -> None:
+        watch_trigger = replace(
+            _candidate("function:watch", "src/testRunner/watchMode.ts"),
+            origin="semantic_anchor",
+            provenance_origins=("semantic_anchor",),
+            obligation_ids=("trigger",),
         )
-
-        self.assertEqual(paths, ("src/recurrent.ts", "src/mechanism.ts"))
-
-    def test_protected_files_receive_request_level_representatives_before_component_fill(self) -> None:
-        protected_a = replace(_candidate("function:a", "src/a.ts"), score=0.1)
-        protected_b = replace(_candidate("function:b", "src/b.ts"), score=0.1)
-        protected_c = replace(_candidate("function:c", "src/c.ts"), score=0.1)
-        dominant_a = replace(_candidate("function:dominant-a", "src/dominant-a.ts"), score=10.0)
-        dominant_b = replace(_candidate("function:dominant-b", "src/dominant-b.ts"), score=10.0)
+        watch_mechanism = replace(watch_trigger, obligation_ids=("mechanism",))
+        helper = replace(
+            _candidate("function:helper", "src/testRunner/helpers.ts"),
+            origin="graph_neighbor",
+            provenance_origins=("graph_neighbor",),
+            obligation_ids=("trigger", "mechanism"),
+        )
         states = (
             ObligationProgress(
-                EvidenceObligation("subject", "Find the subject.", True),
-                candidates=[dominant_a, protected_a, protected_b],
+                EvidenceObligation("trigger", "Find the trigger.", True),
+                candidates=[watch_trigger, helper],
             ),
             ObligationProgress(
-                EvidenceObligation("effect", "Find the effect.", True),
-                candidates=[dominant_b, protected_c],
+                EvidenceObligation("mechanism", "Find the mechanism.", True),
+                candidates=[watch_mechanism, helper],
             ),
         )
 
-        shortlists = _connected_candidate_shortlists(
-            states,
-            expanded_edges=(),
-            limit=2,
-            protected_file_paths=("src/a.ts", "src/b.ts", "src/c.ts"),
+        candidates, direct, inherited = _candidate_support_graph(states)
+
+        self.assertEqual(direct["node:function:watch"], {"trigger", "mechanism"})
+        self.assertEqual(inherited["node:function:helper"], {"trigger", "mechanism"})
+        self.assertEqual(len(candidates), 2)
+
+    def test_mechanism_flows_select_directed_exact_nodes(self) -> None:
+        watch = replace(
+            _candidate("function:watch", "src/testRunner/watchMode.ts"),
+            origin="semantic_anchor",
+            provenance_origins=("semantic_anchor",),
+            obligation_ids=("trigger",),
+        )
+        helper = replace(
+            _candidate("function:helper", "src/testRunner/helpers.ts"),
+            origin="graph_neighbor",
+            provenance_origins=("graph_neighbor",),
+            obligation_ids=("trigger", "mechanism"),
+        )
+        builder = replace(
+            _candidate("function:builder", "src/compiler/builderState.ts"),
+            origin="semantic_anchor",
+            provenance_origins=("semantic_anchor",),
+            obligation_ids=("state",),
+        )
+        states = (
+            ObligationProgress(
+                EvidenceObligation("trigger", "Find the trigger.", True),
+                candidates=[watch, helper],
+            ),
+            ObligationProgress(EvidenceObligation("mechanism", "Trace the handoff.", True), candidates=[helper]),
+            ObligationProgress(EvidenceObligation("state", "Find the mutation.", True), candidates=[builder]),
+        )
+        edges = (
+            {"kind": "calls", "source": {"id": watch.node_id}, "target": {"id": helper.node_id}},
+            {"kind": "qualified_call", "source": {"id": helper.node_id}, "target": {"id": builder.node_id}},
         )
 
-        selected_paths = {
-            candidate.path
-            for candidates in shortlists.values()
-            for candidate in candidates
+        selected, direct, inherited, flows, connections, ledger = _select_mechanism_flows(
+            states,
+            expanded_edges=edges,
+        )
+
+        self.assertEqual(set(selected), {"node:function:watch", "node:function:helper", "node:function:builder"})
+        self.assertEqual(direct["node:function:builder"], {"state"})
+        self.assertEqual(inherited["node:function:helper"], {"trigger", "mechanism"})
+        self.assertTrue(any(set(item["candidate_ids"]) == set(selected) for item in flows))
+        self.assertEqual({item["relationship"] for item in connections}, {"calls", "qualified_call"})
+        self.assertTrue(all(item["selected_for_final_request"] for item in ledger["candidate_inventory"]))
+        self.assertTrue(any(item["decision"] == "selected" for item in ledger["flow_decisions"]))
+
+    def test_mechanism_flows_connect_dynamic_callback_and_state_handoff(self) -> None:
+        render_node = replace(
+            _candidate_with_text(
+                "function:renderNode",
+                "src/server/render.js",
+                "function renderNode(node) { return renderElement(node); }",
+            ),
+            origin="semantic_anchor",
+            provenance_origins=("semantic_anchor",),
+            obligation_ids=("entry",),
+            line_start=1,
+            line_end=3,
+        )
+        render_element = replace(
+            _candidate_with_text(
+                "function:renderElement",
+                "src/server/render.js",
+                "function renderElement(el) { renderStartingTag(el); return el.children; }",
+            ),
+            origin="graph_neighbor",
+            provenance_origins=("graph_neighbor",),
+            obligation_ids=("entry", "mutation"),
+            line_start=5,
+            line_end=7,
+        )
+        render_starting_tag = replace(
+            _candidate_with_text(
+                "function:renderStartingTag",
+                "src/server/render.js",
+                "function renderStartingTag(node) { modules[i](node); }",
+            ),
+            origin="graph_neighbor",
+            provenance_origins=("graph_neighbor",),
+            obligation_ids=("entry",),
+            line_start=9,
+            line_end=11,
+        )
+        render_dom_props = replace(
+            _candidate_with_text(
+                "function:renderDOMProps",
+                "src/server/modules/dom-props.js",
+                "export default function renderDOMProps(node) { setText(node, 'x'); }",
+            ),
+            origin="semantic_anchor",
+            provenance_origins=("semantic_anchor",),
+            obligation_ids=("mutation",),
+            line_start=1,
+            line_end=3,
+        )
+        set_text = replace(
+            _candidate_with_text(
+                "function:setText",
+                "src/server/modules/dom-props.js",
+                "function setText(node, text) { node.children = [{ text }]; }",
+            ),
+            origin="graph_neighbor",
+            provenance_origins=("graph_neighbor",),
+            obligation_ids=("mutation",),
+            line_start=5,
+            line_end=7,
+        )
+        states = (
+            ObligationProgress(EvidenceObligation("entry", "Trace render node entry.", True), candidates=[render_node, render_element, render_starting_tag]),
+            ObligationProgress(EvidenceObligation("mutation", "Find DOM text children mutation.", True), candidates=[render_dom_props, set_text, render_element]),
+        )
+        edges = (
+            {"kind": "calls", "source": {"id": render_node.node_id}, "target": {"id": render_element.node_id}},
+            {"kind": "calls", "source": {"id": render_element.node_id}, "target": {"id": render_starting_tag.node_id}},
+            {"kind": "calls", "source": {"id": render_dom_props.node_id}, "target": {"id": set_text.node_id}},
+        )
+
+        selected, _direct, _inherited, flows, connections, ledger = _select_mechanism_flows(
+            states,
+            expanded_edges=edges,
+        )
+
+        self.assertEqual(
+            set(selected),
+            {
+                "node:function:renderNode",
+                "node:function:renderElement",
+                "node:function:renderStartingTag",
+                "node:function:renderDOMProps",
+                "node:function:setText",
+            },
+        )
+        relationships = {item["relationship"] for item in connections}
+        self.assertIn("registered_callback", relationships)
+        self.assertIn("state_write_read", relationships)
+        self.assertTrue(
+            any(
+                item["candidate_ids"][:5]
+                == [
+                    "node:function:renderNode",
+                    "node:function:renderElement",
+                    "node:function:renderStartingTag",
+                    "node:function:renderDOMProps",
+                    "node:function:setText",
+                ]
+                for item in flows
+            )
+        )
+        self.assertGreaterEqual(ledger["source_inferred_connection_count"], 2)
+
+    def test_mechanism_flows_resolve_qualified_owner_call_to_exact_target(self) -> None:
+        handle_change = replace(
+            _candidate_with_text(
+                "function:handleDtsMayChangeOf",
+                "src/compiler/builder.ts",
+                "function handleDtsMayChangeOf() { BuilderState.updateShapeSignature(state, program); }",
+            ),
+            symbol="handleDtsMayChangeOf",
+            origin="semantic_anchor",
+            provenance_origins=("semantic_anchor",),
+            obligation_ids=("state",),
+        )
+        update_shape = replace(
+            _candidate_with_text(
+                "function:updateShapeSignature",
+                "src/compiler/builderState.ts",
+                "export function updateShapeSignature(state, program) { return computeHash(program); }",
+            ),
+            symbol="updateShapeSignature",
+            origin="graph_neighbor",
+            provenance_origins=("graph_neighbor",),
+            obligation_ids=("state",),
+        )
+        state = ObligationProgress(
+            EvidenceObligation("state", "Trace declaration signature update.", True),
+            candidates=[handle_change, update_shape],
+        )
+
+        selected, _direct, _inherited, flows, connections, _ledger = _select_mechanism_flows(
+            (state,),
+            expanded_edges=(),
+        )
+
+        self.assertEqual(set(selected), {"node:function:handleDtsMayChangeOf", "node:function:updateShapeSignature"})
+        self.assertTrue(any(item["candidate_ids"] == list(selected) for item in flows))
+        self.assertEqual(len(connections), 1)
+        self.assertEqual(connections[0]["relationship"], "qualified_call")
+
+    def test_mechanism_flows_replace_only_weaker_parallel_connection(self) -> None:
+        stronger_root = replace(
+            _candidate_with_score("function:stronger", "src/compiler/builder.ts", 2.0),
+            symbol="handleStrongChange",
+            origin="graph_neighbor",
+            obligation_ids=("state",),
+        )
+        weaker_root = replace(
+            _candidate_with_score("function:weaker", "src/compiler/builder.ts", 0.1),
+            symbol="handleWeakChange",
+            origin="graph_neighbor",
+            obligation_ids=("state",),
+            line_start=10,
+            line_end=11,
+        )
+        state_owner = replace(
+            _candidate("function:update", "src/compiler/builderState.ts"),
+            symbol="updateShapeSignature",
+            text="function updateShapeSignature() { state.signature = next; }",
+            origin="graph_neighbor",
+            obligation_ids=("state",),
+        )
+        caller = replace(
+            _candidate("function:caller", "src/compiler/builderPublic.ts"),
+            symbol="createBuilderProgram",
+            origin="graph_neighbor",
+            obligation_ids=("state",),
+        )
+        progress = ObligationProgress(
+            EvidenceObligation("state", "Trace signature state update.", True),
+            candidates=[stronger_root, weaker_root, state_owner, caller],
+        )
+        edges = (
+            {"kind": "calls", "source": {"id": caller.node_id}, "target": {"id": stronger_root.node_id}},
+            {"kind": "instantiates", "source": {"id": stronger_root.node_id}, "target": {"id": state_owner.node_id}},
+            {"kind": "calls", "source": {"id": stronger_root.node_id}, "target": {"id": state_owner.node_id}},
+            {"kind": "calls", "source": {"id": weaker_root.node_id}, "target": {"id": state_owner.node_id}},
+            {"kind": "calls", "source": {"id": state_owner.node_id}, "target": {"id": stronger_root.node_id}},
+        )
+
+        selected, _direct, _inherited, flows, connections, ledger = _select_mechanism_flows(
+            (progress,),
+            expanded_edges=edges,
+        )
+
+        self.assertIn("node:function:update", selected)
+        self.assertTrue(
+            any(
+                item["candidate_ids"][:2]
+                == ["node:function:caller", "node:function:stronger"]
+                for item in flows
+            )
+        )
+        self.assertTrue(
+            any(
+                item["candidate_ids"][-2:]
+                == ["node:function:stronger", "node:function:update"]
+                for item in flows
+            )
+        )
+        self.assertEqual(
+            {(item["from_candidate_id"], item["to_candidate_id"]) for item in connections},
+            {
+                ("node:function:caller", "node:function:stronger"),
+                ("node:function:stronger", "node:function:update"),
+                ("node:function:weaker", "node:function:update"),
+                ("node:function:update", "node:function:stronger"),
+            },
+        )
+        self.assertEqual(
+            [
+                item
+                for item in connections
+                if item["from_candidate_id"] == "node:function:stronger"
+                and item["to_candidate_id"] == "node:function:update"
+            ][0]["relationship"],
+            "calls",
+        )
+        self.assertTrue(
+            any(
+                item["decision"] == "rejected_weaker_parallel_connection"
+                and item["relationship"] == "instantiates"
+                and item["replaced_by_relationship"] == "calls"
+                for item in ledger["connection_decisions"]
+            )
+        )
+        self.assertTrue(all(item["provenance"] == "exact_codegraph_edge" for item in connections))
+
+    def test_mechanism_flows_do_not_consume_an_obligation_slot(self) -> None:
+        reporter = replace(
+            _candidate_with_text(
+                "function:reportErrorSummary",
+                "src/compiler/tsbuildPublic.ts",
+                "function reportErrorSummary(state) { return getWatchErrorSummaryDiagnosticMessage(state); }",
+            ),
+            symbol="reportErrorSummary",
+            origin="semantic_anchor",
+            provenance_origins=("semantic_anchor",),
+            obligation_ids=("state",),
+            score=0.9,
+        )
+        diagnostic = replace(
+            _candidate_with_text(
+                "function:getWatchErrorSummaryDiagnosticMessage",
+                "src/compiler/watch.ts",
+                "function getWatchErrorSummaryDiagnosticMessage() { return Diagnostics.Found_errors; }",
+            ),
+            symbol="getWatchErrorSummaryDiagnosticMessage",
+            origin="graph_neighbor",
+            provenance_origins=("graph_neighbor",),
+            obligation_ids=("state",),
+        )
+        update_signatures = replace(
+            _candidate_with_text(
+                "function:updateSignaturesFromCache",
+                "src/compiler/builderState.ts",
+                "function updateSignaturesFromCache(state, cache) { cache.forEach((signature, path) => state.fileInfos.get(path).signature = signature); }",
+            ),
+            symbol="updateSignaturesFromCache",
+            origin="semantic_anchor",
+            provenance_origins=("semantic_anchor",),
+            obligation_ids=("state",),
+            score=0.5,
+        )
+        read_signature = replace(
+            _candidate_with_text(
+                "function:readSignature",
+                "src/compiler/builder.ts",
+                "function readSignature(state, path) { return state.fileInfos.get(path).signature; }",
+            ),
+            symbol="readSignature",
+            origin="graph_neighbor",
+            provenance_origins=("graph_neighbor",),
+            obligation_ids=("state",),
+        )
+        state = ObligationProgress(
+            EvidenceObligation("state", "Identify changed declaration signature state.", True),
+            candidates=[reporter, diagnostic, update_signatures, read_signature],
+        )
+        edges = (
+            {"kind": "calls", "source": {"id": reporter.node_id}, "target": {"id": diagnostic.node_id}},
+            {"kind": "calls", "source": {"id": update_signatures.node_id}, "target": {"id": read_signature.node_id}},
+        )
+
+        selected, _direct, _inherited, _flows, _connections, ledger = _select_mechanism_flows(
+            (state,),
+            expanded_edges=edges,
+        )
+
+        self.assertIn("node:function:updateSignaturesFromCache", selected)
+        self.assertFalse(
+            any(
+                item["decision"]
+                == "rejected_no_new_prompt_term_direct_obligation_or_protected_responsibility"
+                for item in ledger["flow_decisions"]
+            )
+        )
+
+    def test_consolidation_schema_has_one_global_evidence_budget(self) -> None:
+        schema = _consolidation_response_format(("state", "why"), ("candidate:a", "candidate:b"))
+        properties = schema["json_schema"]["schema"]["properties"]
+
+        self.assertEqual(properties["selected_evidence"]["maxItems"], 14)
+        self.assertNotIn("maxItems", properties["obligation_assessments"]["items"]["properties"]["supporting_candidate_ids"])
+        self.assertNotIn(
+            "enum",
+            properties["selected_evidence"]["items"]["properties"]["candidate_id"],
+        )
+        self.assertNotIn(
+            "enum",
+            properties["mechanisms"]["items"]["properties"]["candidate_ids"]["items"],
+        )
+
+    def test_prompt_relevant_callee_localization_continues_named_flow(self) -> None:
+        with TemporaryDirectory() as root:
+            source = Path(root) / "src/server/render.js"
+            source.parent.mkdir(parents=True)
+            source.write_text(
+                "function renderNode(node) { renderElement(node) }\n"
+                "function renderElement(node) { renderStartingTag(node) }\n"
+                "function renderStartingTag(node) { return node.tag }\n",
+                encoding="utf-8",
+            )
+            state = ObligationProgress(
+                EvidenceObligation(
+                    "mechanism",
+                    "Trace the server render mechanism.",
+                    True,
+                    stage_ids=("explain.ordered_mechanism",),
+                ),
+                candidates=[
+                    replace(
+                        _candidate_with_text(
+                            "function:renderNode",
+                            "src/server/render.js",
+                            "function renderNode(node) { renderElement(node) }",
+                        ),
+                        symbol="renderNode",
+                        origin="graph_continuation",
+                        provenance_origins=("graph_continuation",),
+                        relationship_types=("calls",),
+                        obligation_ids=("mechanism",),
+                    )
+                ],
+            )
+
+            class ExactSymbols:
+                def run(self, request):
+                    name = request.arguments["query"]
+                    nodes = {
+                        "renderElement": {
+                            "id": "function:renderElement",
+                            "name": "renderElement",
+                            "path": "src/server/render.js",
+                            "line_start": 2,
+                            "line_end": 2,
+                        },
+                        "renderStartingTag": {
+                            "id": "function:renderStartingTag",
+                            "name": "renderStartingTag",
+                            "path": "src/server/render.js",
+                            "line_start": 3,
+                            "line_end": 3,
+                        },
+                    }
+                    return ToolObservation(
+                        tool_name=request.tool_name,
+                        status="ok",
+                        payload={"nodes": [nodes[name]], "match_count": 1},
+                    )
+
+            ctx = SimpleNamespace(
+                config=SimpleNamespace(workspace_root=root),
+                trace=SimpleNamespace(record=lambda *args, **kwargs: None, record_tool=lambda *args, **kwargs: None),
+            )
+            calls = _recover_prompt_relevant_exact_callees(
+                ctx,
+                states=(state,),
+                find_exact_symbol_tool=ExactSymbols(),
+            )
+
+        self.assertEqual(calls, 2)
+        self.assertEqual(
+            {candidate.symbol for candidate in state.candidates},
+            {"renderNode", "renderElement", "renderStartingTag"},
+        )
+
+    def test_factory_handoff_recovers_visible_default_factory(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "src").mkdir()
+            (root / "src" / "watch.ts").write_text(
+                "function createWatch(host) { return createWatchCompilerHostOfConfigFile(host); }\n"
+                "function createWatchCompilerHostOfConfigFile(host) { return createWatchCompilerHost(host); }\n"
+                "function createWatchCompilerHost(host) { return createProgramHost(host); }\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "public.ts").write_text(
+                "function createProgramHost(createProgram) {\n"
+                "  return { createProgram: createProgram || createBuilderProgram };\n"
+                "}\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "builder.ts").write_text(
+                "function createBuilderProgram(host) { return host; }\n",
+                encoding="utf-8",
+            )
+            state = ObligationProgress(
+                EvidenceObligation("mechanism", "Trace the watch program mechanism.", True),
+                candidates=[
+                    replace(
+                        _candidate_with_text(
+                            "function:createWatch",
+                            "src/watch.ts",
+                            "function createWatch(host) { return createWatchCompilerHostOfConfigFile(host); }",
+                        ),
+                        symbol="createWatch",
+                        origin="semantic_anchor",
+                        provenance_origins=("semantic_anchor",),
+                        obligation_ids=("mechanism",),
+                    )
+                ],
+            )
+
+            class ExactSymbols:
+                def run(self, request):
+                    name = request.arguments["query"]
+                    nodes = {
+                        "createWatchCompilerHostOfConfigFile": {
+                            "id": "function:createWatchCompilerHostOfConfigFile",
+                            "name": "createWatchCompilerHostOfConfigFile",
+                            "path": "src/watch.ts",
+                            "line_start": 2,
+                            "line_end": 2,
+                        },
+                        "createWatchCompilerHost": {
+                            "id": "function:createWatchCompilerHost",
+                            "name": "createWatchCompilerHost",
+                            "path": "src/watch.ts",
+                            "line_start": 3,
+                            "line_end": 3,
+                        },
+                        "createProgramHost": {
+                            "id": "function:createProgramHost",
+                            "name": "createProgramHost",
+                            "path": "src/public.ts",
+                            "line_start": 1,
+                            "line_end": 3,
+                        },
+                        "createBuilderProgram": {
+                            "id": "function:createBuilderProgram",
+                            "name": "createBuilderProgram",
+                            "path": "src/builder.ts",
+                            "line_start": 1,
+                            "line_end": 1,
+                        },
+                    }
+                    return ToolObservation(
+                        tool_name=request.tool_name,
+                        status="ok",
+                        payload={"nodes": [nodes[name]], "match_count": 1},
+                    )
+
+            ctx = SimpleNamespace(
+                config=SimpleNamespace(workspace_root=root),
+                trace=SimpleNamespace(record=lambda *args, **kwargs: None, record_tool=lambda *args, **kwargs: None),
+            )
+            calls, edges = _recover_factory_handoffs(
+                ctx,
+                states=(state,),
+                find_exact_symbol_tool=ExactSymbols(),
+            )
+
+        self.assertEqual(calls, 4)
+        self.assertEqual(
+            {candidate.symbol for candidate in state.candidates},
+            {"createWatch", "createWatchCompilerHostOfConfigFile", "createWatchCompilerHost", "createProgramHost", "createBuilderProgram"},
+        )
+        program_host = next(candidate for candidate in state.candidates if candidate.symbol == "createProgramHost")
+        self.assertEqual(program_host.facts.callable_defaults, (("createProgram", "createBuilderProgram"),))
+        self.assertTrue(
+            any(
+                edge["kind"] == "factory_handoff"
+                and edge["source"]["id"] == "function:createProgramHost"
+                and edge["target"]["id"] == "function:createBuilderProgram"
+                and edge["_retrieval_provenance"] == "source_inferred_factory_handoff"
+                for edge in edges
+            )
+        )
+
+    def test_graph_neighbor_localization_keeps_all_originating_obligations(self) -> None:
+        states = (
+            ObligationProgress(EvidenceObligation("trigger", "Find the watch trigger.", True)),
+            ObligationProgress(EvidenceObligation("mechanism", "Trace the watch handoff.", True)),
+        )
+        semantic = {
+            "trigger": ({"path": "src/watchMode.ts"},),
+            "mechanism": ({"path": "src/watchMode.ts"},),
         }
-        self.assertTrue({"src/a.ts", "src/b.ts", "src/c.ts"} <= selected_paths)
-        self.assertLessEqual(sum(len(candidates) for candidates in shortlists.values()), 4)
+        neighbors = (
+            {
+                "path": "src/helpers.ts",
+                "source_paths": ["src/watchMode.ts"],
+                "edge_count": 12,
+                "edge_kinds": ["calls"],
+                "root_connections": [
+                    {"path": "src/watchMode.ts", "edge_count": 12, "score": 8.0},
+                ],
+            },
+        )
+        requests = []
+
+        class Qdrant:
+            def run(self, request):
+                requests.append(request)
+                return ToolObservation(
+                    tool_name=request.tool_name,
+                    status="ok",
+                    payload={
+                        "results": [
+                            {
+                                "path": "src/helpers.ts",
+                                "line_start": 1,
+                                "line_end": 2,
+                                "text": "function helper() { return true; }",
+                                "score": 1.0,
+                                "matched_terms": ["watch"],
+                            }
+                        ]
+                    },
+                )
+
+        class Resolver:
+            def run(self, request):
+                return ToolObservation(
+                    tool_name=request.tool_name,
+                    status="ok",
+                    payload={
+                        "results": [
+                            {
+                                "file": "src/helpers.ts",
+                                "line_start": 1,
+                                "line_end": 2,
+                                "nodes": [
+                                    {
+                                        "id": "function:helper",
+                                        "path": "src/helpers.ts",
+                                        "name": "helper",
+                                        "line_start": 1,
+                                        "line_end": 2,
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                )
+
+        with TemporaryDirectory() as root:
+            source = Path(root) / "src" / "helpers.ts"
+            source.parent.mkdir(parents=True)
+            source.write_text("function helper() {\n  return true;\n}\n", encoding="utf-8")
+            ctx = SimpleNamespace(
+                config=SimpleNamespace(workspace_root=root),
+                trace=SimpleNamespace(record_tool=lambda *args, **kwargs: None, record=lambda *args, **kwargs: None),
+            )
+            calls = _ground_semantic_root_neighbors(
+                ctx,
+                states=states,
+                semantic_by_obligation=semantic,
+                concepts_by_obligation={"trigger": (), "mechanism": ()},
+                file_neighbors=neighbors,
+                qdrant_tool=Qdrant(),
+                resolve_ranges_tool=Resolver(),
+            )
+
+        self.assertEqual(calls, 2)
+        self.assertEqual(tuple(candidate.path for candidate in states[0].candidates), ("src/helpers.ts",))
+        self.assertEqual(tuple(candidate.path for candidate in states[1].candidates), ("src/helpers.ts",))
+        self.assertEqual(states[0].candidates[0].obligation_ids, ("trigger",))
+        self.assertEqual(states[1].candidates[0].obligation_ids, ("mechanism",))
+        self.assertIn("Find the watch trigger.", requests[0].arguments["query"])
+        self.assertIn("Trace the watch handoff.", requests[0].arguments["query"])
 
     def test_exact_graph_range_suppresses_frontier_semantic_localization(self) -> None:
         exact = replace(_candidate("function:owner", "src/owner.ts"), line_start=10, line_end=20)
@@ -671,6 +1357,8 @@ class ObligationRetrievalTests(unittest.TestCase):
             score=2.0,
             relationship_types=("qualified_reference",),
             source_paths=("src/compiler/builder.ts",),
+            origin="semantic_anchor",
+            provenance_origins=("semantic_anchor",),
         )
         generic = replace(
             _candidate_with_text(
@@ -680,21 +1368,46 @@ class ObligationRetrievalTests(unittest.TestCase):
             ),
             file_role="implementation",
             score=3.0,
+            origin="semantic_anchor",
+            provenance_origins=("semantic_anchor",),
         )
         state = ObligationProgress(obligation, candidates=[generic, direct])
-        direct_id = _candidate_review_id("cause", direct)
+        direct_id = _global_candidate_id(direct)
         with TemporaryDirectory() as root:
             ctx = SimpleNamespace(
                 config=SimpleNamespace(llm_config=SimpleNamespace()),
                 trace=SimpleNamespace(record=lambda *args, **kwargs: None),
             )
             response = {
-                "decisions": [
+                "mechanisms": [
+                    {
+                        "id": "signature_invalidation",
+                        "status": "complete",
+                        "candidate_ids": [direct_id],
+                        "description": "The builder-state function owns signature invalidation.",
+                    }
+                ],
+                "selected_evidence": [
+                    {
+                        "candidate_id": direct_id,
+                        "mechanism_role": "state_owner",
+                        "obligation_ids": ["cause"],
+                        "reason": "The signature code directly establishes the mechanism.",
+                    },
+                    {
+                        "candidate_id": "wrong:candidate-1",
+                        "mechanism_role": "state_owner",
+                        "obligation_ids": ["cause"],
+                        "reason": "Invalid test ID.",
+                    },
+                ],
+                "obligation_assessments": [
                     {
                         "obligation_id": "cause",
-                        "status": "supported",
-                        "accepted_candidate_ids": [direct_id, "wrong:candidate-1"],
+                        "status": "repository_supported",
+                        "supporting_candidate_ids": [direct_id],
                         "reason": "The signature code directly establishes the mechanism.",
+                        "missing_handoff": "",
                     }
                 ],
                 "concepts": [
@@ -1176,6 +1889,21 @@ class ObligationRetrievalTests(unittest.TestCase):
 
         self.assertEqual(covered, ("project references",))
         self.assertEqual(missing, ("wildcard re-exports", "defining consumer handoff"))
+
+    def test_explain_stage_query_keeps_backend_owned_mechanism_terms(self) -> None:
+        query = _obligation_stage_query_text(
+            EvidenceObligation(
+                "why",
+                "The generated proposition may describe this as an external handoff.",
+                True,
+                stage_ids=("explain.why",),
+            )
+        )
+
+        self.assertIn("State why the established path produces that outcome.", query)
+        self.assertIn("invalidation propagation", query)
+        self.assertIn("affected dependency", query)
+        self.assertIn("external handoff", query)
 
     def test_camel_case_code_terms_cover_related_prose_concepts(self) -> None:
         self.assertIn("export", _terms("currentAffectedFilesExportedModulesMap"))

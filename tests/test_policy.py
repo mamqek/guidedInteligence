@@ -66,6 +66,25 @@ class ControlLayerPolicyTests(unittest.TestCase):
         self.assertEqual(len(self.retrieval.calls), 1)
         self.assertEqual(result.response_payload.metadata["error"], "missing_llm_config")
 
+    def test_response_generation_can_be_skipped_without_skipping_retrieval_evidence(self) -> None:
+        control = ControlLayer(
+            policy_stage=PolicyStage(),
+            retrieval_stage=self.retrieval,
+            logger=self.logger,
+            intent_enabled=False,
+            response_generation_enabled=False,
+        )
+        with patch("core.control_layer._render_response") as render_response:
+            result = control.run(_state("Explain how the policy chooses a turn."))
+
+        render_response.assert_not_called()
+        self.assertEqual(result.evidence, self.retrieval.result.evidence)
+        self.assertEqual(result.response_payload.content, "")
+        self.assertEqual(
+            result.response_payload.metadata["generator"],
+            "explicitly_skipped",
+        )
+
     def test_active_intent_classification_passes_only_minimal_context_to_retrieval(self) -> None:
         classification = IntentClassification(
             intents=(TaskIntent.EXPLAIN, TaskIntent.EXPLORE),

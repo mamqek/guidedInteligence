@@ -48,6 +48,7 @@ class ControlLayer:
     intent_llm_config: Any | None = None
     evidence_graph_builder: EvidenceGraphBuilder | None = None
     multi_intent_stage_order_neutralization_enabled: bool = False
+    response_generation_enabled: bool = True
 
     def run(self, state: ConversationState) -> OrchestrationResult:
         self._record(LogEventType.RUN_STARTED, state.conversation_id, {"turn_request": state.user_input})
@@ -152,15 +153,27 @@ class ControlLayer:
         resolved_response_llm_config = self.response_llm_config
         if resolved_response_llm_config is None:
             resolved_response_llm_config = getattr(getattr(self.retrieval_stage, "config", None), "llm_config", None)
-        response_payload = _render_response(
-            policy_result,
-            retrieval_result,
-            response_plan,
-            state=retrieval_state,
-            llm_config=resolved_response_llm_config,
-            record_event=lambda event_type, payload: self._record(event_type, state.conversation_id, payload),
-            neutralize_multi_intent_stage_order=self.multi_intent_stage_order_neutralization_enabled,
-        )
+        if self.response_generation_enabled:
+            response_payload = _render_response(
+                policy_result,
+                retrieval_result,
+                response_plan,
+                state=retrieval_state,
+                llm_config=resolved_response_llm_config,
+                record_event=lambda event_type, payload: self._record(event_type, state.conversation_id, payload),
+                neutralize_multi_intent_stage_order=self.multi_intent_stage_order_neutralization_enabled,
+            )
+        else:
+            response_payload = ResponsePayload(
+                turn_type=response_plan.turn_type,
+                content="",
+                evidence_refs=(),
+                violations=policy_result.violations,
+                metadata={
+                    **dict(response_plan.notes),
+                    "generator": "explicitly_skipped",
+                },
+            )
         self._record(LogEventType.RESPONSE_PAYLOAD, state.conversation_id, response_payload.to_dict())
 
         result = OrchestrationResult(
