@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "case_id": "vuejs-vue-10004",
+  "primary_group": "performance_memory",
+  "statistics_partition": "development",
+  "repository": "vuejs/vue",
+  "issue_number": 10004,
+  "issue_url": "https://github.com/vuejs/vue/issues/10004",
+  "original_issue_path": "vue/cloudide/workspace/QA_data/vue/10004.json",
+  "title": "Memory leak with component with input with v-model",
+  "labels": [
+    "bug",
+    "has PR"
+  ],
+  "state": "closed",
+  "created_at": "2019-05-09T16:59:33Z",
+  "closed_at": "2021-08-05T09:21:13Z",
+  "selection_rationale": "Vue v-model listener memory leak with a runtime owner and focused regression test.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      10085
+    ],
+    "referenced_commit_shas_from_issue_events": [],
+    "cite": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "10085",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "10002",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "10085",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "10213",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "10214",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "10249",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "10544",
+        "is_own_repo": true
+      },
+      {
+        "owner": "Rocket1184",
+        "repo_name": "electron-netease-cloud-music",
+        "number": "78",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "11600",
+        "is_own_repo": true
+      },
+      {
+        "owner": "trc-mathieu",
+        "repo_name": "bootstrap-vue",
+        "number": "1",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "1",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 10085,
+        "title": "fix: remove stale model listeners for deactivated components",
+        "url": "https://github.com/vuejs/vue/pull/10085",
+        "merged": true,
+        "merge_commit_sha": "3d29ba863b89fd90dabd0856c0507eacdf5fef22",
+        "head_sha": "",
+        "base_sha": "509de2af793a770c7c29897980b27dfe5278d274",
+        "changed_files": 2,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/platforms/web/runtime/modules/events.js",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "test/unit/features/component/component-keep-alive.spec.js",
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/platforms/web/runtime/modules/events.js"
+    ],
+    "test_or_validation_files": [
+      "test/unit/features/component/component-keep-alive.spec.js"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [
+      "updateDOMListeners"
+    ],
+    "subsystem": "web runtime DOM event listeners",
+    "responsibility_summary": "The relevant files own web runtime DOM event listeners behavior described by the issue.",
+    "hidden_resolution_summary": "PR #10085: fix: remove stale model listeners for deactivated components",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [],
+    "resolution_comment_excerpts": [],
+    "notes": "Oracle frozen from the locally available fixing commit before retrieval evaluation."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval uses only visible issue fields and the verified pre-fix snapshot"
+  }
+}

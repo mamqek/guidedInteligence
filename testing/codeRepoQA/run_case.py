@@ -27,6 +27,7 @@ from services.retrieval.workspace.bm25 import (
     BM25_INDEX_SCHEMA_VERSION,
     DEFAULT_EXCLUDED_PATHS,
     build_index_from_repo,
+    indexable_content_signature,
     save_index,
 )
 from services.retrieval.workspace.pipeline.index_flow import save_sync_manifest
@@ -58,6 +59,23 @@ CODE_PATH_PATTERN = re.compile(r"\b(?:[\w.-]+/)+[\w.-]+\.(?:[A-Za-z0-9]+)\b|\b[\
 IDENTIFIER_PATTERN = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*)`|\b([A-Z][A-Za-z0-9_]{2,})\b")
 CODE_REPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS = int(os.environ.get("CODEREPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS", "900"))
 CODE_REPOQA_QDRANT_INDEX_TIMEOUT_SECONDS = 900
+CODEREPOQA_GENERATED_PATHS_BY_REPOSITORY: dict[tuple[str, str], tuple[str, ...]] = {
+    # TypeScript checks in generated reference output for its compiler tests. The
+    # corresponding tests/cases inputs remain searchable because they are authored
+    # testcase source and can be relevant evidence.
+    ("microsoft", "typescript"): (
+        "tests/baselines/reference",
+        "tests/baselines/local",
+        "lib/tsc.js",
+        "lib/tsserver.js",
+        "lib/tsserverlibrary.js",
+        "lib/typescript.js",
+        "lib/typescriptServices.js",
+        "lib/typingsInstaller.js",
+        "lib/cancellationToken.js",
+        "lib/watchGuard.js",
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -118,6 +136,10 @@ def prepare_index(
         {
             "index_schema_version": BM25_INDEX_SCHEMA_VERSION,
             "workspace_root": str(workspace_root),
+            "content_signature": indexable_content_signature(
+                workspace_root,
+                exclude_paths=tuple(effective_exclude_paths),
+            ),
             "exclude_paths": list(effective_exclude_paths),
             "chunk_line_count": chunk_line_count,
             "chunk_line_overlap": chunk_line_overlap,
@@ -152,6 +174,9 @@ def run_case(
     index_exclude_paths: Sequence[str] | None = None,
     skip_response_generation: bool = False,
     skip_final_evidence_selection: bool = False,
+    embedding_batch_size: int | None = None,
+    embedding_concurrency: int | None = None,
+    embedding_cache_path: str | Path | None = None,
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
         issue_json,
@@ -185,6 +210,9 @@ def run_case(
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
         final_evidence_selection_enabled=not skip_final_evidence_selection,
+        embedding_batch_size=embedding_batch_size,
+        embedding_concurrency=embedding_concurrency,
+        embedding_cache_path=str(embedding_cache_path) if embedding_cache_path is not None else None,
     )
     retrieval_stage = CodexRetrievalStage(retrieval_config) if retrieval_config.retrieval_mode == RETRIEVAL_MODE_CODEX else WorkspaceRetrievalStage(retrieval_config)
     control_layer = ControlLayer(
@@ -253,6 +281,9 @@ def evaluate_case(
     index_exclude_paths: Sequence[str] | None = None,
     skip_response_generation: bool = False,
     skip_final_evidence_selection: bool = False,
+    embedding_batch_size: int | None = None,
+    embedding_concurrency: int | None = None,
+    shared_embedding_cache_root: str | Path | None = None,
 ) -> Path:
     issue_path = Path(issue_json)
     verification_path = Path(verification_json) if verification_json is not None else _default_verification_path(issue_path)
@@ -303,6 +334,10 @@ def evaluate_case(
         repo_pre_commit=resolution.repo_pre_commit,
     )
     run_dir = case_paths.runs_dir / _next_run_id(case_paths.runs_dir)
+    embedding_cache_path = None
+    if shared_embedding_cache_root is not None and retrieval_mode != RETRIEVAL_MODE_CODEX:
+        cache_name = f"{visible_case.repo_owner.lower()}__{visible_case.repo_name.lower()}.sqlite3"
+        embedding_cache_path = Path(shared_embedding_cache_root) / cache_name
     run_case(
         issue_json=issue_path,
         repo_pre_path=snapshot_dir,
@@ -323,6 +358,9 @@ def evaluate_case(
         index_exclude_paths=exclude_paths,
         skip_response_generation=skip_response_generation,
         skip_final_evidence_selection=skip_final_evidence_selection,
+        embedding_batch_size=embedding_batch_size,
+        embedding_concurrency=embedding_concurrency,
+        embedding_cache_path=embedding_cache_path,
     )
     _write_run_metadata(
         run_dir=run_dir,
@@ -341,6 +379,7 @@ def evaluate_case(
         codex_prompt_profile=codex_prompt_profile,
         skip_response_generation=skip_response_generation,
         skip_final_evidence_selection=skip_final_evidence_selection,
+        embedding_cache_path=embedding_cache_path,
     )
     return run_dir
 
@@ -543,6 +582,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.skip_final_evidence_selection
                 or run_config.get("skip_final_evidence_selection", False)
             ),
+            embedding_batch_size=_config_optional_int(run_config, "embedding_batch_size"),
+            embedding_concurrency=_config_optional_int(run_config, "embedding_concurrency"),
+            embedding_cache_path=run_config.get("embedding_cache_path"),
         )
         return 0
 
@@ -575,6 +617,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.skip_final_evidence_selection
                 or run_config.get("skip_final_evidence_selection", False)
             ),
+            embedding_batch_size=_config_optional_int(run_config, "embedding_batch_size"),
+            embedding_concurrency=_config_optional_int(run_config, "embedding_concurrency"),
+            shared_embedding_cache_root=run_config.get("shared_embedding_cache_root"),
         )
         print(str(run_dir))
         return 0
@@ -584,26 +629,28 @@ def main(argv: Sequence[str] | None = None) -> int:
         cases = tuple(args.issue_json or _string_sequence(run_config.get("cases")))
         if not cases:
             raise ValueError("evaluate-batch requires --issue-json or a non-empty `cases` array in --run-config.")
+        case_timeout_seconds = int(run_config.get("case_timeout_seconds", 1800))
+        if case_timeout_seconds <= 0:
+            raise ValueError("case_timeout_seconds must be greater than zero.")
         for issue_json in cases:
-            run_dir = evaluate_case(
-                issue_json=issue_json,
-                test_root=_config_value(args, run_config, "test_root", str(DEFAULT_TEST_ROOT)),
-                clone_url=_config_value(args, run_config, "clone_url", None),
-                chunk_line_count=int(_config_value(args, run_config, "chunk_lines", 40)),
-                chunk_line_overlap=int(_config_value(args, run_config, "chunk_overlap", 10)),
-                rebuild_index=bool(args.rebuild_index or run_config.get("rebuild_index", False)),
-                shared_repo_root=_config_value(args, run_config, "shared_repo_root", None),
-                llm_config=_load_project_llm_config(run_config),
-                retrieval_mode=_config_value(args, run_config, "retrieval_mode", RETRIEVAL_MODE_WORKSPACE),
-                codex_command=_codex_command(args, run_config),
-                codex_model=_config_value(args, run_config, "codex_model", "gpt-5.4-mini"),
-                codex_prompt_profile=_config_value(
-                    args, run_config, "codex_prompt_profile", DEFAULT_CODEX_PROMPT_PROFILE
-                ),
-                codex_timeout_seconds=int(_config_value(args, run_config, "codex_timeout_seconds", 900)),
-                codex_ignore_user_config=_config_bool(run_config, "codex_ignore_user_config", True),
-            )
-            print(str(run_dir))
+            command = _evaluate_case_subprocess_command(args, issue_json)
+            print(f"Starting {issue_json} with a {case_timeout_seconds}s testcase ceiling.", flush=True)
+            try:
+                subprocess.run(
+                    command,
+                    cwd=ROOT,
+                    check=True,
+                    timeout=case_timeout_seconds,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError(
+                    f"Batch stopped: testcase {issue_json} exceeded the explicit "
+                    f"{case_timeout_seconds}s wall-clock ceiling."
+                ) from exc
+            except subprocess.CalledProcessError as exc:
+                raise RuntimeError(
+                    f"Batch stopped: testcase {issue_json} failed with exit code {exc.returncode}."
+                ) from exc
         return 0
 
     if args.command == "evaluate-compare-batch":
@@ -800,6 +847,48 @@ def _config_bool(config: Mapping[str, Any], key: str, default: bool) -> bool:
     return bool(value)
 
 
+def _config_optional_int(config: Mapping[str, Any], key: str) -> int | None:
+    value = config.get(key)
+    if value in (None, ""):
+        return None
+    parsed = int(value)
+    if parsed <= 0:
+        raise ValueError(f"{key} must be greater than zero.")
+    return parsed
+
+
+def _evaluate_case_subprocess_command(args: argparse.Namespace, issue_json: str) -> list[str]:
+    command = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "evaluate-case",
+        "--issue-json",
+        str(issue_json),
+        "--run-config",
+        str(args.run_config),
+    ]
+    value_options = (
+        ("test_root", "--test-root"),
+        ("clone_url", "--clone-url"),
+        ("chunk_lines", "--chunk-lines"),
+        ("chunk_overlap", "--chunk-overlap"),
+        ("shared_repo_root", "--shared-repo-root"),
+        ("retrieval_mode", "--retrieval-mode"),
+        ("codex_model", "--codex-model"),
+        ("codex_prompt_profile", "--codex-prompt-profile"),
+        ("codex_timeout_seconds", "--codex-timeout-seconds"),
+    )
+    for attribute, option in value_options:
+        value = getattr(args, attribute, None)
+        if value is not None:
+            command.extend((option, str(value)))
+    for token in getattr(args, "codex_command", None) or ():
+        command.extend(("--codex-command", str(token)))
+    if getattr(args, "rebuild_index", False):
+        command.append("--rebuild-index")
+    return command
+
+
 def _codex_command(args: argparse.Namespace, config: Mapping[str, Any]) -> tuple[str, ...]:
     if args.codex_command:
         return resolve_codex_command(args.codex_command)
@@ -895,8 +984,11 @@ def _coderepoqa_exclude_paths(
     *,
     additional: Sequence[str] | None = None,
 ) -> tuple[str, ...]:
-    del visible_case
-    return tuple(dict.fromkeys((*DEFAULT_EXCLUDED_PATHS, *(additional or ()))))
+    repository_paths = CODEREPOQA_GENERATED_PATHS_BY_REPOSITORY.get(
+        (visible_case.repo_owner.lower(), visible_case.repo_name.lower()),
+        (),
+    )
+    return tuple(dict.fromkeys((*DEFAULT_EXCLUDED_PATHS, *repository_paths, *(additional or ()))))
 
 
 def _clone_or_fetch_repo(clone_url: str, repo_dir: Path) -> None:
@@ -949,6 +1041,7 @@ def _write_run_metadata(
     codex_prompt_profile: str,
     skip_response_generation: bool,
     skip_final_evidence_selection: bool,
+    embedding_cache_path: Path | None = None,
 ) -> None:
     metadata = {
         "case_id": visible_case.case_id,
@@ -965,6 +1058,7 @@ def _write_run_metadata(
         "codex_prompt_profile": codex_prompt_profile if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
         "skip_response_generation": skip_response_generation,
         "skip_final_evidence_selection": skip_final_evidence_selection,
+        "embedding_cache_path": str(embedding_cache_path) if embedding_cache_path is not None else "",
         "intent_system": "request_analysis_obligations_v1",
         "resolution": {
             "strategy": resolution.strategy,
@@ -1311,6 +1405,9 @@ def _workspace_retrieval_config_for_case(
     codex_timeout_seconds: int,
     codex_ignore_user_config: bool,
     final_evidence_selection_enabled: bool = True,
+    embedding_batch_size: int | None = None,
+    embedding_concurrency: int | None = None,
+    embedding_cache_path: str | None = None,
 ) -> WorkspaceRetrievalConfig:
     # Shared boundary: both testcase retrieval modes receive the same sanitized
     # ConversationState.user_input built by _user_prompt(title, initial_body).
@@ -1325,7 +1422,16 @@ def _workspace_retrieval_config_for_case(
             collection_name="codex_not_used",
         )
     else:
-        embedding_config = load_retrieval_embedding_config(TOOL_ENV_PATH)
+        loaded_embedding_config = load_retrieval_embedding_config(TOOL_ENV_PATH)
+        embedding_config = RetrievalEmbeddingConfig(
+            api_style=loaded_embedding_config.api_style,
+            model=loaded_embedding_config.model,
+            endpoint_url=loaded_embedding_config.endpoint_url,
+            api_key=loaded_embedding_config.api_key,
+            timeout_seconds=loaded_embedding_config.timeout_seconds,
+            batch_size=embedding_batch_size or loaded_embedding_config.batch_size,
+            concurrency=embedding_concurrency or loaded_embedding_config.concurrency,
+        )
         qdrant_config = load_retrieval_qdrant_config(TOOL_ENV_PATH)
     return WorkspaceRetrievalConfig(
         workspace_root=str(workspace_root),
@@ -1334,6 +1440,7 @@ def _workspace_retrieval_config_for_case(
         llm_config=llm_config,
         embedding_config=embedding_config,
         qdrant_config=qdrant_config,
+        embedding_cache_path=embedding_cache_path,
         retrieval_mode=retrieval_mode,
         codex_command=tuple(codex_command) or ("codex",),
         codex_model=codex_model,

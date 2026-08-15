@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "case_id": "pandas-dev-pandas-10150",
+  "primary_group": "api_behavior_design",
+  "statistics_partition": "final",
+  "repository": "pandas-dev/pandas",
+  "issue_number": 10150,
+  "issue_url": "https://github.com/pandas-dev/pandas/issues/10150",
+  "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/10150.json",
+  "title": "BUG/API: inconsistent name handling in value_counts ",
+  "labels": [
+    "Bug",
+    "API Design"
+  ],
+  "state": "closed",
+  "created_at": "2015-05-15T19:59:59Z",
+  "closed_at": "2015-06-27T03:51:56Z",
+  "selection_rationale": "Held-out pandas value_counts naming-semantics issue with implementation, tests, and release note.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      10419
+    ],
+    "referenced_commit_shas_from_issue_events": [],
+    "cite": [],
+    "cited_by": [
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "10276",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "10367",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "10419",
+        "is_own_repo": true
+      },
+      {
+        "owner": "pandas-dev",
+        "repo_name": "pandas",
+        "number": "11579",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 10419,
+        "title": "BUG/API: make value_counts name handling consistent",
+        "url": "https://github.com/pandas-dev/pandas/pull/10419",
+        "merged": true,
+        "merge_commit_sha": "654e7397280be9a681fafcf8f70cfe3e20a9ef47",
+        "head_sha": "",
+        "base_sha": "3908ad53e33c74096eb5a682256dc13fb6e91e3a",
+        "changed_files": 5,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "pandas/core/algorithms.py",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/core/base.py",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/tests/test_base.py",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pandas/util/testing.py",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "doc/source/whatsnew/v0.17.0.txt",
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "pandas/core/algorithms.py",
+      "pandas/core/base.py"
+    ],
+    "test_or_validation_files": [
+      "pandas/tests/test_base.py",
+      "pandas/util/testing.py"
+    ],
+    "documentation_files": [
+      "doc/source/whatsnew/v0.17.0.txt"
+    ],
+    "symbols_or_apis": [
+      "value_counts"
+    ],
+    "subsystem": "pandas value-counting API metadata",
+    "responsibility_summary": "The relevant files own pandas value-counting API metadata behavior described by the issue.",
+    "hidden_resolution_summary": "PR #10419: BUG/API: make value_counts name handling consistent",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [],
+    "resolution_comment_excerpts": [],
+    "notes": "Oracle frozen from the locally available fixing commit before retrieval evaluation."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval uses only visible issue fields and the verified pre-fix snapshot"
+  }
+}

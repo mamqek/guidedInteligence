@@ -213,6 +213,8 @@ export type IndexEstimate = {
   index_status?: string;
   index_status_detail?: string;
   index_last_built_at?: string;
+  request_index_action?: "build" | "repair" | "reindex" | "reuse" | "verify";
+  index_change_detected?: boolean;
 };
 
 export type IndexPrepareJob = {

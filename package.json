@@ -26,6 +26,8 @@
     "coderepoqa:batch:codex:efficient": ".venv\\Scripts\\python.exe testing/codeRepoQA/run_case.py evaluate-batch --run-config configs/testing/codex-efficient.json",
     "coderepoqa:batch:codex:responsibility-complete": ".venv\\Scripts\\python.exe testing/codeRepoQA/run_case.py evaluate-batch --run-config configs/testing/codex-responsibility-complete.json",
     "coderepoqa:batch:compare": ".venv\\Scripts\\python.exe testing/codeRepoQA/run_case.py evaluate-compare-batch --workspace-run-config configs/testing/workspace.json --codex-run-config configs/testing/codex.json",
+    "coderepoqa:statistics:workspace": ".venv\\Scripts\\python.exe testing/codeRepoQA/run_case.py evaluate-batch --run-config configs/testing/statistics-workspace.json",
+    "coderepoqa:statistics:codex": ".venv\\Scripts\\python.exe testing/codeRepoQA/run_case.py evaluate-batch --run-config configs/testing/statistics-codex-luna.json",
     "web:dev": "vite --config ui/vite.config.ts",
     "web:build": "vite build --config ui/vite.config.ts",
     "web:preview": "vite preview --config ui/vite.config.ts",

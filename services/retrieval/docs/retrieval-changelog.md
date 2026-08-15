@@ -1,5 +1,89 @@
 # Retrieval Changelog
 
+## 2026-08-15
+
+### One Retry For Invalid Structured LLM Output
+
+- Stage boundary: the shared `complete_json` boundary now validates the response envelope and JSON object.
+  On the first invalid/empty structured response it emits a prominent stderr warning plus trace/warning events,
+  then resends the identical request once. A second invalid response emits an error event and raises normally;
+  HTTP, timeout, and other failures are not included in this retry.
+- Expected quality impact: a single transient malformed model response no longer discards an otherwise complete
+  retrieval run. Schema validation and downstream evidence semantics are unchanged.
+- Expected token impact: zero change for valid responses; one duplicate call only when the first response is
+  malformed. There is never a third structured-output attempt.
+- Regression risks: the repeated call can return different valid content and consumes its normal token budget.
+  Tests assert identical request payloads, a visible warning, exactly two calls on recovery, and a hard failure
+  after two invalid responses. The related retrieval suites pass (101 tests total).
+- Real incident: TypeScript 16278 `run-20260815T180422Z` completed BM25, Qdrant, and 226 cached embedding
+  batches, then failed because the consolidation response was empty/non-JSON. Manual retry
+  `run-20260815T182050Z` reused the completed indexes, used 75,435 retrieval LLM tokens, and completed
+  `coverage_status=partial`, `sufficient=false`. Future equivalent incidents use the bounded in-call retry.
+
+### Bounded Testcase Indexing And Incremental Embedding Cache
+
+- Stage boundary: CodeRepoQA batches now run every testcase in a separate process with an explicit
+  per-case wall-clock ceiling (30 minutes in the statistics profile). A timeout or any testcase failure
+  stops the batch and names that testcase. Embedding/cache construction and Qdrant upload each receive a
+  separate bounded window, so cache work cannot consume the upload budget.
+- Index-scope boundary: the harness adds deterministic repository-aware generated-output exclusions to the
+  shared defaults. TypeScript excludes generated `tests/baselines/reference` and local baseline output while
+  retaining authored `tests/cases` inputs and `lib` declarations. Generated `lib/*.js` compiler/server bundles
+  are excluded as explicit files so the mixed-source `lib` directory is not removed wholesale. The same list
+  reaches BM25, Qdrant, and CodeGraph and remains part of the index signature and run metadata.
+- Expected quality impact: generated compiler-output snapshots cannot occupy retrieval candidates; authored
+  implementation and test inputs remain available. The SQLite cache changes storage only and must return the
+  same float32 embedding values by content/model key.
+- Expected token/runtime impact: completed embeddings are stored incrementally in SQLite instead of loading
+  and rewriting a repository-wide JSON object. This removes repeated parsing/serialization of the existing
+  10.1 GB TypeScript cache and preserves successful batches immediately. The TypeScript 52695 scope gate
+  reduced CodeGraph input from 34,364 to 18,252 files.
+- Regression risks: the legacy JSON cache must be migrated once before resuming statistics or cached vectors
+  would be requested again. SQLite float32 encoding, concurrent writes, legacy JSON compatibility, atomic
+  JSON replacement, separate upload timing, and batch timeout behavior have focused tests. Resume the real
+  benchmark only after migration and an end-to-end reuse check.
+- Real gate, TypeScript 52695 `run-20260815T171510Z`: completed in about nine minutes under the 30-minute
+  ceiling, reused 104,050 cached document embeddings, requested one missing embedding, and uploaded 104,051
+  Qdrant points in about four minutes. Peak worker memory during cached-vector materialization was about
+  6.5 GB versus about 23 GB while loading the legacy JSON cache. Retrieval used 77,027 LLM tokens across ten
+  calls, ended `coverage_status=partial`, `sufficient=false`, and selected the primary implementation Oracle
+  `src/compiler/moduleNameResolver.ts` at rank 1. Run metadata records the SQLite cache and generated paths.
+
+### Explicit Index Readiness, Reuse, And Rebuild Notices
+
+- Stage boundary: repository selection and `/index/estimate` are now passive
+  readiness checks only. They report `missing`, `incomplete`, `stale`,
+  `unavailable`, or `ready` and never start indexing. The explicit Prepare
+  button may build an index; an active retrieval may build, repair, or reindex
+  when necessary. Active rebuilds emit a dedicated `workspace_index_rebuilt`
+  trace event and a prominent UI notice before retrieval proceeds.
+- Validity boundary: BM25 readiness now includes a digest of the exact
+  indexable repository content plus schema, exclusion, and chunking settings.
+  Qdrant readiness includes the embedding model in its signature and checks
+  that the saved collection exists and contains points. A matching manifest is
+  therefore insufficient when repository content or embedding configuration
+  changed.
+- Expected quality impact: none for an unchanged repository because its saved
+  BM25 and Qdrant data are reused verbatim. A changed repository is rebuilt
+  instead of retrieving from stale evidence, reducing stale-result risk.
+- Expected token impact: unchanged snapshots send zero document-embedding
+  batches after the first successful build. Changed indexable content or an
+  embedding-model change intentionally incurs one visible rebuild. Query and
+  retrieval-controller LLM usage is unaffected by index reuse.
+- Regression risks: hashing indexable text adds a repository scan to readiness
+  checks; unreadable and oversized files remain excluded under the same rules
+  as BM25 indexing. Changes to excluded/generated files intentionally do not
+  invalidate the semantic index.
+- Real comparison, Vue testcase `vuejs-vue-11718`: cold run
+  `run-20260815T125621Z` rebuilt BM25 and Qdrant, sent 18 document-embedding
+  batches, used 41,968 retrieval-stage LLM tokens, and ended
+  `coverage_status=partial`, `sufficient=false`. A fresh-process warm run,
+  `run-20260815T125842Z`, reused both indexes, sent zero document-embedding
+  batches, used 62,853 retrieval-stage LLM tokens, and ended
+  `coverage_status=strong`, `sufficient=true`. The LLM-token and quality
+  variation is retrieval nondeterminism; the indexing comparison is the
+  deterministic 18-versus-zero embedding-batch result.
+
 ## 2026-08-13
 
 ### Compact File-Triage Experiment Removed
@@ -2942,3 +3026,29 @@ coverage or stable final LLM acceptance of every visible owner node.
 - `pandas-dev-pandas-10068` `run-20260811T111431Z`: `partial/false`; a semantic chunk spanning `pandas/core/series.py:1466-1511` resolved to and selected exact `Series::_binop` across its full range. This directly verifies that the former first-line/`nodes[0]` mapping defect is removed. Remaining unresolved transitions are retrieval-quality issues, not range truncation.
 - Positive exact-error verification `vuejs-vue-242` `run-20260811T104956Z`: the reported expression-parser error was mapped to the dominant source template and seeded `src/exp-parser.js:93-101` with `exact_prompt_anchor` provenance; all required obligations were supported.
 - Negative external-error verification `pandas-dev-pandas-9219` `run-20260811T111926Z`: `partial/false`; `TypeError: unorderable types: NoneType() >= tuple()` remained `prompt_only` with no repository match. Local literals were classified independently, and evidence stayed on pandas' HDF handoff path rather than inventing a PyTables root cause.
+## 2026-08-14 - Qualification-first retrieval controller, Step 1
+
+- Replaced the production obligation-expansion scheduler with a qualification-first controller. Raw Qdrant/exact hits now become role-neutral discovery observations, receive bounded adaptive source disclosure, and must pass an atomic LLM qualification contract before evidence admission or graph traversal. There is no production fallback to the old scheduler.
+- Added separate modules for observation aggregation, disclosure, qualification, islands, coverage, typed actions, controller orchestration, and the public facade. Kept stable legacy candidate/consolidation helpers temporarily; their file separation is Step 2.
+- Added CodeGraph operations for file outlines, relationships within an already selected node set, directional edge capabilities, and depth-one limited relationship expansion. Graph calls can rerank the closed set or answer one missing relationship from a qualified owner; they no longer fan out from every semantic seed.
+- The controller uses at most two actions per round, forbids duplicate paths/effects across obligations, keeps unresolved observations in a deferred pool, and admits a fourth round only after a productive private-identifier exact search in round 3. Search/graph results re-enter qualification.
+- Navigation-only promotions reach final comparison with explicit provenance but cannot establish coverage. The final payload now carries retrieval origin and discovery-island identity. A bounded post-rerank invariant retains one qualified candidate from each of the strongest six candidate islands, under the existing 14-item evidence cap.
+- Tightened qualification structured output: decisions are keyed by observation ID and use one atomic classification enum, eliminating duplicate/missing IDs and invalid disposition/support combinations without silent repair.
+- Qdrant accepts separate dense and sparse query text. Embedding-cache persistence now flushes every 64 inserts plus one mandatory final flush, avoiding a multi-gigabyte JSON rewrite after every new embedding.
+- Expected quality impact: preserve disconnected owners while preventing weak seeds from creating large graph neighborhoods. Expected token impact: move cost from one enormous final-selection prompt into several bounded qualification/coverage calls, with a much smaller final candidate payload. Known risks: qualification remains stochastic; the six-island preservation invariant can increase selected evidence toward the 14-item cap; exact-source searches add tool calls; all accepted cases remain honestly partial/insufficient.
+- Final TypeScript 35468 runs: `run-20260814T060345Z` was `partial/false`, 19 candidates, 13 selected, 30 tools, three rounds, 70,118 retrieval LLM tokens, and three implementation-Oracle overlaps. `run-20260814T060815Z` was `partial/false`, 21 candidates, 10 selected, 25 tools, three rounds, 62,306 tokens, and two implementation-Oracle overlaps. Both retained builder/state and watch/test islands.
+- Final pandas 10068 runs: `run-20260814T061200Z` and `run-20260814T061451Z` were `partial/false`, used 15/13 candidates, 50/58 tools, four rounds, 92,898/91,456 retrieval LLM tokens, and two Oracle overlaps each. Both retained `core/series.py`, `core/ops.py`, `core/common.py`, and the regression test.
+- Final Vue 10803 runs: `run-20260814T061744Z` and `run-20260814T061911Z` were `partial/false`, used 3/9 candidates, 15/25 tools, one/three rounds, 32,771/56,898 retrieval LLM tokens, and two Oracle overlaps each. Both retained server `dom-props.js` and the SSR test.
+- Legacy TypeScript comparison: `run-20260813T194329Z` and `run-20260813T194645Z` used 659/652 candidates, 97/99 tools, and 235,871/218,423 final-selection tokens with two Oracle overlaps. Step 1 reduced final-selection tokens to 15,302/12,517 while retaining three/two overlaps. Total Step 1 tokens include newly explicit qualification and coverage calls and must not be compared with legacy final-selection-only tokens.
+- Rejected intermediate designs are preserved in run artifacts rather than hidden: repeated same-file refinement produced zero-overlap TypeScript runs; a global fourth round displaced the watch island; arbitrary deferred-slot reservation starved qualified files; untyped qualification arrays produced duplicate/invalid outputs; and navigation candidates were initially dropped by the legacy mechanism-flow preselector. Each was replaced or disabled before acceptance.
+- Verification uses the actual workspace pipeline with final evidence selection enabled and response generation skipped. The implementation questions about pool size, disclosure budget, adaptive action depth, Oracle-island stability, and token/quality tradeoffs remain explicitly listed in `decisions/qualification_first_retrieval_controller.md` for thesis work.
+
+## 2026-08-15 - Coordinated embedding TPM reservations
+
+- Stage boundary: only outbound embedding API requests are paced. The configured batch size (`64`) and concurrency (`2`) remain unchanged; BM25, Qdrant upload, retrieval ranking, and Codex retrieval are unaffected.
+- Both embedding workers now share one token-rate gate. Each worker atomically reserves a conservative input-token estimate before sending, while successful provider responses reconcile the shared balance from `x-ratelimit-remaining-tokens` and `x-ratelimit-reset-tokens`.
+- The first request is serialized long enough to learn current provider headroom. After a 429, both workers honor the same reset boundary and only one recovery probe is admitted before parallel work resumes. This prevents independent retries from racing for the same newly available TPM capacity.
+- Expected quality and retrieval-token impact: none; embeddings and indexed content are unchanged. Expected runtime impact is negligible while headroom is sufficient and an intentional pause near the TPM limit instead of a failed build.
+- Known risks: character-based reservation is conservative rather than tokenizer-exact, provider headers can reflect other clients using the same project, and an externally exhausted account can still return a terminal 429 after retries. That failure remains explicit.
+- Completed embedding batches now enter the shared cache from their worker immediately. If a peer batch later fails, all completed entries are persisted before the original error is re-raised, preventing paid work from being repeated on the next attempt.
+- Verification: isolated concurrent checks confirm initial probe serialization, accounting for another in-flight worker, compound reset-header parsing, and persistence of one successful batch when its parallel peer fails. Python compilation and `git diff --check` pass. The full repository test suite is currently unavailable because both local Python environments are missing declared test dependencies (`pytest` and `langgraph`); no surrogate full-suite pass is claimed.

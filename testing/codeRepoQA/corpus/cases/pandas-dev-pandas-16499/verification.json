@@ -73,10 +73,10 @@
     ]
   },
   "oracle": {
-    "implementation_files": [],
-    "test_or_validation_files": [
+    "implementation_files": [
       "pandas/tests/io/json/test_ujson.py"
     ],
+    "test_or_validation_files": [],
     "documentation_files": [],
     "symbols_or_apis": [],
     "subsystem": "IO subsystem",
@@ -102,7 +102,7 @@
       "I'll update with a fix.",
       "This is from this regex `class [^T|t].*TestCase\\):` on 0.19.2 ``` pandas/io/tests/json/test_ujson.py:38:class UltraJSONTests(TestCase): pandas/io/tests/json/test_ujson.py:919:class NumpyJSONTests(TestCase): pandas/io/tests/json/test_ujson.py:1195:class PandasJSONTests(TestCase): pandas/io/tests/test_gbq.py:358:class GBQUnitTests(tm.TestCase): pandas/io/tests/test_excel.py:938:class XlsReaderTests(XlrdTests, tm.TestCase): pandas/io/tests/test_excel.py:944:class XlsxReaderTests(XlrdTests, tm.TestCase): pandas/io/tests/test_excel.py:950:class XlsmReaderTests(XlrdTests, tm.TestCase): pandas/io/tes"
     ],
-    "notes": "Oracle file lists were enriched from GitHub PR metadata. Review for noisy multi-issue PRs before using strict scoring."
+    "notes": "The changed test-discovery file is classified as the implementation owner because this case concerns whether the test suite itself is collected; it is not merely supporting validation for a product-code change."
   },
   "measurement_criteria": {
     "retrieval_found_at_least_one_oracle_implementation_file": "not_applicable_no_implementation_files",

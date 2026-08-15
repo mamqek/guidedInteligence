@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.error
@@ -111,8 +112,9 @@ def complete_json(
             )
         return response_data
 
+    request_payload = payload
     try:
-        response_data = _attempt(payload)
+        response_data = _attempt(request_payload)
     except _LoggedHTTPError as exc:
         if _is_temperature_unsupported_error(exc.status_code, exc.error_body) and "temperature" in payload:
             key = _temperature_cache_key(config)
@@ -127,41 +129,57 @@ def complete_json(
                         "message": "temperature parameter rejected by model; retrying without temperature for the rest of the run",
                     }
                 )
-            response_data = _attempt(_request_payload(config, effective_messages, response_format=response_format))
+            request_payload = _request_payload(config, effective_messages, response_format=response_format)
+            response_data = _attempt(request_payload)
         else:
             raise RuntimeError(f"LLM request failed: HTTP {exc.status_code}: {exc.error_body}") from exc
 
+    for response_number in (1, 2):
+        try:
+            parsed = _parse_response_json_object(response_data)
+        except RuntimeError as exc:
+            retrying = response_number == 1
+            warning_payload = {
+                "warning_type": "llm_response_invalid_structured_output",
+                "model": config.model,
+                "endpoint_url": config.endpoint_url,
+                "attempt": response_number,
+                "will_retry": retrying,
+                "error": str(exc),
+                "raw_response": _raw_json_text(response_data),
+                "message": (
+                    "LLM returned invalid structured JSON; retrying the same request once"
+                    if retrying
+                    else "LLM structured-JSON retry was also invalid; aborting"
+                ),
+            }
+            severity = "WARNING" if retrying else "ERROR"
+            print(f"{severity}: {warning_payload['message']}: {exc}", file=sys.stderr, flush=True)
+            if log_event is not None:
+                log_event(
+                    "llm_invalid_structured_output_retry"
+                    if retrying
+                    else "llm_invalid_structured_output_failed",
+                    warning_payload,
+                )
+            if log_warning is not None:
+                log_warning(warning_payload)
+            if not retrying:
+                raise
+            response_data = _attempt(request_payload)
+            continue
+        _store_continuity_response(config, parsed)
+        return parsed
+
+    raise AssertionError("Structured JSON completion exhausted without returning or raising.")
+
+
+def _parse_response_json_object(response_data: Mapping[str, Any]) -> Mapping[str, Any]:
     try:
         content = response_data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
-        if log_warning is not None:
-            log_warning(
-                {
-                    "warning_type": "llm_response_shape_unexpected",
-                    "model": config.model,
-                    "endpoint_url": config.endpoint_url,
-                    "raw_response": _raw_json_text(response_data),
-                    "message": "LLM response was missing choices[0].message.content",
-                }
-            )
         raise RuntimeError("LLM response missing choices[0].message.content") from exc
-    content_text = str(content)
-    try:
-        parsed = _parse_json_object(content_text)
-        _store_continuity_response(config, parsed)
-        return parsed
-    except RuntimeError:
-        if log_warning is not None:
-            log_warning(
-                {
-                    "warning_type": "llm_response_not_json",
-                    "model": config.model,
-                    "endpoint_url": config.endpoint_url,
-                    "raw_response": _raw_json_text(response_data),
-                    "message": "LLM response content was not valid JSON",
-                }
-            )
-        raise
+    return _parse_json_object(str(content))
 
 
 def parse_json_object(content: str) -> Mapping[str, Any]:

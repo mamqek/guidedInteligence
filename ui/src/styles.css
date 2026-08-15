@@ -918,6 +918,47 @@ select:focus {
   color: #215846;
 }
 
+.indexNotice.warning {
+  border-color: #dc8a18;
+  background: #fff1d6;
+  color: #713f12;
+  box-shadow: 0 0 0 2px rgb(220 138 24 / 12%);
+}
+
+.indexRunPopup {
+  position: fixed;
+  z-index: 1200;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  width: min(540px, calc(100vw - 36px));
+  border: 1px solid #8ab6e8;
+  border-radius: 8px;
+  background: #eef6ff;
+  color: #173f6b;
+  padding: 14px 16px;
+  box-shadow: 0 14px 36px rgb(15 23 42 / 24%);
+}
+
+.indexRunPopup.warning {
+  border-color: #dc8a18;
+  background: #fff1d6;
+  color: #713f12;
+}
+
+.indexRunPopup > div {
+  display: grid;
+  gap: 4px;
+}
+
+.indexRunPopup span {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .indexNoticeText {
   display: grid;
   gap: 3px;

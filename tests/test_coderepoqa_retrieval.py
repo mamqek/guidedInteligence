@@ -13,8 +13,10 @@ from core.source_policy import SourceCategory
 from services.retrieval.config import RunLLMConfig
 from services.intent.logging import IntentStageResult
 from services.intent.models import IntentClassification, SolutionPressure, Specificity, TargetState, TaskIntent, TurnRelation
-from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, load_index
+from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, indexable_content_signature, load_index
 from testing.codeRepoQA.run_case import (
+    _coderepoqa_exclude_paths,
+    main,
     evaluate_case,
     prepare_index,
     resolve_repo_pre_snapshot,
@@ -42,6 +44,39 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
         self.assertIn("comments_details", hidden.hidden_fields)
         self.assertNotIn("comments_details", visible.to_dict())
 
+    def test_coderepoqa_excludes_repository_generated_outputs(self) -> None:
+        from services.retrieval.cases import load_coderepoqa_case
+
+        visible, _hidden = load_coderepoqa_case(
+            Path("testing/codeRepoQA/6.json"),
+            repo_pre_path="repo-pre",
+            repo_pre_commit="abc123",
+        )
+
+        excludes = _coderepoqa_exclude_paths(visible, additional=("custom-output",))
+
+        self.assertIn("tests/baselines/reference", excludes)
+        self.assertIn("tests/baselines/local", excludes)
+        self.assertIn("lib/typescript.js", excludes)
+        self.assertIn("lib/tsserver.js", excludes)
+        self.assertIn("custom-output", excludes)
+        self.assertNotIn("lib", excludes)
+        self.assertNotIn("tests/cases", excludes)
+
+    def test_evaluate_batch_stops_at_explicit_testcase_ceiling(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "batch.json"
+            config_path.write_text(
+                json.dumps({"cases": ["case/issue.json"], "case_timeout_seconds": 7}),
+                encoding="utf-8",
+            )
+            with patch(
+                "testing.codeRepoQA.run_case.subprocess.run",
+                side_effect=subprocess.TimeoutExpired(["python"], timeout=7),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "explicit 7s wall-clock ceiling"):
+                    main(["evaluate-batch", "--run-config", str(config_path)])
+
     def test_prepare_index_supports_overlapping_chunks(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -64,6 +99,7 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
             scope_manifest = json.loads((index_dir / "bm25-scope-manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(scope_manifest["workspace_root"], str(repo.resolve()))
             self.assertEqual(scope_manifest["exclude_paths"], list(DEFAULT_EXCLUDED_PATHS))
+            self.assertEqual(scope_manifest["content_signature"], indexable_content_signature(repo))
             index = load_index(index_dir)
 
             self.assertEqual([document.chunk.line_start for document in index.documents], [1, 6, 11])

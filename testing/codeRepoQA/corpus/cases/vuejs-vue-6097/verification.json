@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "case_id": "vuejs-vue-6097",
+  "primary_group": "feature_enhancement",
+  "statistics_partition": "final",
+  "repository": "vuejs/vue",
+  "issue_number": 6097,
+  "issue_url": "https://github.com/vuejs/vue/issues/6097",
+  "original_issue_path": "vue/cloudide/workspace/QA_data/vue/6097.json",
+  "title": "Allow defining optional inject dependency with default values",
+  "labels": [
+    "feature request",
+    "in review"
+  ],
+  "state": "closed",
+  "created_at": "2017-07-13T14:40:29Z",
+  "closed_at": "2017-10-05T19:44:32Z",
+  "selection_rationale": "Held-out Vue inject-default feature with implementation and unit-test coverage.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      6322
+    ],
+    "referenced_commit_shas_from_issue_events": [],
+    "cite": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "6137",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "6137",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "6322",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "v2.vuejs.org",
+        "number": "1069",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "1069",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuetifyjs",
+        "repo_name": "vuetify",
+        "number": "1707",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuetifyjs",
+        "repo_name": "vuetify",
+        "number": "2033",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "2033",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 6322,
+        "title": "feat: allow default values for injected dependencies",
+        "url": "https://github.com/vuejs/vue/pull/6322",
+        "merged": true,
+        "merge_commit_sha": "88423fc66a2a4917dcdb7631a4594f05446283b1",
+        "head_sha": "",
+        "base_sha": "b3cd9bc3940eb1e01da7081450929557d9c1651e",
+        "changed_files": 3,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/core/instance/inject.js",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/core/util/options.js",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "test/unit/features/options/inject.spec.js",
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/core/instance/inject.js",
+      "src/core/util/options.js"
+    ],
+    "test_or_validation_files": [
+      "test/unit/features/options/inject.spec.js"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [
+      "resolveInject",
+      "inject"
+    ],
+    "subsystem": "dependency injection options",
+    "responsibility_summary": "The relevant files own dependency injection options behavior described by the issue.",
+    "hidden_resolution_summary": "PR #6322: feat: allow default values for injected dependencies",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [],
+    "resolution_comment_excerpts": [],
+    "notes": "Oracle frozen from the locally available fixing commit before retrieval evaluation."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval uses only visible issue fields and the verified pre-fix snapshot"
+  }
+}

@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-16278",
+  "primary_group": "api_behavior_design",
+  "statistics_partition": "development",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 16278,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/16278",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/16278.json",
+  "title": "New refactor API",
+  "labels": [
+    "API"
+  ],
+  "state": "closed",
+  "created_at": "2017-06-05T23:10:33Z",
+  "closed_at": "2017-06-07T05:28:53Z",
+  "selection_rationale": "TypeScript refactor API case with protocol, service, client/server, and fourslash coverage.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      16307
+    ],
+    "referenced_commit_shas_from_issue_events": [],
+    "cite": [],
+    "cited_by": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "16307",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "16071",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 16307,
+        "title": "New refactor API",
+        "url": "https://github.com/microsoft/TypeScript/pull/16307",
+        "merged": true,
+        "merge_commit_sha": "6007eb7dfb816cf2d021f0057cda2dd1c62b352b",
+        "head_sha": "",
+        "base_sha": "b217c39bb16008a57723b7faa662b2f11447c942",
+        "changed_files": 16,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "scripts/buildProtocol.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/server/client.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/server/protocol.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/server/session.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/services/refactorProvider.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/services/refactors/convertFunctionToEs6Class.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/services/services.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/services/types.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/harness/fourslash.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/harness/harnessLanguageService.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/harness/unittests/session.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/fourslash/convertFunctionToEs6Class1.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/fourslash/convertFunctionToEs6Class2.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/fourslash/convertFunctionToEs6Class3.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/fourslash/fourslash.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/cases/fourslash/server/convertFunctionToEs6Class-server.ts",
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "scripts/buildProtocol.ts",
+      "src/server/client.ts",
+      "src/server/protocol.ts",
+      "src/server/session.ts",
+      "src/services/refactorProvider.ts",
+      "src/services/refactors/convertFunctionToEs6Class.ts",
+      "src/services/services.ts",
+      "src/services/types.ts"
+    ],
+    "test_or_validation_files": [
+      "src/harness/fourslash.ts",
+      "src/harness/harnessLanguageService.ts",
+      "src/harness/unittests/session.ts",
+      "tests/cases/fourslash/convertFunctionToEs6Class1.ts",
+      "tests/cases/fourslash/convertFunctionToEs6Class2.ts",
+      "tests/cases/fourslash/convertFunctionToEs6Class3.ts",
+      "tests/cases/fourslash/fourslash.ts",
+      "tests/cases/fourslash/server/convertFunctionToEs6Class-server.ts"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [
+      "getApplicableRefactors",
+      "getEditsForRefactor"
+    ],
+    "subsystem": "language service refactor API",
+    "responsibility_summary": "The relevant files own language service refactor API behavior described by the issue.",
+    "hidden_resolution_summary": "PR #16307: New refactor API",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [],
+    "resolution_comment_excerpts": [],
+    "notes": "Oracle frozen from the locally available fixing commit before retrieval evaluation."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval uses only visible issue fields and the verified pre-fix snapshot"
+  }
+}

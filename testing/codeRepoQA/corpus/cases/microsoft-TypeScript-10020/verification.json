@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-10020",
+  "primary_group": "feature_enhancement",
+  "statistics_partition": "development",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 10020,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/10020",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/10020.json",
+  "title": "Support 'Organize Imports' feature",
+  "labels": [
+    "Suggestion",
+    "Fixed",
+    "VS Code Tracked",
+    "Domain: Refactorings",
+    "Domain: Organize Imports"
+  ],
+  "state": "closed",
+  "created_at": "2016-07-29T03:45:34Z",
+  "closed_at": "2018-02-24T01:43:29Z",
+  "selection_rationale": "TypeScript Organize Imports feature spanning the language service and focused harness coverage.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      22087
+    ],
+    "referenced_commit_shas_from_issue_events": [],
+    "cite": [
+      {
+        "owner": "Microsoft",
+        "repo_name": "TypeScript",
+        "number": "16119",
+        "is_own_repo": false
+      },
+      {
+        "owner": "Microsoft",
+        "repo_name": "TypeScript",
+        "number": "21909",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "21909",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "angelozerr",
+        "repo_name": "typescript.java",
+        "number": "24",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "14403",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "vscode",
+        "number": "818",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "14743",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "16119",
+        "is_own_repo": true
+      },
+      {
+        "owner": "ananthakumaran",
+        "repo_name": "tide",
+        "number": "167",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "vscode",
+        "number": "37252",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "vscode",
+        "number": "38204",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "vscode",
+        "number": "38670",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "22087",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 22087,
+        "title": "Support Organize Imports",
+        "url": "https://github.com/microsoft/TypeScript/pull/22087",
+        "merged": true,
+        "merge_commit_sha": "b31aa4e012fc4c2afc9c2200f18b9e79edac160b",
+        "head_sha": "",
+        "base_sha": "4d284d617f78a12461af62840b096133e63605d8",
+        "changed_files": 5,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/compiler/utilities.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/services/organizeImports.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/harness/unittests/organizeImports.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/organizeImports/AmbientModule.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "tests/baselines/reference/organizeImports/TopLevelAndAmbientModule.ts",
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/compiler/utilities.ts",
+      "src/services/organizeImports.ts"
+    ],
+    "test_or_validation_files": [
+      "src/harness/unittests/organizeImports.ts",
+      "tests/baselines/reference/organizeImports/AmbientModule.ts",
+      "tests/baselines/reference/organizeImports/TopLevelAndAmbientModule.ts"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [
+      "organizeImports"
+    ],
+    "subsystem": "language service organize-imports refactoring",
+    "responsibility_summary": "The relevant files own language service organize-imports refactoring behavior described by the issue.",
+    "hidden_resolution_summary": "PR #22087: Support Organize Imports",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [],
+    "resolution_comment_excerpts": [],
+    "notes": "Oracle frozen from the locally available fixing commit before retrieval evaluation."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval uses only visible issue fields and the verified pre-fix snapshot"
+  }
+}

@@ -12,7 +12,7 @@ from services.retrieval.workspace.pipeline.execution_flow.index_setup import (
     rebuild_index,
     structural_tools as build_structural_tools,
 )
-from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import run_obligation_retrieval
+from services.retrieval.workspace.pipeline.execution_flow.qualification_first_retrieval import run_obligation_retrieval
 from services.retrieval.workspace.pipeline.execution_flow.run_outcomes import failed_result
 from services.retrieval.workspace.tools import QdrantHybridSearchTool, ToolObservation, ToolRequest
 
@@ -93,7 +93,7 @@ def run_workspace_retrieval(
         index,
         qdrant_config=ctx.config.qdrant_config,
         embedding_config=ctx.config.embedding_config,
-        cache_path=str(Path(ctx.config.index_dir) / "qdrant-embeddings-cache.json"),
+        cache_path=ctx.config.embedding_cache_path or str(Path(ctx.config.index_dir) / "qdrant-embeddings-cache.json"),
     )
     connected_context = collect_connected_context(
         ctx,

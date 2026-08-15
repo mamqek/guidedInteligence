@@ -157,6 +157,95 @@ async function resolveRanges(args) {
   };
 }
 
+async function fileOutline(args) {
+  const codegraph = await openGraph();
+  const file = normalizePath(args.path);
+  const limit = Math.max(1, Math.min(Number(args.max_entries || 120), 400));
+  const nodes = uniqueNodes(codegraph.getNodesInFile(file))
+    .filter((node) => !["file", "import"].includes(node.kind))
+    .sort((left, right) =>
+      Number(left.startLine || 0) - Number(right.startLine || 0) ||
+      Number(left.endLine || left.startLine || 0) - Number(right.endLine || right.startLine || 0) ||
+      String(left.name || "").localeCompare(String(right.name || "")),
+    );
+  return { path: file, total_count: nodes.length, nodes: nodes.slice(0, limit).map(nodePayload) };
+}
+
+async function relationshipsWithinNodes(args) {
+  const codegraph = await openGraph();
+  const nodeIds = [...new Set((Array.isArray(args.node_ids) ? args.node_ids : []).map(String).filter(Boolean))].slice(0, 80);
+  const requested = new Set(nodeIds);
+  const allowedKinds = new Set((Array.isArray(args.edge_kinds) ? args.edge_kinds : []).map(String).filter(Boolean));
+  const nodes = nodeIds.map((id) => codegraph.getNode(id)).filter(Boolean);
+  const edges = [];
+  const seen = new Set();
+  for (const node of nodes) {
+    for (const edge of codegraph.getOutgoingEdges(node.id)) {
+      if (!requested.has(edge.source) || !requested.has(edge.target)) continue;
+      if (allowedKinds.size && !allowedKinds.has(edge.kind)) continue;
+      const key = `${edge.source}\0${edge.target}\0${edge.kind}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push(edgePayload(codegraph, edge));
+    }
+  }
+  return { node_ids: nodeIds, nodes: nodes.map(nodePayload), edges };
+}
+
+async function edgeCapabilities(args) {
+  const codegraph = await openGraph();
+  const nodeIds = [...new Set((Array.isArray(args.node_ids) ? args.node_ids : []).map(String).filter(Boolean))].slice(0, 16);
+  const nodes = [];
+  for (const nodeId of nodeIds) {
+    const node = codegraph.getNode(nodeId);
+    if (!node) continue;
+    const incoming = new Map();
+    const outgoing = new Map();
+    for (const edge of codegraph.getIncomingEdges(nodeId)) incoming.set(edge.kind, (incoming.get(edge.kind) || 0) + 1);
+    for (const edge of codegraph.getOutgoingEdges(nodeId)) outgoing.set(edge.kind, (outgoing.get(edge.kind) || 0) + 1);
+    const counts = (values) => [...values.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([kind, count]) => ({ kind, count }));
+    nodes.push({ node_id: nodeId, node: nodePayload(node), incoming: counts(incoming), outgoing: counts(outgoing) });
+  }
+  return { nodes };
+}
+
+async function expandRelationships(args) {
+  const codegraph = await openGraph();
+  const seedIds = [...new Set((Array.isArray(args.node_ids) ? args.node_ids : []).map(String).filter(Boolean))].slice(0, 16);
+  const direction = String(args.direction || "");
+  if (!["incoming", "outgoing"].includes(direction)) throw new Error("direction must be incoming or outgoing");
+  const allowedKinds = new Set((Array.isArray(args.edge_kinds) ? args.edge_kinds : []).map(String).filter(Boolean));
+  if (!allowedKinds.size) throw new Error("edge_kinds must be a non-empty allowlist");
+  const limit = Math.max(1, Math.min(Number(args.limit || 3), 20));
+  const endpoints = [];
+  const edges = [];
+  const seenNodes = new Set(seedIds);
+  const seenEdges = new Set();
+  for (const seedId of seedIds) {
+    const adjacent = direction === "incoming" ? codegraph.getIncomingEdges(seedId) : codegraph.getOutgoingEdges(seedId);
+    for (const edge of adjacent) {
+      if (!allowedKinds.has(edge.kind)) continue;
+      const endpointId = direction === "incoming" ? edge.source : edge.target;
+      const endpoint = codegraph.getNode(endpointId);
+      if (!endpoint) continue;
+      const edgeKey = `${edge.source}\0${edge.target}\0${edge.kind}`;
+      if (!seenEdges.has(edgeKey)) {
+        seenEdges.add(edgeKey);
+        edges.push(edgePayload(codegraph, edge));
+      }
+      if (!seenNodes.has(endpointId)) {
+        seenNodes.add(endpointId);
+        endpoints.push(nodePayload(endpoint));
+      }
+      if (endpoints.length >= limit) break;
+    }
+    if (endpoints.length >= limit) break;
+  }
+  return { seed_node_ids: seedIds, direction, edge_kinds: [...allowedKinds].sort(), nodes: endpoints, edges };
+}
+
 async function expandNodes(args) {
   const codegraph = await openGraph();
   const seedIds = [...new Set((Array.isArray(args.node_ids) ? args.node_ids : []).map(String).filter(Boolean))].slice(0, 80);
@@ -446,6 +535,10 @@ async function dispatch(operation, args) {
   if (operation === "find_exact_symbol") return findExactSymbol(args);
   if (operation === "resolve_locations") return resolveLocations(args);
   if (operation === "resolve_ranges") return resolveRanges(args);
+  if (operation === "file_outline") return fileOutline(args);
+  if (operation === "relationships_within_nodes") return relationshipsWithinNodes(args);
+  if (operation === "edge_capabilities") return edgeCapabilities(args);
+  if (operation === "expand_relationships") return expandRelationships(args);
   if (operation === "expand_nodes") return expandNodes(args);
   if (operation === "callers") return analyzeCalls(args, "callers");
   if (operation === "callees") return analyzeCalls(args, "callees");

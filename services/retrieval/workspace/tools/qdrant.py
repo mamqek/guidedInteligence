@@ -29,6 +29,7 @@ class QdrantHybridSearchTool:
 
     def run(self, request: ToolRequest) -> ToolObservation:
         query = str(request.arguments.get("query", ""))
+        sparse_query = str(request.arguments.get("sparse_query", "")).strip() or None
         limit = max(1, min(int(request.arguments.get("limit", 12) or 12), 50))
         max_per_path = max(0, min(int(request.arguments.get("max_per_path", 0) or 0), 10))
         search_limit = min(50, max(limit, limit * 4)) if max_per_path else limit
@@ -49,30 +50,17 @@ class QdrantHybridSearchTool:
         requested_file_role = str(request.arguments.get("file_role", "implementation")).strip()
         file_role = "" if requested_file_role == "any" else (requested_file_role or "implementation")
         include_breakdown = bool(request.arguments.get("include_breakdown", True))
-        try:
-            results = self.backend.search(
-                query,
-                limit=search_limit,
-                path=path,
-                paths=paths,
-                min_score=min_score,
-                source_category=source_category,
-                file_role=file_role,
-                include_breakdown=include_breakdown,
-            )
-        except TypeError as exc:
-            if "include_breakdown" not in str(exc):
-                raise
-            results = self.backend.search(
-                query,
-                limit=search_limit,
-                path=path,
-                paths=paths,
-                min_score=min_score,
-                source_category=source_category,
-                file_role=file_role,
-            )
-            include_breakdown = False
+        results = self.backend.search(
+            query,
+            sparse_query=sparse_query,
+            limit=search_limit,
+            path=path,
+            paths=paths,
+            min_score=min_score,
+            source_category=source_category,
+            file_role=file_role,
+            include_breakdown=include_breakdown,
+        )
         results = _include_preferred_range_results(results, self.index, preferred_ranges)
         if path:
             normalized = path.replace("\\", "/")
@@ -97,6 +85,7 @@ class QdrantHybridSearchTool:
             status="ok",
             payload={
                 "query": query,
+                "sparse_query": sparse_query or query,
                 "path": path,
                 "paths": list(paths),
                 "preferred_ranges": [dict(item) for item in preferred_ranges],
@@ -124,6 +113,7 @@ def qdrant_tool_specs() -> tuple[ToolSpec, ...]:
             ),
             arguments={
                 "query": "Required string. Role- or issue-derived retrieval query.",
+                "sparse_query": "Optional lexical query. Dense embedding still uses query; defaults to query when omitted.",
                 "limit": "Optional integer from 1 to 50. Defaults to 12.",
                 "path": "Optional relative repo path. Restricts search to one indexed file.",
                 "paths": "Optional list of relative repo paths. Restricts search to a narrowed file set.",

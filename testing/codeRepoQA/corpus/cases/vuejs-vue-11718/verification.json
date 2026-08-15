@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "case_id": "vuejs-vue-11718",
+  "primary_group": "testing_build_tooling",
+  "statistics_partition": "development",
+  "repository": "vuejs/vue",
+  "issue_number": 11718,
+  "issue_url": "https://github.com/vuejs/vue/issues/11718",
+  "original_issue_path": "vue/cloudide/workspace/QA_data/vue/11718.json",
+  "title": "vuejs/vue-ssr-webpack-plugin and webpack 5",
+  "labels": [
+    "feature request",
+    "feat:ssr"
+  ],
+  "state": "closed",
+  "created_at": "2020-10-12T10:17:40Z",
+  "closed_at": "2021-06-02T12:50:28Z",
+  "selection_rationale": "Vue SSR webpack-plugin compatibility case with focused plugin implementation owners.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      12002
+    ],
+    "referenced_commit_shas_from_issue_events": [],
+    "cite": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "11863",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "11814",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "12050",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue2-ssr-docs",
+        "number": "306",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "11814",
+        "is_own_repo": true
+      },
+      {
+        "owner": "janeLLLL",
+        "repo_name": "blog",
+        "number": "47",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "11863",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "11930",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "12002",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "12050",
+        "is_own_repo": true
+      },
+      {
+        "owner": "vuetifyjs",
+        "repo_name": "vuetify",
+        "number": "13635",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "13635",
+        "is_own_repo": true
+      },
+      {
+        "owner": "brophdawg11",
+        "repo_name": "vue-ssr-build",
+        "number": "101",
+        "is_own_repo": false
+      },
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "101",
+        "is_own_repo": true
+      },
+      {
+        "owner": "dp-os",
+        "repo_name": "gez",
+        "number": "71",
+        "is_own_repo": false
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 12002,
+        "title": "fix: support webpack 5 in vue-server-renderer plugins",
+        "url": "https://github.com/vuejs/vue/pull/12002",
+        "merged": true,
+        "merge_commit_sha": "80e7730946538e0371e213100a0fe81299c2f4b2",
+        "head_sha": "",
+        "base_sha": "38f71de380d566e4eef60968a8eca6bd6f482dd5",
+        "changed_files": 3,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/server/webpack-plugin/client.js",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/server/webpack-plugin/server.js",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/server/webpack-plugin/util.js",
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/server/webpack-plugin/client.js",
+      "src/server/webpack-plugin/server.js",
+      "src/server/webpack-plugin/util.js"
+    ],
+    "test_or_validation_files": [],
+    "documentation_files": [],
+    "symbols_or_apis": [
+      "VueSSRClientPlugin",
+      "VueSSRServerPlugin"
+    ],
+    "subsystem": "SSR webpack plugins",
+    "responsibility_summary": "The relevant files own SSR webpack plugins behavior described by the issue.",
+    "hidden_resolution_summary": "PR #12002: fix: support webpack 5 in vue-server-renderer plugins",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [],
+    "resolution_comment_excerpts": [],
+    "notes": "Oracle frozen from the locally available fixing commit before retrieval evaluation."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval uses only visible issue fields and the verified pre-fix snapshot"
+  }
+}
