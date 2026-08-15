@@ -341,6 +341,122 @@ class CodeGraphFileNeighborsTool:
         )
 
 
+class CodeGraphFileOutlineTool:
+    name = "structural_file_outline"
+
+    def __init__(self, bridge: CodeGraphBridge) -> None:
+        self.bridge = bridge
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        path = str(request.arguments.get("path") or "").strip().replace("\\", "/")
+        if not path:
+            return _error(self.name, "empty_path")
+        try:
+            result = self.bridge.request(
+                "file_outline",
+                {"path": path, "max_entries": int(request.arguments.get("max_entries") or 120)},
+            )
+        except Exception as exc:
+            return _error(self.name, f"structural_file_outline_failed:{exc}")
+        nodes = result.get("nodes") if isinstance(result.get("nodes"), list) else []
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok",
+            payload=dict(result),
+            source_refs=(path,),
+            metadata={"result_count": str(len(nodes)), "match": "file_outline"},
+        )
+
+
+class CodeGraphRelationshipsWithinNodesTool:
+    name = "structural_relationships_within_nodes"
+
+    def __init__(self, bridge: CodeGraphBridge) -> None:
+        self.bridge = bridge
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        node_ids = request.arguments.get("node_ids")
+        if not isinstance(node_ids, list) or not node_ids:
+            return _error(self.name, "empty_node_ids")
+        edge_kinds = request.arguments.get("edge_kinds")
+        arguments: dict[str, Any] = {"node_ids": [str(value) for value in node_ids[:80]]}
+        if isinstance(edge_kinds, list):
+            arguments["edge_kinds"] = [str(value) for value in edge_kinds if str(value)]
+        try:
+            result = self.bridge.request("relationships_within_nodes", arguments)
+        except Exception as exc:
+            return _error(self.name, f"structural_closed_relationships_failed:{exc}")
+        edges = result.get("edges") if isinstance(result.get("edges"), list) else []
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok",
+            payload=dict(result),
+            metadata={"result_count": str(len(edges)), "relationship": "closed_set"},
+        )
+
+
+class CodeGraphEdgeCapabilitiesTool:
+    name = "structural_edge_capabilities"
+
+    def __init__(self, bridge: CodeGraphBridge) -> None:
+        self.bridge = bridge
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        node_ids = request.arguments.get("node_ids")
+        if not isinstance(node_ids, list) or not node_ids:
+            return _error(self.name, "empty_node_ids")
+        try:
+            result = self.bridge.request("edge_capabilities", {"node_ids": [str(value) for value in node_ids[:16]]})
+        except Exception as exc:
+            return _error(self.name, f"structural_edge_capabilities_failed:{exc}")
+        nodes = result.get("nodes") if isinstance(result.get("nodes"), list) else []
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok",
+            payload=dict(result),
+            metadata={"result_count": str(len(nodes)), "relationship": "edge_capabilities"},
+        )
+
+
+class CodeGraphExpandRelationshipsTool:
+    name = "structural_expand_relationships"
+
+    def __init__(self, bridge: CodeGraphBridge) -> None:
+        self.bridge = bridge
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        node_ids = request.arguments.get("node_ids")
+        edge_kinds = request.arguments.get("edge_kinds")
+        direction = str(request.arguments.get("direction") or "")
+        if not isinstance(node_ids, list) or not node_ids:
+            return _error(self.name, "empty_node_ids")
+        if direction not in {"incoming", "outgoing"}:
+            return _error(self.name, "invalid_direction")
+        if not isinstance(edge_kinds, list) or not edge_kinds:
+            return _error(self.name, "empty_edge_kinds")
+        try:
+            result = self.bridge.request(
+                "expand_relationships",
+                {
+                    "node_ids": [str(value) for value in node_ids[:16]],
+                    "direction": direction,
+                    "edge_kinds": [str(value) for value in edge_kinds if str(value)],
+                    "limit": int(request.arguments.get("limit") or 3),
+                },
+            )
+        except Exception as exc:
+            return _error(self.name, f"structural_relationship_expansion_failed:{exc}")
+        nodes = result.get("nodes") if isinstance(result.get("nodes"), list) else []
+        edges = result.get("edges") if isinstance(result.get("edges"), list) else []
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok",
+            payload=dict(result),
+            source_refs=tuple(str(item.get("path") or "") for item in nodes if isinstance(item, Mapping)),
+            metadata={"result_count": str(len(nodes)), "edge_count": str(len(edges))},
+        )
+
+
 class CodeGraphQualifiedReferencesTool:
     name = "structural_qualified_references"
 
@@ -388,6 +504,10 @@ def codegraph_tools(config: WorkspaceRetrievalConfig) -> tuple[dict[str, Any], C
             "structural_find_exact_symbol": CodeGraphFindExactSymbolTool(bridge),
             "structural_resolve_locations": CodeGraphResolveLocationsTool(bridge),
             "structural_resolve_ranges": CodeGraphResolveRangesTool(bridge),
+            "structural_file_outline": CodeGraphFileOutlineTool(bridge),
+            "structural_relationships_within_nodes": CodeGraphRelationshipsWithinNodesTool(bridge),
+            "structural_edge_capabilities": CodeGraphEdgeCapabilitiesTool(bridge),
+            "structural_expand_relationships": CodeGraphExpandRelationshipsTool(bridge),
             "structural_expand_nodes": CodeGraphExpandNodesTool(bridge),
             "structural_callers": CodeGraphAnalyzeCallsTool(bridge, direction="callers"),
             "structural_callees": CodeGraphAnalyzeCallsTool(bridge, direction="callees"),

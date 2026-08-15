@@ -96,6 +96,33 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                         paths=["src/builder.ts", "src/project.ts"],
                     )
                 )
+                caller_exact = tools["structural_find_exact_symbol"].run(
+                    _request("structural_find_exact_symbol", query="caller")
+                )
+                target_id = exact.payload["nodes"][0]["id"]
+                caller_id = caller_exact.payload["nodes"][0]["id"]
+                outline = tools["structural_file_outline"].run(
+                    _request("structural_file_outline", path="src/a.ts", max_entries=20)
+                )
+                closed = tools["structural_relationships_within_nodes"].run(
+                    _request(
+                        "structural_relationships_within_nodes",
+                        node_ids=[target_id, caller_id],
+                        edge_kinds=["calls"],
+                    )
+                )
+                capabilities = tools["structural_edge_capabilities"].run(
+                    _request("structural_edge_capabilities", node_ids=[target_id])
+                )
+                incoming = tools["structural_expand_relationships"].run(
+                    _request(
+                        "structural_expand_relationships",
+                        node_ids=[target_id],
+                        direction="incoming",
+                        edge_kinds=["calls"],
+                        limit=3,
+                    )
+                )
             finally:
                 close_codegraph_bridge(config)
 
@@ -138,6 +165,15 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                 affected["source_paths"],
                 ["src/builder.ts", "src/project.ts"],
             )
+            self.assertEqual(outline.status, "ok")
+            self.assertIn("caller", {node["name"] for node in outline.payload["nodes"]})
+            self.assertTrue(all(edge["kind"] == "calls" for edge in closed.payload["edges"]))
+            self.assertTrue(
+                any(item["kind"] == "calls" for item in capabilities.payload["nodes"][0]["incoming"])
+            )
+            self.assertEqual(incoming.payload["direction"], "incoming")
+            self.assertTrue(incoming.payload["nodes"])
+            self.assertTrue(all(edge["kind"] == "calls" for edge in incoming.payload["edges"]))
 
 
 def _config(root: Path) -> WorkspaceRetrievalConfig:

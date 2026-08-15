@@ -28,16 +28,16 @@ guidance in the thread.
 
 | Group | Intent | Current Count |
 | --- | --- | ---: |
-| `bug_regression` | Incorrect behavior, crash, missing behavior, or regression. | 3 |
-| `feature_enhancement` | New capability or developer-experience improvement. | 3 |
-| `performance_memory` | Runtime, memory, import-time, or filesystem performance. | 3 |
-| `compatibility_versioning` | Browser, dependency, platform, or version compatibility. | 3 |
-| `api_behavior_design` | Public API behavior, semantics, dtype/type behavior, or consistency. | 3 |
-| `testing_build_tooling` | Test discovery, CI, compiler/watch/build tooling, or validation scripts. | 3 |
-| `maintenance_refactor` | Cleanup, refactor, documentation maintenance, or internal hygiene. | 3 |
+| `bug_regression` | Incorrect behavior, crash, missing behavior, or regression. | 5 |
+| `feature_enhancement` | New capability or developer-experience improvement. | 5 |
+| `performance_memory` | Runtime, memory, import-time, or filesystem performance. | 5 |
+| `compatibility_versioning` | Browser, dependency, platform, or version compatibility. | 5 |
+| `api_behavior_design` | Public API behavior, semantics, dtype/type behavior, or consistency. | 5 |
+| `testing_build_tooling` | Test discovery, CI, compiler/watch/build tooling, or validation scripts. | 5 |
+| `maintenance_refactor` | Cleanup, refactor, documentation maintenance, or internal hygiene. | 5 |
 | `question_usage` | User question/support issue with useful maintainer explanation. | 3 |
 
-Each group currently has three selected cases.
+Each retrieval-grounded group has five selected cases. `question_usage` remains at three and is excluded from ranking statistics.
 
 ## Selection Logic
 

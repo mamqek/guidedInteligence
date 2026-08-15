@@ -8,6 +8,7 @@ from services.retrieval.workspace.bm25 import (
     BM25_INDEX_SCHEMA_VERSION,
     DEFAULT_EXCLUDED_PATHS,
     build_index_from_repo,
+    indexable_content_signature,
     load_index,
     save_index,
 )
@@ -36,6 +37,10 @@ def _index_scope_signature(ctx: WorkspaceRetrievalContext) -> dict[str, Any]:
     return {
         "index_schema_version": BM25_INDEX_SCHEMA_VERSION,
         "workspace_root": str(Path(ctx.config.workspace_root).resolve()),
+        "content_signature": indexable_content_signature(
+            ctx.config.workspace_root,
+            exclude_paths=tuple(effective_exclude_paths),
+        ),
         "exclude_paths": list(effective_exclude_paths),
         "chunk_line_count": ctx.config.chunk_line_count,
         "chunk_line_overlap": ctx.config.chunk_line_overlap,
@@ -97,7 +102,7 @@ def rebuild_index(ctx: WorkspaceRetrievalContext) -> IndexSetupResult:
         index,
         qdrant_config=ctx.config.qdrant_config,
         embedding_config=ctx.config.embedding_config,
-        cache_path=str(index_dir / "qdrant-embeddings-cache.json"),
+        cache_path=ctx.config.embedding_cache_path or str(index_dir / "qdrant-embeddings-cache.json"),
     )
     manifest_path = index_dir / "qdrant-sync-manifest.json"
     manifest = _load_sync_manifest(manifest_path)
@@ -129,6 +134,14 @@ def rebuild_index(ctx: WorkspaceRetrievalContext) -> IndexSetupResult:
             },
         )
         qdrant_rebuilt = True
+        ctx.trace.record(
+            "workspace_index_rebuilt",
+            {
+                "document_count": len(index.documents),
+                "indexed_points": indexed_points,
+                "reason": "missing_or_stale_qdrant_collection",
+            },
+        )
     rebuilt = bm25_rebuilt or qdrant_rebuilt
     ctx.trace.record(
         "workspace_index_ready",

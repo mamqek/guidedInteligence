@@ -1,0 +1,200 @@
+{
+    "url": "https://api.github.com/repos/microsoft/TypeScript/issues/19074",
+    "repository_url": "https://api.github.com/repos/microsoft/TypeScript",
+    "labels_url": "https://api.github.com/repos/microsoft/TypeScript/issues/19074/labels{/name}",
+    "comments_url": "https://api.github.com/repos/microsoft/TypeScript/issues/19074/comments",
+    "events_url": "https://api.github.com/repos/microsoft/TypeScript/issues/19074/events",
+    "html_url": "https://github.com/microsoft/TypeScript/issues/19074",
+    "id": 264355095,
+    "node_id": "MDU6SXNzdWUyNjQzNTUwOTU=",
+    "number": 19074,
+    "title": "Clean up LSHost mentions",
+    "user": {
+        "login": "ghost",
+        "id": 10137,
+        "node_id": "MDQ6VXNlcjEwMTM3",
+        "avatar_url": "https://avatars.githubusercontent.com/u/10137?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/ghost",
+        "html_url": "https://github.com/ghost",
+        "followers_url": "https://api.github.com/users/ghost/followers",
+        "following_url": "https://api.github.com/users/ghost/following{/other_user}",
+        "gists_url": "https://api.github.com/users/ghost/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/ghost/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/ghost/subscriptions",
+        "organizations_url": "https://api.github.com/users/ghost/orgs",
+        "repos_url": "https://api.github.com/users/ghost/repos",
+        "events_url": "https://api.github.com/users/ghost/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/ghost/received_events",
+        "type": "User",
+        "site_admin": false
+    },
+    "labels": [
+        {
+            "id": 294084644,
+            "node_id": "MDU6TGFiZWwyOTQwODQ2NDQ=",
+            "url": "https://api.github.com/repos/microsoft/TypeScript/labels/Infrastructure",
+            "name": "Infrastructure",
+            "color": "fbca04",
+            "default": false,
+            "description": "Issue relates to TypeScript team infrastructure"
+        }
+    ],
+    "state": "closed",
+    "locked": false,
+    "assignee": null,
+    "assignees": [],
+    "milestone": null,
+    "comments": 0,
+    "created_at": "2017-10-10T19:54:18Z",
+    "updated_at": "2019-06-21T02:11:47Z",
+    "closed_at": "2019-06-21T02:11:47Z",
+    "author_association": "NONE",
+    "active_lock_reason": null,
+    "body": "LSHost was removed in #17669 but many comments remain that refer to it (search for the string \"lshost\"). Could these be cleaned up to not mention it? CC @sheetalkamat ",
+    "reactions": {
+        "url": "https://api.github.com/repos/microsoft/TypeScript/issues/19074/reactions",
+        "total_count": 0,
+        "+1": 0,
+        "-1": 0,
+        "laugh": 0,
+        "hooray": 0,
+        "confused": 0,
+        "heart": 0,
+        "rocket": 0,
+        "eyes": 0
+    },
+    "timeline_url": "https://api.github.com/repos/microsoft/TypeScript/issues/19074/timeline",
+    "performed_via_github_app": null,
+    "state_reason": "completed",
+    "comments_details": [],
+    "events": [
+        {
+            "id": 1286824746,
+            "node_id": "MDE0Ok1lbnRpb25lZEV2ZW50MTI4NjgyNDc0Ng==",
+            "url": "https://api.github.com/repos/microsoft/TypeScript/issues/events/1286824746",
+            "actor": {
+                "login": "sheetalkamat",
+                "id": 8052792,
+                "node_id": "MDQ6VXNlcjgwNTI3OTI=",
+                "avatar_url": "https://avatars.githubusercontent.com/u/8052792?v=4",
+                "gravatar_id": "",
+                "url": "https://api.github.com/users/sheetalkamat",
+                "html_url": "https://github.com/sheetalkamat",
+                "followers_url": "https://api.github.com/users/sheetalkamat/followers",
+                "following_url": "https://api.github.com/users/sheetalkamat/following{/other_user}",
+                "gists_url": "https://api.github.com/users/sheetalkamat/gists{/gist_id}",
+                "starred_url": "https://api.github.com/users/sheetalkamat/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/sheetalkamat/subscriptions",
+                "organizations_url": "https://api.github.com/users/sheetalkamat/orgs",
+                "repos_url": "https://api.github.com/users/sheetalkamat/repos",
+                "events_url": "https://api.github.com/users/sheetalkamat/events{/privacy}",
+                "received_events_url": "https://api.github.com/users/sheetalkamat/received_events",
+                "type": "User",
+                "site_admin": false
+            },
+            "event": "mentioned",
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-10-10T19:54:18Z",
+            "performed_via_github_app": null
+        },
+        {
+            "id": 1286824748,
+            "node_id": "MDE1OlN1YnNjcmliZWRFdmVudDEyODY4MjQ3NDg=",
+            "url": "https://api.github.com/repos/microsoft/TypeScript/issues/events/1286824748",
+            "actor": {
+                "login": "sheetalkamat",
+                "id": 8052792,
+                "node_id": "MDQ6VXNlcjgwNTI3OTI=",
+                "avatar_url": "https://avatars.githubusercontent.com/u/8052792?v=4",
+                "gravatar_id": "",
+                "url": "https://api.github.com/users/sheetalkamat",
+                "html_url": "https://github.com/sheetalkamat",
+                "followers_url": "https://api.github.com/users/sheetalkamat/followers",
+                "following_url": "https://api.github.com/users/sheetalkamat/following{/other_user}",
+                "gists_url": "https://api.github.com/users/sheetalkamat/gists{/gist_id}",
+                "starred_url": "https://api.github.com/users/sheetalkamat/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/sheetalkamat/subscriptions",
+                "organizations_url": "https://api.github.com/users/sheetalkamat/orgs",
+                "repos_url": "https://api.github.com/users/sheetalkamat/repos",
+                "events_url": "https://api.github.com/users/sheetalkamat/events{/privacy}",
+                "received_events_url": "https://api.github.com/users/sheetalkamat/received_events",
+                "type": "User",
+                "site_admin": false
+            },
+            "event": "subscribed",
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-10-10T19:54:18Z",
+            "performed_via_github_app": null
+        },
+        {
+            "id": 1286920080,
+            "node_id": "MDEyOkxhYmVsZWRFdmVudDEyODY5MjAwODA=",
+            "url": "https://api.github.com/repos/microsoft/TypeScript/issues/events/1286920080",
+            "actor": null,
+            "event": "labeled",
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2017-10-10T20:51:45Z",
+            "label": {
+                "name": "Infrastructure",
+                "color": "fbca04"
+            },
+            "performed_via_github_app": null
+        },
+        {
+            "id": 2429074332,
+            "node_id": "MDExOkNsb3NlZEV2ZW50MjQyOTA3NDMzMg==",
+            "url": "https://api.github.com/repos/microsoft/TypeScript/issues/events/2429074332",
+            "actor": {
+                "login": "weswigham",
+                "id": 2932786,
+                "node_id": "MDQ6VXNlcjI5MzI3ODY=",
+                "avatar_url": "https://avatars.githubusercontent.com/u/2932786?v=4",
+                "gravatar_id": "",
+                "url": "https://api.github.com/users/weswigham",
+                "html_url": "https://github.com/weswigham",
+                "followers_url": "https://api.github.com/users/weswigham/followers",
+                "following_url": "https://api.github.com/users/weswigham/following{/other_user}",
+                "gists_url": "https://api.github.com/users/weswigham/gists{/gist_id}",
+                "starred_url": "https://api.github.com/users/weswigham/starred{/owner}{/repo}",
+                "subscriptions_url": "https://api.github.com/users/weswigham/subscriptions",
+                "organizations_url": "https://api.github.com/users/weswigham/orgs",
+                "repos_url": "https://api.github.com/users/weswigham/repos",
+                "events_url": "https://api.github.com/users/weswigham/events{/privacy}",
+                "received_events_url": "https://api.github.com/users/weswigham/received_events",
+                "type": "User",
+                "site_admin": false
+            },
+            "event": "closed",
+            "commit_id": null,
+            "commit_url": null,
+            "created_at": "2019-06-21T02:11:47Z",
+            "state_reason": null,
+            "performed_via_github_app": null
+        }
+    ],
+    "issue_or_pr": "issue",
+    "cite": [
+        {
+            "owner": "microsoft",
+            "repo_name": "TypeScript",
+            "number": "17669",
+            "is_own_repo": true
+        }
+    ],
+    "cited_by": [
+        {
+            "owner": "microsoft",
+            "repo_name": "TypeScript",
+            "number": "32018",
+            "is_own_repo": true
+        }
+    ],
+    "fixed_by": [
+        32018
+    ],
+    "duplicate": false
+}

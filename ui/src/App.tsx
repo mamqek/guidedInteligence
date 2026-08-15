@@ -42,6 +42,7 @@ export function App() {
   const [indexPrepareLoading, setIndexPrepareLoading] = useState(false);
   const [indexPrepareMessage, setIndexPrepareMessage] = useState("");
   const [indexPrepareJob, setIndexPrepareJob] = useState<IndexPrepareJob | undefined>();
+  const [indexRunNotice, setIndexRunNotice] = useState<{ title: string; message: string; tone: "info" | "warning" } | undefined>();
   const [activePage, setActivePage] = useState<Page>("chat");
 
   useEffect(() => {
@@ -99,6 +100,31 @@ export function App() {
     setRunError("");
     setRunLoading(true);
     setActiveRun(undefined);
+    const indexState = indexEstimate.data;
+    if (indexState && !indexState.index_ready) {
+      const action = indexState.request_index_action;
+      if (action === "reindex") {
+        setIndexRunNotice({
+          title: "Repository change detected — re-indexing",
+          message: indexState.index_status_detail || "The repository changed since the last completed index. This retrieval will re-index before searching.",
+          tone: "warning",
+        });
+      } else if (action === "repair") {
+        setIndexRunNotice({
+          title: "Incomplete index detected — repairing",
+          message: indexState.index_status_detail || "This retrieval will repair the incomplete index before searching.",
+          tone: "warning",
+        });
+      } else if (action === "build") {
+        setIndexRunNotice({
+          title: "No index found — preparing it now",
+          message: "This is an active retrieval request, so the repository will be indexed before searching.",
+          tone: "info",
+        });
+      }
+    } else {
+      setIndexRunNotice(undefined);
+    }
     try {
       const run = await api.retrieve({ prompt, allowed_sources: allowedSources });
       setActiveRun(run);
@@ -219,6 +245,15 @@ export function App() {
         </nav>
       </aside>
       <main className="mainGrid">
+        {indexRunNotice && (
+          <div className={`indexRunPopup ${indexRunNotice.tone}`} role="alert" aria-live="assertive">
+            <div>
+              <strong>{indexRunNotice.title}</strong>
+              <span>{indexRunNotice.message}</span>
+            </div>
+            <button type="button" className="textButton compactButton" onClick={() => setIndexRunNotice(undefined)}>Dismiss</button>
+          </div>
+        )}
         <header className="topBar">
           <div>
             <h1>Guided Intelligence</h1>
@@ -429,17 +464,19 @@ function IndexPreparationNotice({
   indexingEnabled?: boolean;
 }) {
   const ready = Boolean(estimate.index_ready);
+  const stale = estimate.index_status === "stale";
+  const incomplete = estimate.index_status === "incomplete";
   return (
-    <div className={indexPrepareLoading ? "indexNotice running" : ready ? "indexNotice ready" : "indexNotice"}>
+    <div className={indexPrepareLoading ? "indexNotice running" : ready ? "indexNotice ready" : stale || incomplete ? "indexNotice warning" : "indexNotice"}>
       <div className="indexNoticeText">
-        <strong>{indexPrepareLoading ? "Indexing is running." : ready ? "Index is ready." : "Index is not prepared."}</strong>
+        <strong>{indexPrepareLoading ? "Indexing is running." : ready ? "Index is ready." : stale ? "Repository change detected — re-indexing is required." : incomplete ? "Index preparation is incomplete." : "Index is not prepared."}</strong>
         <span>
           Prepares native retrieval for BM25, Qdrant, and CodeGraph. Scope: {formatCount(estimate.file_count)} files, about {formatCount(estimate.estimated_chunks)} chunks.
           {!indexingEnabled
             ? " Enable indexing and save retrieval settings before preparing the index."
             : ready
               ? ` ${estimate.index_status_detail || ""}`
-              : ` Run indexing before retrieval for best results. Estimate: ${formatIndexEstimateDuration(estimate)}.`}
+              : ` ${estimate.index_status_detail || "Run indexing before retrieval."} Estimate: ${formatIndexEstimateDuration(estimate)}.`}
           {estimate.index_last_built_at ? ` Last prepared: ${formatDateTime(estimate.index_last_built_at)}.` : ""}
           {" "}
           {!ready && onConfigureIndexing && (

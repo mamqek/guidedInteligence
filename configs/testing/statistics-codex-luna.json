@@ -1,0 +1,33 @@
+{
+  "retrieval_mode": "codex",
+  "test_root": "C:/Programming/guidedInteligence_testcases",
+  "shared_repo_root": "C:/Programming/guidedInteligence_testcases/_repos",
+  "rebuild_index": false,
+  "chunk_lines": 40,
+  "chunk_overlap": 10,
+  "codex_command": [
+    "codex"
+  ],
+  "codex_model": "gpt-5.6-luna",
+  "codex_prompt_profile": "efficient",
+  "codex_timeout_seconds": 900,
+  "codex_ignore_user_config": true,
+  "skip_response_generation": true,
+  "skip_final_evidence_selection": false,
+  "cases": [
+    "testing/codeRepoQA/corpus/cases/vuejs-vue-10519/issue.json",
+    "testing/codeRepoQA/corpus/cases/microsoft-TypeScript-10020/issue.json",
+    "testing/codeRepoQA/corpus/cases/vuejs-vue-10004/issue.json",
+    "testing/codeRepoQA/corpus/cases/vuejs-vue-13052/issue.json",
+    "testing/codeRepoQA/corpus/cases/microsoft-TypeScript-16278/issue.json",
+    "testing/codeRepoQA/corpus/cases/vuejs-vue-11718/issue.json",
+    "testing/codeRepoQA/corpus/cases/vuejs-vue-8528/issue.json",
+    "testing/codeRepoQA/corpus/cases/microsoft-TypeScript-10473/issue.json",
+    "testing/codeRepoQA/corpus/cases/vuejs-vue-6097/issue.json",
+    "testing/codeRepoQA/corpus/cases/vuejs-vue-9842/issue.json",
+    "testing/codeRepoQA/corpus/cases/microsoft-TypeScript-10041/issue.json",
+    "testing/codeRepoQA/corpus/cases/pandas-dev-pandas-10150/issue.json",
+    "testing/codeRepoQA/corpus/cases/vuejs-vue-11782/issue.json",
+    "testing/codeRepoQA/corpus/cases/microsoft-TypeScript-19074/issue.json"
+  ]
+}

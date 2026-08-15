@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "case_id": "vuejs-vue-13052",
+  "primary_group": "compatibility_versioning",
+  "statistics_partition": "development",
+  "repository": "vuejs/vue",
+  "issue_number": 13052,
+  "issue_url": "https://github.com/vuejs/vue/issues/13052",
+  "original_issue_path": "vue/cloudide/workspace/QA_data/vue/13052.json",
+  "title": "compiler-sfc not compatible with prettier v3",
+  "labels": [
+    "bug",
+    "improvement",
+    "has workaround"
+  ],
+  "state": "closed",
+  "created_at": "2023-07-13T12:46:51Z",
+  "closed_at": "2023-12-06T07:49:43Z",
+  "selection_rationale": "Vue compiler-sfc compatibility case with an explicit package-level dependency owner.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      13053
+    ],
+    "referenced_commit_shas_from_issue_events": [],
+    "cite": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "13053",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "13053",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 13053,
+        "title": "fix(compiler-sfc): support Prettier 3",
+        "url": "https://github.com/vuejs/vue/pull/13053",
+        "merged": true,
+        "merge_commit_sha": "45d6ad6645e960a3ee52ad9667520a1625f10dfd",
+        "head_sha": "",
+        "base_sha": "0ad8e8d94f3a3bf4429f25850c85a6bbb2b81364",
+        "changed_files": 2,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "packages/compiler-sfc/package.json",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "pnpm-lock.yaml",
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "packages/compiler-sfc/package.json"
+    ],
+    "test_or_validation_files": [
+      "pnpm-lock.yaml"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [
+      "compiler-sfc",
+      "prettier"
+    ],
+    "subsystem": "compiler-sfc dependency compatibility",
+    "responsibility_summary": "The relevant files own compiler-sfc dependency compatibility behavior described by the issue.",
+    "hidden_resolution_summary": "PR #13053: fix(compiler-sfc): support Prettier 3",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [],
+    "resolution_comment_excerpts": [],
+    "notes": "Oracle frozen from the locally available fixing commit before retrieval evaluation."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval uses only visible issue fields and the verified pre-fix snapshot"
+  }
+}

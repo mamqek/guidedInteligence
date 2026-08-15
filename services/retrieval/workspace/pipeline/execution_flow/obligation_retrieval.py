@@ -48,9 +48,7 @@ MAX_FACTORY_HANDOFF_RESOLUTIONS = 8
 MAX_FACTORY_HANDOFF_DEPTH = 4
 MAX_MECHANISM_PATH_FRONTIER_FILES = 64
 MAX_MECHANISM_PATH_FRONTIER_ROUNDS = 2
-# The mechanism-graph experiment is intentionally unbounded. A request limit will
-# be reintroduced only after graph-selection behavior is stable and measured.
-MAX_EXPLANATION_INPUT_CHARS: int | None = None
+MAX_EXPLANATION_INPUT_CHARS: int | None = 50_000
 MAX_CONSOLIDATION_SNIPPET_CHARS = 2400
 EXPLANATION_PAYLOAD_SERIALIZATION_MARGIN = 512
 MAX_STANDALONE_ANCHOR_PATHS = 4
@@ -70,6 +68,7 @@ PRODUCTIVE_RECOVERY_RELATIONSHIPS = {
     "factory_handoff",
 }
 DIRECT_OBLIGATION_PROVENANCE = {
+    "qualified_direct_evidence",
     "request_anchor",
     "exact_prompt_anchor",
     "semantic_anchor",
@@ -2843,6 +2842,22 @@ def _select_mechanism_flows(
         if existing is None or float(flow["score"]) > float(existing["score"]):
             raw_flows[path] = flow
 
+    # Step 1 qualification can promote a concrete owner/handoff for navigation
+    # without claiming that its visible source proves an obligation. Such a
+    # range may not resolve to a CodeGraph node, so the legacy seed rules above
+    # would otherwise delete it before final comparison. Preserve it as a
+    # bounded singleton hypothesis; its provenance remains non-direct and the
+    # consolidation contract forbids it from establishing coverage alone.
+    for candidate_id, candidate in sorted(candidates.items()):
+        if candidate.origin != "qualified_navigation_evidence":
+            continue
+        path = (candidate_id,)
+        flow = flow_payload(path, ())
+        flow["navigation_only"] = True
+        existing = raw_flows.get(path)
+        if existing is None or float(flow["score"]) > float(existing["score"]):
+            raw_flows[path] = flow
+
     if not raw_flows:
         for seed_id in seed_ids:
             raw_flows[(seed_id,)] = flow_payload((seed_id,), ())
@@ -2903,6 +2918,7 @@ def _select_mechanism_flows(
                     "line_end": candidate.line_end,
                     "symbol": candidate.symbol,
                     "file_role": candidate.file_role,
+                    "retrieval_origin": candidate.origin,
                     "semantic_score": round(candidate.score, 4),
                     "direct_obligation_ids": sorted(direct_support.get(candidate_id, ())),
                     "inherited_obligation_ids": sorted(inherited_support.get(candidate_id, ())),
@@ -3187,7 +3203,10 @@ def _consolidate_obligation_evidence(
     states: Sequence[ObligationProgress],
     *,
     expanded_edges: Sequence[Mapping[str, Any]] = (),
+    input_char_budget: int | None = MAX_EXPLANATION_INPUT_CHARS,
+    candidate_islands: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
+    candidate_islands = candidate_islands or {}
     (
         candidate_by_id,
         direct_support,
@@ -3198,6 +3217,7 @@ def _consolidate_obligation_evidence(
     ) = _select_mechanism_flows(
         states,
         expanded_edges=expanded_edges,
+        input_char_budget=input_char_budget,
     )
     candidate_ids_by_obligation = {
         state.obligation.id: [
@@ -3225,6 +3245,8 @@ def _consolidate_obligation_evidence(
             "line_end": candidate.line_end,
             "symbol": candidate.symbol,
             "file_role": candidate.file_role,
+            "retrieval_origin": candidate.origin,
+            "discovery_island_id": candidate_islands.get(candidate_id, ""),
             "semantic_score": round(candidate.score, 4),
             "direct_obligation_ids": sorted(direct_support.get(candidate_id, ())),
             "inherited_obligation_ids": sorted(inherited_support.get(candidate_id, ())),
@@ -3239,7 +3261,7 @@ def _consolidate_obligation_evidence(
     ctx.trace.record(
         "mechanism_flows_selected",
         {
-            "input_char_budget": MAX_EXPLANATION_INPUT_CHARS,
+            "input_char_budget": input_char_budget,
             "candidate_count": len(candidate_by_id),
             "flow_count": len(mechanism_flows),
             "mechanism_flows": mechanism_flows,
@@ -3301,7 +3323,7 @@ def _consolidate_obligation_evidence(
     ctx.trace.record(
         "mechanism_flow_request_budget",
         {
-            "input_char_budget": MAX_EXPLANATION_INPUT_CHARS,
+            "input_char_budget": input_char_budget,
             "serialized_payload_chars": len(json.dumps(consolidation_payload, sort_keys=True)),
             "candidate_payload_chars": len(json.dumps(payload_candidates, sort_keys=True)),
             "flow_payload_chars": len(json.dumps(mechanism_flows, sort_keys=True)),
@@ -3899,9 +3921,13 @@ def _ground_request_anchors(
                 )
             )
         if match_count == 1 and len(nodes) == 1:
-            anchor_nodes.append({**nodes[0], "anchor_query": symbol})
+            anchor_nodes.append({**nodes[0], "anchor_query": symbol, "anchor_match_count": 1})
         elif match_count > 1:
             ambiguous_symbols.append(symbol)
+            anchor_nodes.extend(
+                {**node, "anchor_query": symbol, "anchor_match_count": match_count}
+                for node in nodes[:12]
+            )
         else:
             unresolved_symbols.append(symbol)
 

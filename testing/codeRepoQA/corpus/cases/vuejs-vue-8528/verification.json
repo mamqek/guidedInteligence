@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "case_id": "vuejs-vue-8528",
+  "primary_group": "maintenance_refactor",
+  "statistics_partition": "development",
+  "repository": "vuejs/vue",
+  "issue_number": 8528,
+  "issue_url": "https://github.com/vuejs/vue/issues/8528",
+  "original_issue_path": "vue/cloudide/workspace/QA_data/vue/8528.json",
+  "title": "Better comments in `shared/util.js` code",
+  "labels": [
+    "improvement",
+    "has PR"
+  ],
+  "state": "closed",
+  "created_at": "2018-07-20T06:02:04Z",
+  "closed_at": "2018-10-23T19:53:48Z",
+  "selection_rationale": "Focused maintenance issue whose owner is a single shared utility source file.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      8529
+    ],
+    "referenced_commit_shas_from_issue_events": [],
+    "cite": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "8529",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "vuejs",
+        "repo_name": "vue",
+        "number": "8529",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 8529,
+        "title": "docs: improve comments in shared utilities",
+        "url": "https://github.com/vuejs/vue/pull/8529",
+        "merged": true,
+        "merge_commit_sha": "af819a07dd8c2afc94e670e81b5e248f82794334",
+        "head_sha": "",
+        "base_sha": "5e912976c45ca19d8524657bffe6883723027ed2",
+        "changed_files": 1,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/shared/util.js",
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/shared/util.js"
+    ],
+    "test_or_validation_files": [],
+    "documentation_files": [],
+    "symbols_or_apis": [
+      "looseEqual"
+    ],
+    "subsystem": "shared runtime utilities",
+    "responsibility_summary": "The relevant files own shared runtime utilities behavior described by the issue.",
+    "hidden_resolution_summary": "PR #8529: docs: improve comments in shared utilities",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [],
+    "resolution_comment_excerpts": [],
+    "notes": "Oracle frozen from the locally available fixing commit before retrieval evaluation."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval uses only visible issue fields and the verified pre-fix snapshot"
+  }
+}

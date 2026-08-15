@@ -26,6 +26,14 @@ visible source, regardless of which obligation-specific search discovered it.
 There is no per-obligation quota. Select at most 14 candidates overall, and only
 select candidates that are indispensable to the best mechanism, establish an
 explicit issue anchor or observable boundary, or prove a required transition.
+Candidates whose `retrieval_origin` is `qualified_navigation_evidence` are
+content-qualified owners or handoffs, not proof. They cannot by themselves make
+an obligation repository-supported. However, retain at most one concrete
+navigation candidate from an independent unresolved evidence island when
+discarding it would remove the only visible owner, scenario, or handoff for that
+part of the request. Do not require that island to connect to the currently
+strongest implementation island. Use `discovery_island_id` to distinguish those
+independently qualified islands; do not invent island membership from filenames.
 
 Rules:
 
@@ -46,6 +54,8 @@ Rules:
    or handoff for partial and unresolved obligations.
 8. Concepts may cite only globally selected evidence.
 9. Do not claim repository-wide absence unless the input proves it.
+10. Navigation-only evidence may justify `partial`, never
+    `repository_supported` or `jointly_supported` without direct evidence.
 
 Return selected mechanisms, globally selected evidence with its causal role and
 actual obligation mappings, an assessment for every obligation, and concise

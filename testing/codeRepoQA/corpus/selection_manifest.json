@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-06-20T22:24:54.787Z",
+  "generated_at": "2026-08-15T02:25:50.683397Z",
   "groups": [
     "bug_regression",
     "feature_enhancement",
@@ -27,7 +27,8 @@
         "feat:ssr"
       ],
       "selection_rationale": "Vue SSR bug with falsy DOM props; good framework/runtime rendering case.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "microsoft-TypeScript-2953",
@@ -42,7 +43,8 @@
         "Fixed"
       ],
       "selection_rationale": "TypeScript standard library bug; expected retrieval should find lib declaration files.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-10068",
@@ -56,7 +58,8 @@
         "Bug"
       ],
       "selection_rationale": "pandas Series arithmetic metadata bug; compact fix with production and test files.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "vuejs-vue-6301",
@@ -71,7 +74,8 @@
         "improvement"
       ],
       "selection_rationale": "Vue TypeScript declaration enhancement for server renderer plugin.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "microsoft-TypeScript-45713",
@@ -88,7 +92,8 @@
         "Effort: Casual"
       ],
       "selection_rationale": "TypeScript CLI developer-experience enhancement with localized message path.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-4542",
@@ -104,7 +109,8 @@
         "IO Excel"
       ],
       "selection_rationale": "pandas Excel writer capability enhancement involving IO subsystem.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-14942",
@@ -119,7 +125,8 @@
         "Groupby"
       ],
       "selection_rationale": "pandas groupby categorical memory blow-up; clear performance/memory objective.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-16764",
@@ -133,7 +140,8 @@
         "Performance"
       ],
       "selection_rationale": "pandas import-time performance issue; broad startup responsibility rather than operation-specific speed.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "microsoft-TypeScript-52695",
@@ -150,7 +158,8 @@
         "Fix Available"
       ],
       "selection_rationale": "TypeScript filesystem-stat performance issue under node_modules; good service/compiler IO case.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "vuejs-vue-9042",
@@ -164,7 +173,8 @@
         "browser quirks"
       ],
       "selection_rationale": "Vue browser compatibility issue with IE11 textarea placeholder/watch behavior.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-22698",
@@ -179,7 +189,8 @@
         "Blocker"
       ],
       "selection_rationale": "pandas compatibility with NumPy FutureWarning in Series construction.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "microsoft-TypeScript-46770",
@@ -194,7 +205,8 @@
         "Fix Available"
       ],
       "selection_rationale": "TypeScript NodeNext module-resolution compatibility case.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "vuejs-vue-5884",
@@ -208,7 +220,8 @@
         "improvement"
       ],
       "selection_rationale": "Vue.set API behavior with numeric string path; expected explanation should distinguish API semantics from bug surface.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "microsoft-TypeScript-24625",
@@ -224,7 +237,8 @@
         "API"
       ],
       "selection_rationale": "TypeScript watch API behavior change breaking consumers; explicit API responsibility.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-25183",
@@ -240,7 +254,8 @@
         "ExtensionArray"
       ],
       "selection_rationale": "pandas merge dtype behavior with nullable integer arrays; API consistency case.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-16499",
@@ -254,7 +269,8 @@
         "Testing"
       ],
       "selection_rationale": "pandas test discovery gap where ujson tests were not run.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-32289",
@@ -271,7 +287,8 @@
         "Linux"
       ],
       "selection_rationale": "pandas CI failure case; retrieval should explain construction/test failure context, not product behavior.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "microsoft-TypeScript-35468",
@@ -286,7 +303,8 @@
         "Fix Available"
       ],
       "selection_rationale": "TypeScript watch/project-reference recompilation case; build tooling behavior.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-35925",
@@ -301,7 +319,8 @@
         "good first issue"
       ],
       "selection_rationale": "pandas cleanup for Black formatting readiness; pure maintenance/cleanup signal.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-22872",
@@ -316,7 +335,8 @@
         "good first issue"
       ],
       "selection_rationale": "pandas tests maintenance cleanup replacing bare excepts.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "pandas-dev-pandas-36617",
@@ -332,7 +352,8 @@
         "good first issue"
       ],
       "selection_rationale": "pandas documentation cleanup case; distinct RST/docstring maintenance.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "development"
     },
     {
       "case_id": "microsoft-TypeScript-6307",
@@ -348,7 +369,8 @@
         "Docs"
       ],
       "selection_rationale": "TypeScript canonical question/docs explanation about private-name export errors.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "excluded_explanation"
     },
     {
       "case_id": "microsoft-TypeScript-8305",
@@ -364,7 +386,8 @@
         "@types"
       ],
       "selection_rationale": "TypeScript question/docs case about package module exposure; explanation-based oracle.",
-      "resolution_status": "has_local_resolution_artifact"
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "excluded_explanation"
     },
     {
       "case_id": "pandas-dev-pandas-9219",
@@ -379,6 +402,232 @@
         "IO HDF5"
       ],
       "selection_rationale": "pandas Usage Question around HDF storage; useful for comparing explanation to maintainer guidance.",
+      "resolution_status": "has_local_resolution_artifact",
+      "statistics_partition": "excluded_explanation"
+    },
+    {
+      "case_id": "vuejs-vue-10519",
+      "group": "bug_regression",
+      "statistics_partition": "development",
+      "repository": "vuejs/vue",
+      "issue_number": 10519,
+      "title": "prop validator fails to generate validation error message when using Symbols",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/10519.json",
+      "case_dir": "cases/vuejs-vue-10519",
+      "labels": [
+        "bug",
+        "has PR"
+      ],
+      "selection_rationale": "Vue prop-validation bug with a compact runtime fix and unit-test Oracle.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-10020",
+      "group": "feature_enhancement",
+      "statistics_partition": "development",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 10020,
+      "title": "Support 'Organize Imports' feature",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/10020.json",
+      "case_dir": "cases/microsoft-TypeScript-10020",
+      "labels": [
+        "Suggestion",
+        "Fixed",
+        "VS Code Tracked",
+        "Domain: Refactorings",
+        "Domain: Organize Imports"
+      ],
+      "selection_rationale": "TypeScript Organize Imports feature spanning the language service and focused harness coverage.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "vuejs-vue-10004",
+      "group": "performance_memory",
+      "statistics_partition": "development",
+      "repository": "vuejs/vue",
+      "issue_number": 10004,
+      "title": "Memory leak with component with input with v-model",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/10004.json",
+      "case_dir": "cases/vuejs-vue-10004",
+      "labels": [
+        "bug",
+        "has PR"
+      ],
+      "selection_rationale": "Vue v-model listener memory leak with a runtime owner and focused regression test.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "vuejs-vue-13052",
+      "group": "compatibility_versioning",
+      "statistics_partition": "development",
+      "repository": "vuejs/vue",
+      "issue_number": 13052,
+      "title": "compiler-sfc not compatible with prettier v3",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/13052.json",
+      "case_dir": "cases/vuejs-vue-13052",
+      "labels": [
+        "bug",
+        "improvement",
+        "has workaround"
+      ],
+      "selection_rationale": "Vue compiler-sfc compatibility case with an explicit package-level dependency owner.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-16278",
+      "group": "api_behavior_design",
+      "statistics_partition": "development",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 16278,
+      "title": "New refactor API",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/16278.json",
+      "case_dir": "cases/microsoft-TypeScript-16278",
+      "labels": [
+        "API"
+      ],
+      "selection_rationale": "TypeScript refactor API case with protocol, service, client/server, and fourslash coverage.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "vuejs-vue-11718",
+      "group": "testing_build_tooling",
+      "statistics_partition": "development",
+      "repository": "vuejs/vue",
+      "issue_number": 11718,
+      "title": "vuejs/vue-ssr-webpack-plugin and webpack 5",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/11718.json",
+      "case_dir": "cases/vuejs-vue-11718",
+      "labels": [
+        "feature request",
+        "feat:ssr"
+      ],
+      "selection_rationale": "Vue SSR webpack-plugin compatibility case with focused plugin implementation owners.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "vuejs-vue-8528",
+      "group": "maintenance_refactor",
+      "statistics_partition": "development",
+      "repository": "vuejs/vue",
+      "issue_number": 8528,
+      "title": "Better comments in `shared/util.js` code",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/8528.json",
+      "case_dir": "cases/vuejs-vue-8528",
+      "labels": [
+        "improvement",
+        "has PR"
+      ],
+      "selection_rationale": "Focused maintenance issue whose owner is a single shared utility source file.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-10473",
+      "group": "bug_regression",
+      "statistics_partition": "final",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 10473,
+      "title": "TSServer: config file diagnostics event not sent if config file changes",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/10473.json",
+      "case_dir": "cases/microsoft-TypeScript-10473",
+      "labels": [
+        "Bug",
+        "Fixed"
+      ],
+      "selection_rationale": "Held-out tsserver configuration-diagnostic event bug with server owners and a harness test.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "vuejs-vue-6097",
+      "group": "feature_enhancement",
+      "statistics_partition": "final",
+      "repository": "vuejs/vue",
+      "issue_number": 6097,
+      "title": "Allow defining optional inject dependency with default values",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/6097.json",
+      "case_dir": "cases/vuejs-vue-6097",
+      "labels": [
+        "feature request",
+        "in review"
+      ],
+      "selection_rationale": "Held-out Vue inject-default feature with implementation and unit-test coverage.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "vuejs-vue-9842",
+      "group": "performance_memory",
+      "statistics_partition": "final",
+      "repository": "vuejs/vue",
+      "issue_number": 9842,
+      "title": "Memory leak when using \"transition\" and \"keep-alive\"",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/9842.json",
+      "case_dir": "cases/vuejs-vue-9842",
+      "labels": [
+        "bug",
+        "has PR"
+      ],
+      "selection_rationale": "Held-out transition/keep-alive memory case with a focused owner and regression test.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-10041",
+      "group": "compatibility_versioning",
+      "statistics_partition": "final",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 10041,
+      "title": "RegExpMatchArray has lost some compatibility with Array since 2.1.0-dev.20160729",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/10041.json",
+      "case_dir": "cases/microsoft-TypeScript-10041",
+      "labels": [
+        "Bug",
+        "Fixed"
+      ],
+      "selection_rationale": "Held-out TypeScript array-compatibility regression with checker and conformance Oracles.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "pandas-dev-pandas-10150",
+      "group": "api_behavior_design",
+      "statistics_partition": "final",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 10150,
+      "title": "BUG/API: inconsistent name handling in value_counts ",
+      "original_issue_path": "pandas/cloudide/workspace/QA_data/pandas/10150.json",
+      "case_dir": "cases/pandas-dev-pandas-10150",
+      "labels": [
+        "Bug",
+        "API Design"
+      ],
+      "selection_rationale": "Held-out pandas value_counts naming-semantics issue with implementation, tests, and release note.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "vuejs-vue-11782",
+      "group": "testing_build_tooling",
+      "statistics_partition": "final",
+      "repository": "vuejs/vue",
+      "issue_number": 11782,
+      "title": "npm test fails on Windows",
+      "original_issue_path": "vue/cloudide/workspace/QA_data/vue/11782.json",
+      "case_dir": "cases/vuejs-vue-11782",
+      "labels": [
+        "contribution welcome"
+      ],
+      "selection_rationale": "Held-out Windows npm-test tooling failure with a focused package-script owner.",
+      "resolution_status": "has_local_resolution_artifact"
+    },
+    {
+      "case_id": "microsoft-TypeScript-19074",
+      "group": "maintenance_refactor",
+      "statistics_partition": "final",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 19074,
+      "title": "Clean up LSHost mentions",
+      "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/19074.json",
+      "case_dir": "cases/microsoft-TypeScript-19074",
+      "labels": [
+        "Infrastructure"
+      ],
+      "selection_rationale": "Held-out TypeScript language-service-host cleanup with production and test-runner owners.",
       "resolution_status": "has_local_resolution_artifact"
     }
   ]

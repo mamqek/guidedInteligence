@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-10473",
+  "primary_group": "bug_regression",
+  "statistics_partition": "final",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 10473,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/10473",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/10473.json",
+  "title": "TSServer: config file diagnostics event not sent if config file changes",
+  "labels": [
+    "Bug",
+    "Fixed"
+  ],
+  "state": "closed",
+  "created_at": "2016-08-22T12:56:30Z",
+  "closed_at": "2016-11-22T18:56:46Z",
+  "selection_rationale": "Held-out tsserver configuration-diagnostic event bug with server owners and a harness test.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      11285
+    ],
+    "referenced_commit_shas_from_issue_events": [],
+    "cite": [
+      {
+        "owner": "Microsoft",
+        "repo_name": "TypeScript",
+        "number": "10418",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "10418",
+        "is_own_repo": true
+      },
+      {
+        "owner": "Microsoft",
+        "repo_name": "TypeScript",
+        "number": "11197",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "11197",
+        "is_own_repo": true
+      },
+      {
+        "owner": "Microsoft",
+        "repo_name": "TypeScript",
+        "number": "11615",
+        "is_own_repo": false
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "11285",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "vscode",
+        "number": "3783",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "12372",
+        "is_own_repo": true
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "vscode",
+        "number": "19656",
+        "is_own_repo": false
+      },
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "19656",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 11285,
+        "title": "Send config file diagnostics when configuration changes",
+        "url": "https://github.com/microsoft/TypeScript/pull/11285",
+        "merged": true,
+        "merge_commit_sha": "635313ee45e1edd09e5e6e849cc58d2ffdacdfc8",
+        "head_sha": "",
+        "base_sha": "81fc759530c3245011d13e7f9f23f17b687a97e6",
+        "changed_files": 3,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/server/editorServices.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/server/session.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/harness/unittests/tsserverProjectSystem.ts",
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/server/editorServices.ts",
+      "src/server/session.ts"
+    ],
+    "test_or_validation_files": [
+      "src/harness/unittests/tsserverProjectSystem.ts"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [
+      "configFileDiag"
+    ],
+    "subsystem": "tsserver configuration diagnostics",
+    "responsibility_summary": "The relevant files own tsserver configuration diagnostics behavior described by the issue.",
+    "hidden_resolution_summary": "PR #11285: Send config file diagnostics when configuration changes",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [],
+    "resolution_comment_excerpts": [],
+    "notes": "Oracle frozen from the locally available fixing commit before retrieval evaluation."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval uses only visible issue fields and the verified pre-fix snapshot"
+  }
+}

@@ -337,13 +337,18 @@ class WorkspaceRetrievalConfig:
     run_dir: str | None = None
     chunk_line_count: int = 40
     chunk_line_overlap: int = 10
-    max_exploration_rounds: int = 3
+    max_exploration_rounds: int = 4
     max_tool_calls_per_round: int = 5
+    max_controller_actions_per_round: int = 2
+    max_discovery_observations: int = 24
+    max_qualification_input_chars: int = 40000
+    max_final_selection_input_chars: int = 50000
     structural_graph_enabled: bool = True
     enable_indexing: bool = True
     structural_graph_timeout_seconds: int = 900
     structural_graph_max_files: int = 20
     qdrant_index_timeout_seconds: int = 600
+    embedding_cache_path: str | None = None
     index_exclude_paths: tuple[str, ...] | None = None
     enabled_source_categories: tuple[SourceCategory, ...] = DEFAULT_ALLOWED_SOURCE_CATEGORIES
     enabled_sources: tuple[str, ...] = ()
@@ -525,6 +530,14 @@ class WorkspaceRetrievalConfig:
             raise ValueError("max_exploration_rounds must be greater than zero.")
         if self.max_tool_calls_per_round <= 0:
             raise ValueError("max_tool_calls_per_round must be greater than zero.")
+        if self.max_controller_actions_per_round <= 0:
+            raise ValueError("max_controller_actions_per_round must be greater than zero.")
+        if self.max_discovery_observations <= 0:
+            raise ValueError("max_discovery_observations must be greater than zero.")
+        if self.max_qualification_input_chars <= 0:
+            raise ValueError("max_qualification_input_chars must be greater than zero.")
+        if self.max_final_selection_input_chars <= 0:
+            raise ValueError("max_final_selection_input_chars must be greater than zero.")
         if not self.structural_graph_enabled:
             raise ValueError("Workspace retrieval requires structural_graph_enabled=True.")
         if self.structural_graph_timeout_seconds <= 0:

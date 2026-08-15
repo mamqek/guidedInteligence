@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -291,6 +292,7 @@ def estimate_indexing_scope(
         raise ValueError("chunk_line_overlap must be smaller than chunk_line_count.")
     files = tuple(sorted(_iter_source_files(root, exclude_paths=exclude_paths)))
     indexed_file_count = 0
+    content_digest = hashlib.sha256()
     total_bytes = 0
     estimated_chunks = 0
     oversized_file_count = 0
@@ -313,6 +315,10 @@ def estimate_indexing_scope(
             if len(oversized_sample_paths) < 12:
                 oversized_sample_paths.append(relative_path)
             continue
+        content_digest.update(relative_path.encode("utf-8"))
+        content_digest.update(b"\0")
+        content_digest.update(text.encode("utf-8"))
+        content_digest.update(b"\0")
         indexed_file_count += 1
         total_bytes += size
         estimated_chunks += _estimate_chunk_count_for_text(
@@ -324,12 +330,35 @@ def estimate_indexing_scope(
         "file_count": indexed_file_count,
         "total_bytes": total_bytes,
         "estimated_chunks": estimated_chunks,
+        "content_signature": content_digest.hexdigest(),
         "sample_paths": [path.relative_to(root).as_posix() for path in files[:20]],
         "oversized_file_count": oversized_file_count,
         "oversized_total_bytes": oversized_total_bytes,
         "oversized_sample_paths": oversized_sample_paths,
         "max_indexed_file_characters": MAX_INDEXED_FILE_CHARACTERS,
     }
+
+
+def indexable_content_signature(
+    repo_path: str | Path,
+    *,
+    exclude_paths: tuple[str, ...] | None = None,
+) -> str:
+    """Hash the exact repository text eligible for BM25/Qdrant indexing."""
+    root = Path(repo_path).resolve()
+    digest = hashlib.sha256()
+    for path in sorted(_iter_source_files(root, exclude_paths=exclude_paths)):
+        relative_path = path.relative_to(root).as_posix()
+        if file_role(relative_path) == "baseline_or_generated":
+            continue
+        text = _read_text_file(path)
+        if text is None or len(text) > MAX_INDEXED_FILE_CHARACTERS:
+            continue
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(text.encode("utf-8"))
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def save_index(index: BM25Index, index_dir: str | Path) -> None:

@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "case_id": "microsoft-TypeScript-19074",
+  "primary_group": "maintenance_refactor",
+  "statistics_partition": "final",
+  "repository": "microsoft/TypeScript",
+  "issue_number": 19074,
+  "issue_url": "https://github.com/microsoft/TypeScript/issues/19074",
+  "original_issue_path": "TypeScript/cloudide/workspace/QA_data/TypeScript/19074.json",
+  "title": "Clean up LSHost mentions",
+  "labels": [
+    "Infrastructure"
+  ],
+  "state": "closed",
+  "created_at": "2017-10-10T19:54:18Z",
+  "closed_at": "2019-06-21T02:11:47Z",
+  "selection_rationale": "Held-out TypeScript language-service-host cleanup with production and test-runner owners.",
+  "visible_prompt_policy": {
+    "include_fields": [
+      "title",
+      "created_at",
+      "body"
+    ],
+    "exclude_post_resolution_fields": [
+      "comments_details",
+      "events",
+      "fixed_by",
+      "cite",
+      "cited_by",
+      "closed_at"
+    ]
+  },
+  "resolution_artifacts": {
+    "fixed_by_pr_numbers": [
+      32018
+    ],
+    "referenced_commit_shas_from_issue_events": [],
+    "cite": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "17669",
+        "is_own_repo": true
+      }
+    ],
+    "cited_by": [
+      {
+        "owner": "microsoft",
+        "repo_name": "TypeScript",
+        "number": "32018",
+        "is_own_repo": true
+      }
+    ],
+    "resolution_status": "has_local_resolution_artifact",
+    "github_prs": [
+      {
+        "number": 32018,
+        "title": "Clean up LSHost mentions",
+        "url": "https://github.com/microsoft/TypeScript/pull/32018",
+        "merged": true,
+        "merge_commit_sha": "37b20f6afd3eee694c26ca39c586c42ec97be98e",
+        "head_sha": "",
+        "base_sha": "a97c18f227c22d3d6e0e5d413d91d3eb06065410",
+        "changed_files": 5,
+        "files_truncated": false,
+        "files": [
+          {
+            "path": "src/compiler/moduleNameResolver.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/server/project.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/testRunner/unittests/tscWatch/resolutionCache.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/testRunner/unittests/tsserver/cachingFileSystemInformation.ts",
+            "change_type": "MODIFIED"
+          },
+          {
+            "path": "src/testRunner/unittests/tsserver/resolutionCache.ts",
+            "change_type": "MODIFIED"
+          }
+        ]
+      }
+    ]
+  },
+  "oracle": {
+    "implementation_files": [
+      "src/compiler/moduleNameResolver.ts",
+      "src/server/project.ts"
+    ],
+    "test_or_validation_files": [
+      "src/testRunner/unittests/tscWatch/resolutionCache.ts",
+      "src/testRunner/unittests/tsserver/cachingFileSystemInformation.ts",
+      "src/testRunner/unittests/tsserver/resolutionCache.ts"
+    ],
+    "documentation_files": [],
+    "symbols_or_apis": [
+      "LanguageServiceHost",
+      "ResolutionCache"
+    ],
+    "subsystem": "module resolution and server project host",
+    "responsibility_summary": "The relevant files own module resolution and server project host behavior described by the issue.",
+    "hidden_resolution_summary": "PR #32018: Clean up LSHost mentions",
+    "issue_body_file_refs": [],
+    "thread_file_refs": [],
+    "resolution_comment_excerpts": [],
+    "notes": "Oracle frozen from the locally available fixing commit before retrieval evaluation."
+  },
+  "measurement_criteria": {
+    "retrieval_found_at_least_one_oracle_implementation_file": "expected_true",
+    "relevant_oracle_files_appear_within_top_k": {
+      "k_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "expected": "implementation_files_preferred_then_validation_or_docs"
+    },
+    "no_post_resolution_information_leaked_into_retrieval": "retrieval uses only visible issue fields and the verified pre-fix snapshot"
+  }
+}

@@ -69,6 +69,20 @@
   them through
   `codex_prompt_profile` in testing configs or `retrieval.codex_prompt_profile` in web UI configs.
 
+## CodeRepoQA Index Scope
+
+- Before indexing a testcase snapshot, inspect that repository's layout and exclude directories that are
+  deterministically generated, vendored, cached, or compiled and cannot contain useful issue evidence.
+- Keep repository-aware exclusions explicit in the CodeRepoQA harness so the BM25, embedding/Qdrant, and
+  CodeGraph indexes all receive the same paths. Record the effective list in run metadata.
+- Do not infer exclusions from the hidden oracle or remove authored implementation/test sources merely to
+  reduce cost. For example, TypeScript's generated `tests/baselines/reference` output is excluded, while
+  authored `tests/cases` inputs and the standard-library declarations in `lib` remain searchable. Generated
+  TypeScript JavaScript bundles such as `lib/typescript.js` are excluded individually rather than excluding
+  the entire mixed-source `lib` directory.
+- Treat any exclusion-policy change as an intentional index-signature change. Announce that the old index is
+  stale before rebuilding; never silently re-index it.
+
 ## Retrieval Pipeline Changes
 
 - For non-trivial retrieval pipeline changes, document the implementation framework before or with the change:

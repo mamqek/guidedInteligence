@@ -11,8 +11,13 @@ Classification rule:
   `oracle.test_or_validation_files`, or `oracle.documentation_files`.
 - These cases support deterministic checks such as file overlap, top-k placement, and stable timing/token comparisons.
 
-Cases in this group: `21`
+Cases in this group: `35`
 
+- `microsoft-TypeScript-10020`
+- `microsoft-TypeScript-10041`
+- `microsoft-TypeScript-10473`
+- `microsoft-TypeScript-16278`
+- `microsoft-TypeScript-19074`
 - `microsoft-TypeScript-24625`
 - `microsoft-TypeScript-2953`
 - `microsoft-TypeScript-35468`
@@ -20,6 +25,7 @@ Cases in this group: `21`
 - `microsoft-TypeScript-46770`
 - `microsoft-TypeScript-52695`
 - `pandas-dev-pandas-10068`
+- `pandas-dev-pandas-10150`
 - `pandas-dev-pandas-14942`
 - `pandas-dev-pandas-16499`
 - `pandas-dev-pandas-16764`
@@ -30,10 +36,18 @@ Cases in this group: `21`
 - `pandas-dev-pandas-35925`
 - `pandas-dev-pandas-36617`
 - `pandas-dev-pandas-4542`
+- `vuejs-vue-10004`
+- `vuejs-vue-10519`
 - `vuejs-vue-10803`
+- `vuejs-vue-11718`
+- `vuejs-vue-11782`
+- `vuejs-vue-13052`
 - `vuejs-vue-5884`
+- `vuejs-vue-6097`
 - `vuejs-vue-6301`
+- `vuejs-vue-8528`
 - `vuejs-vue-9042`
+- `vuejs-vue-9842`
 
 ## Explanation-grounded
 
@@ -59,6 +73,6 @@ Cases in this group: `3`
 
 ## Current Corpus Totals
 
-- Total cases: `24`
-- Retrieval-grounded: `21`
+- Total cases: `38`
+- Retrieval-grounded: `35`
 - Explanation-grounded: `3`

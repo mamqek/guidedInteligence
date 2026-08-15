@@ -32,6 +32,7 @@ from services.retrieval.server import (
     _safe_run_id,
 )
 from services.retrieval.config import RunLLMConfig
+from services.retrieval.workspace.bm25 import BM25_INDEX_SCHEMA_VERSION, estimate_indexing_scope
 from services.retrieval.workspace.codegraph_config import install_temporary_codegraph_excludes, restore_codegraph_config
 
 
@@ -223,6 +224,56 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertTrue(health["embedding_configured"])
             self.assertTrue(health["qdrant_configured"])
             self.assertTrue(health["qdrant_reachable"])
+
+    def test_passive_index_check_reports_missing_without_starting_indexing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            (workspace / "owner.py").write_text("def owner():\n    return 1\n", encoding="utf-8")
+            state = RuntimeState(workspace)
+
+            estimate = state.index_estimate()
+
+            self.assertEqual(estimate["index_status"], "missing")
+            self.assertEqual(estimate["request_index_action"], "build")
+            self.assertFalse(estimate["index_ready"])
+            self.assertFalse((workspace / ".guided-intelligence" / "index" / "bm25-index.json").exists())
+
+    def test_passive_index_check_reports_repository_content_change_as_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            (workspace / "owner.py").write_text("def owner():\n    return 2\n", encoding="utf-8")
+            (workspace / ".codegraph").mkdir()
+            (workspace / ".codegraph" / "codegraph.db").write_bytes(b"db")
+            index_dir = workspace / ".guided-intelligence" / "index"
+            index_dir.mkdir(parents=True)
+            (index_dir / "bm25-index.json").write_text("{}", encoding="utf-8")
+            (index_dir / "bm25-scope-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "index_schema_version": BM25_INDEX_SCHEMA_VERSION,
+                        "workspace_root": str(workspace.resolve()),
+                        "content_signature": "previous-content",
+                        "exclude_paths": [],
+                        "chunk_line_count": 40,
+                        "chunk_line_overlap": 10,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            state = RuntimeState(workspace)
+            estimate = estimate_indexing_scope(workspace, exclude_paths=())
+
+            readiness = state._index_readiness(
+                estimate=estimate,
+                exclude_paths=(),
+                chunk_line_count=40,
+                chunk_line_overlap=10,
+            )
+
+            self.assertEqual(readiness["index_status"], "stale")
+            self.assertEqual(readiness["request_index_action"], "reindex")
+            self.assertTrue(readiness["index_change_detected"])
+            self.assertIn("repository contents", readiness["index_status_detail"])
 
     def test_ensure_qdrant_runtime_reports_docker_engine_problem(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -31,7 +31,7 @@ from services.comprehension import generate_followup
 from services.guidance.answer_evaluation import evaluate_answers
 from services.intent import compose_intent_flow
 from services.llm.json_completion import complete_json
-from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, estimate_indexing_scope, load_index
+from services.retrieval.workspace.bm25 import BM25_INDEX_SCHEMA_VERSION, DEFAULT_EXCLUDED_PATHS, estimate_indexing_scope, load_index
 from services.logging.store import JsonlLogger
 from services.retrieval.config import (
     DEFAULT_CODEX_PROMPT_PROFILE,
@@ -711,23 +711,51 @@ class RuntimeState:
         codegraph_db_path = self.workspace_root / ".codegraph" / "codegraph.db"
         bm25_manifest = _load_json(index_dir / "bm25-scope-manifest.json", {})
         expected_scope = {
+            "index_schema_version": BM25_INDEX_SCHEMA_VERSION,
             "workspace_root": str(self.workspace_root.resolve()),
+            "content_signature": str(estimate.get("content_signature") or ""),
             "exclude_paths": list(exclude_paths),
             "chunk_line_count": chunk_line_count,
             "chunk_line_overlap": chunk_line_overlap,
         }
         if not codegraph_db_path.exists():
+            any_index_exists = index_path.exists() or bool(bm25_manifest) or (index_dir / "qdrant-sync-manifest.json").exists()
             return {
                 "index_ready": False,
-                "index_status": "missing_or_stale",
-                "index_status_detail": "CodeGraph structural index is missing.",
+                "index_status": "incomplete" if any_index_exists else "missing",
+                "index_status_detail": "CodeGraph structural index is missing. Indexing will start only from the Prepare index button or an active retrieval request.",
+                "request_index_action": "repair" if any_index_exists else "build",
+                "index_change_detected": False,
                 "index_last_built_at": _manifest_timestamp(index_dir / "qdrant-sync-manifest.json"),
             }
-        if not index_path.exists() or not _manifest_scope_matches(bm25_manifest, expected_scope):
+        if not index_path.exists():
             return {
                 "index_ready": False,
-                "index_status": "missing_or_stale",
-                "index_status_detail": "BM25 index is missing or does not match current exclude settings.",
+                "index_status": "incomplete" if bm25_manifest else "missing",
+                "index_status_detail": "BM25 index is missing. Indexing will start only from the Prepare index button or an active retrieval request.",
+                "request_index_action": "repair" if bm25_manifest else "build",
+                "index_change_detected": False,
+                "index_last_built_at": _manifest_timestamp(index_dir / "bm25-scope-manifest.json", bm25_manifest),
+            }
+        if not _manifest_scope_matches(bm25_manifest, expected_scope):
+            changed: list[str] = []
+            if str(bm25_manifest.get("content_signature") or "") != expected_scope["content_signature"]:
+                changed.append("repository contents")
+            for key, label in (
+                ("index_schema_version", "index schema"),
+                ("exclude_paths", "index exclusions"),
+                ("chunk_line_count", "chunk size"),
+                ("chunk_line_overlap", "chunk overlap"),
+            ):
+                if bm25_manifest.get(key) != expected_scope[key]:
+                    changed.append(label)
+            detail = ", ".join(changed) or "workspace identity"
+            return {
+                "index_ready": False,
+                "index_status": "stale",
+                "index_status_detail": f"Change detected in {detail}. An active retrieval request will re-index before searching; a passive workspace check will not start indexing.",
+                "request_index_action": "reindex",
+                "index_change_detected": True,
                 "index_last_built_at": _manifest_timestamp(index_dir / "bm25-scope-manifest.json", bm25_manifest),
             }
         try:
@@ -746,10 +774,17 @@ class RuntimeState:
                 str(qdrant_manifest.get("index_signature") or "") != expected_signature
                 or str(qdrant_manifest.get("collection_name") or "") != stage.config.qdrant_config.collection_name
             ):
+                missing_manifest = not qdrant_manifest
                 return {
                     "index_ready": False,
-                    "index_status": "missing_or_stale",
-                    "index_status_detail": "Qdrant sync manifest is missing or stale.",
+                    "index_status": "incomplete" if missing_manifest else "stale",
+                    "index_status_detail": (
+                        "Qdrant indexing is incomplete. An active retrieval request will repair it before searching; a passive workspace check will not start indexing."
+                        if missing_manifest
+                        else "Change detected between the repository index and Qdrant. An active retrieval request will re-index before searching; a passive workspace check will not start indexing."
+                    ),
+                    "request_index_action": "repair" if missing_manifest else "reindex",
+                    "index_change_detected": not missing_manifest,
                     "index_last_built_at": last_built_at,
                 }
             point_count = backend.point_count() if backend.collection_exists() else 0
@@ -757,20 +792,26 @@ class RuntimeState:
             if point_count != expected_count:
                 return {
                     "index_ready": False,
-                    "index_status": "missing_or_stale",
-                    "index_status_detail": f"Qdrant has {point_count} points; expected {expected_count}.",
+                    "index_status": "incomplete",
+                    "index_status_detail": f"Qdrant indexing is incomplete: found {point_count} points, expected {expected_count}. An active retrieval request will repair it before searching.",
+                    "request_index_action": "repair",
+                    "index_change_detected": False,
                     "index_last_built_at": last_built_at,
                 }
         except Exception as exc:
             return {
                 "index_ready": False,
-                "index_status": "unknown",
+                "index_status": "unavailable",
                 "index_status_detail": f"Could not verify index readiness: {exc}",
+                "request_index_action": "verify",
+                "index_change_detected": False,
                 "index_last_built_at": _manifest_timestamp(index_dir / "qdrant-sync-manifest.json"),
             }
         return {
             "index_ready": True,
             "index_status": "ready",
+            "request_index_action": "reuse",
+            "index_change_detected": False,
             "index_last_built_at": last_built_at,
             "index_status_detail": (
                 f"BM25 and Qdrant are fresh for {int(estimate.get('file_count') or 0)} files / "
@@ -1028,10 +1069,20 @@ class RuntimeState:
         run_dir = self.runs_root / run_id
         run_dir.mkdir(parents=True, exist_ok=False)
         indexing_estimate = self.index_estimate()
+        index_status = str(indexing_estimate.get("index_status") or "unknown")
+        index_action = str(indexing_estimate.get("request_index_action") or "verify")
+        if index_action == "reindex":
+            queued_message = "Repository change detected. Re-indexing before retrieval."
+        elif index_action == "repair":
+            queued_message = "Incomplete index detected. Repairing it before retrieval."
+        elif index_action == "build":
+            queued_message = "No prepared index found. Creating it before retrieval."
+        else:
+            queued_message = "Queued explanation run."
         metadata = {
             "run_id": run_id,
             "status": "running",
-            "phase": "indexing" if indexing_estimate.get("enable_indexing", True) else "retrieval",
+            "phase": "indexing" if index_action in {"build", "repair", "reindex"} else "retrieval",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "workspace_root": str(self.workspace_root),
             "retrieval_mode": _retrieval_mode(self.config),
@@ -1042,9 +1093,12 @@ class RuntimeState:
             "allowed_sources": list(allowed_source_keys),
             "run_dir": str(run_dir),
             "index_estimate": indexing_estimate,
+            "index_status_at_start": index_status,
+            "index_action": index_action,
+            "index_change_detected": bool(indexing_estimate.get("index_change_detected", False)),
             "progress_percent": 1,
-            "progress_message": "Queued explanation run.",
-            "progress_logs": [],
+            "progress_message": queued_message,
+            "progress_logs": [queued_message] if index_action in {"build", "repair", "reindex"} else [],
             "progress_timeline": [],
         }
         (run_dir / "run-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
@@ -1400,6 +1454,17 @@ class RuntimeState:
             codex_ignore_user_config=bool(codex_settings.get("ignore_user_config", True)),
             codex_evidence_organizer_enabled=bool(
                 _experiments_settings(self.config).get("codex_evidence_organizer_enabled", True)
+            ),
+            max_exploration_rounds=int(retrieval_settings.get("max_exploration_rounds") or 4),
+            max_controller_actions_per_round=int(
+                retrieval_settings.get("max_controller_actions_per_round") or 2
+            ),
+            max_discovery_observations=int(retrieval_settings.get("max_discovery_observations") or 24),
+            max_qualification_input_chars=int(
+                retrieval_settings.get("max_qualification_input_chars") or 40000
+            ),
+            max_final_selection_input_chars=int(
+                retrieval_settings.get("max_final_selection_input_chars") or 50000
             ),
             enable_indexing=bool(indexing.get("enable_indexing", load_retrieval_enable_indexing(tool_env_path))),
             structural_graph_timeout_seconds=900,
