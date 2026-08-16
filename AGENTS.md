@@ -69,6 +69,28 @@
   them through
   `codex_prompt_profile` in testing configs or `retrieval.codex_prompt_profile` in web UI configs.
 
+## Retrieval Experiment Run Policy
+
+- Start retrieval-behavior experiments with focused tests, then use optional cheap smoke runs through the
+  actual pipeline while debugging. A smoke run may pass both `--skip-response-generation` and
+  `--skip-final-evidence-selection` to inspect retrieval, qualification, controller behavior, and the
+  preselection candidate pool without paying for later LLM stages.
+- Smoke runs are diagnostic only. They do not produce a valid final-evidence, `coverage_status`, or
+  `sufficient` comparison and must not be counted as acceptance runs or substituted for the requested real
+  pipeline verification.
+- Final retrieval acceptance requires at least two actual-pipeline runs for the main benchmark case when
+  runtime allows. Pass `--skip-response-generation` so explanation prose is not generated, but keep final
+  evidence selection enabled by omitting `--skip-final-evidence-selection`. A retrieval change can alter the
+  candidates and payload received by final selection even when it does not modify the selector itself.
+- Generate the final explanation only when the experiment explicitly tests response or explanation quality.
+  Otherwise, explanation-generation tokens are out of scope and should not be spent.
+- Use the npm evaluation surface for both smoke and acceptance runs:
+  - Diagnostic smoke: `npm run coderepoqa:evaluate:workspace -- --issue-json <case issue.json> --skip-response-generation --skip-final-evidence-selection`
+  - Acceptance: `npm run coderepoqa:evaluate:workspace -- --issue-json <case issue.json> --skip-response-generation`
+- Keep the model, prompts, index scope, reusable run config, and unrelated retrieval settings fixed between
+  baseline and variant runs. Clearly label diagnostic artifacts so they cannot be mistaken for measured
+  comparisons.
+
 ## CodeRepoQA Index Scope
 
 - Before indexing a testcase snapshot, inspect that repository's layout and exclude directories that are

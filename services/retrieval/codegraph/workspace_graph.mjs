@@ -161,6 +161,8 @@ async function fileOutline(args) {
   const codegraph = await openGraph();
   const file = normalizePath(args.path);
   const limit = Math.max(1, Math.min(Number(args.max_entries || 120), 400));
+  const focusStart = Math.max(0, Number(args.line_start || 0));
+  const focusEnd = Math.max(focusStart, Number(args.line_end || focusStart));
   const nodes = uniqueNodes(codegraph.getNodesInFile(file))
     .filter((node) => !["file", "import"].includes(node.kind))
     .sort((left, right) =>
@@ -168,7 +170,23 @@ async function fileOutline(args) {
       Number(left.endLine || left.startLine || 0) - Number(right.endLine || right.startLine || 0) ||
       String(left.name || "").localeCompare(String(right.name || "")),
     );
-  return { path: file, total_count: nodes.length, nodes: nodes.slice(0, limit).map(nodePayload) };
+  let selected = nodes;
+  if (focusStart) {
+    const distance = (node) => {
+      const start = Number(node.startLine || 0);
+      const end = Number(node.endLine || start);
+      if (start <= focusEnd && end >= focusStart) return 0;
+      return start > focusEnd ? start - focusEnd : focusStart - end;
+    };
+    const nearby = [...nodes].sort((left, right) =>
+      distance(left) - distance(right) ||
+      (Number(left.endLine || left.startLine || 0) - Number(left.startLine || 0)) -
+        (Number(right.endLine || right.startLine || 0) - Number(right.startLine || 0)),
+    ).slice(0, limit);
+    const ids = new Set(nearby.map((node) => node.id));
+    selected = nodes.filter((node) => ids.has(node.id));
+  }
+  return { path: file, total_count: nodes.length, nodes: selected.slice(0, limit).map(nodePayload) };
 }
 
 async function relationshipsWithinNodes(args) {

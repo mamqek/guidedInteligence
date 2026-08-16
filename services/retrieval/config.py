@@ -340,6 +340,7 @@ class WorkspaceRetrievalConfig:
     max_exploration_rounds: int = 4
     max_tool_calls_per_round: int = 5
     max_controller_actions_per_round: int = 2
+    semantic_island_beam_size: int = 4
     max_discovery_observations: int = 24
     max_qualification_input_chars: int = 40000
     max_final_selection_input_chars: int = 50000
@@ -532,6 +533,8 @@ class WorkspaceRetrievalConfig:
             raise ValueError("max_tool_calls_per_round must be greater than zero.")
         if self.max_controller_actions_per_round <= 0:
             raise ValueError("max_controller_actions_per_round must be greater than zero.")
+        if self.semantic_island_beam_size <= 0:
+            raise ValueError("semantic_island_beam_size must be greater than zero.")
         if self.max_discovery_observations <= 0:
             raise ValueError("max_discovery_observations must be greater than zero.")
         if self.max_qualification_input_chars <= 0:

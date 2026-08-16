@@ -353,7 +353,7 @@ def _candidate_from_qualified(
 ) -> GroundedCandidate | None:
     if not card.source_text.strip():
         return None
-    handle = observation.handle
+    handle = card.handle
     qualification_origin = (
         "qualified_direct_evidence"
         if decision.support_level == "direct_evidence"

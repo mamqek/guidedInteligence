@@ -174,6 +174,7 @@ def run_case(
     index_exclude_paths: Sequence[str] | None = None,
     skip_response_generation: bool = False,
     skip_final_evidence_selection: bool = False,
+    semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
     embedding_cache_path: str | Path | None = None,
@@ -210,6 +211,7 @@ def run_case(
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
         final_evidence_selection_enabled=not skip_final_evidence_selection,
+        semantic_island_beam_size=semantic_island_beam_size,
         embedding_batch_size=embedding_batch_size,
         embedding_concurrency=embedding_concurrency,
         embedding_cache_path=str(embedding_cache_path) if embedding_cache_path is not None else None,
@@ -281,6 +283,7 @@ def evaluate_case(
     index_exclude_paths: Sequence[str] | None = None,
     skip_response_generation: bool = False,
     skip_final_evidence_selection: bool = False,
+    semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
     shared_embedding_cache_root: str | Path | None = None,
@@ -358,6 +361,7 @@ def evaluate_case(
         index_exclude_paths=exclude_paths,
         skip_response_generation=skip_response_generation,
         skip_final_evidence_selection=skip_final_evidence_selection,
+        semantic_island_beam_size=semantic_island_beam_size,
         embedding_batch_size=embedding_batch_size,
         embedding_concurrency=embedding_concurrency,
         embedding_cache_path=embedding_cache_path,
@@ -495,6 +499,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_parser.add_argument("--exclude-path", action="append", default=[])
     run_parser.add_argument("--skip-response-generation", action="store_true")
     run_parser.add_argument("--skip-final-evidence-selection", action="store_true")
+    run_parser.add_argument("--semantic-island-beam-size", type=int)
     evaluate_parser = subparsers.add_parser("evaluate-case")
     evaluate_parser.add_argument("--issue-json", required=True)
     evaluate_parser.add_argument("--run-config")
@@ -513,6 +518,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     evaluate_parser.add_argument("--exclude-path", action="append", default=[])
     evaluate_parser.add_argument("--skip-response-generation", action="store_true")
     evaluate_parser.add_argument("--skip-final-evidence-selection", action="store_true")
+    evaluate_parser.add_argument("--semantic-island-beam-size", type=int)
     batch_parser = subparsers.add_parser("evaluate-batch")
     batch_parser.add_argument("--run-config", required=True)
     batch_parser.add_argument("--issue-json", action="append", default=[])
@@ -521,6 +527,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     batch_parser.add_argument("--chunk-lines", type=int)
     batch_parser.add_argument("--chunk-overlap", type=int)
     batch_parser.add_argument("--rebuild-index", action="store_true")
+    batch_parser.add_argument("--semantic-island-beam-size", type=int)
     batch_parser.add_argument("--shared-repo-root")
     batch_parser.add_argument("--retrieval-mode", choices=SUPPORTED_RETRIEVAL_MODES)
     batch_parser.add_argument("--codex-command", action="append", default=None)
@@ -582,6 +589,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.skip_final_evidence_selection
                 or run_config.get("skip_final_evidence_selection", False)
             ),
+            semantic_island_beam_size=int(
+                _config_value(args, run_config, "semantic_island_beam_size", 4)
+            ),
             embedding_batch_size=_config_optional_int(run_config, "embedding_batch_size"),
             embedding_concurrency=_config_optional_int(run_config, "embedding_concurrency"),
             embedding_cache_path=run_config.get("embedding_cache_path"),
@@ -616,6 +626,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             skip_final_evidence_selection=bool(
                 args.skip_final_evidence_selection
                 or run_config.get("skip_final_evidence_selection", False)
+            ),
+            semantic_island_beam_size=int(
+                _config_value(args, run_config, "semantic_island_beam_size", 4)
             ),
             embedding_batch_size=_config_optional_int(run_config, "embedding_batch_size"),
             embedding_concurrency=_config_optional_int(run_config, "embedding_concurrency"),
@@ -877,6 +890,7 @@ def _evaluate_case_subprocess_command(args: argparse.Namespace, issue_json: str)
         ("codex_model", "--codex-model"),
         ("codex_prompt_profile", "--codex-prompt-profile"),
         ("codex_timeout_seconds", "--codex-timeout-seconds"),
+        ("semantic_island_beam_size", "--semantic-island-beam-size"),
     )
     for attribute, option in value_options:
         value = getattr(args, attribute, None)
@@ -1405,6 +1419,7 @@ def _workspace_retrieval_config_for_case(
     codex_timeout_seconds: int,
     codex_ignore_user_config: bool,
     final_evidence_selection_enabled: bool = True,
+    semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
     embedding_cache_path: str | None = None,
@@ -1448,6 +1463,7 @@ def _workspace_retrieval_config_for_case(
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
         final_evidence_selection_enabled=final_evidence_selection_enabled,
+        semantic_island_beam_size=semantic_island_beam_size,
         enable_indexing=load_retrieval_enable_indexing(TOOL_ENV_PATH) if retrieval_mode != RETRIEVAL_MODE_CODEX else False,
         structural_graph_timeout_seconds=CODE_REPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS,
         qdrant_index_timeout_seconds=CODE_REPOQA_QDRANT_INDEX_TIMEOUT_SECONDS,

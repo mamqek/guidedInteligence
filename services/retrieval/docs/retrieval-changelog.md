@@ -1,5 +1,89 @@
 # Retrieval Changelog
 
+## 2026-08-16
+
+### Semantic Evidence Islands And Island-Aware Scheduling
+
+- Stage boundary: graph-only promoted-observation components moved to `structural_components.py`. `evidence_islands.py` now owns stable semantic/actionable islands built after qualification and coverage. Island cores include both promoted direct evidence and promoted navigation; deferred observations remain bounded discovery frontiers until inspected and qualified.
+- Grouping: observations merge for the same enclosing owner, a bounded parent/action handoff, or a represented structural edge with overlapping unresolved obligations. Same-file membership, similar vocabulary, and shared broad independent-search provenance do not merge observations. Cross-file joining requires a represented relationship or explicit bounded handoff.
+- Ranking and scheduling: an island inherits the existing priority of its best member rather than receiving an additive island score. Obligation and provisional subsystem diversity constrain the beam. Actions carry a real island scope or deterministic unresolved-obligation frontier; the two execution slots go to distinct executable scopes before returning a second slot to one scope. Queries, observation/relationship caps, and the two-action limit are unchanged.
+- Action-catalogue repair: early beam smoke runs still exposed 75-91 actions because every deferred observation received a separate frontier. Frontiers now share an unresolved-obligation identity and retain at most one option per deferred-inspection, deferred-file-search, and new-island capability. `run-20260816T165433Z` reduced raw 72/78/85 actions to 26/31/37 and demonstrated a real frontier receiving one round-3 slot.
+- Stable-ID repair: invalid measured runs `run-20260816T170218Z` and `run-20260816T170958Z` revealed that separate range-only observations in one file could receive the same fallback island ID. Those runs are not used as beam evidence. Fallback identity now uses stable observation IDs, not file membership. Confirmation `run-20260816T171917Z` had no duplicate IDs, no single-predecessor ID changes, no rebuild, and reduced raw 64/69/72 actions to 24/29/32.
+- Valid beam-3 comparison `run-20260816T172644Z`: `coverage_status=partial`, `sufficient=false`, 10 selected snippets, 2 Oracle implementation files, 54,904 retrieval LLM tokens, 19 preselection candidates, and 43 tool calls.
+- Valid beam-4 comparison `run-20260816T173344Z`: `coverage_status=partial`, `sufficient=false`, 8 selected snippets, 3 Oracle implementation files, 60,954 retrieval LLM tokens, 24 preselection candidates, and 42 tool calls. It retained `startWatching`, `watchWildCardDirectories`, `getNextInvalidatedProject`, `builderState:updateShapeSignature`, and `builder:createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile`. Beam 4 is the accepted default; beam 3 remains a lower-cost explicit configuration.
+- Behavioral audit: both valid runs used two distinct action scopes in every round. Beam 3 used three scopes overall and beam 4 used four. Every round produced evidence and navigation gain; beam 4 also improved coverage in all three rounds. No broad independent-search or vocabulary-only merge occurred. Beam 3's only cross-file island was the explicit `tsbuildPublic.ts` -> `watchUtilities.ts` bounded handoff. Stable IDs persisted, and deterministic predecessor history represented a real compiler-island merge. Direct plus promoted-navigation cores behaved productively; neither support level should be excluded based on these traces.
+- Known limitation: the provisional directory-plus-owner subsystem identity is too fine-grained to guarantee broad diversity and can treat multiple test owners as distinct subsystems. Obligation-first diversity also retained test-heavy islands. Keep this visible in traces and future comparisons; do not tune it against this single Oracle case. LLM action selection remains a separate later experiment.
+- Index/token policy: every successful run reused the existing 94,279-document BM25 index and 94,279-point Qdrant collection with `rebuilt=false`. Explanation generation was disabled throughout; cheap runs disabled final evidence selection, while the valid measured pair enabled it. Beam 4 costs about 11% more retrieval tokens than beam 3 for one additional implementation Oracle file.
+- Cross-language beam-4 checks kept final evidence selection enabled and explanation generation disabled. Vue 10803 reproduced the same implementation Oracle, `src/platforms/web/server/modules/dom-props.js`, at final rank 1 in both `run-20260816T180356Z` (partial/false, 6 selected, 2 total/1 implementation Oracle overlap, 62,038 retrieval LLM tokens, 13 candidates, 48 tools) and `run-20260816T180623Z` (partial/false, 6 selected, 2 total/1 implementation overlap, 51,954 tokens, 10 candidates, 50 tools). The Oracle observation was promoted as direct evidence and reached the final pool in both runs. All six rounds assigned the two action slots to distinct scopes; no suspicious cross-file merge, duplicate island ID, or empty-source event appeared.
+- Pandas 10068 did not recover its implementation Oracle in either `run-20260816T175628Z` (partial/false, 5 selected, 0 overlap, 73,572 tokens, 10 candidates, 68 tools) or `run-20260816T180051Z` (partial/false, 3 selected, 0 overlap, 47,480 tokens, 3 candidates, 53 tools). This was not beam truncation: the runs had at most four and two islands respectively, every island was active, and every round used two distinct scopes. In the first run discovery found the relevant `Series::_binop` node, but owner disclosure resolved the chunk's leading line 1464 to the preceding `Series::append` owner instead of honoring the node/symbol beginning at line 1466; qualification therefore deferred the wrong method. The second run found only irrelevant `series.py` regions (`to_string`/`_repr_footer` and `_sanitize_array`), which qualification rejected before island construction. Thus neither Oracle-path observation became an island. This cross-language check supports beam 4 against over-scoping but exposes a separate contextual-disclosure boundary defect that needs correction rather than an island-beam change.
+- Cross-language index policy: the first pandas and Vue runs built their previously unavailable testcase indexes; the second run for each testcase reused them with `rebuilt=false`.
+- Contextual-disclosure boundary repair: pandas `run-20260816T175628Z` proved that a 40-line indexed chunk could begin on the final line of one method while its CodeGraph handle identified the following method. Owner resolution now prefers an exact retained CodeGraph node ID, then one exact symbol, then the retained full structural range, before falling back to greatest raw-chunk overlap or comment/declaration adjacency. This is deterministic and does not change query generation, snippet ceilings, qualification prompts, island policy, or action limits. A focused regression fixture reproduces the `Series::append`/`Series::_binop` overlap and verifies that the disclosed card owns `_binop` and includes `name = _maybe_match_name(self, other)`.
+- Measured repair confirmation `run-20260816T183855Z` used the workspace pipeline, beam 4, final evidence selection enabled, explanation generation disabled, and reused the 10,334-document index with `rebuilt=false`. The raw observation still covered lines 1464-1503 but retained `_binop`'s structural range 1466-1511. Disclosure selected `Series::_binop` twice, qualification advanced it from navigation-only on the shorter preview to direct evidence on the complete card, and final selection exported lines 1466-1511 at rank 1 with the exact `_maybe_match_name` assignment. The run ended partial/false with 6 selected snippets, 2 total/1 implementation Oracle overlaps, 74,778 retrieval LLM tokens, 11 preselection candidates, and 62 tool calls. The unrelated Codex-mode run `run-20260816T183447Z` is excluded from repair validation because it did not execute workspace disclosure.
+- Verification: 115 focused qualification, island/scheduler, CodeGraph integration, and obligation-retrieval tests pass under the bundled Node 24 runtime. JavaScript syntax validation and `git diff --check` pass.
+
+### Qualification-First Contextual Disclosure And Payload Repair
+
+- Experiment boundary and order: the first planned controller item was split into three attributable experiments:
+  owner-bounded contextual disclosure, semantic evidence islands/island-aware scheduling, and bounded cross-file
+  handoff completion. The cumulative order is disclosure, then islands, then handoff. Channel-specific queries,
+  BM25F, reranking, generated-artifact classification, final necessary-contribution filtering, and caching remain
+  separate later experiments. Direct evidence may receive another retrieval action only in the future handoff
+  experiment and only when coverage remains unresolved, qualification or coverage names concrete missing behavior,
+  an executable lead exists, and that effect has not already been attempted.
+- Run policy: cheap TypeScript smoke runs may disable explanation generation and final evidence selection. Measured
+  acceptance runs disable explanation generation only; final evidence selection remains enabled because disclosure
+  can change qualification, candidate admission, and final evidence survival. Accepted correctness guards remain in
+  the cumulative baseline rather than being reverted merely because broad stochastic metrics do not immediately
+  improve. This policy is also recorded in `AGENTS.md`.
+- Disclosure boundary: retrieved ranges now resolve to complete structural owners where possible. A leading
+  comment-only hit can resolve to the adjacent declaration, nested/callable ownership is retained, and class hits
+  use the class context plus matching member instead of the complete class. Missing structure remains an explicit
+  range/source fallback. Source is truncated only between complete lines and always retains a stable full-owner
+  handle for later inspection.
+- Qualification payload: observations from the same path share one compact `file_context`; each observation keeps a
+  distinct ID and references only its relevant owner context. Broad repeated file outlines and trace-only allocation
+  bookkeeping are not sent to the LLM. A scoped real-LLM check independently promoted a relevant token-validation
+  function and rejected an unrelated formatter from the same shared file context.
+- Budget behavior: qualification makes exactly one LLM call per controller round. The intermediate oversized-batch
+  repair that split cards across multiple qualification calls was removed because it multiplied prompt cost without
+  guaranteeing useful source. If compact fixed metadata itself cannot fit, qualification fails explicitly. The
+  `qualification_source_degradation_detected` event loudly records empty source, complete-line omissions, affected
+  observation IDs, severity, and per-card source characters; no silent minimum-source fallback was added.
+- Per-card boundary: a complete owner is sent only when it is at most 80 lines and 4,000 characters. Larger owners
+  receive their signature plus the original indexed hit and up to 12 complete lines on either side, bounded again to
+  80 lines and 4,000 characters. Spare global capacity may satisfy that preview but cannot upgrade it to the complete
+  large owner. This is deterministic renderer behavior, not an LLM instruction, retry, or repeated Qdrant query.
+- Structured-output correction: the first compact ID-bearing decision array saved schema space but allowed a model
+  response to repeat one observation ID. Measured run `run-20260816T032407Z` failed explicitly on that duplicate; no
+  retry, inferred missing decision, or deterministic semantic substitute was used. Qualification now returns an
+  exact-key decisions object whose properties reference one shared `$defs` decision schema. This keeps the schema
+  compact while making missing, duplicate, and unknown decision keys structurally invalid.
+- Targeted correctness evidence: the old TypeScript `builder.ts` result at lines 81-85 contained only a documentation
+  comment before `BuilderProgramState`. The repaired real run resolved it to the `BuilderProgramState` interface,
+  supplied a 20-line card, and qualification promoted it as direct evidence while explicitly identifying the still
+  missing mutation logic. Separately, Qdrant localized `getUpToDateStatusWorker` to lines 1433-1456, but the old
+  allocator expanded that 24-line hit into the complete 194-line/9,107-character function. The bounded renderer
+  reduced the same observation to 2,751 characters and 52 lines.
+- Cheap verification `run-20260816T031510Z`: every round used one qualification call; no card had empty source; the
+  largest card was 3,974 characters and 54 lines. The run used 47,483 retrieval LLM tokens, 45 tool calls, and ended
+  `coverage_status=missing`, `sufficient=false`. Final selection was disabled, so no Oracle-quality claim is made.
+- Full TypeScript comparison 1, `run-20260816T033331Z`: `coverage_status=partial`, `sufficient=false`, 11 selected
+  snippets, 3 Oracle implementation files, largest qualification card 3,961 characters/62 lines, 43,386 retrieval
+  LLM tokens, and 38 tool calls.
+- Full TypeScript comparison 2, `run-20260816T034112Z`: `coverage_status=partial`, `sufficient=false`, 9 selected
+  snippets, 2 Oracle implementation files, largest qualification card 2,751 characters/52 lines, 42,661 retrieval
+  LLM tokens, and 40 tool calls. These runs improve on the earlier owner-disclosure variants' Oracle overlaps of 2
+  and 0 and token totals of 75,826 and 84,570, but they do not establish broad sufficiency or a general quality gain.
+  Retain the behavior as a targeted correctness and cost guard rather than tuning it against the Oracle.
+- Index reuse: the successful smoke and both measured runs reused the same 94,279-document BM25 index and
+  94,279-point Qdrant collection with `rebuilt=false`. CodeGraph reused its persistent 111,298-node/267,920-edge
+  database and performed an incremental synchronization check with zero existing nodes updated. Disclosure, prompt,
+  response-schema, and controller changes do not invalidate source indexes; source content, exclusions, chunking,
+  embedding model, or snapshot changes still do.
+- Verification: 107 focused qualification, CodeGraph integration, and obligation-retrieval tests passed at that experiment boundary under the
+  bundled Node 24 runtime; JavaScript syntax validation and `git diff --check` passed. The semantic-island scheduler
+  was the next behavioral experiment and is recorded above.
+
 ## 2026-08-15
 
 ### One Retry For Invalid Structured LLM Output

@@ -354,7 +354,12 @@ class CodeGraphFileOutlineTool:
         try:
             result = self.bridge.request(
                 "file_outline",
-                {"path": path, "max_entries": int(request.arguments.get("max_entries") or 120)},
+                {
+                    "path": path,
+                    "max_entries": int(request.arguments.get("max_entries") or 120),
+                    "line_start": int(request.arguments.get("line_start") or 0),
+                    "line_end": int(request.arguments.get("line_end") or 0),
+                },
             )
         except Exception as exc:
             return _error(self.name, f"structural_file_outline_failed:{exc}")

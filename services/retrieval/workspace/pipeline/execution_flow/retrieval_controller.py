@@ -15,7 +15,7 @@ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations
 )
 from services.retrieval.workspace.pipeline.execution_flow.evidence_islands import (
     IslandSelection,
-    build_islands_and_select_roots,
+    build_semantic_islands,
 )
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import (
     QualificationDecision,
@@ -32,6 +32,7 @@ from services.retrieval.workspace.pipeline.execution_flow.retrieval_actions impo
     execute_action,
 )
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard, disclose_observations
+from services.retrieval.workspace.pipeline.execution_flow.structural_components import build_structural_components
 
 
 @dataclass(frozen=True)
@@ -86,7 +87,16 @@ def run_retrieval_controller(
             round_index=round_index,
         )
         tool_calls += disclosure.tool_calls
-        for card in disclosure.cards:
+        qualification = qualify_cards(
+            llm_config=ctx.config.llm_config,
+            user_request=user_request,
+            cards=disclosure.cards,
+            max_input_chars=ctx.config.max_qualification_input_chars,
+            trace=ctx.trace,
+            round_index=round_index,
+        )
+        rendered_cards = qualification.cards or disclosure.cards
+        for card in rendered_cards:
             cards[card.observation_id] = card
             observations[card.observation_id] = replace(
                 observations[card.observation_id],
@@ -96,25 +106,24 @@ def run_retrieval_controller(
             "disclosure_cards_created",
             {
                 "round": round_index,
+                "global_source_capacity": qualification.source_capacity,
                 "cards": [
                     {
                         "observation_id": item.observation_id,
                         "mode": item.mode,
                         "handle": item.to_dict()["handle"],
                         "chars": len(item.source_text),
+                        "allocated_chars": item.allocated_chars,
+                        "used_chars": item.used_chars,
+                        "owner_kind": item.owner_kind,
+                        "owner_name": item.owner_name,
+                        "owner_range": [item.owner_line_start, item.owner_line_end],
+                        "outer_owner_range": [item.outer_owner_line_start, item.outer_owner_line_end],
                         "truncation_reason": item.truncation_reason,
                     }
-                    for item in disclosure.cards
+                    for item in rendered_cards
                 ],
             },
-        )
-        qualification = qualify_cards(
-            llm_config=ctx.config.llm_config,
-            user_request=user_request,
-            cards=disclosure.cards,
-            max_input_chars=ctx.config.max_qualification_input_chars,
-            trace=ctx.trace,
-            round_index=round_index,
         )
         _add_usage(qualification_usage, qualification.usage)
         for decision in qualification.decisions:
@@ -131,10 +140,13 @@ def run_retrieval_controller(
                         candidates.pop(candidate_id, None)
 
     qualify(tuple(initial_observations), 0)
-    islands = _build_islands(ctx, observations, decisions, structural_tools, round_index=0)
-    tool_calls += islands.tool_calls
     coverage = _evaluate(ctx, user_request, obligations, candidates, candidate_payload, round_index=0)
     _add_usage(coverage_usage, coverage.usage)
+    islands = _build_islands(
+        ctx, observations, decisions, cards, coverage.coverage, structural_tools,
+        previous=None, round_index=0,
+    )
+    tool_calls += islands.tool_calls
     stop_reason = "all_required_obligations_covered" if _required_covered(obligations, coverage.coverage) else ""
     completed_rounds = 0
     allow_exact_followup_round = False
@@ -163,6 +175,7 @@ def run_retrieval_controller(
             decisions=tuple(decisions.values()),
             cards=tuple(cards.values()),
             active_root_ids=islands.active_root_ids,
+            observation_to_island=islands.observation_to_island,
             edge_capabilities_tool=structural_tools["structural_edge_capabilities"],
             attempted_fingerprints=attempted,
             trace=ctx.trace,
@@ -173,6 +186,7 @@ def run_retrieval_controller(
             catalogue.actions,
             islands.active_root_ids,
             ctx.config.max_controller_actions_per_round,
+            scope_order=islands.active_island_ids,
             refined_paths=refined_paths,
             prefer_relationship=round_index > 1,
             attempted_effects=attempted_effects,
@@ -185,7 +199,21 @@ def run_retrieval_controller(
             {
                 "round": round_index,
                 "actions": [action_to_dict(item) for item in selected],
-                "selection_policy": "qualified_file_refinement_then_inspect_then_capability_checked_relationship_with_new_island_beam",
+                "scope_assignments": [
+                    {
+                        "slot": index,
+                        "scope_id": _action_scope_id(item),
+                        "reason": (
+                            "distinct_island_or_frontier"
+                            if _action_scope_id(item) not in {
+                                _action_scope_id(prior) for prior in selected[: index - 1]
+                            }
+                            else "unused_slot_returned_to_best_scope"
+                        ),
+                    }
+                    for index, item in enumerate(selected, start=1)
+                ],
+                "selection_policy": "semantic_island_scope_first_then_existing_action_order",
             },
         )
         previous_candidate_ids = set(candidates)
@@ -233,10 +261,14 @@ def run_retrieval_controller(
                 },
             )
         qualify(_latest_changed_observations(changed, observations), round_index)
-        islands = _build_islands(ctx, observations, decisions, structural_tools, round_index=round_index)
-        tool_calls += islands.tool_calls
         coverage = _evaluate(ctx, user_request, obligations, candidates, candidate_payload, round_index=round_index)
         _add_usage(coverage_usage, coverage.usage)
+        previous_islands = islands
+        islands = _build_islands(
+            ctx, observations, decisions, cards, coverage.coverage, structural_tools,
+            previous=previous_islands, round_index=round_index,
+        )
+        tool_calls += islands.tool_calls
         current_coverage = {item.obligation_id: item.status for item in coverage.coverage}
         evidence_gain = set(candidates) != previous_candidate_ids
         promoted_ids = {
@@ -300,14 +332,28 @@ def _build_islands(
     ctx: Any,
     observations: Mapping[str, DiscoveryObservation],
     decisions: Mapping[str, QualificationDecision],
+    cards: Mapping[str, DisclosureCard],
+    coverage: Sequence[ObligationCoverage],
     tools: Mapping[str, Any],
     *,
+    previous: IslandSelection | None,
     round_index: int,
 ) -> IslandSelection:
-    return build_islands_and_select_roots(
+    structural = build_structural_components(
         tuple(observations.values()),
         tuple(decisions.values()),
         relationship_tool=tools["structural_relationships_within_nodes"],
+        trace=ctx.trace,
+        round_index=round_index,
+    )
+    return build_semantic_islands(
+        tuple(observations.values()),
+        tuple(decisions.values()),
+        tuple(cards.values()),
+        coverage,
+        structural,
+        beam_size=getattr(ctx.config, "semantic_island_beam_size", 4),
+        previous=previous,
         trace=ctx.trace,
         round_index=round_index,
     )
@@ -343,6 +389,7 @@ def _select_actions(
     root_order: Sequence[str],
     limit: int,
     *,
+    scope_order: Sequence[str] = (),
     refined_paths: set[str] | None = None,
     prefer_relationship: bool = False,
     attempted_effects: set[tuple[str, ...]] | None = None,
@@ -407,7 +454,7 @@ def _select_actions(
         if independent_hypothesis is not None:
             ranked = [item for item in ranked if item is not independent_hypothesis]
             ranked.insert(1 if ranked else 0, independent_hypothesis)
-    selected: list[RetrievalAction] = []
+    eligible: list[RetrievalAction] = []
     used_roots: set[str] = set()
     used_paths: set[str] = set()
     used_effects: set[tuple[str, ...]] = set()
@@ -424,15 +471,45 @@ def _select_actions(
         effect = _action_effect(action)
         if effect in used_effects:
             continue
-        selected.append(action)
+        eligible.append(action)
         used_effects.add(effect)
         if root_id:
             used_roots.add(root_id)
         if isinstance(action, SearchWithinFile):
             used_paths.add(action.path.casefold())
-        if len(selected) >= limit:
-            break
-    return tuple(selected)
+    actions_by_scope: dict[str, list[RetrievalAction]] = {}
+    for action in eligible:
+        actions_by_scope.setdefault(_action_scope_id(action), []).append(action)
+    ordered_scopes = [scope for scope in scope_order if scope in actions_by_scope]
+    ordered_scopes.extend(
+        scope for scope in actions_by_scope
+        if scope not in ordered_scopes
+    )
+    if limit > 1:
+        preferred_distinct = (
+            next((action for action in eligible if _has_specific_exact_anchors(action)), None)
+            or (next((action for action in eligible if isinstance(action, ExpandRelationship)), None)
+                if prefer_relationship else None)
+            or next(
+                (
+                    action for action in eligible
+                    if (isinstance(action, InspectDeferredObservation) and action.deferred_pool)
+                    or isinstance(action, SearchNewIsland)
+                ),
+                None,
+            )
+        )
+        independent_scope = _action_scope_id(preferred_distinct) if preferred_distinct is not None else ""
+        if independent_scope and independent_scope in ordered_scopes and (
+            prefer_relationship or len(ordered_scopes) < limit
+        ):
+            ordered_scopes.remove(independent_scope)
+            ordered_scopes.insert(1 if ordered_scopes else 0, independent_scope)
+    selected = [actions_by_scope[scope][0] for scope in ordered_scopes[:limit]]
+    if len(selected) < limit:
+        selected_ids = {item.id for item in selected}
+        selected.extend(item for item in eligible if item.id not in selected_ids)
+    return tuple(selected[:limit])
 
 
 def _action_effect(action: RetrievalAction) -> tuple[str, ...]:
@@ -453,6 +530,10 @@ def _action_root_id(action: RetrievalAction) -> str:
     if isinstance(action, SearchWithinFile):
         return action.source_observation_id
     return str(getattr(action, "root_observation_id", "") or "")
+
+
+def _action_scope_id(action: RetrievalAction) -> str:
+    return str(getattr(action, "scope_id", "") or _action_root_id(action) or action.id)
 
 
 def _has_specific_exact_anchors(action: RetrievalAction) -> bool:

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Status: Step 1 implemented and validated on 2026-08-14. Steps 2 and 3 remain planned.
+Status: Step 1 implemented and validated on 2026-08-14. Owner-bounded contextual disclosure is retained as a targeted correctness guard after the 2026-08-16 experiment. Steps 2 and 3 remain planned.
 
 Design baseline: branch `one_more_time`, commit `10fc171daf1a8e9d0379600ce9914d6045d826d6`, reviewed on 2026-08-14.
 
@@ -40,8 +40,9 @@ The new stage boundaries are implemented in separate files:
 
 - [`discovery_observations.py`](../../workspace/pipeline/execution_flow/discovery_observations.py): role-neutral observation construction, entity/range aggregation, deduplication, and the initial 24-item guardrail plus deferred pool.
 - [`source_disclosure.py`](../../workspace/pipeline/execution_flow/source_disclosure.py): adaptive full/preview/fold/skeleton disclosure with durable source handles.
-- [`evidence_qualification.py`](../../workspace/pipeline/execution_flow/evidence_qualification.py): one atomic, schema-constrained classification per observation ID. The object-keyed schema prevents duplicate or missing IDs; the atomic enum prevents invalid disposition/support pairs.
-- [`evidence_islands.py`](../../workspace/pipeline/execution_flow/evidence_islands.py): closed-set graph grouping and the bounded active-root beam.
+- [`evidence_qualification.py`](../../workspace/pipeline/execution_flow/evidence_qualification.py): one atomic, schema-constrained classification per observation ID. A compact exact-key object schema references one shared `$defs` decision definition; schema and post-response validation reject missing or unknown IDs, while the atomic enum prevents invalid disposition/support pairs.
+- [`structural_components.py`](../../workspace/pipeline/execution_flow/structural_components.py): graph-only connected components over promoted observations.
+- [`evidence_islands.py`](../../workspace/pipeline/execution_flow/evidence_islands.py): semantic/actionable grouping, stable island lifecycle, and the configurable island beam.
 - [`coverage_evaluation.py`](../../workspace/pipeline/execution_flow/coverage_evaluation.py): direct-evidence-only obligation coverage assessment.
 - [`retrieval_actions.py`](../../workspace/pipeline/execution_flow/retrieval_actions.py): typed, executable actions for deferred inspection, path-local search, exact new-island search, and directional capability-checked traversal.
 - [`retrieval_controller.py`](../../workspace/pipeline/execution_flow/retrieval_controller.py): the inspect/qualify/evaluate/act loop, cross-round effect deduplication, and stop policy.
@@ -164,7 +165,8 @@ services/retrieval/workspace/pipeline/execution_flow/
   discovery_observations.py        # observation model, normalization, aggregation, guardrail
   source_disclosure.py             # fold/preview/full disclosure and stable source handles
   evidence_qualification.py        # qualification schema, prompt, validation, disposition changes
-  evidence_islands.py              # closed-set relationships, components, diverse root beam
+  structural_components.py         # graph-only relationships and connected components
+  evidence_islands.py              # semantic/actionable islands and diverse island beam
   coverage_evaluation.py           # obligation coverage over qualified grounded content
   retrieval_actions.py             # typed allowed actions and tool execution adapters
   retrieval_controller.py          # bounded state machine only
@@ -370,9 +372,9 @@ If the qualification LLM fails, times out, omits an observation, duplicates a de
 
 This is materially different from the removed candidate-file triage experiment. That experiment reviewed 176-226 already-expanded candidates in 296k-310k-character cards after relevant roots had already been lost. This qualification happens before graph expansion over the aggregated initial observation pool.
 
-## Stage 4: Evidence islands and active root beam
+## Stage 4: Structural components and semantic evidence islands
 
-`evidence_islands.py` creates provisional connected components only from relationships proved among already qualified observations. It does not perform open-set expansion.
+`structural_components.py` creates graph-only connected components from relationships proved among already qualified observations. `evidence_islands.py` then constructs the semantic/actionable units used by scheduling. Neither stage performs open-set expansion.
 
 ### Required closed-set relationship operation
 
@@ -395,14 +397,14 @@ Component rules:
 - Exact closed-set CodeGraph edges connect two observations.
 - Same exact node/entity merges observations before this stage.
 - Directory similarity, shared vocabulary, artifact role, and Qdrant score do not prove a component. They may be logged as weak descriptors only.
-- An observation without a proved edge is a singleton island.
+- An observation without a proved edge is a singleton structural component.
 - Absence of a graph edge never rejects or merges an observation.
 
-Root selection keeps two to four active hypotheses, initially four when available:
+Semantic-island selection keeps a configurable beam, with four accepted as the default:
 
 1. Consider only `promote` decisions.
-2. Select the strongest source-qualified root from distinct components before selecting a second root from any component.
-3. Within a component, use direct-evidence status, qualification reason, independent retrieval recurrence, and exact-anchor confirmation as ordering information.
+2. Form semantic islands with the deterministic owner, bounded-handoff, and represented-edge rules documented in the accepted experiment below.
+3. Inherit each island's priority from its best member's existing `_root_key()`; member count is not an additive score.
 4. Do not let an implementation/test role distinction determine slots.
 5. Non-selected promoted and deferred observations remain explicitly inactive/deferred, not discarded and not secretly expanded.
 
@@ -658,8 +660,8 @@ Required trace events:
 | `disclosure_cards_created` | observation ID, mode, source handle, displayed/full ranges, chars, truncation reason |
 | `qualification_requested` | card IDs, serialized chars, model/prompt ID, budget |
 | `qualification_decisions_created` | every observation ID, disposition, support level, visible support, missing information |
-| `closed_set_relationships_created` | requested node IDs, returned in-set edges, component IDs |
-| `active_roots_selected` | island IDs, selected and inactive promoted roots, reasons |
+| `structural_components_created` | requested node IDs, returned in-set edges, stable component IDs |
+| `semantic_islands_created` | core support counts, stable island IDs, members, owners/files, merge reasons, rank inheritance, subsystem, beam selection reasons |
 | `coverage_evaluated` | each obligation status, cited candidate IDs, missing claim/need |
 | `controller_round_started` | round, budgets, root IDs, coverage snapshot |
 | `controller_actions_enumerated` | allowed action IDs plus preconditions; unavailable actions plus exact reason |
@@ -811,14 +813,244 @@ Each experiment should treat these as measurement questions, not assumptions. Re
 
 These ideas are deliberately recorded here so they are not forgotten, but they are not part of Step 1.
 
-### Bounded file-handoff completion and contextual disclosure
+### Experiment execution policy and priority
 
-The accepted TypeScript 35468 traces expose two separate losses that should be tested without restoring broad graph expansion:
+Experiments use a cumulative accepted baseline, not a sequence of temporary patches that are always reverted. Test one behavioral variable at a time unless the dependency table below explicitly requires an earlier accepted experiment. If a variant is accepted, keep it as the baseline for the next experiment. Revert it when two real comparisons show quality regression or unstable sufficiency, or when the trace disproves the proposed mechanism. A trace-confirmed implementation defect may receive one bounded repair cycle; do not keep tuning thresholds, prompts, or weights against Oracle names until a testcase passes.
+
+Instrumentation that only records existing decisions may be added alongside a behavioral experiment. Its output must not change ranking, admission, action generation, or final selection. Every behavioral comparison must keep unrelated configuration fixed and use the normal pipeline with final evidence selection enabled and `--skip-response-generation`.
+
+The execution order separates causal independence from baseline inheritance:
+
+| Order | Experiment | Dependency and comparison mode |
+|---:|---|---|
+| 1 | Owner-bounded contextual disclosure | Independent first experiment. Change disclosure and qualification-payload allocation only. |
+| 2 | Semantic evidence islands and island-aware scheduling | Behaviorally independent from disclosure, but run next so the high-priority handoff experiment has bounded island-level action accounting. Compare deterministic grouping and beam sizes without adding the new handoff action. |
+| 3 | Bounded cross-file handoff completion | High-priority dependent experiment. Run only after semantic-island scheduling is accepted; add the file-node handoff and path-local completion action without changing queries, observation caps, or relationship limits. |
+| 4 | File-level trace evidence | Depends on successful handoff provenance. Test separately from retrieval and count it as file recall, never snippet evidence. |
+| 5 | Necessary-contribution filtering | Independent final-selection experiment. Run after `FileTraceEvidence` only if that type is retained; otherwise it may be tested directly after the controller experiments. |
+| 6 | Channel-specific structured query redesign | Independent upstream-recall experiment after the controller behavior is stable. Do not combine it with BM25F, a reranker, or controller selection changes. |
+| 7 | Field-aware BM25F and line scoring | Independent upstream-ranking experiment with current queries and all later stages fixed. |
+| 8 | Repository-evidenced generated-artifact classification | Independent discovery/admission experiment with queries, ranking, and controller policy fixed. |
+| 9 | Dedicated second-stage code reranker | Conditional experiment only if stable qualification still receives excessive payloads. Keep admission unchanged. |
+| 10 | Learned or LLM controller action selection | Depends on semantic islands and scheduler-audit evidence of repeated deterministic misallocation. Keep queries and ranking fixed. |
+| 11 | Multi-language outline and source-fact adapters | Conditional infrastructure experiment only when traces show that missing language support blocks qualification or owner resolution. |
+| 12 | Disclosure and qualification caching | Last, after disclosure, prompts, schemas, and controller behavior are stable. Do not use qualification caching to hide repeated-run variance during behavioral experiments. |
+
+The flat action scheduler audit is continuous measurement rather than a behavioral experiment. Add its trace fields with semantic-island work, retain them through the handoff experiment, and use the results to decide whether experiment 10 is justified.
+
+The first three experiments form the priority path for deeper evidence retrieval, but each still receives its own baseline comparison and acceptance decision:
+
+```text
+Step 1 accepted baseline
+  -> owner-bounded contextual disclosure
+  -> semantic evidence islands and island-aware scheduling
+  -> bounded cross-file handoff completion
+```
+
+### Owner-bounded contextual disclosure
+
+Experiment mode: isolated. Dependency: the accepted Step 1 baseline only. If accepted, keep it as the baseline for semantic-island evaluation; do not revert it merely because the next experiment starts.
+
+The accepted TypeScript 35468 traces expose two separate losses that should be tested without restoring broad graph expansion. This experiment isolates the contextual-disclosure loss:
 
 - `run-20260814T060815Z` admitted `src/compiler/builder.ts` as a navigation candidate from lines 81-85, but that five-line card ended after a comment and immediately before the `BuilderProgramState` declaration. A universal larger minimum snippet would waste context on already complete small functions. Instead, test a simple owner-bounded disclosure policy. Resolve the outer callable owner as the clipping boundary when the match is in a function, while retaining a complete smaller nested owner when it fits. Disclose a complete function/method/declaration when it fits; otherwise include the outer-owner signature and a bounded local window around the match without crossing that owner boundary. A leading documentation comment should travel with the declaration it documents. An internal comment uses the same local-window rule. For a class match, disclose the class skeleton plus the matching member rather than the complete class. Preserve the complete owner handle for later refinement and label any non-structural fallback explicitly. Avoid additional nesting/comment corner cases until traces demonstrate a repeated failure.
 
 The disclosure budget must be derived from the real qualification payload budget rather than configured independently. Compute available card content as `max_qualification_input_chars` minus the serialized request, schema/base metadata, per-card metadata, and a serialization/safety reserve. Divide that content capacity across the actual card count, render complete smaller owners first, and redistribute their unused shares among oversized cards. A changed global budget or observation count must therefore change card capacity automatically. Truncation accumulates complete source lines only; if the next line would exceed the allocated characters, omit that complete line and record the omission rather than slicing it. A single oversized/minified line receives an explicit omitted-line marker plus its stable handle. Trace the global capacity, initial and redistributed per-card allocation, used characters, owner identity/range, disclosure mode, and truncation reason.
-- Both accepted runs retained useful `src/testRunner/unittests/tsbuild/watchMode.ts` context, while `src/testRunner/unittests/tscWatch/helpers.ts` either produced an irrelevant initial range and an uninspected deferred range (`run-20260814T060345Z`) or produced no discovery observation (`run-20260814T060815Z`). The prepared CodeGraph contains direct `calls` edges from the `watchMode.ts` file node to `verifyTscWatch` in `helpers.ts`, but the relevant diagnostic-baselining logic is owned by `baselineProgram` rather than by `verifyTscWatch` itself.
+
+Qualification disclosure has an additional deterministic per-card boundary. An owner is complete only when it is
+at most 80 lines and 4,000 characters. For a larger owner, send its signature plus the original indexed hit with up
+to 12 complete source lines on either side, bounded again to 80 lines and 4,000 characters. Preserve the complete
+owner range in the stable handle. Spare global qualification capacity may satisfy this intended preview but must not
+upgrade it to the complete large owner. This boundary is enforced by the renderer before the LLM request; it is not
+a prompt instruction, retry, or repeated retrieval call.
+
+Implementation and decision plan:
+
+1. Keep discovery, qualification decisions, semantic/structural grouping, action enumeration, controller budgets, queries, observation caps, relationship limits, and final selection unchanged. Replace the current disclosure rendering and late string-slicing behavior cleanly; do not retain a hidden legacy fallback or add a production feature flag.
+2. Separate structural owner resolution from card rendering. Resolve the smallest complete callable/declaration that contains the match, its enclosing callable boundary, and class/member containment from represented source ranges. Associate a leading documentation comment only when it directly documents that declaration. Record an explicit fallback when represented structure is unavailable rather than inventing an owner.
+3. Calculate the exact fixed qualification overhead before allocating source content: system prompt, request, response schema, base JSON, stable card metadata, and safety reserve. Render complete small owners first, redistribute unused capacity, then render oversized owners using the declared owner-bounded policy. The qualification serializer remains a final hard-cap validator and must not silently slice source text.
+4. Keep qualification structure compact: one shared file context per path, only the relevant owner/class context for each observation, and separate observation IDs/decisions even when several observations reference one file context. Do not send broad repeated file outlines, allocation accounting, used-character counters, or other trace-only fields to the LLM. Use an exact-key decisions object whose properties reference one shared `$defs` decision schema; do not duplicate the complete decision schema once per observation ID.
+5. Add focused tests for a leading documentation comment, an internal comment, nested callables, a small complete owner, an oversized owner, a class member plus class skeleton, range-only fallback, missing repository source, unused-budget redistribution, complete-line truncation, an oversized single line, exact final payload-cap enforcement, and independent decisions for observations sharing one file context.
+6. Run the actual TypeScript 35468 pipeline twice first and compare the repaired `builder.ts` card, its qualification decision, Oracle survival at every boundary, retrieval tokens, serialized characters, and tool calls. If the mechanism works, run two unchanged comparisons each for pandas 10068 and Vue 10803 to check cross-language and small-owner regressions. Use fresh baseline runs first only if the model, prompts, indexes, or runtime configuration differ from the accepted baseline runs.
+7. Accept and keep the experiment when the known declaration-boundary loss is repaired without a repeated quality regression elsewhere. A small token increase is acceptable only when it buys traceable evidence or qualification gain; token reduction alone is not acceptance. If traces expose an implementation defect in the declared policy, make one bounded repair and rerun. If two comparisons show worse evidence survival, unstable sufficiency, or additional context without qualification gain, remove the behavior and record the failed experiment before moving on.
+
+The broad benchmark comparison is evidence about average retrieval quality, but it is not by itself a complete
+test of this experiment's targeted correctness property. If the implementation demonstrably repairs malformed,
+comment-only, partial-line, or owner-boundary cards in focused tests and real traces, it may be retained as a
+correctness guard even when an ordinary stochastic benchmark does not improve. In that case, record the broad
+quality/token result honestly, do not claim a general retrieval gain, and evaluate later experiments against the
+retained baseline.
+
+Run modes for this experiment:
+
+- Focused tests and one optional cheap TypeScript smoke run may disable both later stages. Use `npm run coderepoqa:evaluate:workspace -- --issue-json testing/codeRepoQA/corpus/cases/microsoft-TypeScript-35468/issue.json --skip-response-generation --skip-final-evidence-selection`. This verifies disclosure, qualification, controller behavior, and the preselection candidate pool, but it produces no valid final-evidence or sufficiency comparison.
+- Every measured acceptance run must use `npm run coderepoqa:evaluate:workspace -- --issue-json <case issue.json> --skip-response-generation`. Response generation stays disabled because this experiment does not test explanation prose. Final evidence selection stays enabled because changed disclosure can change qualification, candidate admission, the payload received by the selector, and which evidence survives. Paying for that selector is necessary to detect a downstream regression; do not pass `--skip-final-evidence-selection` for an acceptance run.
+
+#### 2026-08-16 experiment outcome
+
+Implementation status: retained as a targeted disclosure-correctness guard; no broad TypeScript quality gain is
+claimed. The implementation resolves complete structural owners, carries leading comment-only hits into the
+adjacent declaration, renders class skeleton plus matching member, allocates the actual qualification budget,
+truncates only at complete-line boundaries, and keeps explicit fallback/omission metadata.
+
+The first cheap smoke, `run-20260815T221134Z`, exposed a real metadata-budget failure before qualification.
+An intermediate repair split oversized qualification sets into independently capped calls. Later trace review
+showed that this multiplied prompt cost while still allowing metadata-heavy calls with almost no source, so it was
+superseded. Qualification now uses one compact request with shared file contexts, relevant-owner-only structure,
+and no trace-only allocation fields in the semantic payload. If compact fixed metadata itself exceeds the hard
+cap, fail explicitly rather than multiplying qualification calls. The trace emits
+`qualification_source_degradation_detected` whenever source is empty or complete owner lines are omitted, including
+the affected observation IDs and per-card source character counts.
+
+A scoped real-LLM check used two observations referencing the same shared `src/auth.ts` file context. The model
+independently promoted the token-validation function and rejected the unrelated display-name function in one call.
+After compacting the response schema, that request used 1,112 serialized payload characters and 3,992 calculated
+total input characters. A later measured run exposed that an ID-bearing decision array could still contain a
+duplicate ID despite its fixed item count. Qualification therefore uses an exact-key object whose properties share
+one `$defs` decision definition. A scoped real-LLM check promoted the relevant token validator and rejected the
+unrelated formatter independently under this contract. For 24 representative observation IDs, the exact-key schema
+is about 1,963 characters rather than the 12,768 characters measured in the metadata-starved TypeScript round-0
+request, and duplicate or missing keys are structurally impossible.
+
+A final cheap TypeScript smoke with the completed compact payload, `run-20260816T002310Z`, made exactly one
+qualification call in each of rounds 0-3. Round 0 carried 13,278 source characters across all 24 cards with no
+empty source; 12 oversized owners used complete-line omission and triggered the explicit degradation warning.
+Rounds 1-3 had no empty or omitted source. The run completed with `coverage_status=missing`, `sufficient=false`,
+42 tool calls, and 45,057 retrieval LLM tokens. Final evidence selection was intentionally disabled for this smoke,
+so its zero selected/Oracle overlap is not a quality result and must not be compared with the acceptance runs below.
+
+Follow-up trace inspection found that Qdrant had localized the 9,107-character `getUpToDateStatusWorker` card to
+the 24-line indexed range 1433-1456. Owner disclosure then resolved lines 1329-1522 and the capacity allocator
+upgraded the intended local preview to the complete 194-line function. The retained implementation now enforces
+the 80-line/4,000-character boundary above and prevents spare capacity from performing that upgrade. This is a
+disclosure correction, not a Qdrant chunking or retry change.
+
+Cheap verification run `run-20260816T031510Z` confirmed the boundary in the actual pipeline. The same
+`getUpToDateStatusWorker` observation was 2,751 characters and 52 lines rather than 9,107 characters and 194 lines.
+The largest qualification card in any round was 3,974 characters and 54 lines; no card exceeded either ceiling and
+no card had empty source. The run completed with `coverage_status=missing`, `sufficient=false`, 45 tool calls, and
+47,483 retrieval LLM tokens. Final selection was disabled, so this run establishes disclosure behavior only and is
+not an acceptance-quality comparison.
+
+Full TypeScript runs kept final evidence selection enabled and disabled only response generation:
+
+| Variant | Run | coverage/sufficient | Selected | Oracle overlap | Retrieval LLM tokens |
+|---|---|---:|---:|---:|---:|
+| Committed baseline, current 94,279-document index | `run-20260815T183615Z` | partial/false | 11 | 4 | 70,566 |
+| Owner-bounded disclosure 1 | `run-20260815T223727Z` | partial/false | 7 | 2 | 75,826 |
+| Owner-bounded disclosure 2 | `run-20260815T224839Z` | partial/false | 7 | 0 | 84,570 |
+| Bounded qualification preview 1 | `run-20260816T033331Z` | partial/false | 11 | 3 | 43,386 |
+| Bounded qualification preview 2 | `run-20260816T034112Z` | partial/false | 9 | 2 | 42,661 |
+
+These runs do not establish a broad quality or token improvement; both variants remained insufficient and were
+more expensive. They also do not directly exercise the declaration-boundary corner case consistently enough to
+disprove the targeted mechanism. By explicit project decision, retain the correctness behavior, keep the negative
+broad benchmark result visible, and do not tune its thresholds against the Oracle. Semantic-island scheduling is
+the next separate behavioral experiment and must not be credited with or blamed for this disclosure result.
+
+The bounded-preview follow-ups likewise remained insufficient, but both kept every qualification card below the
+declared boundary and recovered 3 and 2 Oracle implementation files while using substantially fewer retrieval LLM
+tokens than the earlier disclosure variants. Retain the boundary as a correctness and cost guard; do not claim that
+it establishes sufficiency or a broad retrieval-quality improvement. An attempted measured run
+`run-20260816T032407Z` failed explicitly when the ID-bearing decision array returned a duplicate observation ID.
+No retry or inferred decision was used. The compact response contract was replaced with the exact-key shared-`$defs`
+schema described above, passed a scoped real-LLM separation check, and both subsequent measured runs completed.
+
+### Semantic evidence islands and island-aware scheduling
+
+Experiment mode: isolated controller-scheduling change. Dependency: none on disclosure behavior, but evaluate it on the accepted cumulative baseline. It must be accepted before enabling bounded cross-file completion. The deterministic semantic-island scheduler and any bounded known-ID LLM selector are separate comparisons.
+
+Do not reserve actions for hardcoded names such as "builder" or "watch." The accepted scheduler preserves a small configurable beam of high-priority semantic islands after qualification; grouping and priority come from runtime evidence. The earlier graph-only components were too fragmented to use directly: the accepted TypeScript runs produced 14 and 20 graph components for only 19 and 21 candidates. The semantic-island experiment kept the global observation cap and relationship result limit unchanged.
+
+The `run-20260815T224839Z` trace gives a concrete crowding failure to prevent: one recurring
+`tsbuildPublic.ts` observation and three nearby recurring `server/project.ts` observations occupied all four root
+slots, while promoted `builder.ts`, `builderState.ts`, and `tscWatch/helpers.ts` observations remained inactive.
+Recurrence should strengthen one semantic hypothesis internally; nearby observations that describe the same
+file/subsystem mechanism must not consume several independent island/action slots merely because they have separate
+source handles.
+
+Before this experiment, `EvidenceIsland` meant only a connected component over promoted observations whose exact CodeGraph node IDs had an edge between them. Range-only observations had no node ID and therefore became singleton components. That graph-only object and trace event are now `StructuralComponent`. `EvidenceIsland` means only the semantic, actionable unit: a bounded group of qualified observations that plausibly participates in one mechanism or unresolved explanatory strand and can receive controller actions together.
+
+The terminology migration was atomic: the old graph-connected `EvidenceIsland` became `StructuralComponent`, and only the semantic/actionable object keeps the name `EvidenceIsland`. No runtime alias or ambiguous legacy trace event remains.
+
+The accepted semantic-island implementation has two separate ownership files: `structural_components.py` for graph-only components and `evidence_islands.py` for an explicit `EvidenceIsland` record containing stable ID, member observation IDs, normalized files, enclosing owners, obligation IDs, qualification support, exact anchors, action provenance, structural components, unresolved needs, rank features, and predecessor history. Construct semantic islands after qualification and structural-component creation:
+
+1. Resolve range-only observations to an enclosing owner or file node where possible; do not invent an AST identity when resolution fails.
+2. Union observations when they share an enclosing owner, came from the same bounded action handoff, or have a represented structural edge and overlap in unresolved obligations.
+3. Within one file, union separate owners only when obligation overlap plus call/reference/action provenance supports one mechanism; same-file membership alone is insufficient.
+4. Across files, require a represented structural relationship or an explicit bounded handoff from one observation to the other. Similar vocabulary and shared broad `SearchNewIsland` provenance are insufficient: independent search results begin new islands.
+5. Do not invent an additive island score. An island inherits the existing `_root_key()` ordering of its best member observation. Other members supply context and actions but cannot overwhelm a smaller island merely by increasing member count. Treat unresolved-obligation and subsystem diversity as beam-selection constraints rather than ranking points, and audit whether those constraints displace stronger useful islands.
+6. Retain a configurable small beam (initially compare 2, 3, and 4). Select the best island first, then prefer a still-credible island adding an unresolved required obligation, then a distinct subsystem, before returning to inherited member rank. Derive the provisional subsystem from the nearest stable source directory plus owner namespace and log it so misleading groupings are visible.
+7. Generate actions only after island formation. Attach observation-rooted actions to their island ID. Attach `SearchNewIsland` and deferred-inspection actions to explicit deterministic discovery-frontier IDs because no evidence island exists yet. First choose among scopes rather than sorting one flat 70-108-action list: give at most one execution slot to each eligible island/frontier before a second action from one scope is allowed. If fewer distinct scopes have executable actions than the two-action cap, return unused slots to the best remaining untried actions. Within a chosen island, use the existing action ordering. Log every scope assignment and the exact reason each slot was assigned.
+8. Island cores contain both `promote/direct_evidence` and `promote/navigation_only` observations. Deferred observations remain discovery frontiers until an action discloses and qualifies them. The experiment report must separately assess whether including both promoted support levels produced a useful balance or whether navigation-only cores displaced stronger direct evidence.
+9. Use stable content-derived IDs for new islands. Preserve an island ID when new observations join one existing island, never split an existing island during a run, and create one deterministic merged ID with predecessor-ID history when existing islands merge.
+10. Keep backend-owned arguments and action-effect deduplication. If an LLM selector is tested later, it may choose only among the reduced known island/action IDs and must report why one island received or lost a slot.
+
+Compare beam sizes 2, 3, and 4 first with deterministic trace replay and focused tests. Run full measured comparisons only for the best two sizes. The post-run report must inspect core eligibility, incorrect merges and separations, cross-file joins, subsystem bias, inherited ranking, slot diversity, discovery-frontier behavior, and beam sensitivity in addition to coverage and Oracle overlap.
+
+#### Semantic-island implementation outcome
+
+The deterministic experiment is accepted with beam size 4 as the default. The global observation cap, relationship result limit, query construction, two-action round limit, and final evidence-selection contract were unchanged. Explanation generation was disabled for every experiment run. Cheap runs also disabled final evidence selection; the two valid measured runs kept it enabled.
+
+Implementation repairs found by trace inspection:
+
+1. Initial cheap runs still enumerated 75-91 actions because each deferred observation became a separate frontier. This did not win execution slots but defeated the intended catalogue reduction. Discovery options now share one deterministic frontier per unresolved obligation, retaining at most one deferred inspection, one deferred path-local search, and one new-island search for that frontier. Confirmation run `run-20260816T165433Z` reduced raw action counts 72/78/85 to 26/31/37 while keeping both execution slots usable; round 3 selected one frontier and one real island.
+2. The first measured pair, `run-20260816T170218Z` and `run-20260816T170958Z`, exposed duplicate IDs for separate range-only observations in the same file because the fallback ID used only the file path. Those results are invalid as beam evidence. Range-only fallback IDs now hash stable observation identities; same-file membership alone cannot collapse scopes. Cheap confirmation `run-20260816T171917Z` had no duplicate IDs or single-predecessor ID changes across four island states and reduced raw 64/69/72 actions to 24/29/32.
+
+Valid measured comparison:
+
+| Beam | Run | Coverage / sufficient | Selected | Oracle overlap | Retrieval LLM tokens | Candidates | Tools |
+|---:|---|---|---:|---:|---:|---:|---:|
+| 3 | `run-20260816T172644Z` | partial / false | 10 | 2, both implementation | 54,904 | 19 | 43 |
+| 4 | `run-20260816T173344Z` | partial / false | 8 | 3, all implementation | 60,954 | 24 | 42 |
+
+Beam 4 costs 6,050 more retrieval tokens (about 11%) but retained the stronger causal set: `startWatching`, `watchWildCardDirectories`, `getNextInvalidatedProject`, `builderState:updateShapeSignature`, and `builder:createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile`. Beam 3 missed `builder.ts` and retained more navigation/test context. Both runs reused the 94,279-document/point indexes with `rebuilt=false`, ended after the unchanged three-round budget, and executed two actions per round.
+
+Detailed behavior audit:
+
+- **Core eligibility:** beam 3 moved from 3 direct + 10 promoted-navigation cores to 5 + 15; beam 4 moved from 6 + 8 to 10 + 15. Navigation cores supplied productive compiler and test entry points, while direct cores remained independently eligible and survived final selection. Neither trace supports restricting islands to navigation-only or direct-only cores.
+- **Merge quality:** valid runs used bounded-action handoffs, prior-island preservation, and one same-owner merge. No island joined merely because of similar vocabulary or shared broad independent-search provenance. Beam 3's only cross-file island joined `tsbuildPublic.ts` to `watchUtilities.ts` through the executed bounded handoff; beam 4 created no cross-file island. No suspicious cross-subsystem merge was found.
+- **Stable lifecycle:** every island ID was unique per round after the correction. Single-predecessor islands retained their IDs; beam 4 recorded a deterministic merged ID with both predecessor IDs when two prior compiler islands joined. No prior island split.
+- **Inherited ranking:** island priority consistently named one member observation and reused its exact-anchor, recurrence, qualification-support, and best-rank fields. Growing an island from one to seven members did not create extra beam or action slots. The existing recurrence-before-direct ordering remains visible for later ranking audits but did not produce a clear measured failure here.
+- **Action allocation:** every valid measured round assigned its two slots to distinct scopes. Beam 3 used three distinct scopes across six executions; beam 4 used four. Every round in both runs produced evidence and navigation gain; beam 3 produced coverage gain in rounds 1 and 3, while beam 4 produced coverage gain in all three. A second action from one scope was never needed because another executable scope existed. The cheap confirmation demonstrated that an unresolved-obligation frontier can receive a slot when it outranks unused island actions.
+- **Subsystem diversity:** the provisional directory-plus-owner namespace is too fine-grained to guarantee broad implementation diversity. Obligation-first selection still admitted multiple test-centered islands, and separate owners under one test directory can look like distinct subsystems. This did not prevent beam 4 from recovering all three implementation Oracle files, but the heuristic should remain explicitly audited rather than treated as a reliable semantic boundary. Do not retune it against this single Oracle case.
+- **Beam sensitivity:** beam 2 visibly starved separate watch/server mechanisms in cheap runs. Beam 3 was viable but less complete in the valid measured comparison. Beam 4 is the accepted quality-first default; beam 3 remains an explicit lower-cost configuration. Raising the action cap was not required.
+
+Cross-language beam-4 verification used two additional CodeRepoQA cases twice each, always with final evidence selection enabled and explanation generation disabled:
+
+| Case | Run | Coverage / sufficient | Selected | Oracle overlap | Retrieval LLM tokens | Candidates | Tools |
+|---|---|---|---:|---:|---:|---:|---:|
+| pandas 10068 | `run-20260816T175628Z` | partial / false | 5 | 0 | 73,572 | 10 | 68 |
+| pandas 10068 | `run-20260816T180051Z` | partial / false | 3 | 0 | 47,480 | 3 | 53 |
+| Vue 10803 | `run-20260816T180356Z` | partial / false | 6 | 2 total, 1 implementation | 62,038 | 13 | 48 |
+| Vue 10803 | `run-20260816T180623Z` | partial / false | 6 | 2 total, 1 implementation | 51,954 | 10 | 50 |
+
+Vue recovered `src/platforms/web/server/modules/dom-props.js` at final rank 1 twice. Its `renderDOMProps` observation was direct evidence and reached the final candidate pool in both runs. Each Vue state had six to eight islands, so beam 4 did perform real selection; nevertheless, all six rounds gave the two actions to distinct scopes, and neither run showed a duplicate ID, suspicious cross-file merge, or empty-source event.
+
+Pandas missed `pandas/core/series.py` twice, but trace causality does not implicate beam 4. The first run never had more than four islands and the second never had more than two; every island was active, with no inactive promoted observation. In `run-20260816T175628Z`, discovery found the relevant `Series::_binop` CodeGraph node (aggregated rank 3, recurrence 3), but its retrieved range began at line 1464 while the method begins at line 1466. Contextual disclosure selected the preceding `Series::append` owner ending at line 1464, so qualification saw `append`, explicitly said the body/name handling was missing, and deferred the observation. In `run-20260816T180051Z`, the `series.py` hits covered only `to_string`/`_repr_footer` and `_sanitize_array`; qualification correctly rejected those unrelated regions. No `series.py` observation entered an island in either run. The zero overlap therefore combines a reproducible owner-resolution boundary defect in the first run with upstream retrieval variation in the second, not island-beam starvation. Fix contextual disclosure to prefer the retrieved structural node/symbol over a chunk-leading overlap; do not widen the semantic beam for this failure.
+
+The first run of each new testcase built its indexes, while the second reused them with `rebuilt=false`. These checks keep beam 4 as the quality-first default, but they also prevent treating the pandas misses as acceptable stochastic noise: the disclosure defect is a concrete follow-up correction on the inherited baseline.
+
+The contextual-disclosure boundary defect is corrected and accepted. Owner resolution now chooses an exact retained CodeGraph node ID first, then a unique exact symbol, then an owner containing the retained full structural range. Only observations without usable structural identity fall back to greatest overlap with the raw chunk or the existing comment-to-following-declaration rule. This prevents a chunk's leading overlap from replacing its known structural owner without introducing retries, larger snippets, or an LLM decision.
+
+Measured workspace confirmation `run-20260816T183855Z` reused the pandas index (`index_rebuilt=false`) with beam 4, final evidence selection enabled, and explanation generation disabled. The initial observation reproduced the same raw lines 1464-1503 and retained `Series::_binop` lines 1466-1511. Disclosure resolved both appearances to `Series::_binop`; qualification first retained the bounded preview as navigation and then promoted the fuller card as direct evidence. Final selection exported `pandas/core/series.py:L1466-L1511` at rank 1, including the exact line `name = _maybe_match_name(self, other)`. The run was partial/false with 6 selected snippets, 2 total/1 implementation Oracle overlaps, 74,778 retrieval LLM tokens, 11 preselection candidates, and 62 tool calls. `run-20260816T183447Z` used the separate Codex retrieval profile and is explicitly excluded from validation of this workspace-pipeline repair.
+
+The LLM action-selector comparison remains a separate later experiment. These traces do not justify combining it with the accepted deterministic grouping/scheduling change.
+
+The final evidence LLM must not create these islands because it runs after retrieval. The experiment should compare deterministic semantic-island grouping with the bounded known-ID LLM selector independently. This experiment directly addresses the current action-selection failure: a two-action cap is defensible only after the flat catalogue has been reduced to a few credible, diverse islands; raising the cap while preserving the current first-ranked-action scheduler is not the experiment.
+
+### Bounded cross-file handoff completion
+
+Experiment mode: isolated action-capability change on top of accepted semantic-island scheduling. Dependency: semantic islands and island-level action accounting. Contextual disclosure is inherited only if accepted; it is not changed during this comparison.
+
+Plan a separate controller rule here rather than folding it into contextual disclosure: admitting a card as
+`direct_evidence` must not automatically mean that no further retrieval can help. A follow-up remains eligible only
+when required coverage is unresolved, qualification or coverage names concrete missing behavior, the card exposes
+an executable field/owner/relationship lead, and the same effect has not already been attempted. This preserves
+good direct evidence while allowing a bounded read/write, caller/reference, same-file, or cross-file handoff action;
+it does not mark every direct card for further investigation.
+
+Both accepted runs retained useful `src/testRunner/unittests/tsbuild/watchMode.ts` context, while `src/testRunner/unittests/tscWatch/helpers.ts` either produced an irrelevant initial range and an uninspected deferred range (`run-20260814T060345Z`) or produced no discovery observation (`run-20260814T060815Z`). The prepared CodeGraph contains direct `calls` edges from the `watchMode.ts` file node to `verifyTscWatch` in `helpers.ts`, but the relevant diagnostic-baselining logic is owned by `baselineProgram` rather than by `verifyTscWatch` itself.
 
 Test this bounded action sequence:
 
@@ -834,26 +1066,9 @@ qualified watchMode.ts file/range
 
 This is not permission for fixed depth-five traversal. In the prepared snapshot, `baselineProgram` is five call edges downstream from the `watchMode.ts` file node; recursively materializing every intermediate neighbor would recreate the fanout problem. The cross-file edge should identify the target file, after which path-local retrieval should localize the relevant owner inside that file.
 
-Do not reserve actions for hardcoded names such as "builder" or "watch." A future scheduler may preserve at most a small number of highest-priority, semantically distinct file/subsystem islands after qualification, but grouping and priority must come from runtime evidence. The current `EvidenceIsland` components are too fragmented to use directly: the accepted TypeScript runs produced 14 and 20 internal graph islands for only 19 and 21 candidates. Before enabling completion, compare file-level or subsystem-level grouping and require action accounting per retained island. The first experiment should keep the global observation cap and relationship result limit unchanged.
-
-Current `EvidenceIsland` means only a connected component over promoted observations whose exact CodeGraph node IDs have an edge between them. Range-only observations have no node ID and therefore become singleton components. Two observations in one file remain separate unless their exact nodes are connected; two observations in different files may join when their exact nodes are connected. During the experiment, rename this graph-only object and trace event to `StructuralComponent`. Reuse the preferred `EvidenceIsland` term for the semantic, actionable unit: a bounded group of qualified observations that plausibly participates in one mechanism or unresolved explanatory strand and can receive controller actions together.
-
-If this experiment is accepted, update the retrieval terminology dictionary, schemas, trace event names, evaluation readers, and documentation atomically: the old graph-connected `EvidenceIsland` becomes `StructuralComponent`, and only the new semantic/actionable object keeps the name `EvidenceIsland`. Do not leave both meanings active or rely on readers to infer which one a run used.
-
-Implement the future semantic-island experiment with two separate ownership files: `structural_components.py` for graph-only components and `evidence_islands.py` for an explicit `EvidenceIsland` record containing stable ID, member observation IDs, normalized files, enclosing owners, obligation IDs, qualification support, exact anchors, action provenance, structural components, unresolved needs, rank features, and prior action/evidence gain. Construct semantic islands after qualification and structural-component creation:
-
-1. Resolve range-only observations to an enclosing owner or file node where possible; do not invent an AST identity when resolution fails.
-2. Union observations when they share an enclosing owner, came from the same bounded action handoff, or have a represented structural edge and overlap in unresolved obligations.
-3. Within one file, union separate owners only when obligation overlap plus call/reference/action provenance supports one mechanism; same-file membership alone is insufficient.
-4. Across files, require a represented relationship or an explicit independent-search/action provenance. Similar vocabulary alone is insufficient.
-5. Rank islands from qualification support, unresolved-obligation fit, exact anchors, recurrence, retrieval rank, and evidence/coverage gain. Penalize ambiguity, repeated declaration-only representations, and redundancy, but do not apply a global test-role penalty.
-6. Retain a configurable small beam (initially compare 2, 3, and 4), preserving obligation and subsystem diversity. Give at most one action slot to a retained island per round before unused slots return to the global catalogue.
-7. Generate actions only after island formation, attach every action to an island ID, and first choose among islands rather than sorting one flat 70-108-action list. Within a chosen island, prefer an untried action whose relationship/direction or path-local target addresses its highest-priority unresolved need. Log all island and action scores plus the exact reason each of the two execution slots was assigned.
-8. Keep backend-owned arguments and action-effect deduplication. If an LLM selector is tested, it may choose only among the reduced known island/action IDs and must report why one island received or lost a slot.
-
-The final evidence LLM must not create these islands because it runs after retrieval. The experiment should compare deterministic semantic-island grouping with the bounded known-ID LLM selector independently. This experiment directly addresses the current action-selection failure: a two-action cap is defensible only after the flat catalogue has been reduced to a few credible, diverse islands; raising the cap while preserving the current first-ranked-action scheduler is not the experiment.
-
 ### Channel-specific structured query redesign
+
+Experiment mode: isolated upstream-recall change. Dependency: run after the priority controller path is stable. Keep BM25/BM25F, disclosure, qualification, island scheduling, action selection, and final selection fixed.
 
 The first implementation deliberately preserves `_obligation_stage_query_text()` and `_obligation_query()`. A later experiment may stop converting all available intent information into one string and instead route the existing `IntentContext` fields by capability:
 
@@ -867,13 +1082,19 @@ The experiment must not ask an LLM to invent one global rewritten query. It shou
 
 ### Flat action scheduler audit
 
+Experiment mode: instrumentation-only audit, not a ranking change. Dependency: add the required island/action trace fields during semantic-island implementation and continue collecting them during bounded handoff evaluation.
+
 The current deterministic scheduler is preferable to arbitrary first-come-first-served execution, but it still chooses two actions from catalogues that reached roughly 70-108 possibilities using coarse priority features and a semantically meaningless stable-hash tie-breaker. Record this as a separate scheduling problem even if semantic evidence islands reduce its severity. After island formation is available, compare whether the existing ordering repeatedly starves actions that produce distinct evidence or coverage gain. Do not prescribe a learned solution yet; first measure which generated actions lost a slot, their island and unresolved need, the selected alternatives, and the marginal gain of each executed action.
 
 ### Learned or LLM controller action selection
 
+Experiment mode: isolated controller-selection change. Dependency: accepted semantic islands plus audit evidence that the deterministic scheduler repeatedly assigns an action slot to a lower-utility known action. Do not run it merely because an LLM selector is available.
+
 Step 1 deliberately uses a deterministic policy over an executable action catalogue. If traces show repeated cases where several valid actions exist and the fixed ordering consistently spends the budget on the wrong one, compare a compact LLM selector that may return only known action IDs. Tool arguments remain backend-owned. Measure action utility, evidence gain, tokens, stability, and invalid decisions against the deterministic scheduler; do not combine this experiment with query or ranking changes.
 
 ### Multi-language outline and source-fact adapters
+
+Experiment mode: conditional infrastructure change. Dependency: begin only after real traces show that missing or inaccurate language-specific structure blocks owner-bounded disclosure, qualification, or semantic-island construction. Compare adapter output separately before measuring downstream behavior.
 
 Step 1 uses CodeGraph file nodes plus exact source ranges for outlines and keeps the TypeScript compiler adapter specialized. If real runs show that missing outlines prevent qualification in Python, Java, Go, or other important repositories, evaluate a multi-language tree-sitter outline service.
 
@@ -886,6 +1107,8 @@ Variants:
 Do not label regex declarations as AST output. Any new third-party runtime import must update the correct direct dependency manifest in the same change.
 
 ### Field-aware BM25F and line scoring
+
+Experiment mode: isolated upstream-ranking change. Dependency: none on channel-specific query redesign; test them sequentially, never in the same first comparison. Use the accepted query policy and keep every later retrieval stage fixed.
 
 Current BM25 uses one flattened document text:
 
@@ -910,9 +1133,13 @@ This could improve inspection order for filenames and definitions, but it cannot
 
 ### Dedicated second-stage code reranker
 
+Experiment mode: conditional disclosure-ordering change. Dependency: stable qualification traces must first show that excessive card volume or ordering, rather than discovery loss, is the limiting problem. Do not combine it with BM25F or structured-query changes.
+
 After source qualification is stable, a compact cross-encoder or LLM reranker could order disclosure cards before qualification. It must not make final admission decisions, and it should be tested only if qualification payloads remain too large. Sourcegraph's two-stage retrieval design is inspiration, not evidence that a particular reranker will improve these benchmarks.
 
 ### Repository-evidenced generated-artifact classification
+
+Experiment mode: isolated discovery/admission change. Dependency: none on query or ranking experiments. Apply one classifier consistently at every observation-entry path and keep unrelated retrieval stages fixed.
 
 Generated-artifact handling must be consistent across initial indexes and observations introduced later by CodeGraph actions. The current path/name rules catch conventional build, snapshot, baseline, and `.generated.*` artifacts, but they do not prove that every declaration under `lib/` or every `.d.ts` file is generated. Those broad rules would be unsafe: repositories commonly use `lib/` for maintained source, and handwritten declarations can be the primary API or type contract.
 
@@ -926,6 +1153,8 @@ The prepared TypeScript repository provides narrower evidence: its Gulp build cr
 6. Compare declaration/API Oracle survival, generated-duplicate volume, action slots consumed, and qualification tokens with all later stages unchanged.
 
 ### File-level trace evidence when exact localization is unjustified
+
+Experiment mode: isolated evidence-representation change. Dependency: accepted bounded handoff provenance and accepted semantic-island identity. Evaluate file recall separately; do not use this type to make the handoff experiment appear to recover snippet evidence.
 
 Some relevant files are structural participants even when the pre-fix request and available source do not justify one exact explanatory snippet. TypeScript 35468 is a concrete example: `watchMode.ts` calls the shared test harness in `tscWatch/helpers.ts`, while the fixing PR changes a narrow `file.path` to `file.resolvedPath` check inside `baselineProgram`. Requiring retrieval to predict that exact changed line from the issue text is closer to patch localization than explanation-oriented evidence collection.
 
@@ -942,6 +1171,8 @@ The final explanation may use a file trace only to state that the file is a like
 
 ### Necessary-contribution filtering in final evidence selection
 
+Experiment mode: isolated final-selection change. Dependency: none on discovery, disclosure, or scheduling. If `FileTraceEvidence` is accepted, run this experiment afterward so the selector contract can recognize that type without changing it concurrently.
+
 The accepted runs show that final consolidation can retain generic filesystem plumbing, declaration duplicates, or broad server context that is topically related but does not add a necessary explanatory claim or structural trace. Test a final-selection contract that requires every retained item to identify one distinct contribution: direct support for an unresolved obligation, a causal/structural link between retained evidence, a non-redundant public contract, a contradiction, or an explicitly typed `FileTraceEvidence`. Topical similarity alone is insufficient.
 
 Keep this experiment separate from discovery, disclosure, and island scheduling so its effect is attributable. The selector should return a contribution type and short request-relative reason for every retained candidate, identify the candidate or claim it would duplicate, and reject generic context whose removal changes no supported claim or trace. Evaluate semantic precision manually on repeated TypeScript, Vue, and pandas runs, alongside Oracle survival, unique selected files/snippets, retained contribution types, consolidation characters, and final-selection tokens. Do not require a candidate to predict the eventual patch, and do not let this stage conceal an upstream discovery loss.
@@ -957,6 +1188,8 @@ Measure separately:
 7. marginal qualification, coverage, and final-selection tokens.
 
 ### Disclosure and qualification caching
+
+Experiment mode: last, non-behavioral optimization only after disclosure rendering, qualification prompt/schema, and controller behavior are stable. Disclosure caching and qualification caching must be measured separately. Disable qualification-result reuse during repeated stochastic behavior comparisons.
 
 Stable source handles allow caching disclosure cards by repository snapshot, path/range/node ID, and content hash. Qualification results additionally depend on the user request and prompt/schema version. Cache only exact identities; do not reuse semantic decisions across different requests.
 
