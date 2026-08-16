@@ -25,6 +25,7 @@ class InspectDeferredObservation:
     reason: str
     deferred_pool: bool = False
     priority: int = 0
+    scope_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class ExpandRelationship:
     edge_kinds: tuple[str, ...]
     need: str
     max_results: int = 3
+    scope_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,7 @@ class SearchWithinFile:
     sparse_anchors: tuple[str, ...] = ()
     result_limit: int = 3
     priority: int = 0
+    scope_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -60,12 +63,14 @@ class SearchNewIsland:
     exact_symbol_anchors: tuple[str, ...] = ()
     exact_path_anchors: tuple[str, ...] = ()
     result_limit: int = 6
+    scope_id: str = ""
 
 
 @dataclass(frozen=True)
 class StopRetrieval:
     id: str
     reason_code: str
+    scope_id: str = ""
 
 
 RetrievalAction = InspectDeferredObservation | SearchWithinFile | ExpandRelationship | SearchNewIsland | StopRetrieval
@@ -98,6 +103,7 @@ def enumerate_actions(
     active_root_ids: Sequence[str],
     edge_capabilities_tool: Any,
     attempted_fingerprints: set[str],
+    observation_to_island: Mapping[str, str] | None = None,
     trace: Any | None = None,
     round_index: int = 0,
 ) -> ActionCatalogue:
@@ -106,6 +112,8 @@ def enumerate_actions(
     card_by_id = {str(item.observation_id): item for item in cards}
     obligation_by_id = {item.id: item for item in obligations}
     roots = [observation_by_id[item] for item in active_root_ids if item in observation_by_id]
+    active_root_set = set(active_root_ids)
+    island_by_observation = observation_to_island or {}
     node_ids = [item.handle.node_id for item in roots if item.handle.node_id]
     capability_by_node: dict[str, dict[str, set[str]]] = {}
     tool_calls = 0
@@ -151,9 +159,12 @@ def enumerate_actions(
                     reason=f"Inspect deferred discovery handle for unresolved obligation {gap.obligation_id}.",
                     deferred_pool=True,
                     priority=observation_index,
+                    scope_id=_scope_id("unresolved_obligation", gap.obligation_id),
                 )
                 if action.id not in attempted_fingerprints:
                     actions.append(action)
+                continue
+            if decision.disposition == "promote" and observation.id not in active_root_set:
                 continue
             if handle.path and (
                 decision.support_level == "navigation_only" or _is_strong_navigation_observation(observation)
@@ -171,6 +182,11 @@ def enumerate_actions(
                     dense_query=user_request,
                     sparse_anchors=anchors,
                     priority=_navigation_priority(observation, decision),
+                    scope_id=(
+                        island_by_observation.get(observation.id, "")
+                        if decision.disposition == "promote"
+                        else _scope_id("unresolved_obligation", gap.obligation_id)
+                    ),
                 )
                 if action.id not in attempted_fingerprints:
                     actions.append(action)
@@ -185,6 +201,7 @@ def enumerate_actions(
                 requested_range=full_range,
                 reason=gap.missing_claim or "Inspect the deferred owner with fuller source.",
                 priority=observation_index,
+                scope_id=_scope_id("unresolved_obligation", gap.obligation_id),
             )
             if action.id not in attempted_fingerprints:
                 actions.append(action)
@@ -214,6 +231,7 @@ def enumerate_actions(
                     direction=direction,
                     edge_kinds=(kind,),
                     need=gap.suggested_need,
+                    scope_id=island_by_observation.get(root.id, ""),
                 )
                 if action.id not in attempted_fingerprints:
                     actions.append(action)
@@ -248,10 +266,13 @@ def enumerate_actions(
                 dense_query=obligation.description,
                 sparse_anchors=anchors,
                 exact_symbol_anchors=tuple(value for value in anchors if value.isidentifier()),
+                scope_id=_scope_id("unresolved_obligation", gap.obligation_id),
             )
             if action.id not in attempted_fingerprints:
                 actions.append(action)
     actions = list(dict.fromkeys(actions))
+    raw_action_count = len(actions)
+    actions, frontier_pruning = _bound_discovery_frontiers(actions)
     if trace is not None:
         trace.record(
             "controller_actions_enumerated",
@@ -259,6 +280,10 @@ def enumerate_actions(
                 "round": round_index,
                 "actions": [action_to_dict(item) for item in actions],
                 "unavailable": unavailable,
+                "raw_action_count": raw_action_count,
+                "bounded_action_count": len(actions),
+                "scope_count": len({item.scope_id or item.id for item in actions}),
+                "frontier_pruning": frontier_pruning,
             },
         )
     return ActionCatalogue(actions=tuple(actions), unavailable=tuple(unavailable), tool_calls=tool_calls)
@@ -408,6 +433,46 @@ def _navigation_priority(
 def _action_id(*parts: str) -> str:
     digest = hashlib.sha1("\0".join(parts).encode("utf-8")).hexdigest()[:16]
     return f"action_{digest}"
+
+
+def _scope_id(*parts: str) -> str:
+    digest = hashlib.sha1("\0".join(parts).encode("utf-8")).hexdigest()[:16]
+    return f"frontier_{digest}"
+
+
+def _bound_discovery_frontiers(
+    actions: Sequence[RetrievalAction],
+) -> tuple[list[RetrievalAction], list[dict[str, Any]]]:
+    retained: list[RetrievalAction] = []
+    seen_frontier_capabilities: set[tuple[str, str]] = set()
+    pruning: list[dict[str, Any]] = []
+    for action in actions:
+        if not action.scope_id.startswith("frontier_"):
+            retained.append(action)
+            continue
+        capability = (
+            "inspect"
+            if isinstance(action, InspectDeferredObservation)
+            else "within_file"
+            if isinstance(action, SearchWithinFile)
+            else "new_island"
+            if isinstance(action, SearchNewIsland)
+            else type(action).__name__
+        )
+        key = (action.scope_id, capability)
+        if key in seen_frontier_capabilities:
+            pruning.append(
+                {
+                    "action_id": action.id,
+                    "scope_id": action.scope_id,
+                    "capability": capability,
+                    "reason": "frontier_capability_already_represented",
+                }
+            )
+            continue
+        seen_frontier_capabilities.add(key)
+        retained.append(action)
+    return retained, pruning
 
 
 def _expanded_sparse_anchors(anchors: Sequence[str]) -> tuple[str, ...]:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -20,7 +21,7 @@ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations
     aggregate_observations,
     observation_from_result,
 )
-from services.retrieval.workspace.pipeline.execution_flow.evidence_islands import build_islands_and_select_roots
+from services.retrieval.workspace.pipeline.execution_flow.evidence_islands import build_semantic_islands
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import (
     QualificationDecision,
     qualify_cards,
@@ -41,8 +42,13 @@ from services.retrieval.workspace.pipeline.execution_flow.retrieval_controller i
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationBatch
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import (
     DisclosureCard,
+    MAX_COMPLETE_OWNER_LINES,
+    MAX_QUALIFICATION_CARD_CHARS,
+    OutlineEntry,
     disclose_observations,
+    fit_cards_to_source_capacity,
 )
+from services.retrieval.workspace.pipeline.execution_flow.structural_components import build_structural_components
 from services.retrieval.workspace.pipeline.execution_flow.qualification_first_retrieval import (
     _preserve_active_island_candidates,
 )
@@ -137,6 +143,146 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual({card.truncation_reason for card in batch.cards}, {"ambiguous_same_name"})
         self.assertEqual(batch.tool_calls, 0)
 
+    def test_comment_only_hit_discloses_the_adjacent_complete_owner(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "src" / "owner.ts"
+            source.parent.mkdir()
+            source.write_text("// explains owner\nfunction owner() {\n  return 1;\n}\n", encoding="utf-8")
+            observation = DiscoveryObservation(
+                id="obs_comment",
+                handle=SourceHandle("src/owner.ts", 1, 1, adapter="indexed_chunk"),
+                observed_text="// explains owner",
+                provenance=(DiscoveryProvenance("qdrant_hybrid", "q"),),
+            )
+            outline = _Tool("structural_file_outline", {"nodes": [{
+                "id": "function:owner", "kind": "function", "name": "owner",
+                "qualified_name": "owner", "line_start": 2, "line_end": 4,
+            }]})
+            card = disclose_observations((observation,), workspace_root=str(root), outline_tool=outline).cards[0]
+        self.assertEqual((card.handle.line_start, card.handle.line_end), (2, 4))
+        self.assertIn("return 1", card.source_text)
+
+    def test_disclosure_prefers_structural_identity_when_chunk_overlaps_preceding_method(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "pandas" / "core" / "series.py"
+            source.parent.mkdir(parents=True)
+            source.write_text(
+                "class Series:\n"
+                "    def append(self, other):\n"
+                "        return concat(self, other)\n"
+                "\n"
+                "    def _binop(self, other, func):\n"
+                "        result = func(self.values, other.values)\n"
+                "        name = _maybe_match_name(self, other)\n"
+                "        return Series(result, name=name)\n",
+                encoding="utf-8",
+            )
+            observation = DiscoveryObservation(
+                id="obs_binop",
+                handle=SourceHandle(
+                    "pandas/core/series.py", 3, 7,
+                    node_id="method:binop", symbol="Series::_binop",
+                    full_line_start=5, full_line_end=8,
+                    language="python", adapter="codegraph_node",
+                ),
+                observed_text="return concat(self, other)\n\n    def _binop(self, other, func):",
+                provenance=(DiscoveryProvenance("qdrant_hybrid", "q"),),
+            )
+            outline = _Tool("structural_file_outline", {"nodes": [
+                {
+                    "id": "class:series", "kind": "class", "name": "Series",
+                    "qualified_name": "Series", "line_start": 1, "line_end": 8,
+                },
+                {
+                    "id": "method:append", "kind": "method", "name": "append",
+                    "qualified_name": "Series::append", "line_start": 2, "line_end": 3,
+                },
+                {
+                    "id": "method:binop", "kind": "method", "name": "_binop",
+                    "qualified_name": "Series::_binop", "line_start": 5, "line_end": 8,
+                },
+            ]})
+
+            card = disclose_observations(
+                (observation,), workspace_root=str(root), outline_tool=outline,
+            ).cards[0]
+
+        self.assertEqual(card.owner_name, "Series::_binop")
+        self.assertEqual(card.handle.node_id, "method:binop")
+        self.assertEqual((card.handle.line_start, card.handle.line_end), (5, 8))
+        self.assertIn("name = _maybe_match_name(self, other)", card.source_text)
+
+    def test_large_owner_keeps_bounded_hit_preview_even_with_spare_capacity(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "src" / "large.ts"
+            source.parent.mkdir()
+            lines = ["function largeOwner() {"]
+            lines.extend(
+                f'  const value_{line} = "{"x" * 48}";'
+                for line in range(2, 194)
+            )
+            lines.append("}")
+            source.write_text("\n".join(lines), encoding="utf-8")
+            observation = DiscoveryObservation(
+                id="obs_large",
+                handle=SourceHandle(
+                    "src/large.ts", 100, 123,
+                    node_id="function:large", symbol="largeOwner",
+                    full_line_start=1, full_line_end=194,
+                ),
+                observed_text="\n".join(lines[99:123]),
+                provenance=(DiscoveryProvenance("within_file_search", "q"),),
+            )
+            outline = _Tool("structural_file_outline", {"nodes": [{
+                "id": "function:large", "kind": "function", "name": "largeOwner",
+                "qualified_name": "largeOwner", "line_start": 1, "line_end": 194,
+            }]})
+            card = disclose_observations(
+                (observation,), workspace_root=str(root), outline_tool=outline,
+            ).cards[0]
+
+        self.assertEqual(card.mode, "preview")
+        self.assertLessEqual(len(card.source_text), MAX_QUALIFICATION_CARD_CHARS)
+        self.assertLessEqual(len(card.source_text.splitlines()), MAX_COMPLETE_OWNER_LINES)
+        self.assertIn("function largeOwner", card.source_text)
+        self.assertIn("value_100", card.source_text)
+        self.assertIn("value_123", card.source_text)
+        self.assertNotIn("value_50", card.source_text)
+        fitted = fit_cards_to_source_capacity((card,), source_capacity=100_000)[0]
+        self.assertEqual(fitted.source_text, card.preview_source_text)
+        self.assertNotIn("value_50", fitted.source_text)
+
+    def test_spare_capacity_does_not_expand_repeated_large_owner_previews(self) -> None:
+        preview = "function largeOwner() {\n// ... omitted ...\n  relevant();\n}"
+        complete = preview + ("\n  unrelated();" * 300)
+        cards = tuple(
+            DisclosureCard(
+                f"obs_{index}", SourceHandle("src/large.ts", 90 + index, 110 + index),
+                "preview", preview,
+                complete_source_text=complete,
+                preview_source_text=preview,
+                truncation_reason="large_owner_skeleton_and_local_excerpt",
+            )
+            for index in range(2)
+        )
+
+        fitted = fit_cards_to_source_capacity(cards, source_capacity=100_000)
+
+        self.assertEqual([card.source_text for card in fitted], [preview, preview])
+        self.assertTrue(all(len(card.source_text) <= MAX_QUALIFICATION_CARD_CHARS for card in fitted))
+
+    def test_qualification_source_budget_never_slices_a_partial_line(self) -> None:
+        text = "function owner() {\n" + ("  const value = 1;\n" * 20) + "}"
+        card = DisclosureCard("obs", SourceHandle("src/a.ts", 1, 22), "full", text,
+                              complete_source_text=text, preview_source_text="function owner() {\n}")
+        fitted = fit_cards_to_source_capacity((card,), source_capacity=120)[0]
+        self.assertLessEqual(len(fitted.source_text), 120)
+        self.assertTrue(fitted.source_text.endswith("stable source handle ..."))
+        self.assertNotIn("const valu\n", fitted.source_text)
+
     def test_qualification_requires_every_known_id_and_valid_combination(self) -> None:
         card = DisclosureCard("obs_a", SourceHandle("src/a.ts", 1, 2), "preview", "function a() {}")
         response = {
@@ -174,6 +320,118 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
                     max_input_chars=4000,
                 )
 
+        mismatched = {"decisions": {"obs_unknown": response["decisions"]["obs_a"]}}
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.evidence_qualification.complete_json",
+            return_value=mismatched,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "decision IDs differ"):
+                qualify_cards(
+                    llm_config=SimpleNamespace(),
+                    user_request="Explain a",
+                    cards=(card,),
+                    max_input_chars=4000,
+                )
+
+    def test_qualification_shares_file_context_but_decides_each_observation(self) -> None:
+        outline = (
+            OutlineEntry("class:project", "class", "Project", "Project", 1, 100),
+            OutlineEntry("method:first", "method", "first", "Project::first", 10, 20),
+        )
+        cards = (
+            DisclosureCard(
+                "obs_first",
+                SourceHandle("src/project.ts", 10, 20, node_id="method:first", symbol="Project::first"),
+                "full",
+                "first() { return 1; }",
+                outline_entries=outline,
+                owner_kind="method",
+                owner_name="Project::first",
+                owner_line_start=10,
+                owner_line_end=20,
+                outer_owner_line_start=1,
+                outer_owner_line_end=100,
+                allocated_chars=999,
+                used_chars=21,
+            ),
+            DisclosureCard(
+                "obs_second",
+                SourceHandle("src/project.ts", 30, 40, node_id="method:second", symbol="Project::second"),
+                "full",
+                "second() { return 2; }",
+                outline_entries=outline,
+                owner_kind="method",
+                owner_name="Project::second",
+                owner_line_start=30,
+                owner_line_end=40,
+                outer_owner_line_start=1,
+                outer_owner_line_end=100,
+                allocated_chars=999,
+                used_chars=22,
+            ),
+        )
+        captured: dict[str, object] = {}
+
+        def respond(_config, messages, **_kwargs):
+            payload = json.loads(messages[1]["content"])
+            captured.update(payload)
+            return {"decisions": {
+                "obs_first": {
+                    "classification": "promote_direct", "reason": "First is relevant.",
+                    "visible_support": ["Returns one."], "missing_information": [],
+                },
+                "obs_second": {
+                    "classification": "reject_insufficient", "reason": "Second is unrelated.",
+                    "visible_support": [], "missing_information": ["relevant behavior"],
+                },
+            }}
+
+        with patch("services.retrieval.workspace.pipeline.execution_flow.evidence_qualification.complete_json",
+                   side_effect=respond) as completion:
+            batch = qualify_cards(llm_config=SimpleNamespace(), user_request="Explain first",
+                                  cards=cards, max_input_chars=12000)
+
+        self.assertEqual(completion.call_count, 1)
+        self.assertEqual(len(captured["file_contexts"]), 1)
+        observations = captured["observations"]
+        self.assertEqual({item["file_context_id"] for item in observations}, {"file_1"})
+        self.assertEqual([item["observation_id"] for item in observations], ["obs_first", "obs_second"])
+        self.assertNotEqual(observations[0]["owner_context_id"], observations[1]["owner_context_id"])
+        serialized = json.dumps(captured)
+        self.assertNotIn("outline_entries", serialized)
+        self.assertNotIn("allocated_chars", serialized)
+        self.assertNotIn("used_chars", serialized)
+        self.assertEqual([item.support_level for item in batch.decisions], ["direct_evidence", "insufficient"])
+
+    def test_empty_qualification_source_emits_loud_trace_event(self) -> None:
+        card = DisclosureCard("obs_empty", SourceHandle("src/a.ts", 1, 1), "preview", "")
+        response = {"decisions": {"obs_empty": {
+            "classification": "reject_insufficient", "reason": "No source is visible.",
+            "visible_support": [], "missing_information": ["source"],
+        }}}
+        trace = _Trace()
+        with patch("services.retrieval.workspace.pipeline.execution_flow.evidence_qualification.complete_json",
+                   return_value=response):
+            qualify_cards(llm_config=SimpleNamespace(), user_request="Explain a", cards=(card,),
+                          max_input_chars=8000, trace=trace)
+
+        event = next(value for event_type, value in trace.events
+                     if event_type == "qualification_source_degradation_detected")
+        self.assertEqual(event["severity"], "error")
+        self.assertEqual(event["empty_non_fold_card_ids"], ["obs_empty"])
+
+    def test_qualification_overflow_fails_instead_of_splitting_calls(self) -> None:
+        cards = tuple(
+            DisclosureCard(f"obs_{index}_{'x' * 80}", SourceHandle(f"src/{index}_{'y' * 80}.ts", 1, 2),
+                           "preview", f"function value{index}() {{}}")
+            for index in range(12)
+        )
+        with patch("services.retrieval.workspace.pipeline.execution_flow.evidence_qualification.complete_json") as completion:
+            with self.assertRaisesRegex(RuntimeError, "qualification_input_budget_too_small_for_metadata"):
+                qualify_cards(llm_config=SimpleNamespace(), user_request="Explain values",
+                              cards=cards, max_input_chars=4000)
+        completion.assert_not_called()
+
     def test_coverage_rejects_unknown_candidate_citations(self) -> None:
         obligation = EvidenceObligation("owner", "Find the behavior owner.", True)
         response = {
@@ -209,7 +467,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         )
         tool = _Tool("structural_relationships_within_nodes", {"edges": []})
 
-        result = build_islands_and_select_roots((left, right), decisions, relationship_tool=tool)
+        result = _build_test_islands((left, right), decisions, relationship_tool=tool)
 
         self.assertEqual(len(result.islands), 2)
         self.assertEqual(set(result.active_root_ids), {"obs_left", "obs_right"})
@@ -230,11 +488,11 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             for observation in observations
         )
 
-        result = build_islands_and_select_roots(
+        result = _build_test_islands(
             observations,
             decisions,
             relationship_tool=_Tool("structural_relationships_within_nodes", {"edges": []}),
-            max_active_roots=4,
+            beam_size=4,
         )
 
         self.assertIn("obs_direct", result.active_root_ids)
@@ -258,14 +516,160 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             ),
         )
 
-        result = build_islands_and_select_roots(
+        result = _build_test_islands(
             observations,
             decisions,
             relationship_tool=_Tool("structural_relationships_within_nodes", {"edges": []}),
-            max_active_roots=4,
+            beam_size=4,
         )
 
         self.assertIn("obs_watch", result.active_root_ids)
+
+    def test_semantic_island_core_combines_promoted_direct_and_navigation_but_not_deferred(self) -> None:
+        direct = _observation("obs_direct", "src/project.ts", "method:update", ("owner",))
+        navigation = _observation("obs_navigation", "src/project.ts", "method:worker", ("owner",))
+        deferred = _observation("obs_deferred", "src/project.ts", "method:helper", ("owner",))
+        decisions = (
+            QualificationDecision(direct.id, "promote", "direct_evidence", "direct"),
+            QualificationDecision(navigation.id, "promote", "navigation_only", "navigation"),
+            QualificationDecision(deferred.id, "defer", "navigation_only", "deferred"),
+        )
+        cards = tuple(
+            DisclosureCard(
+                item.id, item.handle, "preview", "source",
+                owner_kind="class", owner_name="Project", owner_line_start=1, owner_line_end=100,
+            )
+            for item in (direct, navigation, deferred)
+        )
+
+        result = _build_test_islands(
+            (direct, navigation, deferred), decisions, cards=cards,
+            relationship_tool=_Tool("structural_relationships_within_nodes", {"edges": []}),
+        )
+
+        self.assertEqual(len(result.islands), 1)
+        self.assertEqual(set(result.islands[0].observation_ids), {direct.id, navigation.id})
+        self.assertNotIn(deferred.id, result.observation_to_island)
+
+    def test_broad_search_provenance_does_not_merge_cross_file_observations(self) -> None:
+        left = replace(
+            _observation("obs_left", "src/a.ts", "function:a", ("owner",)),
+            provenance=(DiscoveryProvenance("new_island_search", "action_shared", ("owner",), (1,), (0.8,)),),
+        )
+        right = replace(
+            _observation("obs_right", "src/b.ts", "function:b", ("owner",)),
+            provenance=(DiscoveryProvenance("new_island_search", "action_shared", ("owner",), (2,), (0.7,)),),
+        )
+        decisions = tuple(
+            QualificationDecision(item.id, "promote", "navigation_only", "navigation")
+            for item in (left, right)
+        )
+
+        result = _build_test_islands(
+            (left, right), decisions,
+            relationship_tool=_Tool("structural_relationships_within_nodes", {"edges": []}),
+        )
+
+        self.assertEqual(len(result.islands), 2)
+
+    def test_range_only_observations_in_one_file_have_distinct_island_ids(self) -> None:
+        left = replace(
+            _observation("obs_left", "src/shared.ts", "", ("owner",)),
+            handle=SourceHandle("src/shared.ts", 10, 20),
+        )
+        right = replace(
+            _observation("obs_right", "src/shared.ts", "", ("owner",)),
+            handle=SourceHandle("src/shared.ts", 80, 90),
+        )
+        decisions = tuple(
+            QualificationDecision(item.id, "promote", "navigation_only", "navigation")
+            for item in (left, right)
+        )
+
+        result = _build_test_islands(
+            (left, right), decisions,
+            relationship_tool=_Tool("structural_relationships_within_nodes", {"edges": []}),
+        )
+
+        self.assertEqual(len(result.islands), 2)
+        self.assertEqual(len({item.id for item in result.islands}), 2)
+
+    def test_bounded_cross_file_parent_handoff_merges_observations(self) -> None:
+        parent = _observation("obs_parent", "src/a.ts", "function:a", ("owner",))
+        child = replace(
+            _observation("obs_child", "src/b.ts", "function:b", ("owner",)),
+            parent_observation_ids=(parent.id,),
+            provenance=(DiscoveryProvenance("graph_action", "action_edge", ("owner",), (1,), (0.0,)),),
+        )
+        decisions = tuple(
+            QualificationDecision(item.id, "promote", "direct_evidence", "direct")
+            for item in (parent, child)
+        )
+
+        result = _build_test_islands(
+            (parent, child), decisions,
+            relationship_tool=_Tool("structural_relationships_within_nodes", {"edges": []}),
+        )
+
+        self.assertEqual(len(result.islands), 1)
+        self.assertEqual(set(result.islands[0].normalized_files), {"src/a.ts", "src/b.ts"})
+
+    def test_island_id_is_retained_when_one_new_member_joins(self) -> None:
+        root = _observation("obs_root", "src/a.ts", "function:a", ("owner",))
+        decisions = (QualificationDecision(root.id, "promote", "direct_evidence", "direct"),)
+        previous = _build_test_islands(
+            (root,), decisions,
+            relationship_tool=_Tool("structural_relationships_within_nodes", {"edges": []}),
+        )
+        child = replace(
+            _observation("obs_child", "src/b.ts", "function:b", ("owner",)),
+            parent_observation_ids=(root.id,),
+        )
+        current = _build_test_islands(
+            (root, child),
+            (*decisions, QualificationDecision(child.id, "promote", "navigation_only", "navigation")),
+            previous=previous,
+            relationship_tool=_Tool("structural_relationships_within_nodes", {"edges": []}),
+        )
+
+        self.assertEqual(current.islands[0].id, previous.islands[0].id)
+
+    def test_action_slots_are_spread_across_scopes_before_returning_to_one(self) -> None:
+        first = SearchWithinFile("first", "owner", "root_a", "src/a.ts", "Find owner", scope_id="island_a")
+        second_same = ExpandRelationship(
+            "second_same", "owner", "root_b", "function:b", "outgoing", ("calls",), "downstream",
+            scope_id="island_a",
+        )
+        other = SearchWithinFile("other", "state", "root_c", "src/c.ts", "Find state", scope_id="island_b")
+
+        selected = _select_actions(
+            (first, second_same, other), ("root_a", "root_b", "root_c"), 2,
+            scope_order=("island_a", "island_b"),
+        )
+
+        self.assertEqual(tuple(item.scope_id for item in selected), ("island_a", "island_b"))
+
+    def test_deferred_actions_share_one_bounded_obligation_frontier(self) -> None:
+        left = _observation("obs_left", "src/a.ts", "function:a", ("owner",))
+        right = _observation("obs_right", "src/b.ts", "function:b", ("owner",))
+
+        catalogue = enumerate_actions(
+            user_request="Find owner",
+            obligations=(EvidenceObligation("owner", "Find owner", True),),
+            coverage=(ObligationCoverage("owner", "missing", (), "owner missing", "new_island"),),
+            observations=(left, right),
+            decisions=(),
+            cards=(),
+            active_root_ids=(),
+            edge_capabilities_tool=_FailTool(),
+            attempted_fingerprints=set(),
+        )
+
+        inspections = [item for item in catalogue.actions if type(item).__name__ == "InspectDeferredObservation"]
+        searches = [item for item in catalogue.actions if isinstance(item, SearchNewIsland)]
+        self.assertEqual(len(inspections), 1)
+        self.assertEqual(len(searches), 1)
+        self.assertEqual(inspections[0].scope_id, searches[0].scope_id)
 
     def test_actions_use_reported_directional_capabilities_or_new_island_search(self) -> None:
         root = _observation("obs_root", "src/root.ts", "function:root", ("trigger",))
@@ -677,6 +1081,35 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(result["preserved_active_island_candidate_ids"], ["watch"])
 
 
+def _build_test_islands(
+    observations: tuple[DiscoveryObservation, ...],
+    decisions: tuple[QualificationDecision, ...],
+    *,
+    relationship_tool: object,
+    beam_size: int = 3,
+    cards: tuple[DisclosureCard, ...] = (),
+    coverage: tuple[ObligationCoverage, ...] | None = None,
+    previous: object | None = None,
+):
+    structural = build_structural_components(
+        observations,
+        decisions,
+        relationship_tool=relationship_tool,
+    )
+    if coverage is None:
+        obligation_ids = tuple(dict.fromkeys(value for item in observations for value in item.obligation_ids))
+        coverage = tuple(ObligationCoverage(value, "missing", (), "missing", "unknown") for value in obligation_ids)
+    return build_semantic_islands(
+        observations,
+        decisions,
+        cards,
+        coverage,
+        structural,
+        beam_size=beam_size,
+        previous=previous,
+    )
+
+
 class _Tool:
     def __init__(self, name: str, payload: dict[str, object]) -> None:
         self.name = name
@@ -699,6 +1132,14 @@ class _RecordingTool(_Tool):
 class _FailTool:
     def run(self, request):
         raise AssertionError(f"Unexpected tool call: {request.tool_name}")
+
+
+class _Trace:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, dict[str, object]]] = []
+
+    def record(self, event_type: str, payload: dict[str, object]) -> None:
+        self.events.append((event_type, payload))
 
 
 def _observation(

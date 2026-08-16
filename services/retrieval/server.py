@@ -1459,6 +1459,9 @@ class RuntimeState:
             max_controller_actions_per_round=int(
                 retrieval_settings.get("max_controller_actions_per_round") or 2
             ),
+            semantic_island_beam_size=int(
+                retrieval_settings.get("semantic_island_beam_size") or 4
+            ),
             max_discovery_observations=int(retrieval_settings.get("max_discovery_observations") or 24),
             max_qualification_input_chars=int(
                 retrieval_settings.get("max_qualification_input_chars") or 40000
