@@ -3592,3 +3592,104 @@ coverage or stable final LLM acceptance of every visible owner node.
 - Current decision: retain the bounded correction for further repeated/cross-repository checks. The motivating
   behavior and final-LLM interpretation are proven in one full run, but generic-utility false-merge risk and repeated
   stability remain open in ISL-1; do not expand beyond one connector or beyond call relationships.
+
+### Language-neutral source-AST boundary (2026-08-21)
+
+- The first source-verified fallback embedded TypeScript AST inspection directly inside the CodeGraph relationship
+  operation. That proved the connector experiment, but it was the wrong ownership boundary: semantic-island code
+  should request a structural source operation without branching on repository language.
+- Added `SourceAstRouter` as the single language dispatch point and exposed the normalized
+  `structural_source_owner_calls` operation. Its contract returns the exact CodeGraph owner, direct call name,
+  qualifier, expression kind, and source line anchors. The semantic-island builder consumes only that contract.
+- TypeScript, TSX, JavaScript, and JSX use the existing TypeScript compiler-API adapter through the CodeGraph bridge.
+  Python and Python stubs use a new standard-library `ast` adapter. The Python adapter resolves the exact named owner,
+  reports ordinary/property/conditional call targets, and excludes calls belonging to nested functions, lambdas, or
+  classes. Unsupported languages return an explicit `unsupported` result; there is no deterministic surrogate.
+- Native CodeGraph connector discovery intentionally remains separate. Moving native graph-edge paths and generic
+  island connector construction behind the same structural-operation facade is the next requested change, not part
+  of this refactor.
+- Quality/token expectation: no LLM prompt or call was added. The source fallback still performs bounded exact-symbol
+  and source-AST tool calls, so its cost is local deterministic work and trace volume rather than LLM tokens.
+- Focused verification: 74 tests pass, including real CodeGraph/TypeScript adapter coverage, direct Python AST adapter
+  coverage, routing/unsupported-language coverage, and language-neutral connector construction.
+- Actual-pipeline verification, with prepared indexes, final evidence selection enabled, and response generation
+  disabled:
+  - `microsoft-TypeScript-35468` `run-20260821T010824Z` completed four rounds as `partial/false`, selected seven of
+    25 candidates, and retained two implementation Oracle files: `watchMode.ts` at rank 1 and `builder.ts` at rank 2.
+    The new operation ran successfully 160 times through the TypeScript compiler-API adapter. No source-verified
+    connector path formed in this stochastic sample because the needed BuilderState endpoint did not coexist as an
+    eligible promoted endpoint. Recorded LLM usage was 35,443 qualification + 32,660 coverage + 15,987 final
+    selection = 84,090 tokens.
+  - `pandas-dev-pandas-10068` `run-20260821T011438Z` completed four rounds as `partial/false`, selected nine of 17
+    candidates, and missed the implementation Oracle `pandas/core/series.py`; it followed the known irrelevant
+    sparse-Series arithmetic branch instead. The Python adapter returned normalized calls successfully 64 times. It
+    also exposed four requests for variable nodes, which cannot own a callable body; the source-AST gate now limits
+    the operation to language-neutral CodeGraph `function` and `method` nodes, with focused coverage. This patch does
+    not change the pandas ranking/admission behavior that caused the miss. Recorded LLM usage was 46,392
+    qualification + 11,179 coverage + 19,199 final selection = 76,770 tokens.
+- Assessment: the actual adapters and controller boundary work in TypeScript and Python. These two stochastic runs do
+  not establish a retrieval-quality gain from the abstraction itself; the pandas miss remains an upstream retrieval
+  issue, while natural cross-file Python connector formation remains open.
+
+### Encapsulated island connectors and direct endpoint completion (2026-08-21)
+
+- Stage boundary: connector discovery runs after each qualification/coverage update while the controller rebuilds
+  semantic islands. It therefore affects island membership and action scheduling before final evidence selection;
+  the final selector later receives the retained connector relationships. It is not a post-selection repair.
+- Architecture: native CodeGraph edges, native one-owner paths, language-routed source-verified direct calls, and
+  language-routed one-owner paths now live behind `island_connectors.py`. `structural_components.py` only asks that
+  module for an edge selection and groups the promoted observations it returns. The retrieval controller remains an
+  orchestrator and does not contain connector algorithms.
+- Correctness repair: the source fallback previously discarded a uniquely resolved call when its target was already
+  a promoted endpoint because it only considered unselected targets as possible middle connectors. It now emits a
+  `source_verified_direct_call` edge for the exact endpoint pair. This covers the visible
+  `builder.ts::getNextAffectedFile -> BuilderState.updateExportedFilesMapFromCache` relationship without requiring
+  the older two-call `getFilesAffectedBy` path to be present in the same stochastic run.
+- Safety boundary: both endpoints must be promoted callable owners, share an obligation, resolve uniquely through
+  CodeGraph, and have a qualified source call localized by the language AST adapter. Same-file membership, generic
+  shared words, or shared state names alone do not merge islands. The direct edge is relationship metadata and does
+  not itself establish evidence coverage.
+- Expected token impact: no LLM call or prompt was added. The repair reuses the already bounded source-call and exact
+  symbol tools; a direct match avoids inspecting a second owner for a two-call path.
+- Focused verification: 71 qualification/controller tests pass, including a Builder/BuilderState-shaped direct-call
+  case that forms one island and preserves the exact source line. The three source-router tests and the real
+  CodeGraph integration test also pass when run with the configured Node 24 runtime.
+- Exact-snapshot replay: the promoted endpoints saved by `run-20260821T010824Z` were replayed through the real
+  TypeScript CodeGraph/source-AST tools. `builder.ts::getNextAffectedFile` and
+  `builderState.ts::updateExportedFilesMapFromCache` formed one structural component through one
+  `source_verified_direct_call`, anchored at the actual call on builder.ts line 356. This verifies the real adapter
+  and connector implementation without substituting a mocked source call.
+- Full final-selection checks, explanation generation disabled:
+  - `run-20260821T190928Z` was `partial/false`, selected 9 of 28 candidates, had two implementation-Oracle overlaps,
+    and used 72,358 recorded retrieval/final-selection tokens. BuilderState did not become a promoted endpoint, so
+    the direct rule was not eligible.
+  - `run-20260821T191112Z` was `partial/false`, selected 9 of 32 candidates, recovered all four implementation-Oracle
+    files, and used 84,573 tokens. It selected two BuilderState owners together with Builder and retained Helpers as
+    file evidence. The exact `getNextAffectedFile` source endpoint was absent, so this run also did not naturally
+    exercise the new direct edge.
+  - `run-20260821T190807Z` and `run-20260821T190834Z` stopped before retrieval because the shell resolved an older
+    Node without `node:sqlite`; they are invalid environment-failure artifacts and are excluded from comparison.
+- Assessment: the exact motivating endpoint pair is proven against the real snapshot, and the two complete runs show
+  no observed regression or false direct merge. Stochastic actual-pipeline stability of naturally coexisting direct
+  endpoints remains open in ISL-1.
+
+### Pandas file-group representative loss — corrected diagnosis (2026-08-21)
+
+- Correction to the language-neutral run assessment: `run-20260821T011438Z` did not fail because Qdrant entirely
+  missed `pandas/core/series.py::_binop`. For `explain_ordered_mechanism`, dense retrieval returned `_binop` lines
+  1434-1473 at raw rank 31 with score 0.3672, immediately behind another `series.py` range at raw rank 22 with score
+  0.3745. The dense hit explicitly matched `binary`, `operation`, `operator`, `Series`, and `two`.
+- The file-group implementation ranked `series.py` as one file, then used only the first dense chunk and first sparse
+  chunk as qualification representatives. `_binop` became the one held dense alternative and never received an LLM
+  decision. Thus file diversity worked, but owner selection inside the file remained raw channel-order selection.
+- Before file grouping, native hybrid fusion plus `max_per_path=1` sent only the first fused chunk for each file to
+  qualification. It did not send every same-file chunk in reduced form. The current grouping is broader—it can send
+  separate dense and sparse representatives and retain one alternative—but it still does not perform the agreed
+  obligation-specific comparison among structurally distinct owners.
+- The run provides a useful general comparison signal rather than a testcase-specific rule: the suppressed `_binop`
+  owner matched the concrete mechanism and contrast (`binary operation`, `operator`, two Series operands), while the
+  chosen `_reduce` owner matched generic `name`, `operation`, and `Series` wording. Raw embedding score alone cannot
+  make that distinction reliably. The unresolved experiment is a compact owner-group comparison against the exact
+  obligation before full disclosure/qualification, with containment deduplication and traceable retention of
+  unselected owners. It should reuse the qualification model contract rather than hardcode `_binop` terms, and its
+  LLM/token cost must be measured before acceptance.

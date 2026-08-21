@@ -107,6 +107,12 @@
 
 ## Retrieval Pipeline Changes
 
+- Keep retrieval orchestration separate from stage implementation. A function that coordinates the full retrieval
+  flow should call a clearly named module for each cohesive stage rather than accumulating that stage's graph,
+  ranking, qualification, or serialization algorithms inline. Put semantically related operations for one stage in
+  the same responsibility-named module (for example, island connector discovery), and expose one small result
+  contract back to the orchestrator. Do not create a file for every helper; split at semantic stage boundaries.
+
 - Before diagnosing a retrieval regression or adding a new retrieval heuristic, check
   `services/retrieval/docs/decisions/retrieval-experiment-open-questions.md`. If the observed symptom matches
   an unresolved experiment boundary, map the run and trace evidence to that entry and update its status.

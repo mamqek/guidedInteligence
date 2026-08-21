@@ -59,10 +59,26 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                 "export const affected = BuilderState.getFilesAffectedBy();\n",
                 encoding="utf-8",
             )
+            (root / "src" / "py_state.py").write_text(
+                "def affected_leaf():\n"
+                "    return []\n\n"
+                "def other_leaf():\n"
+                "    return []\n\n"
+                "def get_files_affected_by(flag=False):\n"
+                "    return (other_leaf if flag else affected_leaf)()\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "py_builder.py").write_text(
+                "import py_state\n\n"
+                "def get_next_affected_file():\n"
+                "    return py_state.get_files_affected_by()\n",
+                encoding="utf-8",
+            )
             config = _config(root)
             tools, _bridge = codegraph_tools(config)
             try:
                 indexed = tools["structural_index_repo"].run(_request("structural_index_repo"))
+                self.assertEqual(indexed.status, "ok", indexed.payload)
                 exact = tools["structural_find_exact_symbol"].run(
                     _request("structural_find_exact_symbol", query="target")
                 )
@@ -75,6 +91,8 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                 nested_exact = tools["structural_find_exact_symbol"].run(
                     _request("structural_find_exact_symbol", query="nestedTarget")
                 )
+                self.assertEqual(nested_exact.status, "ok", nested_exact.payload)
+                self.assertTrue(nested_exact.payload.get("nodes"), nested_exact.payload)
                 expanded_nested = tools["structural_expand_nodes"].run(
                     _request(
                         "structural_expand_nodes",
@@ -162,6 +180,33 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                         connector_edge_kinds=["calls"],
                     )
                 )
+                next_affected_calls = tools["structural_source_owner_calls"].run(
+                    _request(
+                        "structural_source_owner_calls",
+                        node=next_affected.payload["nodes"][0],
+                    )
+                )
+                files_affected = tools["structural_find_exact_symbol"].run(
+                    _request("structural_find_exact_symbol", query="getFilesAffectedBy")
+                )
+                files_affected_calls = tools["structural_source_owner_calls"].run(
+                    _request(
+                        "structural_source_owner_calls",
+                        node=files_affected.payload["nodes"][0],
+                    )
+                )
+                py_next = tools["structural_find_exact_symbol"].run(
+                    _request("structural_find_exact_symbol", query="get_next_affected_file")
+                )
+                py_files = tools["structural_find_exact_symbol"].run(
+                    _request("structural_find_exact_symbol", query="get_files_affected_by")
+                )
+                py_next_calls = tools["structural_source_owner_calls"].run(
+                    _request("structural_source_owner_calls", node=py_next.payload["nodes"][0])
+                )
+                py_files_calls = tools["structural_source_owner_calls"].run(
+                    _request("structural_source_owner_calls", node=py_files.payload["nodes"][0])
+                )
                 capabilities = tools["structural_edge_capabilities"].run(
                     _request("structural_edge_capabilities", node_ids=[target_id])
                 )
@@ -181,14 +226,29 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
             self.assertFalse((root / "codegraph.json").exists())
             self.assertEqual(exact.source_refs, ("src/a.ts",))
             self.assertEqual(exact.payload["match_count"], 1)
-            self.assertEqual(len(connector_closed.payload["connector_paths"]), 1)
-            self.assertEqual(
-                connector_closed.payload["connector_paths"][0]["connector"]["name"],
-                "getFilesAffectedBy",
+            self.assertEqual(connector_closed.payload["connector_paths"], [])
+            self.assertEqual(next_affected_calls.status, "ok")
+            self.assertEqual(next_affected_calls.payload["adapter"], "typescript_compiler_api")
+            self.assertIn(
+                ("getFilesAffectedBy", "BuilderState"),
+                {
+                    (call["name"], call["qualifier"])
+                    for call in next_affected_calls.payload["calls"]
+                },
+            )
+            self.assertEqual(files_affected_calls.status, "ok")
+            self.assertIn(
+                "affectedLeaf",
+                {call["name"] for call in files_affected_calls.payload["calls"]},
+            )
+            self.assertEqual(py_next_calls.payload["adapter"], "python_stdlib_ast")
+            self.assertIn(
+                ("get_files_affected_by", "py_state"),
+                {(call["name"], call["qualifier"]) for call in py_next_calls.payload["calls"]},
             )
             self.assertEqual(
-                connector_closed.payload["connector_paths"][0]["edge_kinds"],
-                ["source_qualified_call", "source_ast_call"],
+                {call["name"] for call in py_files_calls.payload["calls"]},
+                {"affected_leaf", "other_leaf"},
             )
             localizations = [
                 edge["file_call_localization"]

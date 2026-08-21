@@ -846,6 +846,149 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(result.edges[0]["_retrieval_provenance"], "source_verified_connector_path")
         self.assertIn("Source-verified", result.edges[0]["detail"])
 
+    def test_source_verified_direct_call_connects_promoted_endpoints(self) -> None:
+        builder = _observation("obs_builder", "src/compiler/builder.ts", "function:getNextAffectedFile", ("state",))
+        builder_state = _observation(
+            "obs_builder_state",
+            "src/compiler/builderState.ts",
+            "function:updateExportedFilesMapFromCache",
+            ("state",),
+        )
+        decisions = tuple(
+            QualificationDecision(item.id, "promote", "direct_evidence", "direct")
+            for item in (builder, builder_state)
+        )
+        nodes = [
+            {
+                "id": "function:getNextAffectedFile",
+                "kind": "function",
+                "path": "src/compiler/builder.ts",
+                "name": "getNextAffectedFile",
+                "qualified_name": "getNextAffectedFile",
+            },
+            {
+                "id": "function:updateExportedFilesMapFromCache",
+                "kind": "function",
+                "path": "src/compiler/builderState.ts",
+                "name": "updateExportedFilesMapFromCache",
+                "qualified_name": "BuilderState.updateExportedFilesMapFromCache",
+            },
+        ]
+        source_calls = _RoutingTool(
+            "structural_source_owner_calls",
+            lambda request: {
+                "calls": [
+                    {
+                        "name": "updateExportedFilesMapFromCache",
+                        "qualifier": "BuilderState",
+                        "line_start": 381,
+                    }
+                ]
+                if request.arguments["node"]["id"] == "function:getNextAffectedFile"
+                else []
+            },
+        )
+        exact_symbols = _RoutingTool(
+            "structural_find_exact_symbol",
+            lambda request: {"nodes": [nodes[1]]}
+            if request.arguments["query"] == "updateExportedFilesMapFromCache"
+            else {"nodes": []},
+        )
+
+        result = _build_test_islands(
+            (builder, builder_state),
+            decisions,
+            relationship_tool=_Tool(
+                "structural_relationships_within_nodes",
+                {"nodes": nodes, "edges": [], "connector_paths": []},
+            ),
+            source_calls_tool=source_calls,
+            exact_symbol_tool=exact_symbols,
+        )
+
+        self.assertEqual(len(result.islands), 1)
+        self.assertEqual(set(result.islands[0].observation_ids), {builder.id, builder_state.id})
+        self.assertEqual(result.edges[0]["_retrieval_provenance"], "source_verified_direct_call")
+        self.assertEqual(result.edges[0]["source_anchors"][0]["line"], 381)
+
+    def test_language_neutral_source_calls_create_connector_path(self) -> None:
+        left = _observation("obs_left", "src/a.py", "function:left", ("state",))
+        right = _observation("obs_right", "src/b.py", "function:right", ("state",))
+        variable = _observation("obs_variable", "src/c.py", "variable:ignored", ("state",))
+        decisions = tuple(
+            QualificationDecision(item.id, "promote", "direct_evidence", "direct")
+            for item in (left, right, variable)
+        )
+        nodes = [
+            {
+                "id": "function:left",
+                "kind": "function",
+                "path": "src/a.py",
+                "name": "left",
+                "qualified_name": "left",
+            },
+            {
+                "id": "function:right",
+                "kind": "function",
+                "path": "src/b.py",
+                "name": "right",
+                "qualified_name": "right",
+            },
+            {
+                "id": "variable:ignored",
+                "path": "src/c.py",
+                "name": "ignored",
+                "qualified_name": "ignored",
+                "kind": "variable",
+            },
+        ]
+        source_calls = _RoutingTool(
+            "structural_source_owner_calls",
+            lambda request: {
+                "calls": (
+                    [{"name": "middle", "qualifier": "b", "line_start": 3}]
+                    if request.arguments["node"]["id"] == "function:left"
+                    else [{"name": "right", "qualifier": "", "line_start": 8}]
+                )
+            },
+        )
+        exact_symbols = _RoutingTool(
+            "structural_find_exact_symbol",
+            lambda request: {
+                "nodes": [
+                    {
+                        "id": "function:middle",
+                        "path": "src/b.py",
+                        "name": "middle",
+                        "qualified_name": "middle",
+                    }
+                ]
+                if request.arguments["query"] == "middle"
+                else [nodes[1]],
+            },
+        )
+
+        result = _build_test_islands(
+            (left, right, variable),
+            decisions,
+            relationship_tool=_Tool(
+                "structural_relationships_within_nodes",
+                {"nodes": nodes, "edges": [], "connector_paths": []},
+            ),
+            source_calls_tool=source_calls,
+            exact_symbol_tool=exact_symbols,
+        )
+
+        self.assertTrue(
+            any({left.id, right.id}.issubset(set(island.observation_ids)) for island in result.islands)
+        )
+        self.assertEqual(result.edges[0]["_retrieval_provenance"], "source_verified_connector_path")
+        self.assertEqual(result.edges[0]["connector"]["id"], "function:middle")
+        self.assertNotIn(
+            "variable:ignored",
+            [request.arguments["node"]["id"] for request in source_calls.requests],
+        )
+
     def test_island_id_is_retained_when_one_new_member_joins(self) -> None:
         root = _observation("obs_root", "src/a.ts", "function:a", ("owner",))
         decisions = (QualificationDecision(root.id, "promote", "direct_evidence", "direct"),)
@@ -1845,6 +1988,8 @@ def _build_test_islands(
     decisions: tuple[QualificationDecision, ...],
     *,
     relationship_tool: object,
+    source_calls_tool: object | None = None,
+    exact_symbol_tool: object | None = None,
     beam_size: int = 3,
     cards: tuple[DisclosureCard, ...] = (),
     coverage: tuple[ObligationCoverage, ...] | None = None,
@@ -1854,6 +1999,8 @@ def _build_test_islands(
         observations,
         decisions,
         relationship_tool=relationship_tool,
+        source_calls_tool=source_calls_tool,
+        exact_symbol_tool=exact_symbol_tool,
     )
     if coverage is None:
         obligation_ids = tuple(dict.fromkeys(value for item in observations for value in item.obligation_ids))
@@ -1886,6 +2033,17 @@ class _RecordingTool(_Tool):
     def run(self, request):
         self.requests.append(request)
         return super().run(request)
+
+
+class _RoutingTool:
+    def __init__(self, name: str, route) -> None:
+        self.name = name
+        self.route = route
+        self.requests = []
+
+    def run(self, request):
+        self.requests.append(request)
+        return ToolObservation(tool_name=self.name, status="ok", payload=self.route(request))
 
 
 class _FailTool:
