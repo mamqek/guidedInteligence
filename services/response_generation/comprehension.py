@@ -1419,6 +1419,7 @@ def _compact_evidence(item: EvidenceItem) -> dict[str, Any]:
     return {
         "source_id": item.source_id,
         "source_category": item.source_category.value,
+        "evidence_kind": str(item.metadata.get("evidence_kind") or "source_snippet"),
         "path": str(item.metadata.get("path") or _path_from_source_id(item.source_id)),
         "line_range": str(item.metadata.get("line_range") or _line_range_from_source_id(item.source_id)),
         "claim_supported": str(item.metadata.get("claim_supported") or ""),
@@ -1477,7 +1478,7 @@ def _evidence_label(item: EvidenceItem) -> str:
 
 
 def _path_from_source_id(source_id: str) -> str:
-    for prefix in ("workspace:", "repo-pre:"):
+    for prefix in ("workspace:", "repo-pre:", "workspace-file:"):
         if source_id.startswith(prefix):
             return source_id[len(prefix):].split(":L", 1)[0]
     return ""

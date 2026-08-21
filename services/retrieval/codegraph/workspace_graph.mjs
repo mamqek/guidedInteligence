@@ -2,7 +2,7 @@ import readline from "node:readline";
 import fs from "node:fs";
 import path from "node:path";
 import codegraphPackage from "@colbymchenry/codegraph";
-import { localizeFileCall } from "./source_ast.mjs";
+import { localizeFileCall, summarizeFileCallsToDestination } from "./source_ast.mjs";
 
 const { CodeGraph, setLogger, silentLogger } = codegraphPackage;
 
@@ -97,8 +97,19 @@ function edgePayload(codegraph, edge) {
   };
   if (edge.kind === "calls" && source?.kind === "file" && target && target.kind !== "file") {
     payload.file_call_localization = localizeFileCall(codegraph, projectRoot, source, target);
+    payload.file_connection_summary = summarizeFileCallsToDestination(
+      codegraph, projectRoot, source, normalizePath(target.filePath),
+    );
   }
   return payload;
+}
+
+function identifierTerms(value) {
+  return String(value || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[^A-Za-z0-9]+/)
+    .map((item) => item.toLowerCase())
+    .filter((item) => item.length >= 4);
 }
 
 async function indexRepository() {
@@ -189,11 +200,27 @@ async function fileOutline(args) {
   return { path: file, total_count: nodes.length, nodes: selected.slice(0, limit).map(nodePayload) };
 }
 
+async function resolveFileNodes(args) {
+  const codegraph = await openGraph();
+  const paths = [...new Set((Array.isArray(args.paths) ? args.paths : []).map(normalizePath).filter(Boolean))].slice(0, 16);
+  const nodes = [];
+  for (const file of paths) {
+    const fileNode = uniqueNodes(codegraph.getNodesInFile(file)).find((node) => node.kind === "file");
+    if (fileNode) nodes.push(nodePayload(fileNode));
+  }
+  return { paths, nodes };
+}
+
 async function relationshipsWithinNodes(args) {
   const codegraph = await openGraph();
   const nodeIds = [...new Set((Array.isArray(args.node_ids) ? args.node_ids : []).map(String).filter(Boolean))].slice(0, 80);
   const requested = new Set(nodeIds);
   const allowedKinds = new Set((Array.isArray(args.edge_kinds) ? args.edge_kinds : []).map(String).filter(Boolean));
+  const connectorKinds = new Set(
+    (Array.isArray(args.connector_edge_kinds) ? args.connector_edge_kinds : ["calls"])
+      .map(String)
+      .filter(Boolean),
+  );
   const nodes = nodeIds.map((id) => codegraph.getNode(id)).filter(Boolean);
   const edges = [];
   const seen = new Set();
@@ -207,7 +234,77 @@ async function relationshipsWithinNodes(args) {
       edges.push(edgePayload(codegraph, edge));
     }
   }
-  return { node_ids: nodeIds, nodes: nodes.map(nodePayload), edges };
+  const connectorPaths = [];
+  const seenConnectorPaths = new Set();
+  for (const source of nodes) {
+    for (const first of codegraph.getOutgoingEdges(source.id)) {
+      if (!connectorKinds.has(first.kind) || requested.has(first.target)) continue;
+      const connector = codegraph.getNode(first.target);
+      if (!connector || ["file", "import"].includes(connector.kind)) continue;
+      for (const second of codegraph.getOutgoingEdges(connector.id)) {
+        if (!connectorKinds.has(second.kind) || !requested.has(second.target) || second.target === source.id) continue;
+        const target = codegraph.getNode(second.target);
+        if (!target) continue;
+        const key = `${source.id}\0${connector.id}\0${target.id}\0${first.kind}\0${second.kind}`;
+        if (seenConnectorPaths.has(key)) continue;
+        seenConnectorPaths.add(key);
+        connectorPaths.push({
+          source: nodePayload(source),
+          connector: nodePayload(connector),
+          target: nodePayload(target),
+          edge_kinds: [first.kind, second.kind],
+          edges: [edgePayload(codegraph, first), edgePayload(codegraph, second)],
+        });
+      }
+    }
+  }
+  // CodeGraph does not always emit a call edge for namespace-qualified calls or
+  // conditional callable expressions. Keep this fallback exact and bounded:
+  // the first leg must be a uniquely resolved qualified repository call, and
+  // the second must be a TypeScript-AST-localized call inside that exact owner.
+  for (const source of nodes) {
+    const qualified = await qualifiedReferences({ paths: [normalizePath(source.filePath)], limit: 120 });
+    for (const connectorPayload of qualified.nodes || []) {
+      const sourceReference = (connectorPayload.source_references || []).find(
+        (item) => String(item?.source_node?.id || "") === source.id,
+      );
+      if (!sourceReference || requested.has(connectorPayload.id)) continue;
+      const connector = codegraph.getNode(connectorPayload.id);
+      if (!connector || ["file", "import"].includes(connector.kind)) continue;
+      for (const target of nodes) {
+        if (target.id === source.id) continue;
+        const localization = localizeFileCall(codegraph, projectRoot, connector, target);
+        if (localization.status !== "localized" || localization.selected?.owner?.id !== connector.id) continue;
+        const key = `${source.id}\0${connector.id}\0${target.id}\0source_verified`;
+        if (seenConnectorPaths.has(key)) continue;
+        seenConnectorPaths.add(key);
+        connectorPaths.push({
+          source: nodePayload(source),
+          connector: nodePayload(connector),
+          target: nodePayload(target),
+          edge_kinds: ["source_qualified_call", "source_ast_call"],
+          source_anchors: [
+            { path: normalizePath(source.filePath), line: Number(sourceReference.line || 0) },
+            {
+              path: normalizePath(connector.filePath),
+              line: Number(localization.selected?.anchor?.line_start || 0),
+            },
+          ],
+        });
+      }
+    }
+  }
+  connectorPaths.sort((left, right) =>
+    left.source.id.localeCompare(right.source.id)
+      || left.target.id.localeCompare(right.target.id)
+      || left.connector.id.localeCompare(right.connector.id),
+  );
+  return {
+    node_ids: nodeIds,
+    nodes: nodes.map(nodePayload),
+    edges,
+    connector_paths: connectorPaths.slice(0, 40),
+  };
 }
 
 async function edgeCapabilities(args) {
@@ -236,11 +333,20 @@ async function expandRelationships(args) {
   if (!["incoming", "outgoing"].includes(direction)) throw new Error("direction must be incoming or outgoing");
   const allowedKinds = new Set((Array.isArray(args.edge_kinds) ? args.edge_kinds : []).map(String).filter(Boolean));
   if (!allowedKinds.size) throw new Error("edge_kinds must be a non-empty allowlist");
+  const targetSymbols = new Set(
+    (Array.isArray(args.target_symbols) ? args.target_symbols : [])
+      .map(normalizedOwner)
+      .filter(Boolean),
+  );
+  const targetTerms = new Set(
+    (Array.isArray(args.target_terms) ? args.target_terms : [])
+      .flatMap(identifierTerms),
+  );
+  const crossFileOnly = Boolean(args.cross_file_only);
   const limit = Math.max(1, Math.min(Number(args.limit || 3), 20));
-  const endpoints = [];
-  const edges = [];
-  const seenNodes = new Set(seedIds);
+  const candidates = new Map();
   const seenEdges = new Set();
+  const seedPaths = new Set(seedIds.map((id) => normalizePath(codegraph.getNode(id)?.filePath)).filter(Boolean));
   for (const seedId of seedIds) {
     const adjacent = direction === "incoming" ? codegraph.getIncomingEdges(seedId) : codegraph.getOutgoingEdges(seedId);
     for (const edge of adjacent) {
@@ -248,20 +354,51 @@ async function expandRelationships(args) {
       const endpointId = direction === "incoming" ? edge.source : edge.target;
       const endpoint = codegraph.getNode(endpointId);
       if (!endpoint) continue;
+      if (crossFileOnly && seedPaths.has(normalizePath(endpoint.filePath))) continue;
+      const normalizedEndpoint = normalizedOwner(endpoint.qualifiedName || endpoint.name);
+      const exactScore = targetSymbols.has(normalizedEndpoint) ? 100 : 0;
+      const endpointTerms = new Set(identifierTerms(`${endpoint.name || ""} ${endpoint.qualifiedName || ""}`));
+      const termScore = [...endpointTerms].filter((term) => targetTerms.has(term)).length * 10;
+      if ((targetSymbols.size || targetTerms.size) && exactScore + termScore === 0) continue;
       const edgeKey = `${edge.source}\0${edge.target}\0${edge.kind}`;
-      if (!seenEdges.has(edgeKey)) {
-        seenEdges.add(edgeKey);
-        edges.push(edgePayload(codegraph, edge));
+      const current = candidates.get(endpointId);
+      const score = exactScore + termScore;
+      if (!current || score > current.score) {
+        candidates.set(endpointId, {
+          endpoint,
+          edge,
+          edgeKey,
+          score,
+          ordinal: current?.ordinal ?? candidates.size,
+        });
       }
-      if (!seenNodes.has(endpointId)) {
-        seenNodes.add(endpointId);
-        endpoints.push(nodePayload(endpoint));
-      }
-      if (endpoints.length >= limit) break;
     }
-    if (endpoints.length >= limit) break;
   }
-  return { seed_node_ids: seedIds, direction, edge_kinds: [...allowedKinds].sort(), nodes: endpoints, edges };
+  const selected = [...candidates.values()]
+    .sort((left, right) =>
+      right.score - left.score
+      || ((targetSymbols.size || targetTerms.size)
+        ? String(left.endpoint.name || "").localeCompare(String(right.endpoint.name || ""))
+          || normalizePath(left.endpoint.filePath).localeCompare(normalizePath(right.endpoint.filePath))
+        : left.ordinal - right.ordinal),
+    )
+    .slice(0, limit);
+  const endpoints = selected.map((item) => nodePayload(item.endpoint));
+  const edges = selected.filter((item) => {
+    if (seenEdges.has(item.edgeKey)) return false;
+    seenEdges.add(item.edgeKey);
+    return true;
+  }).map((item) => edgePayload(codegraph, item.edge));
+  return {
+    seed_node_ids: seedIds,
+    direction,
+    edge_kinds: [...allowedKinds].sort(),
+    target_symbols: [...targetSymbols].sort(),
+    target_terms: [...targetTerms].sort(),
+    cross_file_only: crossFileOnly,
+    nodes: endpoints,
+    edges,
+  };
 }
 
 async function expandNodes(args) {
@@ -554,6 +691,7 @@ async function dispatch(operation, args) {
   if (operation === "resolve_locations") return resolveLocations(args);
   if (operation === "resolve_ranges") return resolveRanges(args);
   if (operation === "file_outline") return fileOutline(args);
+  if (operation === "resolve_file_nodes") return resolveFileNodes(args);
   if (operation === "relationships_within_nodes") return relationshipsWithinNodes(args);
   if (operation === "edge_capabilities") return edgeCapabilities(args);
   if (operation === "expand_relationships") return expandRelationships(args);

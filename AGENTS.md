@@ -107,6 +107,12 @@
 
 ## Retrieval Pipeline Changes
 
+- Before diagnosing a retrieval regression or adding a new retrieval heuristic, check
+  `services/retrieval/docs/decisions/retrieval-experiment-open-questions.md`. If the observed symptom matches
+  an unresolved experiment boundary, map the run and trace evidence to that entry and update its status.
+  Keep detailed measurements in `services/retrieval/docs/retrieval-changelog.md` rather than duplicating the
+  full experiment history in the open-questions registry.
+
 - For non-trivial retrieval pipeline changes, document the implementation framework before or with the change:
   - intended stage boundary,
   - expected quality impact,

@@ -80,6 +80,22 @@ class IntentSystemTests(unittest.TestCase):
         normalized = _preserve_explicit_prompt_anchors(response, prompt)
         self.assertEqual(normalized["anchors"]["symbols"], ["Session", "renderVmWithOptions"])
 
+    def test_prompt_symbols_keep_literal_pascal_and_lowercase_api_names(self) -> None:
+        prompt = "Series arithmetic differs from Series.add when calling add(s2)."
+        response = {
+            "anchors": {
+                "paths": [],
+                "symbols": ["Series", "add", "Series.add", "inventedOwner"],
+                "errors": [],
+                "literals": [],
+                "identifiers": [],
+            }
+        }
+
+        normalized = _preserve_explicit_prompt_anchors(response, prompt)
+
+        self.assertEqual(normalized["anchors"]["symbols"], ["Series", "add", "Series.add"])
+
     def test_registry_has_one_complete_contract_per_intent(self) -> None:
         validate_contract_registry()
         self.assertEqual(set(INTENT_CONTRACTS), set(TaskIntent))

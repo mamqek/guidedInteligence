@@ -220,6 +220,7 @@ class IntentClassification:
 class IntentClassificationInput:
     user_prompt: str
     repository_name: str | None = None
+    repository_context: Mapping[str, Any] | None = None
     active_task_goal: str | None = None
     current_turn_type: str | None = None
     previous_user_request_summary: str | None = None
@@ -231,6 +232,7 @@ class IntentClassificationInput:
         return {
             "user_prompt": self.user_prompt,
             "repository_name": self.repository_name,
+            "repository_context": dict(self.repository_context or {}),
             "active_task_goal": self.active_task_goal,
             "current_turn_type": self.current_turn_type,
             "previous_user_request_summary": self.previous_user_request_summary,

@@ -828,7 +828,7 @@ The execution order separates causal independence from baseline inheritance:
 | 3 | Bounded cross-file handoff completion | High-priority dependent experiment. Run only after semantic-island scheduling is accepted; add the file-node handoff and path-local completion action without changing queries, observation caps, or relationship limits. |
 | 4 | File-level trace evidence | Depends on successful handoff provenance. Test separately from retrieval and count it as file recall, never snippet evidence. |
 | 5 | Necessary-contribution filtering | Independent final-selection experiment. Run after `FileTraceEvidence` only if that type is retained; otherwise it may be tested directly after the controller experiments. |
-| 6 | Channel-specific structured query redesign | Independent upstream-recall experiment after the controller behavior is stable. Do not combine it with BM25F, a reranker, or controller selection changes. |
+| 6 | Channel-specific structured query redesign | Postponed after the prompt-derived Phase 1 split regressed. The broader experiment remains open, but must resume separately after the next upstream-ranking experiment; do not combine it with BM25F, a reranker, or controller selection changes. |
 | 7 | Field-aware BM25F and line scoring | Independent upstream-ranking experiment with current queries and all later stages fixed. |
 | 8 | Repository-evidenced generated-artifact classification | Independent discovery/admission experiment with queries, ranking, and controller policy fixed. |
 | 9 | Dedicated second-stage code reranker | Conditional experiment only if stable qualification still receives excessive payloads. Keep admission unchanged. |
@@ -1043,6 +1043,10 @@ The final evidence LLM must not create these islands because it runs after retri
 
 Experiment mode: isolated action-capability change on top of accepted semantic-island scheduling. Dependency: semantic islands and island-level action accounting. Contextual disclosure is inherited only if accepted; it is not changed during this comparison.
 
+Implementation framework: this experiment changes action enumeration and CodeGraph file-node attachment after qualification/coverage, not discovery queries, qualification prompts, beam ranking, final selection, or the two-action limit. A promoted direct-evidence or promoted-navigation observation is eligible only when its qualification decision contains non-empty `missing_information`, current coverage for one of its obligations remains unresolved with a concrete `missing_claim`, and code exposes a path, node, symbol, exact anchor, or callable lead that can execute a supported action. Direct evidence remains admitted and is never downgraded merely to authorize the follow-up. The controller may attach the observation's exact CodeGraph file node, traverse one represented directional relationship with the existing three-endpoint cap, and then perform one deduplicated path-local search from a qualified endpoint. The action carries the missing claim, qualification gap, source observation, semantic-island scope, seed kind, and represented edge in traces. Existing attempted-action/effect identities prevent repeating the same handoff; the existing no-gain stop ends an unproductive strand.
+
+Expected quality impact: recover a concrete downstream owner when one admitted snippet proves a useful fact but not the required cross-file mechanism. Expected token impact: one file-node lookup is deterministic, while a selected endpoint adds normal disclosure/qualification and possibly one bounded path-local search; the unchanged two-action/round cap bounds LLM growth. Regression risks: generic missing-information text could authorize weak handoffs, a broad file node can expose several unrelated calls, or the handoff can displace an independent island action. Compare raw/enumerated/selected handoff actions, endpoint qualification, parent/island provenance, marginal evidence/navigation/coverage gain, Oracle survival, and retrieval LLM tokens. Do not credit file arrival without qualified source, and do not introduce `FileTraceEvidence` during this experiment.
+
 Plan a separate controller rule here rather than folding it into contextual disclosure: admitting a card as
 `direct_evidence` must not automatically mean that no further retrieval can help. A follow-up remains eligible only
 when required coverage is unresolved, qualification or coverage names concrete missing behavior, the card exposes
@@ -1066,6 +1070,24 @@ qualified watchMode.ts file/range
 
 This is not permission for fixed depth-five traversal. In the prepared snapshot, `baselineProgram` is five call edges downstream from the `watchMode.ts` file node; recursively materializing every intermediate neighbor would recreate the fanout problem. The cross-file edge should identify the target file, after which path-local retrieval should localize the relevant owner inside that file.
 
+Accepted outcome (2026-08-16): keep the bounded handoff enabled. The implemented action attaches exact file nodes only
+for promoted direct/navigation observations whose qualification and coverage gaps agree. It ranks represented
+cross-file call endpoints deterministically under the existing three-result cap, qualifies those endpoints, and gives a
+navigation endpoint one target-file completion search. Completion outranks a new file handoff in the remaining round;
+file effects deduplicate by file node, direction, and edge kind across sibling observations and obligations. Direct
+evidence is never downgraded to authorize retrieval, and file arrival alone never counts as evidence.
+
+The final cheap TypeScript smoke `run-20260816T194746Z` executed the declared sequence from `watchMode.ts` to
+`verifyTscWatch`, qualified that endpoint as navigation-only, then disclosed `tscWatchCompile`, `TscWatchCompile`, and
+`baselineProgram` from `helpers.ts`. The two final measured TypeScript runs, `run-20260816T204746Z` and
+`run-20260816T205506Z`, were both `partial/false`, used 54,971 and 56,390 retrieval LLM tokens, retained 2 and 3
+implementation Oracle files, and each executed exactly one file handoff followed by bounded target-file completion.
+Pandas runs `run-20260816T210413Z` and `run-20260816T210812Z` retained `series.py` at ranks 1 and 2 and selected
+exact `Series::_binop`; Vue runs `run-20260816T211229Z` and `run-20260816T211431Z` retained server `dom-props.js` at
+rank 1. No final run repeated the same file expansion. The remaining pandas raw-hit/admission variance is upstream
+ranking work, not a reason to widen this handoff or change Beam 4. Full measurements and token comparisons are
+recorded in the retrieval changelog.
+
 ### Channel-specific structured query redesign
 
 Experiment mode: isolated upstream-recall change. Dependency: run after the priority controller path is stable. Keep BM25/BM25F, disclosure, qualification, island scheduling, action selection, and final selection fixed.
@@ -1079,6 +1101,20 @@ The first implementation deliberately preserves `_obligation_stage_query_text()`
 - learned terms from promoted source to explicit new-island searches.
 
 The experiment must not ask an LLM to invent one global rewritten query. It should compare channel-specific structured inputs against the unchanged current queries after the admission-order redesign is stable. [`stable-obligation-query-strand.md`](../stable-obligation-query-strand.md) is the negative baseline: adding another deterministic query strand did not recover owners.
+
+Phase 1 result and status (2026-08-18): the prompt-derived deterministic split was implemented and removed after two
+measured TypeScript 35468 runs. It separated the unchanged obligation description for dense retrieval from
+obligation-relevant lexical terms for sparse retrieval, with no additional LLM call and broad artifact scope by
+default. The routing worked, but this variant removed useful stage vocabulary such as `cache`, `signature`, and
+`dependency` from the dense query while broad issue terms repeatedly dominated sparse retrieval. `builderState.ts`
+fell from rank 1 to ranks 11 and 9 and was excluded before qualification; both runs remained `partial/false`, with 1
+and 2 Oracle-file overlaps versus 2–3 in comparable accepted runs.
+
+This rejects only the tested prompt-derived Phase 1 split, not the complete channel-specific-query idea. The broader
+experiment is postponed. When resumed, preserve deterministic stage-specific vocabulary, keep initial sparse input
+strictly exact rather than copying broad issue search terms, and test repository terms learned from promoted evidence
+as a later-round/new-island input rather than as initial-query expansion. Measure each phase independently through raw
+channel results, admission, qualification, islands/actions, and final selection.
 
 ### Flat action scheduler audit
 
@@ -1131,6 +1167,47 @@ A future experiment should:
 
 This could improve inspection order for filenames and definitions, but it cannot by itself solve disconnected evidence, semantic ambiguity, or admission. It is therefore a later isolated experiment.
 
+Implementation framework (2026-08-18): Phase 1 is chunk-level BM25F only; line scoring is a separate later phase so
+the first comparison changes one ranking mechanism. Preserve the accepted combined queries and current tokenizer.
+Score body at `1`, directory path at `2`, basename at `5`, and the already-indexed definition symbols at `5`. Apply
+the same weighted term-frequency and field-length-normalization policy to local BM25 and Qdrant sparse document
+vectors. Do not add reference-symbol extraction, artifact-role penalties, query rewriting, line reranking, or later-stage
+changes. These weights are fixed before benchmark runs and are inspired by Sourcegraph's BM25F design, particularly
+its approximately fivefold filename/symbol boost; they are not tuned against TypeScript 35468.
+
+Index isolation is mandatory. The baseline remains in `.guided-intelligence/index` and its existing repository-scoped
+Qdrant collection. BM25F v1 uses `.guided-intelligence/index-bm25f-v1`, schema/profile identity `bm25f_v1`, and a
+separately suffixed repository-scoped Qdrant collection. Never overwrite or silently reinterpret a baseline index.
+One BM25F build per repository/configuration is reused by smoke and acceptance runs. A changed field definition,
+weight, normalization rule, or tokenizer requires a new signature and experimental collection rather than mutating the
+existing one in place.
+
+Evaluation treats hidden Oracle overlap only as a regression alarm. Inspect all raw and fused results and classify
+them as direct mechanism evidence, useful structural/navigation evidence, issue-adjacent but non-advancing context, or
+unrelated lexical coincidence. Compare guardrail survival, recurrence crowding, qualification, island diversity,
+actions/handoffs, final explanation suitability, tokens, and latency. A useful non-Oracle flow participant counts as a
+quality gain; an Oracle file with an irrelevant snippet does not.
+
+Phase 1 result (2026-08-18): retain the implementation only as the isolated `bm25f_v1` profile; do not make it the
+default and do not proceed directly to line scoring. In two final-selection-enabled TypeScript 35468 runs, builder-state
+evidence reached initial ranks 2 and 1 and survived qualification, demonstrating the intended upstream effect. One run
+kept that evidence through final selection and found additional plausible project-reference/watch context; the other
+dropped both strong builder candidates downstream. Definition weighting also promoted generic or ambiguous names and
+wildcard-watching code that did not advance the wildcard-re-export mechanism. Both runs remained `partial/false`, final
+Oracle overlap fell from the comparable flat-BM25 pair's 2/3 to 1/2, and average retrieval LLM tokens increased about
+9.4%. This is a mixed result rather than an acceptance or a conclusive rejection. The next diagnostic should expose
+body/path/basename/definition score contributions per result before any weight change; report those findings before
+tuning. Full measurements and run IDs are recorded in the retrieval changelog.
+
+Corrective v2 diagnostic (2026-08-18): `bm25f_v2` is a separate index/profile, not an in-place reinterpretation of
+v1. It anchors symbol extraction to declaration headers, associates leading comments with the following declaration,
+removes generic one-word definitions from the boosted field, collapses repeated sparse query words, adds a small
+meaningful-comment-phrase feature, excludes three repository-confirmed generated TypeScript API declaration bundles,
+and traces field contributions. The first full TypeScript run improved selected implementation overlap to three and
+retained the central builder-state/export-affected flow, but cost 71,387 retrieval LLM tokens and still selected
+generic language-service/diagnostic/test context. No actual result exercised the phrase feature. Status remains
+experimental and isolated; do not proceed to line scoring or default-enable v2 without a user-reviewed follow-up.
+
 ### Dedicated second-stage code reranker
 
 Experiment mode: conditional disclosure-ordering change. Dependency: stable qualification traces must first show that excessive card volume or ordering, rather than discovery loss, is the limiting problem. Do not combine it with BM25F or structured-query changes.
@@ -1168,6 +1245,18 @@ Test a separate `FileTraceEvidence` navigation type rather than mislabeling a fi
 - be evaluated separately as file recall, not counted as snippet precision or used to inflate Oracle evidence scores.
 
 The final explanation may use a file trace only to state that the file is a likely structural participant whose exact relevant owner remains unresolved. It must not infer the eventual patch or claim behavior absent inspected source.
+
+Implementation and scoped LLM diagnostic (2026-08-17): `FileTraceEvidence` is created from an executed file-node
+relationship action with represented edges, a promoted source observation, and a resolved semantic-island identity.
+It deliberately remains valid when the inspected endpoint is rejected: that rejects only the owner, not the exact
+file-level relationship. Each record carries both paths, endpoint identity/qualification, represented edge, unresolved
+obligation, and a hard allowed claim: the destination is a structurally connected participant, not proof of behavior
+inside that file. Up to two deduplicated file/island traces are offered in a separate final-selection section. The
+selector may retain a trace only for a distinct structural connection; it cannot place it in mechanisms, concepts,
+coverage support, or sufficiency. Selected traces are rendered as file links without code lines, and the explanation
+prompt repeats the same prohibition. A scoped LLM check retained both `helpers.ts` and `tsbuildPublic.ts`, left the
+watch trigger partial, and stated the exact-owner limitation in the rendered explanation. Focused tests validate the
+type boundaries. This is still diagnostic-only: no benchmark file-recall, token, or overall-quality claim yet.
 
 ### Necessary-contribution filtering in final evidence selection
 

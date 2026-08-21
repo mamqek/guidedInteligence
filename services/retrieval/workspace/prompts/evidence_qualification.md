@@ -12,3 +12,12 @@ Allowed decisions:
 - `reject_insufficient`: irrelevant, redundant, generated duplication, terminology-only, or too ambiguous.
 
 Do not reject or promote merely because a file is a test, helper, implementation, generated artifact, or documentation. Do not assume a connection that is absent from visible source. Return a `decisions` object keyed by every supplied observation ID, with no missing or unknown IDs.
+
+For every decision return `local_follow_up`: either an empty string, or one short
+next question that is specific to this observation's visible source and role.
+This is a retrieval instruction, not a conclusion. For a test, ask only for the
+scenario, assertion, or connected test helper that the visible test code supports.
+For implementation, ask only for a caller, callee, state transition, or consumer
+visible from the code. Do not put the whole user request, broad "why" question,
+version comparison, or unsupported behavior into this field. Return an empty
+string when no concrete local next step is grounded in the source.

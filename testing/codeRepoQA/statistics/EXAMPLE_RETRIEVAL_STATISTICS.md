@@ -27,14 +27,24 @@ The model difference is intentional historical provenance, not something hidden 
 
 ### Run inventory
 
-| Testcase | Category | System | Model / profile | Selected run ID | Selection rule |
-| --- | --- | --- | --- | --- | --- |
-| `microsoft-TypeScript-35468` | Testing/build/tooling | Native | `gpt-5.6-luna`; workspace final | `run-20260814T060345Z` | First valid in pilot window |
-| `microsoft-TypeScript-35468` | Testing/build/tooling | Codex | `gpt-5.4-mini`; `efficient` | `run-20260729T205015Z` | Latest valid before cutoff |
-| `pandas-dev-pandas-10068` | Bug/regression | Native | `gpt-5.6-luna`; workspace final | `run-20260814T061200Z` | First valid in pilot window |
-| `pandas-dev-pandas-10068` | Bug/regression | Codex | `gpt-5.4-mini`; `efficient` | `run-20260729T204029Z` | Latest valid before cutoff |
-| `vuejs-vue-10803` | Bug/regression | Native | `gpt-5.6-luna`; workspace final | `run-20260814T061744Z` | First valid in pilot window |
-| `vuejs-vue-10803` | Bug/regression | Codex | `gpt-5.4-mini`; `efficient` | `run-20260805T213915Z` | Latest valid before cutoff |
+Each selected testcase/system pair must record its end-to-end elapsed wall-clock time (from pipeline start through final artifact creation) and token accounting. Token accounting separates the tokens spent to build or rebuild an index from the tokens spent by the rest of the flow; the total is their sum. When an index is reused, do not rerun indexing: take the indexing-token count from the logged original build with the same index signature, cite that build run, and add it to the reused run's rest-of-flow tokens. Codex rows additionally separate cached and uncached input tokens from output tokens; reasoning output tokens, when available, are a subset of output tokens and must not be added again.
+
+The saved pilot artifacts used by this legacy example do not retain these values, so they are explicitly marked unavailable rather than reconstructed from run IDs or fabricated. A newly generated statistics report must contain measured values in each applicable column.
+
+| Testcase | Category | System | Model / profile | Selected run ID | Selection rule | Elapsed time | Indexing tokens | Rest-of-flow tokens | Total tokens | Cached input (Codex) | Uncached input (Codex) | Output (Codex) |
+| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `microsoft-TypeScript-35468` | Testing/build/tooling | Native | `gpt-5.6-luna`; workspace final | `run-20260814T060345Z` | First valid in pilot window | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | N/A | N/A | N/A |
+| `microsoft-TypeScript-35468` | Testing/build/tooling | Codex | `gpt-5.4-mini`; `efficient` | `run-20260729T205015Z` | Latest valid before cutoff | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) |
+| `pandas-dev-pandas-10068` | Bug/regression | Native | `gpt-5.6-luna`; workspace final | `run-20260814T061200Z` | First valid in pilot window | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | N/A | N/A | N/A |
+| `pandas-dev-pandas-10068` | Bug/regression | Codex | `gpt-5.4-mini`; `efficient` | `run-20260729T204029Z` | Latest valid before cutoff | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) |
+| `vuejs-vue-10803` | Bug/regression | Native | `gpt-5.6-luna`; workspace final | `run-20260814T061744Z` | First valid in pilot window | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | N/A | N/A | N/A |
+| `vuejs-vue-10803` | Bug/regression | Codex | `gpt-5.4-mini`; `efficient` | `run-20260805T213915Z` | Latest valid before cutoff | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) | Unavailable (not retained) |
+
+### Fair cost presentation
+
+A production report reuses the logged indexing-token count from the matching original index-build run whenever an index is reused; it does not rerun the index just to reproduce that measurement. The report cites that source run and index signature, and compares `recorded original index tokens + current rest-of-flow tokens`. An amortized view is optional and must state the exact matching signature and divisor: `recorded original index cost / named shared requests + rest-of-flow cost`.
+
+For Codex, a currency estimate must separately price cached input, uncached input, and output tokens at the rates for the selected model and dated pricing snapshot. Cached tokens reduce cost; they are not zero-cost and must not be merged into uncached input. This saved-artifact example has no reproducible usage or pricing snapshot, so it makes no cost comparison.
 
 ## How To Read The Metrics
 
@@ -95,6 +105,7 @@ No category or repository aggregate is presented as evidence here because each r
 - This is a three-case formatting example, not a complete development or final evaluation.
 - Only two of seven retrieval categories are represented.
 - Exactly one valid run per testcase and system is used. This descriptive report therefore does not estimate run-to-run stochastic variability.
+- The saved pilot artifacts lack end-to-end elapsed-time and the required token breakdown. This legacy example flags them as unavailable; future statistics reports must report those values for every testcase/system pair.
 - The Codex condition is historical `gpt-5.4-mini`, whereas new Codex runs are expected to use `gpt-5.6-luna`. These must not be silently pooled in a future headline aggregate.
 - @20 is omitted because the saved systems did not consistently provide comparable 20-file rankings.
 - These are descriptive retrieval metrics; no confidence interval or significance claim is made from three cases.

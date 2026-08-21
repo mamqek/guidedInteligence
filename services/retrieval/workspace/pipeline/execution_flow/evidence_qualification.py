@@ -36,6 +36,7 @@ class QualificationDecision:
     reason: str
     visible_support: tuple[str, ...] = ()
     missing_information: tuple[str, ...] = ()
+    local_follow_up: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -320,6 +321,7 @@ def _validate_decisions(response: Mapping[str, Any], ids: Sequence[str]) -> tupl
                 reason=reason,
                 visible_support=visible_support,
                 missing_information=_strings(value.get("missing_information"), limit=6),
+                local_follow_up=str(value.get("local_follow_up") or "").strip()[:500],
             )
         )
     return tuple(decisions)
@@ -340,8 +342,9 @@ def _response_format(ids: Sequence[str]) -> dict[str, Any]:
             "reason": {"type": "string"},
             "visible_support": {"type": "array", "items": {"type": "string"}},
             "missing_information": {"type": "array", "items": {"type": "string"}},
+            "local_follow_up": {"type": "string"},
         },
-        "required": ["classification", "reason", "visible_support", "missing_information"],
+        "required": ["classification", "reason", "visible_support", "missing_information", "local_follow_up"],
     }
     return {
         "type": "json_schema",

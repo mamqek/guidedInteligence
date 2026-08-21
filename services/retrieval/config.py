@@ -326,6 +326,8 @@ class WorkspaceRetrievalConfig:
     llm_config: "RunLLMConfig"
     embedding_config: "RetrievalEmbeddingConfig"
     qdrant_config: "RetrievalQdrantConfig"
+    repository_name: str = ""
+    repository_owner: str = ""
     retrieval_mode: str = RETRIEVAL_MODE_WORKSPACE
     codex_command: tuple[str, ...] = ("codex",)
     codex_model: str = "gpt-5.4-mini"
@@ -337,6 +339,7 @@ class WorkspaceRetrievalConfig:
     run_dir: str | None = None
     chunk_line_count: int = 40
     chunk_line_overlap: int = 10
+    lexical_ranking_profile: str = "flat_bm25"
     max_exploration_rounds: int = 4
     max_tool_calls_per_round: int = 5
     max_controller_actions_per_round: int = 2
@@ -556,6 +559,8 @@ class WorkspaceRetrievalConfig:
             raise ValueError("chunk_line_count must be greater than zero.")
         if self.chunk_line_overlap < 0 or self.chunk_line_overlap >= self.chunk_line_count:
             raise ValueError("chunk_line_overlap must be between zero and chunk_line_count - 1.")
+        if self.lexical_ranking_profile not in {"flat_bm25", "bm25f_v1", "bm25f_v2"}:
+            raise ValueError(f"Unsupported lexical_ranking_profile: {self.lexical_ranking_profile}.")
         if self.obsidian_search_limit <= 0:
             raise ValueError("obsidian_search_limit must be greater than zero.")
         if self.obsidian_min_guidance_score < 0:

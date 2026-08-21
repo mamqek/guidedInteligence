@@ -24,9 +24,10 @@ from core.policy import PolicyStage
 from core.source_policy import SourceCategory, SourcePolicy
 from services.logging.store import JsonlLogger
 from services.retrieval.workspace.bm25 import (
-    BM25_INDEX_SCHEMA_VERSION,
     DEFAULT_EXCLUDED_PATHS,
+    LEXICAL_RANKING_FLAT_BM25,
     build_index_from_repo,
+    bm25_index_schema_version,
     indexable_content_signature,
     save_index,
 )
@@ -66,14 +67,10 @@ CODEREPOQA_GENERATED_PATHS_BY_REPOSITORY: dict[tuple[str, str], tuple[str, ...]]
     ("microsoft", "typescript"): (
         "tests/baselines/reference",
         "tests/baselines/local",
-        "lib/tsc.js",
-        "lib/tsserver.js",
-        "lib/tsserverlibrary.js",
-        "lib/typescript.js",
-        "lib/typescriptServices.js",
-        "lib/typingsInstaller.js",
-        "lib/cancellationToken.js",
-        "lib/watchGuard.js",
+        # The TypeScript lib directory is generated distribution and declaration
+        # material, not repository-local implementation evidence for CodeRepoQA.
+        # Exclude it as one prefix so BM25, Qdrant, and CodeGraph share the scope.
+        "lib",
     ),
 }
 
@@ -117,6 +114,7 @@ def prepare_index(
     chunk_line_count: int = 40,
     chunk_line_overlap: int = 10,
     exclude_paths: Sequence[str] | None = None,
+    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> None:
     workspace_root = Path(repo_pre_path).resolve()
     effective_exclude_paths = DEFAULT_EXCLUDED_PATHS if exclude_paths is None else tuple(exclude_paths)
@@ -129,12 +127,14 @@ def prepare_index(
         visibility="visible_initial",
         origin="coderepoqa_snapshot",
         exclude_paths=exclude_paths,
+        lexical_ranking_profile=lexical_ranking_profile,
     )
     save_index(index, index_dir)
     save_sync_manifest(
         Path(index_dir) / "bm25-scope-manifest.json",
         {
-            "index_schema_version": BM25_INDEX_SCHEMA_VERSION,
+            "index_schema_version": bm25_index_schema_version(lexical_ranking_profile),
+            "lexical_ranking_profile": lexical_ranking_profile,
             "workspace_root": str(workspace_root),
             "content_signature": indexable_content_signature(
                 workspace_root,
@@ -178,6 +178,7 @@ def run_case(
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
     embedding_cache_path: str | Path | None = None,
+    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
         issue_json,
@@ -203,6 +204,8 @@ def run_case(
         workspace_root=workspace_root,
         index_dir=Path(index_dir),
         run_dir=output_dir,
+        repository_name=visible_case.repo_name,
+        repository_owner=visible_case.repo_owner,
         llm_config=llm_config,
         exclude_paths=exclude_paths,
         codex_command=codex_command,
@@ -215,6 +218,7 @@ def run_case(
         embedding_batch_size=embedding_batch_size,
         embedding_concurrency=embedding_concurrency,
         embedding_cache_path=str(embedding_cache_path) if embedding_cache_path is not None else None,
+        lexical_ranking_profile=lexical_ranking_profile,
     )
     retrieval_stage = CodexRetrievalStage(retrieval_config) if retrieval_config.retrieval_mode == RETRIEVAL_MODE_CODEX else WorkspaceRetrievalStage(retrieval_config)
     control_layer = ControlLayer(
@@ -287,6 +291,7 @@ def evaluate_case(
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
     shared_embedding_cache_root: str | Path | None = None,
+    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> Path:
     issue_path = Path(issue_json)
     verification_path = Path(verification_json) if verification_json is not None else _default_verification_path(issue_path)
@@ -318,7 +323,7 @@ def evaluate_case(
         _materialize_snapshot(origin_repo_dir, resolution.repo_pre_commit, snapshot_dir)
 
     _remove_legacy_snapshot_index(snapshot_dir)
-    index_dir = _workspace_index_dir(snapshot_dir)
+    index_dir = _workspace_index_dir(snapshot_dir, lexical_ranking_profile=lexical_ranking_profile)
     if rebuild_index:
         _remove_structural_index_artifacts(snapshot_dir)
     if retrieval_mode != RETRIEVAL_MODE_CODEX and (rebuild_index or not (index_dir / "bm25-index.json").exists()):
@@ -329,6 +334,7 @@ def evaluate_case(
             chunk_line_count=chunk_line_count,
             chunk_line_overlap=chunk_line_overlap,
             exclude_paths=exclude_paths,
+            lexical_ranking_profile=lexical_ranking_profile,
         )
 
     visible_case, _hidden = load_coderepoqa_case(
@@ -365,6 +371,7 @@ def evaluate_case(
         embedding_batch_size=embedding_batch_size,
         embedding_concurrency=embedding_concurrency,
         embedding_cache_path=embedding_cache_path,
+        lexical_ranking_profile=lexical_ranking_profile,
     )
     _write_run_metadata(
         run_dir=run_dir,
@@ -384,6 +391,7 @@ def evaluate_case(
         skip_response_generation=skip_response_generation,
         skip_final_evidence_selection=skip_final_evidence_selection,
         embedding_cache_path=embedding_cache_path,
+        lexical_ranking_profile=lexical_ranking_profile,
     )
     return run_dir
 
@@ -595,6 +603,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             embedding_batch_size=_config_optional_int(run_config, "embedding_batch_size"),
             embedding_concurrency=_config_optional_int(run_config, "embedding_concurrency"),
             embedding_cache_path=run_config.get("embedding_cache_path"),
+            lexical_ranking_profile=str(run_config.get("lexical_ranking_profile") or LEXICAL_RANKING_FLAT_BM25),
         )
         return 0
 
@@ -633,6 +642,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             embedding_batch_size=_config_optional_int(run_config, "embedding_batch_size"),
             embedding_concurrency=_config_optional_int(run_config, "embedding_concurrency"),
             shared_embedding_cache_root=run_config.get("shared_embedding_cache_root"),
+            lexical_ranking_profile=str(run_config.get("lexical_ranking_profile") or LEXICAL_RANKING_FLAT_BM25),
         )
         print(str(run_dir))
         return 0
@@ -1033,8 +1043,13 @@ def _remove_legacy_snapshot_index(snapshot_dir: Path) -> None:
         shutil.rmtree(legacy_index_dir, ignore_errors=True)
 
 
-def _workspace_index_dir(workspace_root: Path) -> Path:
-    return workspace_root / WORKSPACE_STATE_DIR / "index"
+def _workspace_index_dir(
+    workspace_root: Path,
+    *,
+    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
+) -> Path:
+    suffix = "index" if lexical_ranking_profile == LEXICAL_RANKING_FLAT_BM25 else f"index-{lexical_ranking_profile.replace('_', '-')}"
+    return workspace_root / WORKSPACE_STATE_DIR / suffix
 
 
 def _write_run_metadata(
@@ -1056,6 +1071,7 @@ def _write_run_metadata(
     skip_response_generation: bool,
     skip_final_evidence_selection: bool,
     embedding_cache_path: Path | None = None,
+    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> None:
     metadata = {
         "case_id": visible_case.case_id,
@@ -1073,6 +1089,7 @@ def _write_run_metadata(
         "skip_response_generation": skip_response_generation,
         "skip_final_evidence_selection": skip_final_evidence_selection,
         "embedding_cache_path": str(embedding_cache_path) if embedding_cache_path is not None else "",
+        "lexical_ranking_profile": lexical_ranking_profile,
         "intent_system": "request_analysis_obligations_v1",
         "resolution": {
             "strategy": resolution.strategy,
@@ -1411,6 +1428,8 @@ def _workspace_retrieval_config_for_case(
     workspace_root: Path,
     index_dir: Path,
     run_dir: Path,
+    repository_name: str = "",
+    repository_owner: str = "",
     llm_config: RunLLMConfig,
     exclude_paths: Sequence[str],
     codex_command: Sequence[str],
@@ -1423,6 +1442,7 @@ def _workspace_retrieval_config_for_case(
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
     embedding_cache_path: str | None = None,
+    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> WorkspaceRetrievalConfig:
     # Shared boundary: both testcase retrieval modes receive the same sanitized
     # ConversationState.user_input built by _user_prompt(title, initial_body).
@@ -1452,10 +1472,13 @@ def _workspace_retrieval_config_for_case(
         workspace_root=str(workspace_root),
         index_dir=str(index_dir),
         run_dir=str(run_dir),
+        repository_name=repository_name,
+        repository_owner=repository_owner,
         llm_config=llm_config,
         embedding_config=embedding_config,
         qdrant_config=qdrant_config,
         embedding_cache_path=embedding_cache_path,
+        lexical_ranking_profile=lexical_ranking_profile,
         retrieval_mode=retrieval_mode,
         codex_command=tuple(codex_command) or ("codex",),
         codex_model=codex_model,

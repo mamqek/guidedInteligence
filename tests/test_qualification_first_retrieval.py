@@ -28,16 +28,25 @@ from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification
 )
 from services.retrieval.workspace.pipeline.execution_flow.retrieval_actions import (
     ExpandRelationship,
+    InspectOwnerContinuation,
+    InspectVerifiedLead,
     SearchNewIsland,
     SearchWithinFile,
+    _deduplicate_file_expansions,
     enumerate_actions,
     execute_action,
 )
 from services.retrieval.workspace.pipeline.execution_flow.retrieval_controller import run_retrieval_controller
 from services.retrieval.workspace.pipeline.execution_flow.retrieval_controller import (
+    MAX_VERIFIED_LEAD_EXECUTIONS,
+    VerifiedLead,
     _action_effect,
+    _discover_verified_leads,
     _latest_changed_observations,
     _select_actions,
+    _select_deferred_file_seed_actions,
+    _select_maturation_actions,
+    _select_verified_lead_actions,
 )
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationBatch
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import (
@@ -50,6 +59,8 @@ from services.retrieval.workspace.pipeline.execution_flow.source_disclosure impo
 )
 from services.retrieval.workspace.pipeline.execution_flow.structural_components import build_structural_components
 from services.retrieval.workspace.pipeline.execution_flow.qualification_first_retrieval import (
+    _file_group_initial_results,
+    _initial_sparse_query,
     _preserve_active_island_candidates,
 )
 from services.retrieval.workspace.tools import ToolObservation
@@ -83,6 +94,139 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(set(merged.obligation_ids), {"trigger", "effect"})
         self.assertEqual({item.artifact_role for item in selected}, {"test", "implementation"})
         self.assertIn("merged_same_entity", {item["reason"] for item in decisions})
+
+    def test_initial_guardrail_admits_one_path_representative_and_records_alternatives(self) -> None:
+        watch_first = _observation("obs_watch_first", "tests/watch.ts", "", ("subject",))
+        watch_second = replace(
+            _observation("obs_watch_second", "tests/watch.ts", "", ("trigger",)),
+            handle=SourceHandle("tests/watch.ts", 50, 60),
+            provenance=(DiscoveryProvenance("qdrant_hybrid", "trigger", ("trigger",), (2,), (0.8,)),),
+        )
+        builder = _observation("obs_builder", "src/builder.ts", "function:builder", ("state",), role="implementation")
+
+        selected, decisions = aggregate_observations(
+            (watch_first, watch_second, builder), limit=3, one_per_path=True,
+        )
+
+        self.assertEqual({item.handle.path for item in selected}, {"tests/watch.ts", "src/builder.ts"})
+        self.assertIn(
+            "same_path_alternative",
+            {item["reason"] for item in decisions if item["observation_id"] == "obs_watch_second"},
+        )
+
+    def test_contained_owners_canonicalize_to_inner_hit_with_outer_context(self) -> None:
+        outer = DiscoveryObservation(
+            "obs_outer",
+            SourceHandle("src/nested.py", 15, 21, node_id="function:outer", symbol="outer", full_line_start=10, full_line_end=25),
+            "def nested():\n    return value",
+            (DiscoveryProvenance("qdrant_hybrid", "subject", ("subject",), (2,), (0.4,)),),
+        )
+        inner = DiscoveryObservation(
+            "obs_inner",
+            SourceHandle("src/nested.py", 15, 21, node_id="function:outer::nested", symbol="outer::nested", full_line_start=14, full_line_end=22),
+            "def nested():\n    return value",
+            (DiscoveryProvenance("qdrant_hybrid", "subject", ("subject",), (1,), (0.8,)),),
+        )
+
+        selected, decisions = aggregate_observations((outer, inner), limit=4)
+
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0].id, "obs_inner")
+        self.assertEqual(selected[0].handle.outer_node_id, "function:outer")
+        self.assertEqual(selected[0].handle.outer_line_start, 10)
+        self.assertIn("canonicalized_contained_owner", {item["reason"] for item in decisions})
+
+    def test_initial_sparse_query_keeps_only_exact_repository_symbols(self) -> None:
+        obligation = EvidenceObligation(
+            "subject", "Explain the implementation.", True,
+            anchor_refs=("Series", "add", "s1 + s2", "s1.add(s2)", "invented"),
+        )
+
+        query = _initial_sparse_query(
+            obligation,
+            exact_repository_symbols={"Series", "add", "s1"},
+        )
+
+        self.assertEqual(query, "Series add")
+
+    def test_initial_file_group_fusion_recomputes_file_ranks_and_keeps_channel_representatives(self) -> None:
+        def result(path: str, start: int) -> dict[str, object]:
+            return {
+                "path": path,
+                "line_start": start,
+                "line_end": start + 9,
+                "score": 1.0,
+                "text": f"{path}:{start}",
+            }
+
+        payload = {
+            "breakdown": {
+                "dense": [
+                    result("pandas/core/ops.py", 10),
+                    result("pandas/core/ops.py", 20),
+                    result("pandas/tests/test_series.py", 30),
+                    result("pandas/core/series.py", 40),
+                ],
+                "sparse": [
+                    result("pandas/core/series.py", 50),
+                    result("pandas/core/ops.py", 60),
+                    result("pandas/other.py", 70),
+                    result("pandas/core/series.py", 80),
+                ],
+            }
+        }
+
+        representatives, held, groups = _file_group_initial_results(payload, limit=4)
+
+        self.assertEqual(
+            [item["path"] for item in groups],
+            [
+                "pandas/core/ops.py",
+                "pandas/core/series.py",
+                "pandas/tests/test_series.py",
+                "pandas/other.py",
+            ],
+        )
+        series_group = next(item for item in groups if item["path"] == "pandas/core/series.py")
+        self.assertEqual(series_group["dense_file_rank"], 3)
+        self.assertEqual(series_group["sparse_file_rank"], 1)
+        self.assertEqual(
+            {(item["retrieval_channel"], item["line_start"]) for item in representatives if item["path"] == "pandas/core/series.py"},
+            {("dense", 40), ("sparse", 50)},
+        )
+        self.assertIn(
+            ("sparse", 80),
+            {(item["retrieval_channel"], item["line_start"]) for item in held},
+        )
+
+    def test_initial_guardrail_can_qualify_two_channel_owners_for_one_file_and_obligation(self) -> None:
+        dense = _observation("obs_dense", "pandas/core/series.py", "method:binop", ("subject",))
+        sparse = _observation("obs_sparse", "pandas/core/series.py", "method:to_string", ("subject",))
+
+        selected, _decisions = aggregate_observations(
+            (dense, sparse),
+            limit=4,
+            one_per_path=True,
+            max_obligation_variants_per_path=2,
+            one_per_obligation_per_path=False,
+        )
+
+        self.assertEqual({item.id for item in selected}, {"obs_dense", "obs_sparse"})
+
+    def test_file_expansion_obligation_clones_are_deduplicated_with_recurrence(self) -> None:
+        first = ExpandRelationship(
+            "first", "subject", "obs_watch", "file:tests/watch.ts", "outgoing", ("calls",), "new_island",
+            seed_kind="file", cross_file_only=True, target_symbol_anchors=("verifyWatch",),
+        )
+        second = replace(first, id="second", obligation_id="effect", target_term_anchors=("diagnostic",))
+
+        actions = _deduplicate_file_expansions((first, second))
+
+        self.assertEqual(len(actions), 1)
+        combined = actions[0]
+        self.assertIsInstance(combined, ExpandRelationship)
+        self.assertEqual(combined.obligation_ids, ("subject", "effect"))
+        self.assertEqual(combined.target_term_anchors, ("diagnostic",))
 
     def test_disclosure_retains_full_owner_handle_for_later_inspection(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -614,6 +758,94 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(len(result.islands), 1)
         self.assertEqual(set(result.islands[0].normalized_files), {"src/a.ts", "src/b.ts"})
 
+    def test_exact_one_connector_call_path_merges_promoted_endpoints(self) -> None:
+        builder = _observation("obs_builder", "src/builder.ts", "function:builder", ("state",))
+        builder_state = _observation(
+            "obs_builder_state", "src/builderState.ts", "function:builder_state", ("state",),
+        )
+        decisions = tuple(
+            QualificationDecision(item.id, "promote", "direct_evidence", "direct")
+            for item in (builder, builder_state)
+        )
+        connector = {
+            "source": {"id": "function:builder", "path": "src/builder.ts", "name": "getNextAffectedFile"},
+            "connector": {
+                "id": "function:get_files_affected",
+                "path": "src/builderState.ts",
+                "name": "getFilesAffectedBy",
+                "qualified_name": "BuilderState.getFilesAffectedBy",
+            },
+            "target": {
+                "id": "function:builder_state",
+                "path": "src/builderState.ts",
+                "name": "getFilesAffectedByUpdatedShapeWhenNonModuleEmit",
+            },
+            "edge_kinds": ["calls", "calls"],
+        }
+
+        result = _build_test_islands(
+            (builder, builder_state), decisions,
+            relationship_tool=_Tool(
+                "structural_relationships_within_nodes",
+                {"edges": [], "connector_paths": [connector]},
+            ),
+        )
+
+        self.assertEqual(len(result.islands), 1)
+        self.assertEqual(set(result.islands[0].observation_ids), {builder.id, builder_state.id})
+        self.assertEqual(result.edges[0]["_retrieval_provenance"], "exact_codegraph_connector_path")
+        self.assertIn("BuilderState.getFilesAffectedBy", result.edges[0]["detail"])
+
+    def test_connector_path_does_not_merge_endpoints_for_different_obligations(self) -> None:
+        builder = _observation("obs_builder", "src/builder.ts", "function:builder", ("state",))
+        watcher = _observation("obs_watcher", "src/watch.ts", "function:watcher", ("trigger",))
+        decisions = tuple(
+            QualificationDecision(item.id, "promote", "direct_evidence", "direct")
+            for item in (builder, watcher)
+        )
+        connector = {
+            "source": {"id": "function:builder", "path": "src/builder.ts", "name": "builder"},
+            "connector": {"id": "function:utility", "path": "src/core.ts", "name": "utility"},
+            "target": {"id": "function:watcher", "path": "src/watch.ts", "name": "watcher"},
+            "edge_kinds": ["calls", "calls"],
+        }
+
+        result = _build_test_islands(
+            (builder, watcher), decisions,
+            relationship_tool=_Tool(
+                "structural_relationships_within_nodes",
+                {"edges": [], "connector_paths": [connector]},
+            ),
+        )
+
+        self.assertEqual(len(result.islands), 2)
+
+    def test_source_verified_connector_is_labeled_separately_from_native_graph_edge(self) -> None:
+        left = _observation("obs_left", "src/a.ts", "function:left", ("state",))
+        right = _observation("obs_right", "src/b.ts", "function:right", ("state",))
+        decisions = tuple(
+            QualificationDecision(item.id, "promote", "direct_evidence", "direct")
+            for item in (left, right)
+        )
+        connector = {
+            "source": {"id": "function:left", "path": "src/a.ts", "name": "left"},
+            "connector": {"id": "function:middle", "path": "src/b.ts", "name": "middle"},
+            "target": {"id": "function:right", "path": "src/b.ts", "name": "right"},
+            "edge_kinds": ["source_qualified_call", "source_ast_call"],
+        }
+
+        result = _build_test_islands(
+            (left, right), decisions,
+            relationship_tool=_Tool(
+                "structural_relationships_within_nodes",
+                {"edges": [], "connector_paths": [connector]},
+            ),
+        )
+
+        self.assertEqual(len(result.islands), 1)
+        self.assertEqual(result.edges[0]["_retrieval_provenance"], "source_verified_connector_path")
+        self.assertIn("Source-verified", result.edges[0]["detail"])
+
     def test_island_id_is_retained_when_one_new_member_joins(self) -> None:
         root = _observation("obs_root", "src/a.ts", "function:a", ("owner",))
         decisions = (QualificationDecision(root.id, "promote", "direct_evidence", "direct"),)
@@ -673,7 +905,10 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
 
     def test_actions_use_reported_directional_capabilities_or_new_island_search(self) -> None:
         root = _observation("obs_root", "src/root.ts", "function:root", ("trigger",))
-        decision = QualificationDecision("obs_root", "promote", "direct_evidence", "root", ("root",))
+        decision = QualificationDecision(
+            "obs_root", "promote", "direct_evidence", "root", ("root",),
+            ("The triggering caller remains unresolved.",),
+        )
         obligations = (EvidenceObligation("trigger", "Find the triggering caller.", True),)
         coverage = (ObligationCoverage("trigger", "missing", (), "Caller is missing", "trigger"),)
         capabilities = _Tool(
@@ -741,6 +976,466 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         exact = next(item for item in catalogue.actions if isinstance(item, SearchNewIsland))
         self.assertIn("_binop", exact.exact_symbol_anchors)
 
+    def test_direct_evidence_without_specific_missing_information_gets_no_bounded_followup(self) -> None:
+        root = _observation("obs_root", "src/root.ts", "function:root", ("effect",))
+        decision = QualificationDecision(
+            root.id, "promote", "direct_evidence", "The visible function proves the requested effect.",
+            ("The effect is visible.",), (),
+        )
+        capabilities = _Tool(
+            "structural_edge_capabilities",
+            {"nodes": [{"node_id": root.handle.node_id, "incoming": [], "outgoing": [{"kind": "calls", "count": 1}]}]},
+        )
+
+        catalogue = enumerate_actions(
+            user_request="Explain the effect.",
+            obligations=(EvidenceObligation("effect", "Explain the downstream effect.", True),),
+            coverage=(ObligationCoverage("effect", "partial", ("candidate",), "A downstream consumer is missing.", "downstream"),),
+            observations=(root,),
+            decisions=(decision,),
+            cards=(DisclosureCard(root.id, root.handle, "full", "return consumer();"),),
+            active_root_ids=(root.id,),
+            edge_capabilities_tool=capabilities,
+            file_nodes_tool=_FailTool(),
+            attempted_fingerprints=set(),
+        )
+
+        self.assertFalse(any(isinstance(item, (ExpandRelationship, SearchWithinFile)) for item in catalogue.actions))
+
+    def test_direct_evidence_can_handoff_from_file_node_when_coverage_and_qualification_agree(self) -> None:
+        root = _observation(
+            "obs_watch", "src/testRunner/unittests/tsbuild/watchMode.ts", "function:watch", ("mechanism",),
+            role="test",
+        )
+        decision = QualificationDecision(
+            root.id, "promote", "direct_evidence", "The test proves the watch entry point.",
+            ("The watch entry point is visible.",),
+            ("The shared helper that consumes the diagnostic remains unresolved.",),
+        )
+        file_node_id = "file:watchMode"
+        file_nodes = _RecordingTool(
+            "structural_resolve_file_nodes",
+            {"nodes": [{"id": file_node_id, "kind": "file", "path": root.handle.path}]},
+        )
+        capabilities = _Tool(
+            "structural_edge_capabilities",
+            {"nodes": [
+                {"node_id": root.handle.node_id, "incoming": [], "outgoing": []},
+                {"node_id": file_node_id, "incoming": [], "outgoing": [{"kind": "calls", "count": 1}]},
+            ]},
+        )
+
+        catalogue = enumerate_actions(
+            user_request="Explain the watch diagnostic path.",
+            obligations=(EvidenceObligation("mechanism", "Follow the watch helper path.", True),),
+            coverage=(ObligationCoverage("mechanism", "partial", ("candidate",), "The helper handoff is missing.", "downstream"),),
+            observations=(root,),
+            decisions=(decision,),
+            cards=(DisclosureCard(root.id, root.handle, "full", "concat(parts);\nverifyTscWatch(input);"),),
+            active_root_ids=(root.id,),
+            edge_capabilities_tool=capabilities,
+            file_nodes_tool=file_nodes,
+            attempted_fingerprints=set(),
+            observation_to_island={root.id: "island_watch"},
+        )
+
+        expansion = next(
+            item for item in catalogue.actions
+            if isinstance(item, ExpandRelationship) and item.seed_kind == "file"
+        )
+        self.assertEqual(expansion.root_node_id, file_node_id)
+        self.assertIn("verifyTscWatch", expansion.target_symbol_anchors)
+        self.assertNotIn("concat", expansion.target_symbol_anchors)
+        self.assertTrue(expansion.cross_file_only)
+        self.assertEqual(expansion.scope_id, "island_watch")
+        self.assertIn("helper handoff", expansion.handoff_reason)
+        self.assertEqual(file_nodes.requests[0].arguments["paths"], [root.handle.path])
+
+    def test_navigation_endpoint_gets_path_local_handoff_completion_query(self) -> None:
+        endpoint = replace(
+            _observation("obs_helper", "src/helpers.ts", "function:verifyTscWatch", ("mechanism",)),
+            parent_observation_ids=("obs_watch",),
+        )
+        decision = QualificationDecision(
+            endpoint.id, "promote", "navigation_only", "The endpoint identifies the helper file.",
+            ("The helper endpoint is visible.",), ("The diagnostic comparison owner remains unresolved.",),
+        )
+
+        catalogue = enumerate_actions(
+            user_request="Explain the watch diagnostic path.",
+            obligations=(EvidenceObligation("mechanism", "Follow the watch helper path.", True),),
+            coverage=(ObligationCoverage("mechanism", "partial", ("candidate",), "The comparison owner is missing.", "downstream"),),
+            observations=(endpoint,),
+            decisions=(decision,),
+            cards=(DisclosureCard(endpoint.id, endpoint.handle, "full", "function verifyTscWatch() {}"),),
+            active_root_ids=(endpoint.id,),
+            edge_capabilities_tool=_Tool(
+                "structural_edge_capabilities",
+                {"nodes": [{"node_id": endpoint.handle.node_id, "incoming": [], "outgoing": []}]},
+            ),
+            attempted_fingerprints=set(),
+            observation_to_island={endpoint.id: "island_watch"},
+        )
+
+        refinement = next(item for item in catalogue.actions if isinstance(item, SearchWithinFile))
+        self.assertEqual(refinement.path, "src/helpers.ts")
+        self.assertIn("Bounded unresolved handoff", refinement.dense_query)
+        self.assertIn("comparison owner", refinement.handoff_reason)
+        self.assertTrue(refinement.is_handoff_completion)
+
+    def test_incomplete_navigation_owner_gets_one_later_continuation_view(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "src" / "builderState.ts"
+            source.parent.mkdir()
+            source.write_text("\n".join(f"line {index}" for index in range(1, 181)), encoding="utf-8")
+            owner = DiscoveryObservation(
+                id="obs_shape",
+                handle=SourceHandle(
+                    "src/builderState.ts", 1, 12, node_id="function:updateShapeSignature",
+                    symbol="updateShapeSignature", full_line_start=1, full_line_end=180,
+                ),
+                observed_text="line 1",
+                provenance=(DiscoveryProvenance("qdrant_hybrid", "shape", ("state",), (1,), (0.8,)),),
+            )
+            decision = QualificationDecision(
+                owner.id, "promote", "navigation_only", "The owner is relevant but incomplete.",
+                ("The cache guard is visible.",),
+                ("The later signature comparison and exported-module update are missing.",),
+            )
+            card = DisclosureCard(
+                owner.id, owner.handle, "preview", "line 1\n// ... complete source lines omitted; use the stable source handle ...",
+                owner_name="updateShapeSignature", owner_line_start=1, owner_line_end=180,
+                complete_source_text="\n".join(f"line {index}" for index in range(1, 181)),
+            )
+            catalogue = enumerate_actions(
+                user_request="Explain changed-shape propagation.",
+                obligations=(EvidenceObligation("state", "Explain the state propagation.", True),),
+                coverage=(ObligationCoverage("state", "partial", ("other",), "The signature update is missing.", "downstream"),),
+                observations=(owner,), decisions=(decision,), cards=(card,), active_root_ids=(owner.id,),
+                edge_capabilities_tool=_Tool("structural_edge_capabilities", {"nodes": []}),
+                attempted_fingerprints=set(),
+            )
+            continuation = next(item for item in catalogue.actions if isinstance(item, InspectOwnerContinuation))
+            self.assertGreater(continuation.requested_range[0], 20)
+            execution = execute_action(
+                continuation, observations=(owner,), relationship_tool=_FailTool(), qdrant_tool=_FailTool(),
+                resolve_ranges_tool=_FailTool(), exact_symbol_tool=_FailTool(),
+            )
+            self.assertEqual(execution.observations[0].handle.adapter, "owner_continuation")
+            disclosed = disclose_observations(
+                execution.observations, workspace_root=str(root),
+                outline_tool=_Tool("structural_file_outline", {"nodes": [{
+                    "id": "function:updateShapeSignature", "kind": "function", "name": "updateShapeSignature",
+                    "qualified_name": "updateShapeSignature", "line_start": 1, "line_end": 180,
+                }]}),
+            ).cards[0]
+
+        self.assertEqual(disclosed.truncation_reason, "owner_continuation_later_excerpt")
+        self.assertIn(f"line {continuation.requested_range[0]}", disclosed.source_text)
+        self.assertNotIn("line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8", disclosed.source_text)
+
+    def test_named_same_file_alternative_gets_one_deferred_implementation_rescue(self) -> None:
+        admitted_builder = DiscoveryObservation(
+            id="obs_builder_raw",
+            handle=SourceHandle("src/compiler/builderState.ts", 1, 6),
+            observed_text="cache update",
+            provenance=(DiscoveryProvenance("qdrant_hybrid", "why", ("why",), (4,), (0.2,), ("cache",)),),
+            artifact_role="implementation",
+        )
+        builder_state = DiscoveryObservation(
+            id="obs_builder_state",
+            handle=SourceHandle(
+                "src/compiler/builderState.ts", 81, 86,
+                node_id="function:updateShapeSignature", symbol="updateShapeSignature",
+            ),
+            observed_text="affected exported modules cache",
+            provenance=(DiscoveryProvenance(
+                "qdrant_hybrid", "why", ("why",), (10,), (0.076,),
+                ("affected", "exported", "cache"),
+            ),),
+            artifact_role="implementation",
+            admission_reason="same_path_alternative",
+        )
+        generic_test = DiscoveryObservation(
+            id="obs_test", handle=SourceHandle("tests/noise.ts", 1, 4), observed_text="exported",
+            provenance=(DiscoveryProvenance("qdrant_hybrid", "why", ("why",), (1,), (0.8,), ("exported",)),),
+            artifact_role="test",
+        )
+        trace = _Trace()
+        catalogue = enumerate_actions(
+            user_request="Explain the re-export failure.",
+            obligations=(EvidenceObligation("why", "Why does the wildcard re-export fail to propagate?", True),),
+            coverage=(ObligationCoverage(
+                "why", "partial", (), "The affected exported-module state propagation is missing.", "implementation",
+            ),),
+            observations=(generic_test, admitted_builder, builder_state),
+            decisions=(QualificationDecision(
+                admitted_builder.id, "promote", "navigation_only", "The raw range identifies the relevant file but has no owner.",
+                local_follow_up="Find the affected-file signature and exported-module update.",
+            ),),
+            cards=(), active_root_ids=(),
+            edge_capabilities_tool=_Tool("structural_edge_capabilities", {"nodes": []}),
+            attempted_fingerprints=set(), trace=trace,
+        )
+
+        seed = next(item for item in catalogue.actions if isinstance(item, SearchWithinFile) and item.is_deferred_file_seed)
+        self.assertEqual(seed.path, "src/compiler/builderState.ts")
+        self.assertIn("affected exported-module state propagation", seed.dense_query)
+        self.assertIn("affect", seed.sparse_anchors)
+        audit = next(payload for event, payload in trace.events if event == "controller_actions_enumerated")["deferred_file_seed_audit"]
+        builder_audit = next(item for item in audit if item["observation_id"] == builder_state.id)
+        test_audit = next(item for item in audit if item["observation_id"] == generic_test.id)
+        self.assertTrue(builder_audit["retained_for_obligation"])
+        self.assertEqual(test_audit["reason"], "not_implementation_file")
+
+    def test_deferred_file_seed_pool_keeps_normal_actions_and_selects_one_seed(self) -> None:
+        normal = SearchWithinFile("normal", "why", "active", "src/builder.ts", "Normal follow-up.", scope_id="island")
+        first_seed = SearchWithinFile(
+            "seed_a", "why", "deferred_a", "src/compiler/builderState.ts", "Seed A.",
+            scope_id="seed_a", is_deferred_file_seed=True,
+        )
+        second_seed = SearchWithinFile(
+            "seed_b", "why", "deferred_b", "src/compiler/otherState.ts", "Seed B.",
+            scope_id="seed_b", is_deferred_file_seed=True,
+        )
+
+        normal_selected = _select_actions(
+            (normal,), ("active",), 2,
+            scope_order=("island",),
+        )
+        seed_selected = _select_deferred_file_seed_actions(
+            (normal, first_seed, second_seed),
+            attempted_effects=set(), refined_paths=set(), normal_selected=normal_selected,
+        )
+
+        self.assertEqual(normal_selected, (normal,))
+        self.assertEqual(seed_selected, (first_seed,))
+
+    def test_deferred_file_seed_requires_two_mechanism_anchors(self) -> None:
+        generic = DiscoveryObservation(
+            id="obs_generic", handle=SourceHandle("src/server/protocol.ts", 1, 4), observed_text="interface event",
+            provenance=(DiscoveryProvenance("qdrant_hybrid", "why", ("why",), (4,), (0.2,), ("interface", "event")),),
+            artifact_role="implementation",
+        )
+        trace = _Trace()
+        catalogue = enumerate_actions(
+            user_request="Explain the re-export failure.",
+            obligations=(EvidenceObligation("why", "Why does signature propagation fail?", True),),
+            coverage=(ObligationCoverage("why", "partial", (), "Affected export propagation is missing.", "implementation"),),
+            observations=(generic,), decisions=(), cards=(), active_root_ids=(),
+            edge_capabilities_tool=_Tool("structural_edge_capabilities", {"nodes": []}),
+            attempted_fingerprints=set(), trace=trace,
+        )
+
+        self.assertFalse(any(isinstance(item, SearchWithinFile) and item.is_deferred_file_seed for item in catalogue.actions))
+        audit = next(payload for event, payload in trace.events if event == "controller_actions_enumerated")["deferred_file_seed_audit"]
+        self.assertEqual(audit[0]["reason"], "not_an_admission_held_same_file_alternative")
+
+    def test_maturation_child_is_not_pruned_as_its_parent_effect(self) -> None:
+        child = SearchWithinFile(
+            "child", "why", "root", "src/compiler/builderState.ts", "Find the omitted update.",
+            scope_id="island", handoff_reason="Inspect the missing update.", is_maturation=True,
+        )
+        selected = _select_maturation_actions(
+            (child,), (), ("root",), attempted=set(), scope_order=("island",),
+            refined_paths={"src/compiler/builderstate.ts"}, attempted_effects={_action_effect(child)},
+        )
+        self.assertEqual(selected, (child,))
+
+    def test_visible_resolved_call_becomes_verified_lead(self) -> None:
+        observation = _observation("obs_wrapper", "pandas/core/ops.py", "function:flex_wrapper", ("why",))
+        decision = QualificationDecision(
+            observation.id,
+            "promote",
+            "navigation_only",
+            "The visible two-Series path calls the missing owner.",
+            ("return self._binop(other, op)",),
+            ("The result-name behavior is missing.",),
+            "Inspect Series._binop, which is the visible callee.",
+        )
+        card = DisclosureCard(
+            observation.id,
+            observation.handle,
+            "complete_owner",
+            "def flex_wrapper(self, other):\n    return self._binop(other, op)\n",
+        )
+        leads, audit, calls = _discover_verified_leads(
+            round_index=1,
+            changed_observation_ids=(observation.id,),
+            observations={observation.id: observation},
+            decisions={observation.id: decision},
+            cards={observation.id: card},
+            coverage=(ObligationCoverage("why", "partial", (), "Name rule missing.", "implementation"),),
+            pending_node_ids=set(),
+            executed_node_ids=set(),
+            exact_symbol_tool=_Tool("structural_find_exact_symbol", {"nodes": [{
+                "id": "method:series_binop",
+                "name": "_binop",
+                "qualified_name": "Series::_binop",
+                "path": "pandas/core/series.py",
+                "line_start": 1466,
+                "line_end": 1516,
+            }]}),
+            trace=None,
+        )
+
+        self.assertEqual(calls, 1)
+        self.assertEqual(len(leads), 1)
+        self.assertEqual(leads[0].target, "Series._binop")
+        self.assertEqual(leads[0].target_path, "pandas/core/series.py")
+        self.assertEqual(audit[-1]["status"], "accepted")
+
+    def test_verified_lead_rejects_ambiguous_generic_target(self) -> None:
+        observation = _observation("obs_value", "src/render.js", "function:render", ("why",))
+        decision = QualificationDecision(
+            observation.id, "promote", "navigation_only", "A value helper is called.",
+            local_follow_up="Inspect `value` next.",
+        )
+        card = DisclosureCard(
+            observation.id, observation.handle, "complete_owner", "return value(node)\n",
+        )
+        leads, audit, _calls = _discover_verified_leads(
+            round_index=2,
+            changed_observation_ids=(observation.id,),
+            observations={observation.id: observation},
+            decisions={observation.id: decision},
+            cards={observation.id: card},
+            coverage=(ObligationCoverage("why", "partial", (), "Serialization missing.", "implementation"),),
+            pending_node_ids=set(), executed_node_ids=set(),
+            exact_symbol_tool=_Tool("structural_find_exact_symbol", {"nodes": [
+                {"id": "function:value_a", "name": "value", "path": "src/a.js", "line_start": 1, "line_end": 5},
+                {"id": "function:value_b", "name": "value", "path": "src/b.js", "line_start": 1, "line_end": 5},
+            ]}),
+            trace=None,
+        )
+
+        self.assertEqual(leads, ())
+        self.assertEqual(audit[-1]["reason"], "target_resolution_ambiguous")
+
+    def test_verified_lead_pool_prefers_qualified_target_and_enforces_cap(self) -> None:
+        plain = VerifiedLead(
+            "obs_sparse", "why", "_maybe_match_name", "function:maybe", "pandas/core/common.py",
+            10, 20, "_maybe_match_name", "Inspect helper.", 1, 1, False,
+        )
+        qualified = VerifiedLead(
+            "obs_regular", "why", "Series._binop", "method:binop", "pandas/core/series.py",
+            1466, 1516, "Series::_binop", "Inspect regular path.", 1, 4, True,
+        )
+
+        selected = _select_verified_lead_actions(
+            (plain, qualified), executed_count=0,
+            observation_to_island={"obs_regular": "island_regular"},
+        )
+        blocked = _select_verified_lead_actions(
+            (plain,), executed_count=MAX_VERIFIED_LEAD_EXECUTIONS,
+            observation_to_island={},
+        )
+
+        self.assertEqual(len(selected), 1)
+        self.assertIsInstance(selected[0], InspectVerifiedLead)
+        self.assertEqual(selected[0].target, "Series._binop")
+        self.assertEqual(selected[0].scope_id, "island_regular")
+        self.assertEqual(blocked, ())
+
+    def test_verified_lead_execution_discloses_resolved_repository_node(self) -> None:
+        action = InspectVerifiedLead(
+            "verified", "why", "obs_wrapper", "Series._binop", "method:binop",
+            "pandas/core/series.py", 1466, 1516, "Series::_binop", "Inspect callee.", 1,
+        )
+        result = execute_action(
+            action,
+            observations=(),
+            relationship_tool=_FailTool(), qdrant_tool=_FailTool(), resolve_ranges_tool=_FailTool(),
+            exact_symbol_tool=_FailTool(),
+        )
+
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(result.observations[0].handle.path, "pandas/core/series.py")
+        self.assertEqual(result.observations[0].parent_observation_ids, ("obs_wrapper",))
+        self.assertEqual(result.observations[0].exact_anchor_matches, ("Series._binop",))
+
+    def test_test_maturation_uses_its_local_followup_after_original_obligation_is_covered(self) -> None:
+        header = DiscoveryObservation(
+            id="obs_watch_header",
+            handle=SourceHandle("tests/watchMode.ts", 1, 4),
+            observed_text="import project helpers",
+            provenance=(DiscoveryProvenance("qdrant_hybrid", "trigger", (), (1,), (0.5,)),),
+            artifact_role="test",
+        )
+        scenario = DiscoveryObservation(
+            id="obs_watch_scenario",
+            handle=SourceHandle("tests/watchMode.ts", 688, 716),
+            observed_text="buildNextInvalidatedProject();",
+            provenance=(DiscoveryProvenance("qdrant_hybrid", "subject", ("subject",), (3,), (0.2,)),),
+            artifact_role="test",
+        )
+        decision = QualificationDecision(
+            scenario.id, "promote", "navigation_only", "The scenario is relevant but its assertions are omitted.",
+            local_follow_up="What assertions follow buildNextInvalidatedProject in this project-reference scenario?",
+        )
+        catalogue = enumerate_actions(
+            user_request="Explain the watch rebuild behavior.",
+            obligations=(
+                EvidenceObligation("subject", "Identify the test scenario.", True),
+                EvidenceObligation("trigger", "Explain the watched-change trigger.", True),
+            ),
+            coverage=(
+                ObligationCoverage("subject", "covered", (), "", ""),
+                ObligationCoverage("trigger", "partial", (), "The trigger remains unresolved.", "implementation"),
+            ),
+            observations=(header, scenario),
+            decisions=(
+                QualificationDecision(header.id, "reject", "insufficient", "Only imports are visible."),
+                decision,
+            ),
+            # The test scenario is a qualified navigation lead but was not
+            # retained as a beam root.  The isolated test-maturation pool must
+            # still give that explicit local follow-up its one chance.
+            cards=(), active_root_ids=(),
+            edge_capabilities_tool=_Tool("structural_edge_capabilities", {"nodes": []}),
+            attempted_fingerprints=set(),
+        )
+
+        actions = [
+            item for item in catalogue.actions
+            if isinstance(item, SearchWithinFile) and item.is_test_maturation
+        ]
+        self.assertEqual(len(actions), 1)
+        action = actions[0]
+        self.assertEqual(action.source_observation_id, scenario.id)
+        self.assertEqual(action.obligation_id, "subject")
+        self.assertEqual(action.path, "tests/watchMode.ts")
+        self.assertIn("What assertions follow", action.dense_query)
+        self.assertEqual(action.file_trigger_hint_observation_ids, (header.id,))
+
+    def test_test_maturation_does_not_duplicate_an_unresolved_original_obligation(self) -> None:
+        scenario = DiscoveryObservation(
+            id="obs_watch_scenario",
+            handle=SourceHandle("tests/watchMode.ts", 688, 716),
+            observed_text="buildNextInvalidatedProject();",
+            provenance=(DiscoveryProvenance("qdrant_hybrid", "subject", ("subject",), (3,), (0.2,)),),
+            artifact_role="test",
+        )
+        catalogue = enumerate_actions(
+            user_request="Explain the watch rebuild behavior.",
+            obligations=(EvidenceObligation("subject", "Identify the test scenario.", True),),
+            coverage=(ObligationCoverage("subject", "partial", (), "Scenario assertions remain unresolved.", "test"),),
+            observations=(scenario,),
+            decisions=(QualificationDecision(
+                scenario.id, "promote", "navigation_only", "The scenario is relevant but its assertions are omitted.",
+                local_follow_up="What assertions follow buildNextInvalidatedProject in this project-reference scenario?",
+            ),),
+            cards=(), active_root_ids=(scenario.id,),
+            edge_capabilities_tool=_Tool("structural_edge_capabilities", {"nodes": []}),
+            attempted_fingerprints=set(),
+        )
+
+        self.assertFalse(any(
+            isinstance(item, SearchWithinFile) and item.is_test_maturation
+            for item in catalogue.actions
+        ))
+
     def test_rejected_recurrent_hit_remains_a_navigation_hypothesis(self) -> None:
         hit = replace(
             _observation("obs_watch", "tests/watch.ts", "function:watch", ("why",), role="test"),
@@ -803,6 +1498,9 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
 
         self.assertEqual(tool.requests[0].arguments["direction"], "outgoing")
         self.assertEqual(tool.requests[0].arguments["edge_kinds"], ["calls"])
+        self.assertEqual(tool.requests[0].arguments["target_symbols"], [])
+        self.assertEqual(tool.requests[0].arguments["target_terms"], [])
+        self.assertFalse(tool.requests[0].arguments["cross_file_only"])
         self.assertEqual(tool.requests[0].arguments["limit"], 3)
         self.assertEqual(result.observations[0].parent_observation_ids, ("obs_root",))
         self.assertEqual(result.observations[0].relationship_kinds, ("calls",))
@@ -924,6 +1622,67 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         )
 
         self.assertEqual(selected, (first, expansion))
+
+    def test_later_round_prioritizes_bounded_file_handoff_within_its_island(self) -> None:
+        within = SearchWithinFile("within", "owner", "root_a", "src/a.ts", "Find owner.", priority=1, scope_id="island")
+        handoff = ExpandRelationship(
+            "handoff", "owner", "root_b", "file:src/b.ts", "outgoing", ("calls",), "downstream",
+            scope_id="island", handoff_reason="The downstream helper is missing.", seed_kind="file",
+            target_symbol_anchors=("specificHelper",), cross_file_only=True,
+        )
+
+        selected = _select_actions(
+            (within, handoff),
+            ("root_a", "root_b"),
+            1,
+            scope_order=("island",),
+            prefer_relationship=True,
+        )
+
+        self.assertEqual(selected, (handoff,))
+
+    def test_endpoint_completion_outranks_another_file_handoff(self) -> None:
+        completion = SearchWithinFile(
+            "completion", "owner", "endpoint", "src/helpers.ts", "Find the implementation.",
+            scope_id="island", handoff_reason="The implementation is missing.", is_handoff_completion=True,
+        )
+        handoff = ExpandRelationship(
+            "handoff", "owner", "root", "file:src/watch.ts", "outgoing", ("calls",), "downstream",
+            scope_id="island", handoff_reason="The helper is missing.", seed_kind="file",
+            target_term_anchors=("watch",), cross_file_only=True,
+        )
+
+        selected = _select_actions(
+            (handoff, completion), ("root", "endpoint"), 1,
+            scope_order=("island",), prefer_relationship=True,
+        )
+
+        self.assertEqual(selected, (completion,))
+
+    def test_relationship_effect_distinguishes_owner_and_file_handoffs(self) -> None:
+        owner = ExpandRelationship("owner", "effect", "root", "function:root", "outgoing", ("calls",), "downstream")
+        file_handoff = ExpandRelationship(
+            "file", "effect", "root", "file:src/root.ts", "outgoing", ("calls",), "downstream",
+            seed_kind="file", target_symbol_anchors=("specificHelper",), cross_file_only=True,
+        )
+
+        self.assertNotEqual(_action_effect(owner), _action_effect(file_handoff))
+
+    def test_file_handoff_effect_deduplicates_sibling_observations_from_one_file(self) -> None:
+        first = ExpandRelationship(
+            "first", "effect", "obs_a", "file:src/watch.ts", "outgoing", ("calls",), "downstream",
+            seed_kind="file", target_symbol_anchors=("firstHelper",), target_term_anchors=("watch",),
+            cross_file_only=True,
+        )
+        second = replace(
+            first,
+            id="second",
+            root_observation_id="obs_b",
+            target_symbol_anchors=("secondHelper",),
+            target_term_anchors=("project",),
+        )
+
+        self.assertEqual(_action_effect(first), _action_effect(second))
 
     def test_relationship_effect_does_not_repeat_under_another_obligation(self) -> None:
         repeated = ExpandRelationship("repeat", "effect", "root", "function:root", "outgoing", ("calls",), "downstream")

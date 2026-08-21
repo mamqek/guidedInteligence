@@ -22,11 +22,14 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
             (root / "src" / "a.ts").write_text(
                 "export function target() { return 1; }\n"
                 "export function ModuleResolutionEngine() { return target(); }\n"
-                "export function caller() { return target(); }\n",
+                "export function caller() { return target(); }\n"
+                "export function verifyTscWatch() { return target(); }\n",
                 encoding="utf-8",
             )
             (root / "src" / "b.ts").write_text(
-                "import { caller } from './a';\nexport const value = caller();\n",
+                "import { caller, verifyTscWatch } from './a';\n"
+                "export const value = caller();\n"
+                "export const watched = verifyTscWatch();\n",
                 encoding="utf-8",
             )
             (root / "src" / "nested.ts").write_text(
@@ -39,13 +42,15 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (root / "src" / "builderState.ts").write_text(
-                "export function getFilesAffectedBy() { return []; }\n"
+                "export function affectedLeaf() { return []; }\n"
+                "export function otherLeaf() { return []; }\n"
+                "export function getFilesAffectedBy(flag = false) { return (flag ? otherLeaf : affectedLeaf)(); }\n"
                 "export function create() { return {}; }\n",
                 encoding="utf-8",
             )
             (root / "src" / "builder.ts").write_text(
                 "import * as BuilderState from './builderState';\n"
-                "export const affected = BuilderState.getFilesAffectedBy();\n"
+                "export function getNextAffectedFile() { return BuilderState.getFilesAffectedBy(); }\n"
                 "export const state = BuilderState.create();\n",
                 encoding="utf-8",
             )
@@ -104,11 +109,57 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
                 outline = tools["structural_file_outline"].run(
                     _request("structural_file_outline", path="src/a.ts", max_entries=20)
                 )
+                file_nodes = tools["structural_resolve_file_nodes"].run(
+                    _request("structural_resolve_file_nodes", paths=["src/a.ts", "src/b.ts"])
+                )
+                b_file_id = next(node["id"] for node in file_nodes.payload["nodes"] if node["path"] == "src/b.ts")
+                file_capabilities = tools["structural_edge_capabilities"].run(
+                    _request("structural_edge_capabilities", node_ids=[b_file_id])
+                )
+                file_calls = tools["structural_expand_relationships"].run(
+                    _request(
+                        "structural_expand_relationships",
+                        node_ids=[b_file_id],
+                        direction="outgoing",
+                        edge_kinds=["calls"],
+                        target_symbols=["caller"],
+                        cross_file_only=True,
+                        limit=3,
+                    )
+                )
+                ranked_file_calls = tools["structural_expand_relationships"].run(
+                    _request(
+                        "structural_expand_relationships",
+                        node_ids=[b_file_id],
+                        direction="outgoing",
+                        edge_kinds=["calls"],
+                        target_symbols=["notPresent"],
+                        target_terms=["watch mode"],
+                        cross_file_only=True,
+                        limit=1,
+                    )
+                )
                 closed = tools["structural_relationships_within_nodes"].run(
                     _request(
                         "structural_relationships_within_nodes",
                         node_ids=[target_id, caller_id],
                         edge_kinds=["calls"],
+                    )
+                )
+                next_affected = tools["structural_find_exact_symbol"].run(
+                    _request("structural_find_exact_symbol", query="getNextAffectedFile")
+                )
+                affected_leaf = tools["structural_find_exact_symbol"].run(
+                    _request("structural_find_exact_symbol", query="affectedLeaf")
+                )
+                connector_closed = tools["structural_relationships_within_nodes"].run(
+                    _request(
+                        "structural_relationships_within_nodes",
+                        node_ids=[
+                            next_affected.payload["nodes"][0]["id"],
+                            affected_leaf.payload["nodes"][0]["id"],
+                        ],
+                        connector_edge_kinds=["calls"],
                     )
                 )
                 capabilities = tools["structural_edge_capabilities"].run(
@@ -130,6 +181,15 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
             self.assertFalse((root / "codegraph.json").exists())
             self.assertEqual(exact.source_refs, ("src/a.ts",))
             self.assertEqual(exact.payload["match_count"], 1)
+            self.assertEqual(len(connector_closed.payload["connector_paths"]), 1)
+            self.assertEqual(
+                connector_closed.payload["connector_paths"][0]["connector"]["name"],
+                "getFilesAffectedBy",
+            )
+            self.assertEqual(
+                connector_closed.payload["connector_paths"][0]["edge_kinds"],
+                ["source_qualified_call", "source_ast_call"],
+            )
             localizations = [
                 edge["file_call_localization"]
                 for edge in expanded_nested.payload["edges"]
@@ -167,6 +227,12 @@ class CodeGraphToolsIntegrationTests(unittest.TestCase):
             )
             self.assertEqual(outline.status, "ok")
             self.assertIn("caller", {node["name"] for node in outline.payload["nodes"]})
+            self.assertTrue(all(node["kind"] == "file" for node in file_nodes.payload["nodes"]))
+            self.assertTrue(
+                any(item["kind"] == "calls" for item in file_capabilities.payload["nodes"][0]["outgoing"])
+            )
+            self.assertIn("caller", {node["name"] for node in file_calls.payload["nodes"]})
+            self.assertEqual([node["name"] for node in ranked_file_calls.payload["nodes"]], ["verifyTscWatch"])
             self.assertTrue(all(edge["kind"] == "calls" for edge in closed.payload["edges"]))
             self.assertTrue(
                 any(item["kind"] == "calls" for item in capabilities.payload["nodes"][0]["incoming"])

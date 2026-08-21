@@ -373,6 +373,33 @@ class CodeGraphFileOutlineTool:
         )
 
 
+class CodeGraphResolveFileNodesTool:
+    name = "structural_resolve_file_nodes"
+
+    def __init__(self, bridge: CodeGraphBridge) -> None:
+        self.bridge = bridge
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        paths = request.arguments.get("paths")
+        if not isinstance(paths, list) or not paths:
+            return _error(self.name, "empty_paths")
+        try:
+            result = self.bridge.request(
+                "resolve_file_nodes",
+                {"paths": [str(path).strip().replace("\\", "/") for path in paths[:16] if str(path).strip()]},
+            )
+        except Exception as exc:
+            return _error(self.name, f"structural_resolve_file_nodes_failed:{exc}")
+        nodes = result.get("nodes") if isinstance(result.get("nodes"), list) else []
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok",
+            payload=dict(result),
+            source_refs=tuple(str(item.get("path") or "") for item in nodes if isinstance(item, Mapping)),
+            metadata={"result_count": str(len(nodes)), "match": "file_node"},
+        )
+
+
 class CodeGraphRelationshipsWithinNodesTool:
     name = "structural_relationships_within_nodes"
 
@@ -387,16 +414,28 @@ class CodeGraphRelationshipsWithinNodesTool:
         arguments: dict[str, Any] = {"node_ids": [str(value) for value in node_ids[:80]]}
         if isinstance(edge_kinds, list):
             arguments["edge_kinds"] = [str(value) for value in edge_kinds if str(value)]
+        connector_edge_kinds = request.arguments.get("connector_edge_kinds")
+        if isinstance(connector_edge_kinds, list):
+            arguments["connector_edge_kinds"] = [
+                str(value) for value in connector_edge_kinds if str(value)
+            ]
         try:
             result = self.bridge.request("relationships_within_nodes", arguments)
         except Exception as exc:
             return _error(self.name, f"structural_closed_relationships_failed:{exc}")
         edges = result.get("edges") if isinstance(result.get("edges"), list) else []
+        connector_paths = (
+            result.get("connector_paths") if isinstance(result.get("connector_paths"), list) else []
+        )
         return ToolObservation(
             tool_name=self.name,
             status="ok",
             payload=dict(result),
-            metadata={"result_count": str(len(edges)), "relationship": "closed_set"},
+            metadata={
+                "result_count": str(len(edges)),
+                "connector_path_count": str(len(connector_paths)),
+                "relationship": "closed_set",
+            },
         )
 
 
@@ -446,6 +485,13 @@ class CodeGraphExpandRelationshipsTool:
                     "node_ids": [str(value) for value in node_ids[:16]],
                     "direction": direction,
                     "edge_kinds": [str(value) for value in edge_kinds if str(value)],
+                    "target_symbols": [
+                        str(value) for value in request.arguments.get("target_symbols", ()) if str(value)
+                    ][:12],
+                    "target_terms": [
+                        str(value) for value in request.arguments.get("target_terms", ()) if str(value)
+                    ][:32],
+                    "cross_file_only": bool(request.arguments.get("cross_file_only")),
                     "limit": int(request.arguments.get("limit") or 3),
                 },
             )
@@ -495,6 +541,7 @@ class CodeGraphQualifiedReferencesTool:
         )
 
 
+
 def codegraph_tools(config: WorkspaceRetrievalConfig) -> tuple[dict[str, Any], CodeGraphBridge]:
     workspace_root = str(Path(config.workspace_root).resolve())
     key = (workspace_root.casefold(), int(config.structural_graph_timeout_seconds))
@@ -510,6 +557,7 @@ def codegraph_tools(config: WorkspaceRetrievalConfig) -> tuple[dict[str, Any], C
             "structural_resolve_locations": CodeGraphResolveLocationsTool(bridge),
             "structural_resolve_ranges": CodeGraphResolveRangesTool(bridge),
             "structural_file_outline": CodeGraphFileOutlineTool(bridge),
+            "structural_resolve_file_nodes": CodeGraphResolveFileNodesTool(bridge),
             "structural_relationships_within_nodes": CodeGraphRelationshipsWithinNodesTool(bridge),
             "structural_edge_capabilities": CodeGraphEdgeCapabilitiesTool(bridge),
             "structural_expand_relationships": CodeGraphExpandRelationshipsTool(bridge),

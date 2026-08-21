@@ -51,6 +51,9 @@ MAX_MECHANISM_PATH_FRONTIER_ROUNDS = 2
 MAX_EXPLANATION_INPUT_CHARS: int | None = 50_000
 MAX_CONSOLIDATION_SNIPPET_CHARS = 2400
 EXPLANATION_PAYLOAD_SERIALIZATION_MARGIN = 512
+# Flow, connection, and overlap payloads are added after candidate-flow
+# selection. Reserve their serialized budget before choosing candidates.
+FINAL_CONSOLIDATION_OVERHEAD_RESERVE_CHARS = 5_000
 MAX_STANDALONE_ANCHOR_PATHS = 4
 PRODUCTIVE_RECOVERY_RELATIONSHIPS = {
     "calls",
@@ -76,6 +79,7 @@ DIRECT_OBLIGATION_PROVENANCE = {
     "focused_semantic_bridge",
 }
 CONSOLIDATION_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "obligation_evidence_consolidation.md"
+FILE_TRACE_SELECTION_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "unresolved_file_evidence_selection.md"
 SEMANTIC_BRIDGE_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "focused_semantic_bridge.md"
 INTENT_STAGE_PURPOSES = {
     stage.id: stage.purpose
@@ -849,6 +853,8 @@ def run_obligation_retrieval(
             "llm_calls": 0,
             "accepted_candidate_ids": [],
             "accepted_ids_by_obligation": {},
+            "accepted_file_trace_ids": [],
+            "file_trace_selection_records": [],
             "rejected_candidate_ids": [],
             "invalid_candidate_ids": [],
             "obligation_statuses": {
@@ -2925,6 +2931,7 @@ def _select_mechanism_flows(
                     "covered_concepts": list(candidate.covered_concepts),
                     "source_paths": list(candidate.source_paths),
                     "relationship_types": list(candidate.relationship_types),
+                    "facts": candidate.facts.to_dict(),
                     "snippet": candidate.text[:MAX_CONSOLIDATION_SNIPPET_CHARS],
                 },
                 sort_keys=True,
@@ -3205,6 +3212,7 @@ def _consolidate_obligation_evidence(
     expanded_edges: Sequence[Mapping[str, Any]] = (),
     input_char_budget: int | None = MAX_EXPLANATION_INPUT_CHARS,
     candidate_islands: Mapping[str, str] | None = None,
+    file_traces: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     candidate_islands = candidate_islands or {}
     (
@@ -3217,7 +3225,11 @@ def _consolidate_obligation_evidence(
     ) = _select_mechanism_flows(
         states,
         expanded_edges=expanded_edges,
-        input_char_budget=input_char_budget,
+        input_char_budget=(
+            max(0, input_char_budget - FINAL_CONSOLIDATION_OVERHEAD_RESERVE_CHARS)
+            if input_char_budget is not None
+            else None
+        ),
     )
     candidate_ids_by_obligation = {
         state.obligation.id: [
@@ -3228,6 +3240,7 @@ def _consolidate_obligation_evidence(
         ]
         for state in states
     }
+    overlap_relations = _candidate_overlap_relations(candidate_by_id)
     payload_obligations = [
         {
             "obligation_id": state.obligation.id,
@@ -3281,6 +3294,13 @@ def _consolidate_obligation_evidence(
         },
     )
     ctx.trace.record("mechanism_flow_decision_ledger", mechanism_flow_ledger)
+    ctx.trace.record(
+        "candidate_overlap_groups_created",
+        {
+            "relationship_count": len(overlap_relations),
+            "relationships": overlap_relations,
+        },
+    )
 
     if not candidate_by_id:
         return {
@@ -3314,11 +3334,31 @@ def _consolidate_obligation_evidence(
 
     obligation_ids = [state.obligation.id for state in states]
     candidate_ids = list(candidate_by_id)
+    file_trace_payloads: list[dict[str, Any]] = []
+    for trace in file_traces:
+        if not str(trace.get("path") or "").strip():
+            continue
+        payload = _file_trace_payload(trace)
+        source_observation_id = str(trace.get("source_observation_id") or "")
+        destination_path = str(trace.get("path") or "").replace("\\", "/").casefold()
+        payload["source_candidate_ids"] = [
+            candidate_id
+            for candidate_id, candidate in candidate_by_id.items()
+            if _candidate_observation_id(candidate) == source_observation_id
+        ]
+        payload["destination_candidate_ids"] = [
+            candidate_id
+            for candidate_id, candidate in candidate_by_id.items()
+            if candidate.path.replace("\\", "/").casefold() == destination_path
+        ]
+        file_trace_payloads.append(payload)
     consolidation_payload = {
         "obligations": payload_obligations,
         "candidates": payload_candidates,
         "mechanism_flows": mechanism_flows,
         "candidate_connections": candidate_connections,
+        "candidate_overlap_relations": overlap_relations,
+        "file_traces": [],
     }
     ctx.trace.record(
         "mechanism_flow_request_budget",
@@ -3328,6 +3368,8 @@ def _consolidate_obligation_evidence(
             "candidate_payload_chars": len(json.dumps(payload_candidates, sort_keys=True)),
             "flow_payload_chars": len(json.dumps(mechanism_flows, sort_keys=True)),
             "connection_payload_chars": len(json.dumps(candidate_connections, sort_keys=True)),
+            "overlap_payload_chars": len(json.dumps(overlap_relations, sort_keys=True)),
+            "file_trace_payload_chars": len(json.dumps(consolidation_payload["file_traces"], sort_keys=True)),
             "candidate_count": len(payload_candidates),
             "flow_count": len(mechanism_flows),
             "connection_count": len(candidate_connections),
@@ -3343,7 +3385,11 @@ def _consolidate_obligation_evidence(
                 "content": json.dumps(consolidation_payload, sort_keys=True),
             },
         ),
-        response_format=_consolidation_response_format(obligation_ids, candidate_ids),
+        response_format=_consolidation_response_format(
+            obligation_ids,
+            candidate_ids,
+            [str(item["trace_id"]) for item in consolidation_payload["file_traces"]],
+        ),
         log_event=log_event,
     )
 
@@ -3393,10 +3439,134 @@ def _consolidate_obligation_evidence(
                     "mechanism_role": str(item.get("mechanism_role") or ""),
                     "obligation_ids": mapped_obligations,
                     "reason": str(item.get("reason") or ""),
+                    "exclusive_contribution": str(item.get("exclusive_contribution") or ""),
                 }
             )
         for obligation_id in mapped_obligations:
             accepted_ids_by_obligation.setdefault(obligation_id, []).append(candidate_id)
+
+    overlap_selection_records = _overlap_selection_records(overlap_relations, selection_records)
+    ctx.trace.record(
+        "overlap_selection_evaluated",
+        {
+            "selected_candidate_count": len(accepted_ids),
+            "records": overlap_selection_records,
+        },
+    )
+
+    file_trace_by_id = {str(item["trace_id"]): item for item in file_trace_payloads}
+    selected_paths = {
+        candidate_by_id[candidate_id].path.replace("\\", "/").casefold()
+        for candidate_id in accepted_ids
+    }
+    eligibility_by_trace_id: dict[str, dict[str, Any]] = {}
+    eligible_file_traces: list[dict[str, Any]] = []
+    for trace_id, trace in file_trace_by_id.items():
+        source_candidate_ids = [str(value) for value in trace.get("source_candidate_ids", ())]
+        source_accepted = any(candidate_id in accepted_ids for candidate_id in source_candidate_ids)
+        destination_selected = str(trace.get("path") or "").replace("\\", "/").casefold() in selected_paths
+        endpoint_qualification = str(trace.get("endpoint_qualification") or "")
+        endpoint_rejected = endpoint_qualification.startswith("reject/")
+        obligation_id = str(trace.get("obligation_id") or "")
+        assessment_status = str(assessment_by_obligation.get(obligation_id, {}).get("status") or "unresolved")
+        obligation_unresolved = assessment_status in {"partial", "unresolved"}
+        eligible = source_accepted and not destination_selected and not endpoint_rejected and obligation_unresolved
+        eligibility_by_trace_id[trace_id] = {
+            "trace_id": trace_id,
+            "path": str(trace.get("path") or ""),
+            "source_accepted": source_accepted,
+            "destination_selected_as_snippet": destination_selected,
+            "endpoint_qualification": endpoint_qualification,
+            "obligation_status": assessment_status,
+            "eligible": eligible,
+        }
+        if eligible:
+            eligible_file_traces.append(trace)
+
+    file_trace_llm_decisions: list[dict[str, Any]] = []
+    if eligible_file_traces:
+        def log_file_trace_event(event_type: str, payload: Mapping[str, Any]) -> None:
+            if event_type == "llm_response_received":
+                raw = payload.get("raw_response", {})
+                raw_usage = raw.get("usage", {}) if isinstance(raw, Mapping) else {}
+                if isinstance(raw_usage, Mapping):
+                    for key in usage:
+                        usage[key] += int(raw_usage.get(key, 0) or 0)
+            ctx.trace.record(event_type, {"stage": "unresolved_file_evidence_selection", **dict(payload)})
+
+        file_trace_response = complete_json(
+            ctx.config.llm_config,
+            (
+                {"role": "system", "content": FILE_TRACE_SELECTION_PROMPT_PATH.read_text(encoding="utf-8")},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "selected_snippets": selection_records,
+                            "obligation_assessments": assessments,
+                            "eligible_file_traces": eligible_file_traces,
+                        },
+                        sort_keys=True,
+                    ),
+                },
+            ),
+            response_format=_file_trace_selection_response_format(
+                [str(item["trace_id"]) for item in eligible_file_traces]
+            ),
+            log_event=log_file_trace_event,
+        )
+        file_trace_llm_decisions = [
+            dict(item)
+            for item in file_trace_response.get("decisions", ())
+            if isinstance(item, Mapping)
+        ]
+
+    llm_decision_by_trace_id = {
+        str(item.get("trace_id") or ""): item for item in file_trace_llm_decisions
+    }
+    accepted_file_trace_ids: list[str] = []
+    file_trace_selection_records: list[dict[str, Any]] = []
+    file_trace_decision_records: list[dict[str, Any]] = []
+    for trace_id, trace in file_trace_by_id.items():
+        eligibility = eligibility_by_trace_id[trace_id]
+        llm_decision = llm_decision_by_trace_id.get(trace_id, {})
+        llm_selected = str(llm_decision.get("disposition") or "") == "select"
+        selected_trace = bool(eligibility["eligible"] and llm_selected and len(accepted_file_trace_ids) < 2)
+        reason = str(llm_decision.get("reason") or "")
+        if selected_trace:
+            accepted_file_trace_ids.append(trace_id)
+            file_trace_selection_records.append({"trace_id": trace_id, "reason": reason})
+        file_trace_decision_records.append(
+            {
+                **eligibility,
+                "llm_selected": llm_selected,
+                "llm_reason": reason,
+                "selected": selected_trace,
+                "decision": (
+                    "selected_unresolved_file_evidence"
+                    if selected_trace
+                    else "source_island_not_selected"
+                    if not eligibility["source_accepted"]
+                    else "destination_already_has_selected_snippet"
+                    if eligibility["destination_selected_as_snippet"]
+                    else "endpoint_rejected"
+                    if str(eligibility["endpoint_qualification"]).startswith("reject/")
+                    else "obligation_not_unresolved"
+                    if str(eligibility["obligation_status"]) not in {"partial", "unresolved"}
+                    else "llm_rejected_file_trace"
+                    if not llm_selected
+                    else "file_trace_selection_cap"
+                ),
+            }
+        )
+    ctx.trace.record(
+        "file_trace_selection_evaluated",
+        {
+            "input_trace_count": len(file_trace_by_id),
+            "selected_trace_count": len(accepted_file_trace_ids),
+            "records": file_trace_decision_records,
+        },
+    )
 
     accepted_id_set = set(accepted_ids)
     obligation_statuses: dict[str, str] = {}
@@ -3495,13 +3665,17 @@ def _consolidate_obligation_evidence(
     rejected_ids = [candidate_id for candidate_id in candidate_ids if candidate_id not in accepted_id_set]
     result = {
         "strategy": "global_causal_mechanism_selection_v2",
-        "llm_calls": 1,
+        "llm_calls": 1 + (1 if eligible_file_traces else 0),
         "accepted_candidate_ids": accepted_ids,
         "accepted_ids_by_obligation": accepted_ids_by_obligation,
+        "accepted_file_trace_ids": accepted_file_trace_ids,
+        "file_trace_selection_records": file_trace_selection_records,
+        "file_trace_decision_records": file_trace_decision_records,
         "rejected_candidate_ids": rejected_ids,
         "invalid_candidate_ids": list(ordered_unique(tuple(invalid_ids))),
         "selected_mechanisms": selected_mechanisms,
         "selection_records": selection_records,
+        "overlap_selection_records": overlap_selection_records,
         "obligation_statuses": obligation_statuses,
         "unresolved_reasons": unresolved_reasons,
         "concepts": concepts,
@@ -3515,6 +3689,7 @@ def _consolidate_obligation_evidence(
             "strategy": "global_causal_mechanism_selection_v2",
             "selected_mechanisms": selected_mechanisms,
             "selected_evidence": selection_records,
+            "selected_file_traces": file_trace_selection_records,
             "globally_rejected_candidate_ids": rejected_ids,
             "obligations": [
                 {
@@ -3712,9 +3887,134 @@ def _candidate_connections(
     return connections
 
 
+def _file_trace_id(trace: Mapping[str, Any]) -> str:
+    return "file_trace:" + str(trace.get("source_island_id") or "unknown") + ":" + str(trace.get("path") or "")
+
+
+def _candidate_overlap_relations(
+    candidates: Mapping[str, GroundedCandidate],
+) -> list[dict[str, Any]]:
+    relations: list[dict[str, Any]] = []
+    items = list(candidates.items())
+    for left_index, (left_id, left) in enumerate(items):
+        left_path = left.path.replace("\\", "/").casefold()
+        for right_id, right in items[left_index + 1 :]:
+            if left_path != right.path.replace("\\", "/").casefold():
+                continue
+            overlap_start = max(left.line_start, right.line_start)
+            overlap_end = min(left.line_end, right.line_end)
+            if overlap_start > overlap_end:
+                continue
+            left_lines = max(1, left.line_end - left.line_start + 1)
+            right_lines = max(1, right.line_end - right.line_start + 1)
+            overlap_lines = overlap_end - overlap_start + 1
+            overlap_ratio = overlap_lines / min(left_lines, right_lines)
+            left_contains_right = left.line_start <= right.line_start and left.line_end >= right.line_end
+            right_contains_left = right.line_start <= left.line_start and right.line_end >= left.line_end
+            if left_contains_right and right_contains_left:
+                relationship = "equivalent_range"
+                outer_id = left_id
+                inner_id = right_id
+            elif left_contains_right:
+                relationship = "contains"
+                outer_id = left_id
+                inner_id = right_id
+            elif right_contains_left:
+                relationship = "contains"
+                outer_id = right_id
+                inner_id = left_id
+            elif overlap_ratio >= 0.5:
+                relationship = "substantial_overlap"
+                outer_id = ""
+                inner_id = ""
+            else:
+                continue
+            relations.append(
+                {
+                    "left_candidate_id": left_id,
+                    "right_candidate_id": right_id,
+                    "relationship": relationship,
+                    "outer_candidate_id": outer_id,
+                    "inner_candidate_id": inner_id,
+                    "overlap_lines": overlap_lines,
+                    "overlap_ratio_of_smaller": round(overlap_ratio, 4),
+                }
+            )
+    return relations
+
+
+def _overlap_selection_records(
+    relations: Sequence[Mapping[str, Any]],
+    selection_records: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    selected = {str(item.get("candidate_id") or ""): item for item in selection_records}
+    records: list[dict[str, Any]] = []
+    for relation in relations:
+        left_id = str(relation.get("left_candidate_id") or "")
+        right_id = str(relation.get("right_candidate_id") or "")
+        left_selected = left_id in selected
+        right_selected = right_id in selected
+        left_contribution = str(selected.get(left_id, {}).get("exclusive_contribution") or "").strip()
+        right_contribution = str(selected.get(right_id, {}).get("exclusive_contribution") or "").strip()
+        both_selected = left_selected and right_selected
+        contributions_distinct = bool(
+            both_selected
+            and left_contribution
+            and right_contribution
+            and left_contribution.casefold() != right_contribution.casefold()
+        )
+        if both_selected and not contributions_distinct:
+            raise RuntimeError(
+                "Final evidence selection retained overlapping candidates without distinct exclusive contributions: "
+                f"{left_id}, {right_id}"
+            )
+        records.append(
+            {
+                **dict(relation),
+                "left_selected": left_selected,
+                "right_selected": right_selected,
+                "both_selected": both_selected,
+                "left_exclusive_contribution": left_contribution,
+                "right_exclusive_contribution": right_contribution,
+                "selection_valid": not both_selected or contributions_distinct,
+            }
+        )
+    return records
+
+
+def _file_trace_payload(trace: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "trace_id": _file_trace_id(trace),
+        "path": str(trace.get("path") or ""),
+        "source_path": str(trace.get("source_path") or ""),
+        "relationship_direction": str(trace.get("relationship_direction") or ""),
+        "relationship_kinds": list(trace.get("relationship_kinds") or ()),
+        "obligation_id": str(trace.get("obligation_id") or ""),
+        "endpoint_symbol": str(trace.get("endpoint_symbol") or ""),
+        "endpoint_qualification": str(trace.get("endpoint_qualification") or ""),
+        "connection_summary": dict(trace.get("connection_summary") or {}),
+        "reason": str(trace.get("reason") or ""),
+        "allowed_claim": "This file is a structurally connected participant; it does not prove behavior inside the file.",
+    }
+
+
+def _candidate_observation_id(candidate: GroundedCandidate) -> str:
+    from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import SourceHandle, observation_id
+
+    return observation_id(
+        SourceHandle(
+            path=candidate.path,
+            line_start=candidate.line_start,
+            line_end=candidate.line_end,
+            node_id=candidate.node_id,
+        )
+    )
+
+
 def _consolidation_response_format(
     obligation_ids: Sequence[str],
     _candidate_ids: Sequence[str],
+    file_trace_ids: Sequence[str] = (),
 ) -> dict[str, Any]:
     return {
         "type": "json_schema",
@@ -3772,8 +4072,28 @@ def _consolidation_response_format(
                                     "items": {"type": "string", "enum": list(obligation_ids)},
                                 },
                                 "reason": {"type": "string"},
+                                "exclusive_contribution": {"type": "string", "minLength": 1},
                             },
-                            "required": ["candidate_id", "mechanism_role", "obligation_ids", "reason"],
+                            "required": [
+                                "candidate_id",
+                                "mechanism_role",
+                                "obligation_ids",
+                                "reason",
+                                "exclusive_contribution",
+                            ],
+                        },
+                    },
+                    "selected_file_traces": {
+                        "type": "array",
+                        "maxItems": 2,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "trace_id": {"type": "string", "enum": list(file_trace_ids)},
+                                "reason": {"type": "string"},
+                            },
+                            "required": ["trace_id", "reason"],
                         },
                     },
                     "obligation_assessments": {
@@ -3835,7 +4155,39 @@ def _consolidation_response_format(
                         },
                     },
                 },
-                "required": ["mechanisms", "selected_evidence", "obligation_assessments", "concepts"],
+                "required": ["mechanisms", "selected_evidence", "selected_file_traces", "obligation_assessments", "concepts"],
+            },
+        },
+    }
+
+
+def _file_trace_selection_response_format(trace_ids: Sequence[str]) -> dict[str, Any]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "unresolved_file_evidence_selection",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "decisions": {
+                        "type": "array",
+                        "minItems": len(trace_ids),
+                        "maxItems": len(trace_ids),
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "trace_id": {"type": "string", "enum": list(trace_ids)},
+                                "disposition": {"type": "string", "enum": ["select", "reject"]},
+                                "reason": {"type": "string", "minLength": 1},
+                            },
+                            "required": ["trace_id", "disposition", "reason"],
+                        },
+                    }
+                },
+                "required": ["decisions"],
             },
         },
     }
@@ -3864,7 +4216,16 @@ def _ground_request_anchors(
         confirmations.append(confirmation)
         path_confirmations.append(confirmation)
 
-    symbols = ordered_unique((*anchors.get("primary_symbols", ()), *additional_symbols))[:16]
+    # A sparse anchor must be grounded in an actual repository symbol.  Resolve
+    # supporting symbols too: a method/property mentioned inside a user example
+    # is often supporting rather than primary, but still needs the same check.
+    symbols = ordered_unique(
+        (
+            *anchors.get("primary_symbols", ()),
+            *anchors.get("supporting_symbols", ()),
+            *additional_symbols,
+        )
+    )[:20]
     supporting_symbols = ordered_unique(tuple(anchors.get("supporting_symbols", ())))[:16]
     structurally_confirmed: set[str] = set()
     path_qualified_values: set[str] = set()
@@ -3918,6 +4279,7 @@ def _ground_request_anchors(
                         {"path": str(node.get("path") or ""), "line": int(node.get("line_start") or 0), "node_id": str(node.get("id") or "")}
                         for node in nodes[:4]
                     ),
+                    "exact_symbol",
                 )
             )
         if match_count == 1 and len(nodes) == 1:
@@ -3974,7 +4336,11 @@ def _ground_request_anchors(
             )
         )
 
-    unresolved_symbols.extend(symbol for symbol in supporting_symbols if symbol not in unresolved_symbols)
+    unresolved_symbols.extend(
+        symbol
+        for symbol in supporting_symbols
+        if symbol not in structurally_confirmed and symbol not in unresolved_symbols
+    )
     return confirmations, anchor_nodes, unresolved_symbols, ambiguous_symbols, tool_calls
 
 

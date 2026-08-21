@@ -18,6 +18,7 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _best_bridge_nodes_in_files,
     _best_overlapping_nodes,
     _candidate_connections,
+    _candidate_observation_id,
     _candidate_from_node,
     _candidate_provenance_tier,
     _candidate_review_id,
@@ -25,6 +26,7 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _concept_coverage,
     _consolidation_response_format,
     _consolidate_obligation_evidence,
+    _candidate_overlap_relations,
     _connected_candidate_shortlists,
     _confirmed_obligation_paths,
     _edge_index,
@@ -41,6 +43,7 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _dominant_error_anchor_result,
     _graph_preferred_paths,
     _global_candidate_id,
+    _overlap_selection_records,
     _ground_semantic_root_neighbors,
     _has_usable_exact_graph_ranges,
     _is_visible_direct_target,
@@ -741,6 +744,192 @@ class ObligationRetrievalTests(unittest.TestCase):
             "enum",
             properties["mechanisms"]["items"]["properties"]["candidate_ids"]["items"],
         )
+        self.assertIn(
+            "exclusive_contribution",
+            properties["selected_evidence"]["items"]["required"],
+        )
+
+    def test_candidate_overlap_relations_expose_parent_child_containment(self) -> None:
+        parent = GroundedCandidate("src/watch.ts", 10, 100, "parent", 1.0, "test", node_id="function:parent")
+        child = GroundedCandidate("src/watch.ts", 40, 60, "child", 1.0, "test", node_id="function:child")
+        separate = GroundedCandidate("src/watch.ts", 120, 140, "separate", 1.0, "test", node_id="function:separate")
+
+        relations = _candidate_overlap_relations({"parent": parent, "child": child, "separate": separate})
+
+        self.assertEqual(len(relations), 1)
+        self.assertEqual(relations[0]["relationship"], "contains")
+        self.assertEqual(relations[0]["outer_candidate_id"], "parent")
+        self.assertEqual(relations[0]["inner_candidate_id"], "child")
+        self.assertEqual(relations[0]["overlap_ratio_of_smaller"], 1.0)
+
+    def test_overlapping_selection_requires_distinct_exclusive_contributions(self) -> None:
+        relation = {
+            "left_candidate_id": "parent",
+            "right_candidate_id": "child",
+            "relationship": "contains",
+        }
+        valid = _overlap_selection_records(
+            (relation,),
+            (
+                {"candidate_id": "parent", "exclusive_contribution": "Sets up the project graph."},
+                {"candidate_id": "child", "exclusive_contribution": "Checks diagnostics after the edit."},
+            ),
+        )
+        self.assertTrue(valid[0]["selection_valid"])
+        with self.assertRaises(RuntimeError):
+            _overlap_selection_records(
+                (relation,),
+                (
+                    {"candidate_id": "parent", "exclusive_contribution": ""},
+                    {"candidate_id": "child", "exclusive_contribution": "Checks diagnostics."},
+                ),
+            )
+
+    def test_consolidation_selects_independent_file_trace_after_source_snippet(self) -> None:
+        source = replace(
+            _candidate_with_text(
+                "function:watchScenario",
+                "src/testRunner/unittests/tsbuild/watchMode.ts",
+                "function watchScenario() { verifyTscWatch(input); }",
+            ),
+            origin="qualified_direct_evidence",
+            provenance_origins=("qualified_direct_evidence",),
+            obligation_ids=("mechanism",),
+        )
+        source_id = _global_candidate_id(source)
+        source_observation_id = _candidate_observation_id(source)
+        state = ObligationProgress(
+            EvidenceObligation("mechanism", "Trace the watch-mode handoff.", True),
+            candidates=[source],
+        )
+        trace = {
+            "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "source_path": source.path,
+            "source_observation_id": source_observation_id,
+            "endpoint_observation_id": "obs_endpoint",
+            "endpoint_symbol": "verifyTscWatch",
+            "source_island_id": "island_watch",
+            "action_id": "action_watch_helpers",
+            "obligation_id": "mechanism",
+            "relationship_direction": "outgoing",
+            "relationship_kinds": ("calls",),
+            "endpoint_qualification": "promote/navigation_only",
+            "connection_summary": {"direct_call_site_count": 5},
+            "reason": "The selected watch scenario reaches the helper file; the exact owner remains unresolved.",
+        }
+        consolidation_response = {
+            "mechanisms": [
+                {
+                    "id": "watch_flow",
+                    "status": "partial",
+                    "candidate_ids": [source_id],
+                    "description": "The selected scenario enters the watch helper flow.",
+                }
+            ],
+            "selected_evidence": [
+                {
+                    "candidate_id": source_id,
+                    "mechanism_role": "entry_or_trigger",
+                    "obligation_ids": ["mechanism"],
+                    "reason": "Visible watch entry point.",
+                    "exclusive_contribution": "Establishes the selected source side of the handoff.",
+                }
+            ],
+            "selected_file_traces": [],
+            "obligation_assessments": [
+                {
+                    "obligation_id": "mechanism",
+                    "status": "partial",
+                    "supporting_candidate_ids": [source_id],
+                    "reason": "The destination owner remains unresolved.",
+                    "missing_handoff": "Exact helper owner.",
+                }
+            ],
+            "concepts": [],
+        }
+        file_response = {
+            "decisions": [
+                {
+                    "trace_id": "file_trace:island_watch:src/testRunner/unittests/tscWatch/helpers.ts",
+                    "disposition": "select",
+                    "reason": "Retain the structurally grounded unresolved helper file.",
+                }
+            ]
+        }
+        ctx = SimpleNamespace(
+            config=SimpleNamespace(llm_config=SimpleNamespace()),
+            trace=SimpleNamespace(record=lambda *args, **kwargs: None),
+        )
+
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval.complete_json",
+            side_effect=(consolidation_response, file_response),
+        ) as complete:
+            result = _consolidate_obligation_evidence(
+                ctx,
+                (state,),
+                candidate_islands={source_id: "island_watch"},
+                file_traces=(trace,),
+            )
+
+        self.assertEqual(complete.call_count, 2)
+        self.assertEqual(
+            result["accepted_file_trace_ids"],
+            ["file_trace:island_watch:src/testRunner/unittests/tscWatch/helpers.ts"],
+        )
+        self.assertEqual(result["file_trace_decision_records"][0]["decision"], "selected_unresolved_file_evidence")
+
+    def test_file_trace_requires_the_exact_handoff_source_not_another_island_candidate(self) -> None:
+        source = replace(
+            _candidate_with_text(
+                "function:watchScenario",
+                "src/testRunner/unittests/tsbuild/watchMode.ts",
+                "function watchScenario() { verifyTscWatch(input); }",
+            ),
+            origin="qualified_direct_evidence",
+            provenance_origins=("qualified_direct_evidence",),
+            obligation_ids=("mechanism",),
+        )
+        alternate = replace(
+            _candidate_with_text(
+                "function:otherWatchScenario",
+                "src/testRunner/unittests/tsbuild/watchMode.ts",
+                "function otherWatchScenario() { verifyTscWatch(other); }",
+            ),
+            origin="qualified_direct_evidence",
+            provenance_origins=("qualified_direct_evidence",),
+            obligation_ids=("mechanism",),
+        )
+        source_id = _global_candidate_id(source)
+        alternate_id = _global_candidate_id(alternate)
+        state = ObligationProgress(EvidenceObligation("mechanism", "Trace the watch-mode handoff.", True), candidates=[source, alternate])
+        trace = {
+            "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "source_path": source.path,
+            "source_observation_id": _candidate_observation_id(source),
+            "endpoint_observation_id": "obs_endpoint",
+            "endpoint_symbol": "verifyTscWatch",
+            "source_island_id": "island_watch",
+            "action_id": "action_watch_helpers",
+            "obligation_id": "mechanism",
+            "relationship_direction": "outgoing",
+            "relationship_kinds": ("calls",),
+            "endpoint_qualification": "promote/navigation_only",
+            "reason": "The source reaches the helper file.",
+        }
+        response = {
+            "mechanisms": [{"id": "watch_flow", "status": "partial", "candidate_ids": [alternate_id], "description": "Another island candidate."}],
+            "selected_evidence": [{"candidate_id": alternate_id, "mechanism_role": "entry", "obligation_ids": ["mechanism"], "reason": "Different source.", "exclusive_contribution": "Different entry."}],
+            "selected_file_traces": [],
+            "obligation_assessments": [{"obligation_id": "mechanism", "status": "partial", "supporting_candidate_ids": [alternate_id], "reason": "Still unresolved.", "missing_handoff": "Helper."}],
+            "concepts": [],
+        }
+        ctx = SimpleNamespace(config=SimpleNamespace(llm_config=SimpleNamespace()), trace=SimpleNamespace(record=lambda *args, **kwargs: None))
+        with patch("services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval.complete_json", return_value=response) as complete:
+            result = _consolidate_obligation_evidence(ctx, (state,), candidate_islands={source_id: "island_watch", alternate_id: "island_watch"}, file_traces=(trace,))
+        self.assertEqual(complete.call_count, 1)
+        self.assertFalse(result["file_trace_decision_records"][0]["source_accepted"])
+        self.assertEqual(result["file_trace_decision_records"][0]["decision"], "source_island_not_selected")
 
     def test_prompt_relevant_callee_localization_continues_named_flow(self) -> None:
         with TemporaryDirectory() as root:

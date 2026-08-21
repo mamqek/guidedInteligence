@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Any
 
 from services.retrieval.workspace.bm25 import (
-    BM25_INDEX_SCHEMA_VERSION,
     DEFAULT_EXCLUDED_PATHS,
     build_index_from_repo,
+    bm25_index_schema_version,
     indexable_content_signature,
     load_index,
     save_index,
@@ -34,8 +34,10 @@ def structural_tools(ctx: WorkspaceRetrievalContext) -> dict[str, Any]:
 
 def _index_scope_signature(ctx: WorkspaceRetrievalContext) -> dict[str, Any]:
     effective_exclude_paths = DEFAULT_EXCLUDED_PATHS if ctx.config.index_exclude_paths is None else ctx.config.index_exclude_paths
+    lexical_ranking_profile = getattr(ctx.config, "lexical_ranking_profile", "flat_bm25")
     return {
-        "index_schema_version": BM25_INDEX_SCHEMA_VERSION,
+        "index_schema_version": bm25_index_schema_version(lexical_ranking_profile),
+        "lexical_ranking_profile": lexical_ranking_profile,
         "workspace_root": str(Path(ctx.config.workspace_root).resolve()),
         "content_signature": indexable_content_signature(
             ctx.config.workspace_root,
@@ -60,7 +62,10 @@ def _reuse_or_build_bm25_index(
     legacy_default_scope = index_path.exists() and not scope_manifest and default_scope
     if index_path.exists() and (_sync_manifest_scope_matches(scope_manifest, scope_signature) or legacy_default_scope):
         index = load_index(index_dir)
-        ctx.trace.record("workspace_bm25_index_reused", {"document_count": len(index.documents)})
+        ctx.trace.record(
+            "workspace_bm25_index_reused",
+            {"document_count": len(index.documents), "lexical_ranking_profile": index.lexical_ranking_profile},
+        )
         rebuilt = False
     else:
         if not ctx.config.enable_indexing:
@@ -74,10 +79,14 @@ def _reuse_or_build_bm25_index(
             visibility="workspace_visible",
             origin="workspace_index",
             exclude_paths=ctx.config.index_exclude_paths,
+            lexical_ranking_profile=ctx.config.lexical_ranking_profile,
         )
         save_index(index, index_dir)
         _save_sync_manifest(scope_manifest_path, scope_signature)
-        ctx.trace.record("workspace_bm25_index_rebuilt", {"document_count": len(index.documents)})
+        ctx.trace.record(
+            "workspace_bm25_index_rebuilt",
+            {"document_count": len(index.documents), "lexical_ranking_profile": index.lexical_ranking_profile},
+        )
         rebuilt = True
     return index, rebuilt
 
@@ -145,6 +154,12 @@ def rebuild_index(ctx: WorkspaceRetrievalContext) -> IndexSetupResult:
     rebuilt = bm25_rebuilt or qdrant_rebuilt
     ctx.trace.record(
         "workspace_index_ready",
-        {"document_count": len(index.documents), "indexed_points": indexed_points, "rebuilt": rebuilt},
+        {
+            "document_count": len(index.documents),
+            "indexed_points": indexed_points,
+            "rebuilt": rebuilt,
+            "lexical_ranking_profile": index.lexical_ranking_profile,
+            "collection_name": ctx.config.qdrant_config.collection_name,
+        },
     )
     return IndexSetupResult(index=index, rebuilt=rebuilt)

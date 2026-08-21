@@ -57,10 +57,8 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
 
         self.assertIn("tests/baselines/reference", excludes)
         self.assertIn("tests/baselines/local", excludes)
-        self.assertIn("lib/typescript.js", excludes)
-        self.assertIn("lib/tsserver.js", excludes)
+        self.assertIn("lib", excludes)
         self.assertIn("custom-output", excludes)
-        self.assertNotIn("lib", excludes)
         self.assertNotIn("tests/cases", excludes)
 
     def test_evaluate_batch_stops_at_explicit_testcase_ceiling(self) -> None:
