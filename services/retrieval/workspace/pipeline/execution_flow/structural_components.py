@@ -6,7 +6,9 @@ from typing import Any, Mapping, Sequence
 
 from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import DiscoveryObservation
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
-from services.retrieval.workspace.tools import ToolRequest
+from services.retrieval.workspace.pipeline.execution_flow.island_connectors import (
+    discover_island_connectors,
+)
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,8 @@ def build_structural_components(
     decisions: Sequence[QualificationDecision],
     *,
     relationship_tool: Any,
+    source_calls_tool: Any | None = None,
+    exact_symbol_tool: Any | None = None,
     trace: Any | None = None,
     round_index: int = 0,
 ) -> StructuralComponentSelection:
@@ -40,19 +44,16 @@ def build_structural_components(
     edges: list[dict[str, Any]] = []
     tool_calls = 0
     if node_to_observation:
-        request = ToolRequest(
-            tool_name="structural_relationships_within_nodes",
-            arguments={"node_ids": list(node_to_observation)},
-            reason="Build graph-only components among already qualified observations.",
+        connectors = discover_island_connectors(
+            eligible,
+            relationship_tool=relationship_tool,
+            source_calls_tool=source_calls_tool,
+            exact_symbol_tool=exact_symbol_tool,
+            trace=trace,
+            round_index=round_index,
         )
-        response = relationship_tool.run(request)
-        if trace is not None:
-            trace.record_tool(request, response, round_index=round_index)
-        tool_calls += 1
-        if response.status != "ok":
-            raise RuntimeError("required_tool_failed: structural_relationships_within_nodes")
-        edges = [dict(item) for item in response.payload.get("edges", ()) if isinstance(item, Mapping)]
-        edges.extend(_collapsed_connector_edges(response.payload.get("connector_paths", ())))
+        edges = list(connectors.edges)
+        tool_calls = connectors.tool_calls
 
     parent = {item.id: item.id for item in eligible}
 
@@ -102,51 +103,6 @@ def _component(observations: Sequence[DiscoveryObservation]) -> StructuralCompon
     identity = node_ids or observation_ids
     digest = hashlib.sha1("\0".join(identity).encode("utf-8")).hexdigest()[:16]
     return StructuralComponent(f"structural_{digest}", observation_ids, node_ids)
-
-
-def _collapsed_connector_edges(paths: Any) -> list[dict[str, Any]]:
-    """Represent an exact two-edge call path between promoted endpoints.
-
-    The connector remains navigation context, not a promoted observation or evidence candidate.
-    """
-    if not isinstance(paths, Sequence) or isinstance(paths, (str, bytes)):
-        return []
-    result: list[dict[str, Any]] = []
-    for item in paths:
-        if not isinstance(item, Mapping):
-            continue
-        source = item.get("source") if isinstance(item.get("source"), Mapping) else {}
-        connector = item.get("connector") if isinstance(item.get("connector"), Mapping) else {}
-        target = item.get("target") if isinstance(item.get("target"), Mapping) else {}
-        kinds = tuple(str(value) for value in item.get("edge_kinds", ()) if str(value))
-        if not source.get("id") or not connector.get("id") or not target.get("id"):
-            continue
-        if kinds not in {
-            ("calls", "calls"),
-            ("source_qualified_call", "source_ast_call"),
-        }:
-            continue
-        connector_name = str(connector.get("qualified_name") or connector.get("name") or connector.get("id"))
-        native_graph_path = kinds == ("calls", "calls")
-        result.append(
-            {
-                "kind": "calls",
-                "source": dict(source),
-                "target": dict(target),
-                "connector": dict(connector),
-                "detail": (
-                    f"Exact two-call CodeGraph path via {connector_name}."
-                    if native_graph_path
-                    else f"Source-verified two-call path via exact CodeGraph owner {connector_name}."
-                ),
-                "_retrieval_provenance": (
-                    "exact_codegraph_connector_path"
-                    if native_graph_path
-                    else "source_verified_connector_path"
-                ),
-            }
-        )
-    return result
 
 
 _REJECT = QualificationDecision("", "reject", "insufficient", "missing")

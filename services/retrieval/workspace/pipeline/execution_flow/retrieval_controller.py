@@ -409,7 +409,7 @@ def run_retrieval_controller(
         previous=None, round_index=0,
     )
     tool_calls += islands.tool_calls
-    all_edges.extend(_connector_path_edges(islands.edges))
+    all_edges.extend(_represented_connector_edges(islands.edges))
     stop_reason = "all_required_obligations_covered" if _required_covered(obligations, coverage.coverage) else ""
     completed_rounds = 0
     allow_exact_followup_round = False
@@ -695,7 +695,7 @@ def run_retrieval_controller(
             previous=previous_islands, round_index=round_index,
         )
         tool_calls += islands.tool_calls
-        all_edges.extend(_connector_path_edges(islands.edges))
+        all_edges.extend(_represented_connector_edges(islands.edges))
         current_coverage = {item.obligation_id: item.status for item in coverage.coverage}
         evidence_gain = set(candidates) != previous_candidate_ids
         promoted_ids = {
@@ -799,6 +799,8 @@ def _build_islands(
         tuple(observations.values()),
         tuple(decisions.values()),
         relationship_tool=tools["structural_relationships_within_nodes"],
+        source_calls_tool=tools.get("structural_source_owner_calls"),
+        exact_symbol_tool=tools.get("structural_find_exact_symbol"),
         trace=ctx.trace,
         round_index=round_index,
     )
@@ -1155,12 +1157,13 @@ def _dedupe_edges(edges: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return list(values.values())
 
 
-def _connector_path_edges(edges: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def _represented_connector_edges(edges: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return [
         dict(edge)
         for edge in edges
         if str(edge.get("_retrieval_provenance") or "") in {
             "exact_codegraph_connector_path",
+            "source_verified_direct_call",
             "source_verified_connector_path",
         }
     ]

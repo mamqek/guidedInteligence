@@ -15,6 +15,7 @@ from services.retrieval.workspace.codegraph_config import (
     restore_codegraph_config,
 )
 from services.retrieval.workspace.tools.contracts import ToolObservation, ToolRequest
+from services.retrieval.workspace.source_ast import SourceAstRouter
 
 
 BRIDGE_PATH = Path(__file__).resolve().parents[2] / "codegraph" / "workspace_graph.mjs"
@@ -439,6 +440,35 @@ class CodeGraphRelationshipsWithinNodesTool:
         )
 
 
+class SourceOwnerCallsTool:
+    name = "structural_source_owner_calls"
+
+    def __init__(self, config: WorkspaceRetrievalConfig, bridge: CodeGraphBridge) -> None:
+        self.router = SourceAstRouter(config.workspace_root, codegraph_bridge=bridge)
+
+    def run(self, request: ToolRequest) -> ToolObservation:
+        node = request.arguments.get("node")
+        if not isinstance(node, Mapping) or not str(node.get("id") or ""):
+            return _error(self.name, "missing_source_node")
+        try:
+            result = self.router.source_owner_calls(node)
+        except Exception as exc:
+            return _error(self.name, f"source_ast_adapter_failed:{exc}")
+        status = str(result.get("status") or "")
+        calls = result.get("calls") if isinstance(result.get("calls"), list) else []
+        return ToolObservation(
+            tool_name=self.name,
+            status="ok" if status in {"ok", "unsupported"} else "failed",
+            payload=dict(result),
+            source_refs=(str(node.get("path") or ""),),
+            metadata={
+                "adapter": str(result.get("adapter") or "unsupported"),
+                "result_count": str(len(calls)),
+                "match": "source_owner_calls",
+            },
+        )
+
+
 class CodeGraphEdgeCapabilitiesTool:
     name = "structural_edge_capabilities"
 
@@ -559,6 +589,7 @@ def codegraph_tools(config: WorkspaceRetrievalConfig) -> tuple[dict[str, Any], C
             "structural_file_outline": CodeGraphFileOutlineTool(bridge),
             "structural_resolve_file_nodes": CodeGraphResolveFileNodesTool(bridge),
             "structural_relationships_within_nodes": CodeGraphRelationshipsWithinNodesTool(bridge),
+            "structural_source_owner_calls": SourceOwnerCallsTool(config, bridge),
             "structural_edge_capabilities": CodeGraphEdgeCapabilitiesTool(bridge),
             "structural_expand_relationships": CodeGraphExpandRelationshipsTool(bridge),
             "structural_expand_nodes": CodeGraphExpandNodesTool(bridge),

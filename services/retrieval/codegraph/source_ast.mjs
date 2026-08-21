@@ -97,15 +97,23 @@ function outermostNamedExecutable(call, sourceFile) {
 
 function calledName(expression) {
   if (ts.isIdentifier(expression)) {
-    return { name: expression.text, expression_kind: "identifier" };
+    return { name: expression.text, qualifier: "", expression_kind: "identifier" };
   }
   if (ts.isPropertyAccessExpression(expression)) {
-    return { name: expression.name.text, expression_kind: "property_access" };
+    return {
+      name: expression.name.text,
+      qualifier: expression.expression.getText(),
+      expression_kind: "property_access",
+    };
   }
   if (ts.isElementAccessExpression(expression) && expression.argumentExpression && ts.isStringLiteral(expression.argumentExpression)) {
-    return { name: expression.argumentExpression.text, expression_kind: "element_access" };
+    return {
+      name: expression.argumentExpression.text,
+      qualifier: expression.expression.getText(),
+      expression_kind: "element_access",
+    };
   }
-  return { name: "", expression_kind: "dynamic" };
+  return { name: "", qualifier: "", expression_kind: "dynamic" };
 }
 
 
@@ -291,6 +299,54 @@ export function localizeFileCall(codegraph, projectRoot, sourceNode, targetNode)
     selected: chosen,
     considered,
   };
+}
+
+
+export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
+  const sourcePath = normalizePath(sourceNode?.filePath || sourceNode?.path);
+  const extension = path.extname(sourcePath).toLowerCase();
+  const base = {
+    source_node_id: String(sourceNode?.id || ""),
+    source_path: sourcePath,
+    adapter: SUPPORTED_EXTENSIONS.has(extension) ? "typescript_compiler_api" : "unsupported",
+    calls: [],
+  };
+  if (!SUPPORTED_EXTENSIONS.has(extension)) {
+    return { ...base, status: "unsupported", reason: "unsupported_extension" };
+  }
+  let source;
+  try {
+    source = fs.readFileSync(path.join(projectRoot, sourcePath), "utf8");
+  } catch {
+    return { ...base, status: "failed", reason: "source_unreadable" };
+  }
+  const scriptKind = extension === ".tsx" ? ts.ScriptKind.TSX
+    : extension === ".jsx" ? ts.ScriptKind.JSX
+      : [".js", ".mjs", ".cjs"].includes(extension) ? ts.ScriptKind.JS
+        : ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(sourcePath, source, ts.ScriptTarget.Latest, true, scriptKind);
+  const calls = [];
+  function visit(node) {
+    if (ts.isCallExpression(node)) {
+      const owner = outermostNamedExecutable(node, sourceFile);
+      const graphOwner = owner ? matchingCodeGraphOwner(codegraph, sourcePath, owner, sourceFile) : null;
+      if (graphOwner?.id === sourceNode.id) {
+        for (const called of calledNames(node.expression)) {
+          calls.push({
+            name: called.name,
+            qualifier: called.qualifier || "",
+            expression_kind: called.expression_kind,
+            expression: node.expression.getText(sourceFile),
+            line_start: lineOf(sourceFile, node.getStart(sourceFile)),
+            line_end: lineOf(sourceFile, node.end),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
+  return { ...base, status: "ok", calls };
 }
 
 

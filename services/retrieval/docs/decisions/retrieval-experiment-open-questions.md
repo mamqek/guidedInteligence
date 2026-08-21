@@ -73,18 +73,30 @@ map it to an entry here before treating it as a new regression or inventing anot
   pool, so the closed-set component query could not join the endpoints and final selection saw overlapping state
   candidates without their causal relationship.
 - Experimental correction under test:
+  - connect two promoted endpoints directly when the language-routed source operation resolves a qualified call from
+    one exact owner to the other; label this `source_verified_direct_call` rather than discarding it because both
+    endpoints are already observations;
   - allow exactly one unselected connector and exactly two directed calls;
-  - prefer native CodeGraph edges; when those are absent for qualified/conditional TypeScript calls, require unique
-    CodeGraph owner resolution plus AST-localized call sites and label the result `source_verified_connector_path`;
+  - prefer native CodeGraph edges; when those are absent for qualified/conditional calls, require unique CodeGraph
+    owner resolution plus call sites from the language-routed source-AST operation and label the result
+    `source_verified_connector_path`;
   - require both endpoints to be promoted and to overlap on a still-unresolved obligation;
   - keep the connector as relationship/navigation metadata only, never as evidence;
   - serialize the collapsed endpoint relationship with its exact connector name and provenance for final selection.
 - Still untested:
+  - an actual-pipeline run in which the new direct source-verified edge joins the selected
+    `builder.ts::getNextAffectedFile` and `builderState.ts::updateExportedFilesMapFromCache` endpoints;
   - repeated TypeScript runs under unchanged settings;
+  - a full Python repository run that naturally exercises the source-verified connector fallback (the Python adapter
+    and language-neutral connector contract are covered by focused tests);
   - whether generic utility connectors create false merges in real repositories;
   - cross-repository behavior when many promoted endpoints share one common utility caller/callee;
   - whether more than one connector is genuinely needed (do not broaden the depth from this experiment).
 - Verified evidence:
+  - exact-snapshot replay of the endpoints saved by `run-20260821T010824Z` formed one component through a real
+    TypeScript-adapter `source_verified_direct_call` from `getNextAffectedFile` to
+    `updateExportedFilesMapFromCache`; the next two complete stochastic runs did not naturally contain that exact
+    endpoint pair, so full-run stability remains open;
   - `run-20260820T235750Z` formed one active, cross-file Builder/BuilderState island;
   - final selection received the source-verified `getNextAffectedFile -> BuilderState.getFilesAffectedBy ->
     getFilesAffectedByUpdatedShapeWhenNonModuleEmit` relationship;

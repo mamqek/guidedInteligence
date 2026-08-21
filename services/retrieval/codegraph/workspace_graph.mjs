@@ -2,7 +2,7 @@ import readline from "node:readline";
 import fs from "node:fs";
 import path from "node:path";
 import codegraphPackage from "@colbymchenry/codegraph";
-import { localizeFileCall, summarizeFileCallsToDestination } from "./source_ast.mjs";
+import { localizeFileCall, sourceOwnerCalls, summarizeFileCallsToDestination } from "./source_ast.mjs";
 
 const { CodeGraph, setLogger, silentLogger } = codegraphPackage;
 
@@ -254,42 +254,6 @@ async function relationshipsWithinNodes(args) {
           target: nodePayload(target),
           edge_kinds: [first.kind, second.kind],
           edges: [edgePayload(codegraph, first), edgePayload(codegraph, second)],
-        });
-      }
-    }
-  }
-  // CodeGraph does not always emit a call edge for namespace-qualified calls or
-  // conditional callable expressions. Keep this fallback exact and bounded:
-  // the first leg must be a uniquely resolved qualified repository call, and
-  // the second must be a TypeScript-AST-localized call inside that exact owner.
-  for (const source of nodes) {
-    const qualified = await qualifiedReferences({ paths: [normalizePath(source.filePath)], limit: 120 });
-    for (const connectorPayload of qualified.nodes || []) {
-      const sourceReference = (connectorPayload.source_references || []).find(
-        (item) => String(item?.source_node?.id || "") === source.id,
-      );
-      if (!sourceReference || requested.has(connectorPayload.id)) continue;
-      const connector = codegraph.getNode(connectorPayload.id);
-      if (!connector || ["file", "import"].includes(connector.kind)) continue;
-      for (const target of nodes) {
-        if (target.id === source.id) continue;
-        const localization = localizeFileCall(codegraph, projectRoot, connector, target);
-        if (localization.status !== "localized" || localization.selected?.owner?.id !== connector.id) continue;
-        const key = `${source.id}\0${connector.id}\0${target.id}\0source_verified`;
-        if (seenConnectorPaths.has(key)) continue;
-        seenConnectorPaths.add(key);
-        connectorPaths.push({
-          source: nodePayload(source),
-          connector: nodePayload(connector),
-          target: nodePayload(target),
-          edge_kinds: ["source_qualified_call", "source_ast_call"],
-          source_anchors: [
-            { path: normalizePath(source.filePath), line: Number(sourceReference.line || 0) },
-            {
-              path: normalizePath(connector.filePath),
-              line: Number(localization.selected?.anchor?.line_start || 0),
-            },
-          ],
         });
       }
     }
@@ -693,6 +657,12 @@ async function dispatch(operation, args) {
   if (operation === "file_outline") return fileOutline(args);
   if (operation === "resolve_file_nodes") return resolveFileNodes(args);
   if (operation === "relationships_within_nodes") return relationshipsWithinNodes(args);
+  if (operation === "source_owner_calls") {
+    const codegraph = await openGraph();
+    const sourceNode = codegraph.getNode(String(args.node_id || ""));
+    if (!sourceNode) return { status: "failed", reason: "unknown_source_node", calls: [] };
+    return sourceOwnerCalls(codegraph, projectRoot, sourceNode);
+  }
   if (operation === "edge_capabilities") return edgeCapabilities(args);
   if (operation === "expand_relationships") return expandRelationships(args);
   if (operation === "expand_nodes") return expandNodes(args);
