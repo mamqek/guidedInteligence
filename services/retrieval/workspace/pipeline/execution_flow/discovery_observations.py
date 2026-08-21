@@ -28,6 +28,10 @@ class SourceHandle:
     full_line_end: int = 0
     language: str = ""
     adapter: str = ""
+    outer_node_id: str = ""
+    outer_symbol: str = ""
+    outer_line_start: int = 0
+    outer_line_end: int = 0
 
 
 @dataclass(frozen=True)
@@ -44,6 +48,9 @@ class DiscoveryObservation:
     relationship_direction: str = ""
     relationship_kinds: tuple[str, ...] = ()
     ambiguity_count: int = 1
+    # Initial admission can keep one representative per file while retaining a
+    # stronger structural alternative for a bounded later rescue.
+    admission_reason: str = ""
 
     @property
     def obligation_ids(self) -> tuple[str, ...]:
@@ -178,6 +185,9 @@ def aggregate_observations(
     observations: Iterable[DiscoveryObservation],
     *,
     limit: int,
+    one_per_path: bool = False,
+    max_obligation_variants_per_path: int = 1,
+    one_per_obligation_per_path: bool = True,
 ) -> tuple[tuple[DiscoveryObservation, ...], tuple[dict[str, Any], ...]]:
     merged: dict[str, DiscoveryObservation] = {}
     decisions: list[dict[str, Any]] = []
@@ -212,16 +222,32 @@ def aggregate_observations(
         )
 
     values = list(merged.values())
+    values, containment_decisions = _canonicalize_contained_owners(values)
+    decisions.extend(containment_decisions)
     values.sort(key=_priority_key)
     selected: list[DiscoveryObservation] = []
     selected_keys: set[str] = set()
+    selected_paths: set[str] = set()
+    selected_by_path: dict[str, list[DiscoveryObservation]] = {}
 
-    def take(observation: DiscoveryObservation) -> None:
+    def take(observation: DiscoveryObservation, *, obligation_id: str = "") -> None:
         key = _aggregation_key(observation)
-        if key in selected_keys or len(selected) >= limit:
+        path = observation.handle.path.casefold()
+        path_variants = selected_by_path.get(path, ())
+        same_obligation_is_covered = one_per_obligation_per_path and bool(obligation_id) and any(
+            obligation_id in item.obligation_ids for item in path_variants
+        )
+        path_limit_reached = one_per_path and len(path_variants) >= max_obligation_variants_per_path
+        if (
+            key in selected_keys
+            or len(selected) >= limit
+            or (one_per_path and (same_obligation_is_covered or path_limit_reached))
+        ):
             return
         selected.append(observation)
         selected_keys.add(key)
+        selected_paths.add(path)
+        selected_by_path.setdefault(path, []).append(observation)
 
     for observation in values:
         if observation.exact_anchor_matches:
@@ -230,7 +256,7 @@ def aggregate_observations(
     for obligation_id in all_obligations:
         for observation in values:
             if obligation_id in observation.obligation_ids:
-                take(observation)
+                take(observation, obligation_id=obligation_id)
                 break
     for observation in values:
         take(observation)
@@ -238,15 +264,103 @@ def aggregate_observations(
     selected_ids = {item.id for item in selected}
     for observation in values:
         if observation.id not in selected_ids:
+            reason = "outside_observation_guardrail"
+            if one_per_path and observation.handle.path.casefold() in selected_paths:
+                reason = "same_path_alternative"
             decisions.append(
                 {
                     "observation_id": observation.id,
                     "path": observation.handle.path,
                     "symbol": observation.handle.symbol,
-                    "reason": "outside_observation_guardrail",
+                    "reason": reason,
                 }
             )
     return tuple(selected), tuple(decisions)
+
+
+def _canonicalize_contained_owners(
+    observations: Sequence[DiscoveryObservation],
+) -> tuple[list[DiscoveryObservation], list[dict[str, Any]]]:
+    """Keep the narrow owner as the evidence handle and retain its outer owner as context.
+
+    Two distinct CodeGraph nodes may describe the same retrieved lines when a
+    result lands in a nested callback.  They are not independent candidates:
+    the inner owner carries the evidence range, while the parent is useful only
+    to orient the rendered card.
+    """
+    remaining = list(observations)
+    decisions: list[dict[str, Any]] = []
+    changed = True
+    while changed:
+        changed = False
+        for outer_index, outer in enumerate(tuple(remaining)):
+            for inner_index, inner in enumerate(tuple(remaining)):
+                if outer_index == inner_index:
+                    continue
+                if not _is_contained_owner_pair(outer, inner):
+                    continue
+                canonical = _merge_contained_owner_pair(outer, inner)
+                remaining = [
+                    item for item in remaining
+                    if item.id not in {outer.id, inner.id}
+                ]
+                remaining.append(canonical)
+                decisions.append(
+                    {
+                        "observation_id": outer.id,
+                        "kept_id": canonical.id,
+                        "path": canonical.handle.path,
+                        "outer_node_id": outer.handle.node_id,
+                        "inner_node_id": inner.handle.node_id,
+                        "reason": "canonicalized_contained_owner",
+                    }
+                )
+                changed = True
+                break
+            if changed:
+                break
+    return remaining, decisions
+
+
+def _is_contained_owner_pair(outer: DiscoveryObservation, inner: DiscoveryObservation) -> bool:
+    outer_handle = outer.handle
+    inner_handle = inner.handle
+    if not outer_handle.node_id or not inner_handle.node_id or outer_handle.node_id == inner_handle.node_id:
+        return False
+    if outer_handle.path.casefold() != inner_handle.path.casefold():
+        return False
+    # Preserve an exact structural anchor as its own candidate; it can be a
+    # deliberately broad class/file lead rather than a duplicate of one member.
+    if outer.exact_anchor_matches or inner.exact_anchor_matches:
+        return False
+    outer_full_start = outer_handle.full_line_start or outer_handle.line_start
+    outer_full_end = outer_handle.full_line_end or outer_handle.line_end
+    inner_full_start = inner_handle.full_line_start or inner_handle.line_start
+    inner_full_end = inner_handle.full_line_end or inner_handle.line_end
+    if not (outer_full_start <= inner_full_start and outer_full_end >= inner_full_end):
+        return False
+    if (outer_full_start, outer_full_end) == (inner_full_start, inner_full_end):
+        return False
+    # Both observations must originate from the same actual retrieved region;
+    # otherwise a broad class anchor could absorb an unrelated child method.
+    return _substantial_range_overlap(outer, inner)
+
+
+def _merge_contained_owner_pair(outer: DiscoveryObservation, inner: DiscoveryObservation) -> DiscoveryObservation:
+    merged = _merge(inner, outer)
+    outer_handle = outer.handle
+    return replace(
+        merged,
+        id=inner.id,
+        observed_text=inner.observed_text,
+        handle=replace(
+            inner.handle,
+            outer_node_id=outer_handle.node_id,
+            outer_symbol=outer_handle.symbol,
+            outer_line_start=outer_handle.full_line_start or outer_handle.line_start,
+            outer_line_end=outer_handle.full_line_end or outer_handle.line_end,
+        ),
+    )
 
 
 def observation_id(handle: SourceHandle) -> str:

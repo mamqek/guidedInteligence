@@ -79,6 +79,7 @@ def disclose_observations(
     outline_cache: dict[tuple[str, int, int], tuple[OutlineEntry, ...]] = {}
     for observation in observations:
         handle = observation.handle
+        is_owner_continuation = handle.adapter == "owner_continuation"
         hit_start, hit_end = handle.line_start, handle.line_end
         ambiguous = bool(handle.symbol and max(observation.ambiguity_count, symbol_counts.get(handle.symbol.casefold(), 0)) > 3)
         if ambiguous:
@@ -104,6 +105,7 @@ def disclose_observations(
         kind = _node_kind(handle.node_id)
         needs_outline = (
             not handle.node_id
+            or bool(handle.outer_node_id)
             or full_end - full_start + 1 > 120
             or kind in {"class", "method", "constructor", "property"}
         )
@@ -147,10 +149,19 @@ def disclose_observations(
         span = full_end - full_start + 1
         complete = _range_text(lines, full_start, full_end)
         if owner is not None and outer is not None and outer.node_id != owner.node_id:
-            skeleton = _bound_qualification_text(_class_member_skeleton(lines, outer, owner))
+            skeleton_text = (
+                _class_member_skeleton(lines, outer, owner)
+                if outer.kind in {"class", "interface"}
+                else _nested_owner_preview(lines, outer, owner)
+            )
+            skeleton = _bound_qualification_text(skeleton_text)
             preview = skeleton
             mode = "preview"
-            reason = "class_skeleton_and_complete_member"
+            reason = (
+                "class_skeleton_and_complete_member"
+                if outer.kind in {"class", "interface"}
+                else "nested_owner_context_and_complete_member"
+            )
         elif span <= MAX_COMPLETE_OWNER_LINES and len(complete) <= MAX_QUALIFICATION_CARD_CHARS:
             preview = complete
             mode = "full"
@@ -160,7 +171,11 @@ def disclose_observations(
                 _large_owner_preview(lines, full_start, full_end, hit_start, hit_end)
             )
             mode = "preview"
-            reason = "large_owner_skeleton_and_local_excerpt" if outline else "outline_unavailable_local_excerpt"
+            reason = (
+                "owner_continuation_later_excerpt"
+                if is_owner_continuation
+                else "large_owner_skeleton_and_local_excerpt" if outline else "outline_unavailable_local_excerpt"
+            )
         cards.append(DisclosureCard(
             observation_id=observation.id,
             handle=handle,
@@ -317,6 +332,9 @@ def _resolve_owner(
         owner = following[0] if following and following[0].line_start - handle.line_end <= 12 and _comment_gap(lines, handle.line_start, following[0].line_start) else None
     if owner is None:
         return None, None
+    explicit_outer = next((item for item in outline if item.node_id == handle.outer_node_id), None)
+    if explicit_outer is not None and explicit_outer.node_id != owner.node_id:
+        return owner, explicit_outer
     classes = [
         item for item in outline
         if item.kind in {"class", "interface"} and item.line_start <= owner.line_start and item.line_end >= owner.line_end
@@ -337,6 +355,13 @@ def _class_member_skeleton(lines: Sequence[str], outer: OutlineEntry, owner: Out
     header = _range_text(lines, outer.line_start, header_end)
     member = _range_text(lines, owner.line_start, owner.line_end)
     return f"{header}\n    // ... other members omitted ...\n{member}\n}}"
+
+
+def _nested_owner_preview(lines: Sequence[str], outer: OutlineEntry, owner: OutlineEntry) -> str:
+    header_end = min(outer.line_end, outer.line_start + 2)
+    header = _range_text(lines, outer.line_start, header_end)
+    member = _range_text(lines, owner.line_start, owner.line_end)
+    return f"{header}\n// ... outer owner lines omitted ...\n{member}"
 
 
 def _large_owner_preview(lines: Sequence[str], start: int, end: int, hit_start: int, hit_end: int) -> str:

@@ -16,6 +16,11 @@ Flow rules:
 Evidence and prose rules:
 
 - Use only supplied evidence for repository behavior.
+- Evidence with `evidence_kind: "file_trace"` is file-level structural evidence,
+  not a code snippet. It may support only the stated connection between its
+  source and destination paths and the fact that the exact relevant owner is
+  unresolved. Never use it to claim behavior inside the destination file;
+  preserve that limitation in the explanation when citing it.
 - `selected_evidence_connections` contains only graph links whose two evidence items are present in this request. Use direct, high-confidence links to connect the explanation and to identify useful reasoning transitions for questions. Treat inferred or lower-confidence links as context to inspect, not as proof.
 - Graph branches or disconnected groups may reveal separate important parts of the user's request, but they do not mechanically require one question each. Let importance, support, and overlap decide the final question count.
 - The supplied intent contracts are generation instructions, not repository evidence. Do not describe their stage names, question stems, stop conditions, or assistance boundaries as implementation facts unless a supplied evidence item directly establishes those facts.

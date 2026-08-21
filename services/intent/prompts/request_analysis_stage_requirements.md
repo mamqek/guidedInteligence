@@ -12,7 +12,17 @@ A symbol that appears only in the reporter's reproduction, test helper, assertio
 
 Assess only the supplied candidates. Do not invent or rewrite symbols.
 
-Classify where the required evidence can be established relative to the supplied `repository_name`:
+Classify where the required evidence can be established relative to the supplied `repository_name` and
+the deterministic `repository_context`:
+
+- Treat `repository_context` as authoritative facts about the repository being searched.
+- When present, `repository_context.repository.repository_name` is the canonical repository identity; a
+  hash-named checkout directory or missing package manifest does not make that repository external.
+- An issue path whose `exists_in_indexed_repository` value is false is reproduction or external context,
+  not a local path to retrieve.
+- When the repository package identity matches a tool named in the issue, retrieve that repository's
+  implementation before describing the tool as external.
+- Do not infer repository ownership from issue prose when it conflicts with `repository_context`.
 
 This boundary classification does not change the backend-owned evidence source
 or decide whether a fixed repository stage runs. It describes what the evidence

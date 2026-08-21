@@ -13,6 +13,7 @@ ALLOWED_TOOL_NAMES = frozenset(
         "structural_resolve_locations",
         "structural_resolve_ranges",
         "structural_file_outline",
+        "structural_resolve_file_nodes",
         "structural_relationships_within_nodes",
         "structural_edge_capabilities",
         "structural_expand_relationships",

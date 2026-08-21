@@ -5,6 +5,7 @@
   "rebuild_index": false,
   "chunk_lines": 40,
   "chunk_overlap": 10,
+  "shared_embedding_cache_root": "C:/Programming/guidedInteligence_testcases/_embedding-cache",
   "codex_command": [
     "codex"
   ],

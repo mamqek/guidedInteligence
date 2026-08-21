@@ -14,11 +14,21 @@ import urllib.request
 import uuid
 from collections import Counter
 from contextlib import closing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from services.retrieval.workspace.bm25 import BM25Index, IndexedChunk, tokenize
+from services.retrieval.workspace.bm25 import (
+    BM25Document,
+    BM25Index,
+    IndexedChunk,
+    bm25f_field_length_normalization,
+    bm25f_field_match_trace,
+    bm25f_field_weights,
+    is_bm25f_profile,
+    sparse_query_term_weights,
+    tokenize,
+)
 from services.retrieval.config import RetrievalEmbeddingConfig, RetrievalQdrantConfig
 
 
@@ -117,6 +127,7 @@ class QdrantSearchResult:
     score: float
     matched_terms: tuple[str, ...]
     retrieval_path: str = "qdrant_hybrid_search"
+    lexical_field_matches: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -125,6 +136,8 @@ class SparseSchema:
     idf_by_token: Mapping[str, float]
     average_document_length: float
     document_count: int
+    lexical_ranking_profile: str
+    average_field_lengths: Mapping[str, float]
 
 
 class QdrantHybridBackend:
@@ -142,6 +155,9 @@ class QdrantHybridBackend:
         self.cache_path = Path(cache_path) if cache_path else None
         self._chunks_by_point_id = {
             _point_id_for_chunk_id(document.chunk.chunk_id): document.chunk for document in index.documents
+        }
+        self._documents_by_point_id = {
+            _point_id_for_chunk_id(document.chunk.chunk_id): document for document in index.documents
         }
         self._sparse_schema = _build_sparse_schema(index)
         self._embedding_cache_lock = threading.RLock()
@@ -174,6 +190,14 @@ class QdrantHybridBackend:
         digest = hashlib.sha256()
         digest.update(self.embedding_config.model.encode("utf-8"))
         digest.update(b"\n")
+        digest.update(self.index.lexical_ranking_profile.encode("utf-8"))
+        digest.update(b"\n")
+        digest.update(json.dumps(dict(bm25f_field_weights(self.index.lexical_ranking_profile)), sort_keys=True).encode("utf-8"))
+        digest.update(b"\n")
+        digest.update(json.dumps(dict(bm25f_field_length_normalization(self.index.lexical_ranking_profile)), sort_keys=True).encode("utf-8"))
+        digest.update(b"\n")
+        digest.update(json.dumps(dict(self.index.average_field_lengths), sort_keys=True).encode("utf-8"))
+        digest.update(b"\n")
         for document in self.index.documents:
             chunk = document.chunk
             digest.update(chunk.chunk_id.encode("utf-8"))
@@ -201,27 +225,25 @@ class QdrantHybridBackend:
         log_event: Callable[[str, Mapping[str, Any]], None] | None = None,
         timeout_seconds: int | None = None,
     ) -> int:
-        embedding_deadline = (
-            time.monotonic() + timeout_seconds
+        rebuild_deadline = (
+            time.monotonic() + (timeout_seconds * 2)
             if timeout_seconds is not None and timeout_seconds > 0
             else None
         )
         self.ensure_available()
-        dense_batches = self._embed_documents(
-            [document.chunk for document in self.index.documents],
+        documents = self.index.documents
+        if not documents:
+            raise RuntimeError("Cannot build a Qdrant collection from an empty repository index.")
+        batch_size = self.embedding_config.batch_size
+        first_documents = documents[:batch_size]
+        first_dense_batches = self._embed_documents(
+            [document.chunk for document in first_documents],
             log_event=log_event,
-            deadline=embedding_deadline,
+            deadline=rebuild_deadline,
         )
-        _raise_if_rebuild_timed_out(embedding_deadline)
-        # Embedding and persistent-cache work can legitimately consume most of
-        # its budget on a large repository. Give Qdrant upload its own bounded
-        # window instead of inheriting only the few seconds left over.
-        upload_deadline = (
-            time.monotonic() + timeout_seconds
-            if timeout_seconds is not None and timeout_seconds > 0
-            else None
-        )
-        dense_size = len(dense_batches[0][0]) if dense_batches and dense_batches[0] else 0
+        _raise_if_rebuild_timed_out(rebuild_deadline)
+        first_dense_vectors = first_dense_batches[0] if first_dense_batches else []
+        dense_size = len(first_dense_vectors[0]) if first_dense_vectors else 0
         if dense_size <= 0:
             raise RuntimeError("Embedding backend returned no vectors for repository chunks.")
         try:
@@ -243,20 +265,30 @@ class QdrantHybridBackend:
                 },
             },
         )
-        documents = list(self.index.documents)
-        batch_size = self.embedding_config.batch_size
         total_batches = math.ceil(len(documents) / batch_size)
         for batch_start in range(0, len(documents), batch_size):
-            _raise_if_rebuild_timed_out(upload_deadline)
+            _raise_if_rebuild_timed_out(rebuild_deadline)
             batch_documents = documents[batch_start : batch_start + batch_size]
-            batch_dense_vectors = dense_batches[batch_start // batch_size]
+            if batch_start == 0:
+                batch_dense_vectors = first_dense_vectors
+            else:
+                dense_batches = self._embed_documents(
+                    [document.chunk for document in batch_documents],
+                    log_event=log_event,
+                    deadline=rebuild_deadline,
+                )
+                batch_dense_vectors = dense_batches[0] if dense_batches else []
+            if len(batch_dense_vectors) != len(batch_documents):
+                raise RuntimeError("Embedding backend returned an incomplete vector batch during Qdrant rebuild.")
             points: list[dict[str, Any]] = []
             for document, dense_vector in zip(batch_documents, batch_dense_vectors):
                 chunk = document.chunk
                 sparse_vector = _document_sparse_vector(
-                    document.tokens,
+                    document,
                     token_to_index=self._sparse_schema.token_to_index,
                     average_document_length=self._sparse_schema.average_document_length,
+                    lexical_ranking_profile=self._sparse_schema.lexical_ranking_profile,
+                    average_field_lengths=self._sparse_schema.average_field_lengths,
                 )
                 points.append(
                     {
@@ -339,7 +371,12 @@ class QdrantHybridBackend:
             },
         )
         rows = response.get("result", {}).get("points", ())
-        results = self._rows_to_results(rows, query=query, min_score=min_score)
+        results = self._rows_to_results(
+            rows,
+            query=query,
+            lexical_query=sparse_query_text,
+            min_score=min_score,
+        )
         if include_breakdown:
             self._last_search_breakdown = {
                 "sparse": self._search_single_vector(
@@ -349,6 +386,7 @@ class QdrantHybridBackend:
                     qdrant_filter=qdrant_filter,
                     limit=limit,
                     min_score=min_score,
+                    include_lexical_trace=True,
                 ),
                 "dense": self._search_single_vector(
                     query=query,
@@ -357,6 +395,7 @@ class QdrantHybridBackend:
                     qdrant_filter=qdrant_filter,
                     limit=limit,
                     min_score=min_score,
+                    include_lexical_trace=False,
                 ),
                 "hybrid": results,
             }
@@ -376,6 +415,7 @@ class QdrantHybridBackend:
         qdrant_filter: Mapping[str, Any] | None,
         limit: int,
         min_score: float,
+        include_lexical_trace: bool,
     ) -> tuple[QdrantSearchResult, ...]:
         if vector_name == QDRANT_SPARSE_VECTOR_NAME and not query_vector.get("indices"):
             return ()
@@ -392,13 +432,19 @@ class QdrantHybridBackend:
             },
         )
         rows = response.get("result", {}).get("points", ())
-        return self._rows_to_results(rows, query=query, min_score=min_score)
+        return self._rows_to_results(
+            rows,
+            query=query,
+            lexical_query=query if include_lexical_trace else None,
+            min_score=min_score,
+        )
 
     def _rows_to_results(
         self,
         rows: Iterable[Any],
         *,
         query: str,
+        lexical_query: str | None,
         min_score: float,
     ) -> tuple[QdrantSearchResult, ...]:
         results: list[QdrantSearchResult] = []
@@ -408,13 +454,31 @@ class QdrantHybridBackend:
                 continue
             point_id = str(row.get("id", ""))
             chunk = self._chunks_by_point_id.get(point_id)
-            if chunk is None:
+            document = self._documents_by_point_id.get(point_id)
+            if chunk is None or document is None:
                 continue
             score = float(row.get("score", 0.0) or 0.0)
             if score < min_score:
                 continue
             matched_terms = tuple(sorted(query_terms.intersection(tokenize(chunk.text))))
-            results.append(QdrantSearchResult(chunk=chunk, score=score, matched_terms=matched_terms))
+            field_matches = (
+                bm25f_field_match_trace(
+                    document,
+                    lexical_query,
+                    average_field_lengths=self.index.average_field_lengths,
+                    lexical_ranking_profile=self.index.lexical_ranking_profile,
+                )
+                if lexical_query
+                else {}
+            )
+            results.append(
+                QdrantSearchResult(
+                    chunk=chunk,
+                    score=score,
+                    matched_terms=matched_terms,
+                    lexical_field_matches=field_matches,
+                )
+            )
         return tuple(results)
 
     def _embed_documents(
@@ -790,22 +854,46 @@ def _build_sparse_schema(index: BM25Index) -> SparseSchema:
         idf_by_token=idf_by_token,
         average_document_length=index.average_document_length,
         document_count=document_count,
+        lexical_ranking_profile=index.lexical_ranking_profile,
+        average_field_lengths=index.average_field_lengths,
     )
 
 
 def _document_sparse_vector(
-    tokens: Sequence[str],
+    document: BM25Document,
     *,
     token_to_index: Mapping[str, int],
     average_document_length: float,
+    lexical_ranking_profile: str,
+    average_field_lengths: Mapping[str, float],
 ) -> dict[str, list[float] | list[int]]:
-    frequencies = Counter(tokens)
-    document_length = len(tokens)
+    frequencies: Mapping[str, float]
+    if is_bm25f_profile(lexical_ranking_profile):
+        weighted: dict[str, float] = {}
+        field_weights = bm25f_field_weights(lexical_ranking_profile)
+        length_normalization = bm25f_field_length_normalization(lexical_ranking_profile)
+        for field_name, field_weight in field_weights.items():
+            field_tokens = document.fields.get(field_name, ())
+            field_counts = Counter(field_tokens)
+            b = length_normalization[field_name]
+            average_length = max(average_field_lengths.get(field_name, 0.0), 1.0)
+            normalization = 1.0 - b + b * len(field_tokens) / average_length
+            for token, count in field_counts.items():
+                weighted[token] = weighted.get(token, 0.0) + field_weight * count / max(normalization, 0.01)
+        frequencies = weighted
+        document_length = 0
+    else:
+        frequencies = Counter(document.tokens)
+        document_length = len(document.tokens)
     indices: list[int] = []
     values: list[float] = []
     for token in sorted(frequencies):
         frequency = frequencies[token]
-        denominator = frequency + _BM25_K1 * (1 - _BM25_B + _BM25_B * document_length / max(average_document_length, 1.0))
+        denominator = (
+            frequency + _BM25_K1
+            if is_bm25f_profile(lexical_ranking_profile)
+            else frequency + _BM25_K1 * (1 - _BM25_B + _BM25_B * document_length / max(average_document_length, 1.0))
+        )
         weight = (frequency * (_BM25_K1 + 1)) / denominator
         indices.append(token_to_index[token])
         values.append(weight)
@@ -813,15 +901,15 @@ def _document_sparse_vector(
 
 
 def _query_sparse_vector(query: str, schema: SparseSchema) -> dict[str, list[float] | list[int]]:
-    query_counts = Counter(tokenize(query))
+    query_weights = sparse_query_term_weights(query, schema.lexical_ranking_profile)
     indices: list[int] = []
     values: list[float] = []
-    for token, count in sorted(query_counts.items()):
+    for token, query_weight in sorted(query_weights.items()):
         index = schema.token_to_index.get(token)
         if index is None:
             continue
         indices.append(index)
-        values.append(float(count) * schema.idf_by_token[token])
+        values.append(float(query_weight) * schema.idf_by_token[token])
     return {"indices": indices, "values": values}
 
 

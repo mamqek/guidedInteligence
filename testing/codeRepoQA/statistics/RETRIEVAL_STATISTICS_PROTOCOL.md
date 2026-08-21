@@ -138,6 +138,16 @@ Do not merge development and final results until after the final result has been
 
 With the complete 35-case corpus, a paired uncertainty interval may be added by bootstrapping testcase pairs. If used, record the method, seed, number of resamples, and confidence level. It is optional and does not replace the required per-category and per-repository breakdowns.
 
+## Cost Accounting And Fair Comparison
+
+Token counts and cost must not conflate a first-use index build with a reused index. For every selected testcase/system pair, report the provider-reported indexing-token count, non-indexing-flow token count, and total.
+
+When an exact index is reused, do not rebuild it merely to measure its token cost. Instead, locate the successful original index-build run with the same index signature and take the indexing-token count from that run's logged artifact. Record that source run ID and signature in the report. The reused run has zero **new** indexing tokens, but its comparison total includes the recorded original indexing tokens plus its own non-indexing-flow tokens. If no matching build artifact exists, mark the indexing and total comparison values unavailable; do not estimate or substitute an unrelated index build.
+
+Do not silently spread a historical index build across unrelated repositories, snapshots, or configurations. An amortized view is optional; if used, it must state the exact matching index signature and divisor: `recorded original index cost / named shared requests + non-indexing-flow cost`.
+
+Token count alone is not a monetary-cost comparison. For any reported currency estimate, record the provider, model, pricing source/snapshot date, and formula. Codex cached input tokens must be priced at their cached-input rate, uncached input tokens at their uncached-input rate, and output tokens at the output rate. Do not price all Codex input tokens at one rate, and do not add reasoning output tokens again when they are already included in output tokens. If a rate or usage component is unavailable, mark the monetary estimate unavailable rather than assuming parity with the other system.
+
 ## Case Eligibility
 
 Before a candidate enters the manifest, verify all of the following:
@@ -158,14 +168,14 @@ Candidate screening does not create a runnable testcase. Add a case to `selectio
 Each statistics report must contain, in this order:
 
 1. **Status and scope:** pilot/development/final, case count, categories, repositories, and cutoff date.
-2. **Conditions:** retrieval mode, prompt/profile, model, configuration identifier, and run selection rule.
+2. **Conditions:** retrieval mode, prompt/profile, model, configuration identifier, run selection rule, index reuse/signature, and pricing snapshot when currency estimates are reported.
 3. **Plain-language metric note:** files are ranked; implementation files define P/R; supporting files receive partial NDCG relevance; missing ranks are nonrelevant.
-4. **Run inventory:** case, partition, category, system, selected run ID, model/profile, campaign selection rule, and validity notes.
+4. **Run inventory:** case, partition, category, system, selected run ID, model/profile, campaign selection rule, end-to-end elapsed time, and token accounting. Report time and tokens for every selected testcase/system pair; do not provide aggregates alone. Token accounting must separately show indexing tokens, non-indexing flow tokens, and their total. For Codex runs, additionally show cached input tokens, uncached input tokens, and output tokens; reasoning output tokens may be shown as a non-additive subset of output tokens.
 5. **Headline metrics:** the complete P/R/NDCG table at 1, 2, 5, and 10.
 6. **Breakdowns:** per category and per repository, with counts.
 7. **Per-case results:** enough detail to audit the averages.
 8. **Limitations:** missing cases, mixed models, single-run stochasticity, output limits, failed attempts, or Oracle concerns.
-9. **Reproduction note:** source files and calculation version/script or exact formula.
+9. **Reproduction note:** source files, calculation version/script or exact formula, and the original index-build artifact or declared amortization treatment for every cost comparison.
 
 Use decimal values from 0 to 1 and display three decimal places. Calculate with full precision and round only for presentation. A clean reader-facing example is [EXAMPLE_RETRIEVAL_STATISTICS.md](EXAMPLE_RETRIEVAL_STATISTICS.md). Actual result reports belong under [runs/](runs/).
 
@@ -181,6 +191,10 @@ Use decimal values from 0 to 1 and display three decimal places. Calculate with 
 - [ ] Exactly one valid run is selected per case/system for the headline campaign.
 - [ ] Failed infrastructure attempts are excluded, and no successful run was replaced based on its score.
 - [ ] Model/profile and run selection are explicit; mixed Codex models are stratified.
+- [ ] Every selected testcase/system pair reports its end-to-end elapsed time, indexing tokens, non-indexing flow tokens, and total tokens; any unavailable value is explicitly marked unavailable with its artifact reason.
+- [ ] Codex rows also distinguish cached input tokens, uncached input tokens, and output tokens; reasoning output tokens, if reported, are labeled as a subset of output tokens rather than added again.
+- [ ] Every reused-index row names the matching original index-build artifact and signature; any amortization names the exact shared index signature and divisor.
+- [ ] Currency estimates state their provider/model pricing snapshot and price cached Codex inputs separately from uncached inputs and outputs.
 - [ ] Counts accompany all aggregates.
 - [ ] The report itself repeats the definitions needed by a reader.
 - [ ] Final cases remained untouched until the declared final evaluation.

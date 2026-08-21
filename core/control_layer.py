@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import json
 from pathlib import Path
+import re
 from typing import Any, Callable, Mapping
 
 from core.logging_schema import LogEvent, LogEventType
@@ -215,6 +217,7 @@ class ControlLayer:
         classification_input = IntentClassificationInput(
             user_prompt=state.user_input,
             repository_name=_retrieval_repository_name(self.retrieval_stage),
+            repository_context=_retrieval_repository_context(self.retrieval_stage, state.user_input),
             current_turn_type=state.history[-1].turn_type.value if state.history and state.history[-1].turn_type else None,
         )
         if llm_config is None:
@@ -234,10 +237,61 @@ class ControlLayer:
 
 
 def _retrieval_repository_name(retrieval_stage: Any) -> str | None:
+    context = _retrieval_repository_context(retrieval_stage, "")
+    repository_name = str(context.get("repository", {}).get("repository_name") or "")
+    if repository_name:
+        return repository_name
+    package_name = str(context.get("repository", {}).get("package_name") or "")
+    if package_name:
+        return package_name
     workspace_root = getattr(getattr(retrieval_stage, "config", None), "workspace_root", None)
     if not workspace_root:
         return None
     return Path(str(workspace_root)).name or None
+
+
+_ISSUE_PATH_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9_./\\-])(?:\.{1,2}[\\/])?[A-Za-z0-9_@()+.-]+(?:[\\/][A-Za-z0-9_@()+.-]+)+\.[A-Za-z0-9_+-]+"
+)
+
+
+def _retrieval_repository_context(retrieval_stage: Any, user_prompt: str) -> dict[str, object]:
+    """Build immutable request-analysis facts from the checked-out indexed workspace."""
+    config = getattr(retrieval_stage, "config", None)
+    workspace_root = Path(str(getattr(config, "workspace_root", "") or ""))
+    repository_name = str(getattr(config, "repository_name", "") or "").strip()
+    repository_owner = str(getattr(config, "repository_owner", "") or "").strip()
+    package_name = ""
+    package_path = workspace_root / "package.json"
+    if package_path.is_file():
+        try:
+            package_value = json.loads(package_path.read_text(encoding="utf-8"))
+            if isinstance(package_value, dict):
+                package_name = str(package_value.get("name") or "").strip()
+        except (OSError, json.JSONDecodeError):
+            pass
+    references = tuple(dict.fromkeys(
+        match.group(0).replace("\\", "/").lstrip("./")
+        for match in _ISSUE_PATH_PATTERN.finditer(user_prompt)
+    ))[:12]
+    return {
+        "repository": {
+            "workspace_name": workspace_root.name,
+            "repository_name": repository_name,
+            "repository_owner": repository_owner,
+            "package_name": package_name,
+        },
+        "indexed_scope": {
+            "excluded_paths": list(getattr(config, "index_exclude_paths", ()) or ()),
+        },
+        "issue_path_checks": [
+            {
+                "issue_reference": reference,
+                "exists_in_indexed_repository": (workspace_root / reference).is_file(),
+            }
+            for reference in references
+        ],
+    }
 
 
 def _build_response_plan(

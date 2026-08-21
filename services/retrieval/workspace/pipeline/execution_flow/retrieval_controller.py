@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import hashlib
+import re
 from typing import Any, Callable, Mapping, Sequence
 
 from services.intent.models import EvidenceObligation
@@ -21,9 +23,15 @@ from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification
     QualificationDecision,
     qualify_cards,
 )
+from services.retrieval.workspace.pipeline.execution_flow.file_trace_evidence import (
+    FileTraceSeed,
+    build_file_trace_evidence,
+)
 from services.retrieval.workspace.pipeline.execution_flow.retrieval_actions import (
     ExpandRelationship,
     InspectDeferredObservation,
+    InspectOwnerContinuation,
+    InspectVerifiedLead,
     RetrievalAction,
     SearchNewIsland,
     SearchWithinFile,
@@ -33,6 +41,26 @@ from services.retrieval.workspace.pipeline.execution_flow.retrieval_actions impo
 )
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard, disclose_observations
 from services.retrieval.workspace.pipeline.execution_flow.structural_components import build_structural_components
+from services.retrieval.workspace.tools import ToolRequest
+
+
+MAX_VERIFIED_LEAD_EXECUTIONS = 2
+
+
+@dataclass(frozen=True)
+class VerifiedLead:
+    source_observation_id: str
+    obligation_id: str
+    target: str
+    target_node_id: str
+    target_path: str
+    target_line_start: int
+    target_line_end: int
+    target_symbol: str
+    reason: str
+    discovered_round: int
+    source_rank: int
+    qualified_target: bool
 
 
 @dataclass(frozen=True)
@@ -49,6 +77,239 @@ class ControllerResult:
     stop_reason: str
     qualification_usage: Mapping[str, int]
     coverage_usage: Mapping[str, int]
+    file_traces: tuple[dict[str, object], ...]
+
+
+def _discover_verified_leads(
+    *,
+    round_index: int,
+    changed_observation_ids: Sequence[str],
+    observations: Mapping[str, DiscoveryObservation],
+    decisions: Mapping[str, QualificationDecision],
+    cards: Mapping[str, DisclosureCard],
+    coverage: Sequence[ObligationCoverage],
+    pending_node_ids: set[str],
+    executed_node_ids: set[str],
+    exact_symbol_tool: Any,
+    trace: Any | None,
+) -> tuple[tuple[VerifiedLead, ...], list[dict[str, Any]], int]:
+    """Validate newly disclosed, literal call targets before granting a reserved action."""
+    coverage_by_id = {item.obligation_id: item for item in coverage}
+    accepted: list[VerifiedLead] = []
+    audit: list[dict[str, Any]] = []
+    tool_calls = 0
+    seen_targets: set[tuple[str, str]] = set()
+    for observation_id in dict.fromkeys(changed_observation_ids):
+        observation = observations.get(observation_id)
+        decision = decisions.get(observation_id)
+        card = cards.get(observation_id)
+        base = {
+            "observation_id": observation_id,
+            "round": round_index,
+            "follow_up": decision.local_follow_up if decision is not None else "",
+        }
+        if observation is None or decision is None or card is None:
+            audit.append({**base, "status": "rejected", "reason": "missing_observation_decision_or_card"})
+            continue
+        if decision.disposition != "promote" or decision.support_level != "navigation_only":
+            continue
+        targets = _followup_called_targets(decision.local_follow_up, card.source_text)
+        if not targets:
+            audit.append({**base, "status": "rejected", "reason": "no_source_called_target_named_in_followup"})
+            continue
+        unresolved = [
+            value
+            for value in observation.obligation_ids
+            if coverage_by_id.get(value) is not None
+            and coverage_by_id[value].status not in {"covered", "external"}
+        ]
+        if not unresolved:
+            audit.append({**base, "status": "rejected", "reason": "no_compatible_unresolved_obligation"})
+            continue
+        target = targets[0]
+        target_key = (observation_id, target.casefold())
+        if target_key in seen_targets:
+            continue
+        seen_targets.add(target_key)
+        leaf = _target_leaf(target)
+        request = ToolRequest(
+            tool_name="structural_find_exact_symbol",
+            arguments={"query": leaf, "limit": 8},
+            reason=f"Validate visible direct follow-up target {target} before reserving retrieval work.",
+        )
+        response = exact_symbol_tool.run(request)
+        if trace is not None:
+            trace.record_tool(request, response, round_index=round_index)
+        tool_calls += 1
+        if response.status != "ok":
+            raise RuntimeError("required_tool_failed: structural_find_exact_symbol")
+        nodes = _matching_target_nodes(target, response.payload.get("nodes", ()))
+        if len(nodes) != 1:
+            audit.append({
+                **base,
+                "target": target,
+                "status": "rejected",
+                "reason": "target_not_resolved" if not nodes else "target_resolution_ambiguous",
+                "match_count": len(nodes),
+            })
+            continue
+        node = nodes[0]
+        node_id = str(node.get("id") or "")
+        if not node_id or node_id in pending_node_ids or node_id in executed_node_ids:
+            audit.append({
+                **base,
+                "target": target,
+                "target_node_id": node_id,
+                "status": "rejected",
+                "reason": "target_already_pending_or_executed",
+            })
+            continue
+        if any(item.handle.node_id == node_id for item in observations.values()):
+            audit.append({
+                **base,
+                "target": target,
+                "target_node_id": node_id,
+                "status": "rejected",
+                "reason": "target_already_observed",
+            })
+            continue
+        lead = VerifiedLead(
+            source_observation_id=observation_id,
+            obligation_id=unresolved[0],
+            target=target,
+            target_node_id=node_id,
+            target_path=str(node.get("path") or ""),
+            target_line_start=max(1, int(node.get("line_start") or 1)),
+            target_line_end=max(1, int(node.get("line_end") or node.get("line_start") or 1)),
+            target_symbol=str(node.get("qualified_name") or node.get("name") or leaf),
+            reason=decision.local_follow_up,
+            discovered_round=round_index,
+            source_rank=observation.best_rank,
+            qualified_target=("." in target or "::" in target),
+        )
+        accepted.append(lead)
+        pending_node_ids.add(node_id)
+        audit.append({**base, **_verified_lead_to_dict(lead), "status": "accepted", "reason": "visible_call_resolved"})
+    return tuple(accepted), audit, tool_calls
+
+
+def _literal_followup_targets(value: str) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(
+        match.group(1).strip()
+        for match in re.finditer(r"`([^`]+)`", value or "")
+        if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*(?:(?:::|\.)[A-Za-z_$][A-Za-z0-9_$]*)*", match.group(1).strip())
+    ))
+
+
+def _followup_called_targets(follow_up: str, source: str) -> tuple[str, ...]:
+    """Find follow-up identifiers that are also literal calls in the disclosed source.
+
+    Backticks are presentation, not semantics: an LLM may emit either
+    ``Inspect `Series._binop``` or ``Inspect Series._binop`` for the same lead.
+    """
+    visible_calls = tuple(dict.fromkeys(
+        match.group(1)
+        for match in re.finditer(
+            r"(?:\bself\.|\bthis\.|\b[A-Za-z_$][A-Za-z0-9_$]*\.)?([A-Za-z_$][A-Za-z0-9_$]*)\s*\(",
+            source or "",
+        )
+    ))
+    candidates: list[str] = []
+    for literal in _literal_followup_targets(follow_up):
+        if _target_leaf(literal) in visible_calls:
+            candidates.append(literal)
+    for leaf in visible_calls:
+        qualified = re.search(
+            rf"\b([A-Za-z_$][A-Za-z0-9_$]*(?:(?:::|\.){re.escape(leaf)}))\b",
+            follow_up or "",
+        )
+        if qualified:
+            candidates.append(qualified.group(1))
+        elif re.search(rf"(?<![A-Za-z0-9_$]){re.escape(leaf)}(?![A-Za-z0-9_$])", follow_up or ""):
+            candidates.append(leaf)
+    return tuple(dict.fromkeys(candidates))
+
+
+def _target_leaf(target: str) -> str:
+    return re.split(r"::|\.", target)[-1]
+
+
+def _source_visibly_calls(source: str, target: str) -> bool:
+    leaf = _target_leaf(target)
+    return bool(re.search(rf"\b{re.escape(leaf)}\s*\(", source or ""))
+
+
+def _matching_target_nodes(target: str, values: Sequence[Any]) -> list[dict[str, Any]]:
+    leaf = _target_leaf(target).casefold()
+    normalized_target = target.replace("::", ".").casefold()
+    qualified = "." in normalized_target
+    matches: dict[str, dict[str, Any]] = {}
+    for value in values:
+        if not isinstance(value, Mapping):
+            continue
+        name = str(value.get("name") or "").casefold()
+        qualified_name = str(value.get("qualified_name") or value.get("name") or "").replace("::", ".").casefold()
+        if name != leaf and qualified_name.split(".")[-1] != leaf:
+            continue
+        if qualified and not (qualified_name == normalized_target or qualified_name.endswith(f".{normalized_target}")):
+            continue
+        node_id = str(value.get("id") or "")
+        if node_id and value.get("path"):
+            matches[node_id] = dict(value)
+    return list(matches.values())
+
+
+def _verified_lead_to_dict(lead: VerifiedLead) -> dict[str, Any]:
+    return {
+        "source_observation_id": lead.source_observation_id,
+        "obligation_id": lead.obligation_id,
+        "target": lead.target,
+        "target_node_id": lead.target_node_id,
+        "target_path": lead.target_path,
+        "target_range": [lead.target_line_start, lead.target_line_end],
+        "target_symbol": lead.target_symbol,
+        "reason": lead.reason,
+        "discovered_round": lead.discovered_round,
+    }
+
+
+def _select_verified_lead_actions(
+    leads: Sequence[VerifiedLead],
+    *,
+    executed_count: int,
+    observation_to_island: Mapping[str, str],
+) -> tuple[InspectVerifiedLead, ...]:
+    if not leads or executed_count >= MAX_VERIFIED_LEAD_EXECUTIONS:
+        return ()
+    lead = min(
+        leads,
+        key=lambda item: (
+            0 if item.qualified_target else 1,
+            item.discovered_round,
+            item.source_rank,
+            item.target_path.casefold(),
+            item.target_node_id,
+        ),
+    )
+    digest = hashlib.sha1(
+        f"{lead.source_observation_id}\0{lead.target_node_id}".encode("utf-8")
+    ).hexdigest()[:16]
+    return (
+        InspectVerifiedLead(
+            id=f"action_{digest}",
+            obligation_id=lead.obligation_id,
+            source_observation_id=lead.source_observation_id,
+            target=lead.target,
+            target_node_id=lead.target_node_id,
+            target_path=lead.target_path,
+            target_line_start=lead.target_line_start,
+            target_line_end=lead.target_line_end,
+            target_symbol=lead.target_symbol,
+            reason=lead.reason,
+            discovered_round=lead.discovered_round,
+            scope_id=observation_to_island.get(lead.source_observation_id, ""),
+        ),
+    )
 
 
 def run_retrieval_controller(
@@ -68,6 +329,7 @@ def run_retrieval_controller(
     decisions: dict[str, QualificationDecision] = {}
     candidates: dict[str, Any] = {}
     all_edges: list[dict[str, Any]] = []
+    file_trace_seeds: list[FileTraceSeed] = []
     attempted: set[str] = set()
     attempted_effects: set[tuple[str, ...]] = set()
     refined_paths: set[str] = set()
@@ -147,14 +409,23 @@ def run_retrieval_controller(
         previous=None, round_index=0,
     )
     tool_calls += islands.tool_calls
+    all_edges.extend(_connector_path_edges(islands.edges))
     stop_reason = "all_required_obligations_covered" if _required_covered(obligations, coverage.coverage) else ""
     completed_rounds = 0
     allow_exact_followup_round = False
+    pending_maturation_child_roots: set[str] = set()
+    pending_verified_leads: dict[str, VerifiedLead] = {}
+    executed_verified_lead_node_ids: set[str] = set()
+    verified_lead_executions = 0
 
     for round_index in range(1, ctx.config.max_exploration_rounds + 1):
         if stop_reason:
             break
-        if round_index == 4 and not allow_exact_followup_round:
+        verified_lead_round_available = (
+            bool(pending_verified_leads)
+            and verified_lead_executions < MAX_VERIFIED_LEAD_EXECUTIONS
+        )
+        if round_index == 4 and not (allow_exact_followup_round or verified_lead_round_available):
             stop_reason = "three_round_budget_complete"
             break
         completed_rounds = round_index
@@ -177,19 +448,80 @@ def run_retrieval_controller(
             active_root_ids=islands.active_root_ids,
             observation_to_island=islands.observation_to_island,
             edge_capabilities_tool=structural_tools["structural_edge_capabilities"],
+            file_nodes_tool=structural_tools["structural_resolve_file_nodes"],
             attempted_fingerprints=attempted,
             trace=ctx.trace,
             round_index=round_index,
         )
         tool_calls += catalogue.tool_calls
-        selected = _select_actions(
-            catalogue.actions,
+        test_maturation_actions = tuple(
+            action for action in catalogue.actions if bool(getattr(action, "is_test_maturation", False))
+        )
+        maturation_actions = tuple(
+            action
+            for action in catalogue.actions
+            if bool(getattr(action, "is_maturation", False))
+            and not bool(getattr(action, "is_test_maturation", False))
+            and _action_root_id(action) not in {
+                lead.source_observation_id for lead in pending_verified_leads.values()
+            }
+        )
+        normal_actions = tuple(
+            action
+            for action in catalogue.actions
+            if not (isinstance(action, SearchWithinFile) and action.is_deferred_file_seed)
+            and not bool(getattr(action, "is_maturation", False))
+        )
+        normal_selected = _select_actions(
+            normal_actions,
             islands.active_root_ids,
             ctx.config.max_controller_actions_per_round,
             scope_order=islands.active_island_ids,
             refined_paths=refined_paths,
             prefer_relationship=round_index > 1,
             attempted_effects=attempted_effects,
+        )
+        deferred_file_seed_selected = _select_deferred_file_seed_actions(
+            catalogue.actions,
+            attempted_effects=attempted_effects,
+            refined_paths=refined_paths,
+            normal_selected=normal_selected,
+        )
+        maturation_children = tuple(
+            action for action in maturation_actions
+            if _action_root_id(action) in pending_maturation_child_roots
+            and isinstance(action, SearchWithinFile)
+            and bool(action.handoff_reason)
+        )
+        maturation_selected = _select_maturation_actions(
+            maturation_children,
+            maturation_actions,
+            islands.active_root_ids,
+            attempted=attempted,
+            scope_order=islands.active_island_ids,
+            refined_paths=refined_paths,
+            attempted_effects=attempted_effects,
+        )
+        test_maturation_selected = _select_maturation_actions(
+            (),
+            test_maturation_actions,
+            islands.active_root_ids,
+            attempted=attempted,
+            scope_order=islands.active_island_ids,
+            refined_paths=refined_paths,
+            attempted_effects=attempted_effects,
+        )
+        verified_lead_selected = _select_verified_lead_actions(
+            tuple(pending_verified_leads.values()),
+            executed_count=verified_lead_executions,
+            observation_to_island=islands.observation_to_island,
+        )
+        selected = (
+            *normal_selected,
+            *deferred_file_seed_selected,
+            *maturation_selected,
+            *test_maturation_selected,
+            *verified_lead_selected,
         )
         if not selected:
             stop_reason = "no_executable_action"
@@ -199,6 +531,14 @@ def run_retrieval_controller(
             {
                 "round": round_index,
                 "actions": [action_to_dict(item) for item in selected],
+                "normal_action_count": len(normal_selected),
+                "deferred_file_seed_action_count": len(deferred_file_seed_selected),
+                "maturation_action_count": len(maturation_selected),
+                "maturation_child_action_count": len(maturation_children),
+                "test_maturation_action_count": len(test_maturation_selected),
+                "verified_lead_action_count": len(verified_lead_selected),
+                "verified_lead_pending_count": len(pending_verified_leads),
+                "verified_lead_execution_count": verified_lead_executions,
                 "scope_assignments": [
                     {
                         "slot": index,
@@ -213,7 +553,7 @@ def run_retrieval_controller(
                     }
                     for index, item in enumerate(selected, start=1)
                 ],
-                "selection_policy": "semantic_island_scope_first_then_existing_action_order",
+                "selection_policy": "two_normal_island_actions_plus_one_isolated_deferred_file_seed_action_plus_one_maturation_action_plus_one_test_maturation_action_plus_one_verified_lead_action",
             },
         )
         previous_candidate_ids = set(candidates)
@@ -237,19 +577,68 @@ def run_retrieval_controller(
                 trace=ctx.trace,
                 round_index=round_index,
             )
+            if bool(getattr(action, "is_maturation", False)):
+                pending_maturation_child_roots.update(item.id for item in execution.observations)
+            if action in maturation_selected and _action_root_id(action) in pending_maturation_child_roots:
+                pending_maturation_child_roots.discard(_action_root_id(action))
+            if isinstance(action, InspectVerifiedLead):
+                pending_verified_leads.pop(action.target_node_id, None)
+                executed_verified_lead_node_ids.add(action.target_node_id)
+                verified_lead_executions += 1
             tool_calls += execution.tool_calls
             all_edges.extend(execution.edges)
+            if isinstance(action, ExpandRelationship) and action.seed_kind == "file" and execution.edges:
+                source_path = observations.get(action.root_observation_id, None)
+                source_path = source_path.handle.path if source_path is not None else ""
+                for endpoint in execution.observations:
+                    if endpoint.handle.path and endpoint.handle.path.casefold() != source_path.casefold():
+                        file_trace_seeds.append(
+                            FileTraceSeed(
+                                path=endpoint.handle.path,
+                                source_path=source_path,
+                                source_observation_id=action.root_observation_id,
+                                endpoint_observation_id=endpoint.id,
+                                endpoint_symbol=endpoint.handle.symbol,
+                                action_id=action.id,
+                                obligation_id=action.obligation_id,
+                                relationship_direction=action.direction,
+                                relationship_kinds=action.edge_kinds,
+                                connection_summary=_file_connection_summary(
+                                    execution.edges, source_path, endpoint.handle.path,
+                                ),
+                            )
+                        )
             for observation in execution.observations:
                 existing = observations.get(observation.id)
-                if existing == observation and not isinstance(action, InspectDeferredObservation):
+                if existing == observation and not isinstance(action, (InspectDeferredObservation, InspectOwnerContinuation)):
                     continue
-                updated = (
-                    observation
-                    if existing is None or isinstance(action, InspectDeferredObservation)
-                    else merge_observation_pair(existing, observation)
-                )
+                source_replaced = False
+                if existing is None or isinstance(action, (InspectDeferredObservation, InspectOwnerContinuation)):
+                    updated = observation
+                else:
+                    try:
+                        updated = merge_observation_pair(existing, observation)
+                    except ValueError:
+                        # A later path-local search can resolve the same logical observation ID
+                        # to a more specific structural range.  It is a refinement, not evidence
+                        # that two unrelated sources should be merged.
+                        updated = observation
+                        source_replaced = True
                 observations[observation.id] = updated
                 changed.append(updated)
+                if source_replaced:
+                    ctx.trace.record(
+                        "controller_observation_source_replaced",
+                        {
+                            "round": round_index,
+                            "action_id": action.id,
+                            "observation_id": observation.id,
+                            "previous_path": existing.handle.path,
+                            "previous_range": [existing.handle.line_start, existing.handle.line_end],
+                            "replacement_path": observation.handle.path,
+                            "replacement_range": [observation.handle.line_start, observation.handle.line_end],
+                        },
+                    )
             ctx.trace.record(
                 "controller_action_executed",
                 {
@@ -260,7 +649,44 @@ def run_retrieval_controller(
                     "edge_count": len(execution.edges),
                 },
             )
+            if isinstance(action, InspectOwnerContinuation):
+                ctx.trace.record(
+                    "owner_continuation_executed",
+                    {
+                        "round": round_index,
+                        "observation_id": action.observation_id,
+                        "owner_range": list(action.owner_range),
+                        "requested_range": list(action.requested_range),
+                        "missing_behavior": action.reason,
+                    },
+                )
         qualify(_latest_changed_observations(changed, observations), round_index)
+        discovered_leads, lead_audit, lead_tool_calls = _discover_verified_leads(
+            round_index=round_index,
+            changed_observation_ids=tuple(item.id for item in changed),
+            observations=observations,
+            decisions=decisions,
+            cards=cards,
+            coverage=coverage.coverage,
+            pending_node_ids=set(pending_verified_leads),
+            executed_node_ids=executed_verified_lead_node_ids,
+            exact_symbol_tool=structural_tools["structural_find_exact_symbol"],
+            trace=ctx.trace,
+        )
+        tool_calls += lead_tool_calls
+        for lead in discovered_leads:
+            pending_verified_leads.setdefault(lead.target_node_id, lead)
+        ctx.trace.record(
+            "verified_leads_evaluated",
+            {
+                "round": round_index,
+                "audit": lead_audit,
+                "new_lead_count": len(discovered_leads),
+                "pending_leads": [_verified_lead_to_dict(item) for item in pending_verified_leads.values()],
+                "executed_count": verified_lead_executions,
+                "execution_cap": MAX_VERIFIED_LEAD_EXECUTIONS,
+            },
+        )
         coverage = _evaluate(ctx, user_request, obligations, candidates, candidate_payload, round_index=round_index)
         _add_usage(coverage_usage, coverage.usage)
         previous_islands = islands
@@ -269,6 +695,7 @@ def run_retrieval_controller(
             previous=previous_islands, round_index=round_index,
         )
         tool_calls += islands.tool_calls
+        all_edges.extend(_connector_path_edges(islands.edges))
         current_coverage = {item.obligation_id: item.status for item in coverage.coverage}
         evidence_gain = set(candidates) != previous_candidate_ids
         promoted_ids = {
@@ -279,6 +706,7 @@ def run_retrieval_controller(
             _status_rank(current_coverage.get(key, "missing")) > _status_rank(value)
             for key, value in previous_coverage.items()
         )
+        lead_gain = bool(discovered_leads) and verified_lead_executions < MAX_VERIFIED_LEAD_EXECUTIONS
         if round_index == 3:
             allow_exact_followup_round = (
                 any(_has_specific_exact_anchors(action) for action in selected)
@@ -294,15 +722,32 @@ def run_retrieval_controller(
                 "evidence_gain": evidence_gain,
                 "navigation_gain": navigation_gain,
                 "coverage_gain": coverage_gain,
+                "verified_lead_gain": lead_gain,
+                "pending_verified_lead_count": len(pending_verified_leads),
+                "verified_lead_execution_count": verified_lead_executions,
             },
         )
         if _required_covered(obligations, coverage.coverage):
             stop_reason = "all_required_obligations_covered"
-        elif not evidence_gain and not navigation_gain and not coverage_gain:
+        elif not evidence_gain and not navigation_gain and not coverage_gain and not lead_gain:
             stop_reason = "no_evidence_gain"
 
     if not stop_reason:
         stop_reason = "controller_round_limit_reached"
+    file_traces = build_file_trace_evidence(
+        file_trace_seeds,
+        tuple(decisions.values()),
+        islands.observation_to_island,
+    )
+    ctx.trace.record(
+        "file_trace_evidence_created",
+        {
+            "trace_count": len(file_traces),
+            "seed_count": len(file_trace_seeds),
+            "selection_cap_stage": "final_evidence_consolidation",
+            "traces": [item.to_dict() for item in file_traces],
+        },
+    )
     ctx.trace.record(
         "retrieval_controller_stopped",
         {
@@ -310,6 +755,16 @@ def run_retrieval_controller(
             "rounds": completed_rounds,
             "tool_calls": tool_calls,
             "candidate_ids": sorted(candidates),
+            "pending_verified_leads": [_verified_lead_to_dict(item) for item in pending_verified_leads.values()],
+            "verified_lead_execution_count": verified_lead_executions,
+            "verified_lead_execution_cap": MAX_VERIFIED_LEAD_EXECUTIONS,
+            "verified_lead_block_reason": (
+                "execution_cap_reached"
+                if pending_verified_leads and verified_lead_executions >= MAX_VERIFIED_LEAD_EXECUTIONS
+                else "round_budget_exhausted"
+                if pending_verified_leads
+                else ""
+            ),
         },
     )
     return ControllerResult(
@@ -325,6 +780,7 @@ def run_retrieval_controller(
         stop_reason=stop_reason,
         qualification_usage=dict(qualification_usage),
         coverage_usage=dict(coverage_usage),
+        file_traces=tuple(item.to_dict() for item in file_traces),
     )
 
 
@@ -401,12 +857,32 @@ def _select_actions(
         actions,
         key=lambda item: (
             0
-            if isinstance(item, SearchWithinFile)
+            if (
+                prefer_relationship
+                and isinstance(item, InspectOwnerContinuation)
+            )
+            else 0
+            if (
+                prefer_relationship
+                and isinstance(item, SearchWithinFile)
+                and item.is_handoff_completion
+            )
             else 1
-            if isinstance(item, InspectDeferredObservation)
+            if (
+                prefer_relationship
+                and isinstance(item, ExpandRelationship)
+                and item.seed_kind == "file"
+                and bool(item.handoff_reason)
+            )
             else 2
+            if isinstance(item, InspectOwnerContinuation)
+            else 3
+            if isinstance(item, SearchWithinFile)
+            else 4
+            if isinstance(item, InspectDeferredObservation)
+            else 5
             if isinstance(item, ExpandRelationship)
-            else 3,
+            else 6,
             getattr(item, "priority", 0) if isinstance(item, SearchWithinFile) else 0,
             root_rank.get(_action_root_id(item), 10_000),
             getattr(item, "obligation_id", ""),
@@ -512,11 +988,89 @@ def _select_actions(
     return tuple(selected[:limit])
 
 
+def _select_deferred_file_seed_actions(
+    actions: Sequence[RetrievalAction],
+    *,
+    attempted_effects: set[tuple[str, ...]],
+    refined_paths: set[str],
+    normal_selected: Sequence[RetrievalAction],
+) -> tuple[SearchWithinFile, ...]:
+    """Use an isolated, small recovery pool without displacing island actions."""
+    normal_paths = {
+        item.path.casefold()
+        for item in normal_selected
+        if isinstance(item, SearchWithinFile)
+    }
+    candidates = tuple(
+        item
+        for item in actions
+        if isinstance(item, SearchWithinFile)
+        and item.is_deferred_file_seed
+        and item.path.casefold() not in normal_paths
+    )
+    selected = _select_actions(
+        candidates,
+        (),
+        1,
+        refined_paths=refined_paths,
+        attempted_effects=attempted_effects,
+    )
+    return tuple(item for item in selected if isinstance(item, SearchWithinFile))
+
+
+def _select_maturation_actions(
+    children: Sequence[RetrievalAction],
+    actions: Sequence[RetrievalAction],
+    active_root_ids: Sequence[str],
+    *,
+    attempted: set[str],
+    scope_order: Sequence[str],
+    refined_paths: set[str],
+    attempted_effects: set[tuple[str, ...]],
+) -> tuple[RetrievalAction, ...]:
+    """Reserve one direct child after maturation without re-pruning it as its parent's effect."""
+    if children:
+        eligible_children = tuple(action for action in children if action.id not in attempted)
+        if eligible_children:
+            # The child intentionally follows the same mechanism as the maturation parent.
+            # Do not pass it through the normal diversity/effect filter, which would erase
+            # the one-hop chain this pool exists to test.
+            return (eligible_children[0],)
+    return _select_actions(
+        actions,
+        active_root_ids,
+        1,
+        scope_order=scope_order,
+        refined_paths=refined_paths,
+        attempted_effects=attempted_effects,
+    )
+
+
 def _action_effect(action: RetrievalAction) -> tuple[str, ...]:
+    if isinstance(action, InspectVerifiedLead):
+        return ("verified_lead", action.target_node_id)
     if isinstance(action, InspectDeferredObservation):
         return ("inspect", action.observation_id, str(action.requested_range))
+    if isinstance(action, InspectOwnerContinuation):
+        return ("owner_continuation", action.observation_id, str(action.owner_range))
     if isinstance(action, ExpandRelationship):
-        return ("expand", action.root_observation_id, action.direction, *action.edge_kinds)
+        if action.seed_kind == "file":
+            return (
+                "file_expand",
+                action.root_node_id,
+                action.direction,
+                *action.edge_kinds,
+            )
+        return (
+            "expand",
+            action.root_observation_id,
+            action.root_node_id,
+            action.direction,
+            *action.edge_kinds,
+            *sorted(set(action.target_symbol_anchors)),
+            *sorted(set(action.target_term_anchors)),
+            str(action.cross_file_only),
+        )
     if isinstance(action, SearchWithinFile):
         return ("within_file", action.obligation_id, action.path, action.dense_query)
     if isinstance(action, SearchNewIsland):
@@ -527,9 +1081,32 @@ def _action_effect(action: RetrievalAction) -> tuple[str, ...]:
 
 
 def _action_root_id(action: RetrievalAction) -> str:
+    if isinstance(action, InspectVerifiedLead):
+        return action.source_observation_id
     if isinstance(action, SearchWithinFile):
         return action.source_observation_id
+    if isinstance(action, InspectOwnerContinuation):
+        return action.observation_id
     return str(getattr(action, "root_observation_id", "") or "")
+
+
+def _file_connection_summary(
+    edges: Sequence[Mapping[str, Any]],
+    source_path: str,
+    destination_path: str,
+) -> Mapping[str, object]:
+    """Keep the bounded, CodeGraph-resolved call summary for one file handoff."""
+    normalized_source = source_path.replace("\\", "/").casefold()
+    normalized_destination = destination_path.replace("\\", "/").casefold()
+    for edge in edges:
+        summary = edge.get("file_connection_summary")
+        if not isinstance(summary, Mapping):
+            continue
+        edge_source = str(summary.get("source_path") or "").replace("\\", "/").casefold()
+        edge_destination = str(summary.get("destination_path") or "").replace("\\", "/").casefold()
+        if edge_source == normalized_source and edge_destination == normalized_destination:
+            return dict(summary)
+    return {}
 
 
 def _action_scope_id(action: RetrievalAction) -> str:
@@ -576,3 +1153,14 @@ def _dedupe_edges(edges: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         key = (str(source.get("id") or ""), str(target.get("id") or ""), str(edge.get("kind") or ""))
         values[key] = dict(edge)
     return list(values.values())
+
+
+def _connector_path_edges(edges: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        dict(edge)
+        for edge in edges
+        if str(edge.get("_retrieval_provenance") or "") in {
+            "exact_codegraph_connector_path",
+            "source_verified_connector_path",
+        }
+    ]

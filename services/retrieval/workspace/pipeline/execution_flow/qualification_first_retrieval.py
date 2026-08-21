@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import re
 from typing import Any, Mapping, Sequence
 
 from core.models import ConversationState, EvidenceItem, RetrievalResult
+from core.source_policy import SourceCategory
 from services.intent.models import EvidenceSource
 from services.retrieval.workspace.connected_context import ConnectedSourceContextResult
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
@@ -47,6 +49,9 @@ from services.retrieval.workspace.pipeline.execution_flow.source_disclosure impo
 from services.retrieval.workspace.tools import ToolRequest
 
 
+MAX_HELD_FILE_ALTERNATIVES_PER_CHANNEL = 1
+
+
 def run_obligation_retrieval(
     ctx: WorkspaceRetrievalContext,
     state: ConversationState,
@@ -77,6 +82,11 @@ def run_obligation_retrieval(
     )
     tool_calls += added_calls
     confirmed_values = {item.value for item in confirmations if item.confirmed_in_repository}
+    exact_repository_symbols = {
+        item.value
+        for item in confirmations
+        if item.kind == "symbol" and item.match_type == "exact_symbol"
+    }
     connected_terms = ordered_unique(
         (*intent_context.search_terms, *connected_context.retrieval_terms, *connected_context.suggested_subqueries)
     )
@@ -87,6 +97,7 @@ def run_obligation_retrieval(
     )
     exact_prompt_seeds = _exact_prompt_seed_results(confirmations, repository_obligations)
     semantic_by_obligation: dict[str, list[dict[str, Any]]] = {}
+    held_semantic_by_obligation: dict[str, list[dict[str, Any]]] = {}
     for obligation in repository_obligations:
         query = _obligation_query(
             _obligation_stage_query_text(obligation),
@@ -94,10 +105,16 @@ def run_obligation_retrieval(
             anchors=tuple(value for value in obligation.anchor_refs if value in confirmed_values),
             search_terms=connected_terms,
         )
+        repository_sparse_anchors = _repository_sparse_anchors(obligation, exact_repository_symbols)
+        sparse_query = _initial_sparse_query(
+            obligation,
+            exact_repository_symbols=exact_repository_symbols,
+        )
         request = ToolRequest(
             tool_name="qdrant_hybrid_search",
             arguments={
                 "query": query,
+                "sparse_query": sparse_query,
                 "limit": MAX_FOCUSED_RESULTS,
                 "max_per_path": 1,
                 "source_category": _source_category_for_role(obligation.evidence_role),
@@ -109,12 +126,47 @@ def run_obligation_retrieval(
         )
         response = qdrant_tool.run(request)
         ctx.trace.record_tool(request, response, round_index=0)
+        ctx.trace.record(
+            "initial_query_channel_results",
+            {
+                "obligation_id": obligation.id,
+                "dense_query": query,
+                "sparse_query": sparse_query,
+                "repository_sparse_anchors": list(repository_sparse_anchors),
+                "excluded_sparse_anchor_refs": list(
+                    _excluded_sparse_anchor_refs(obligation, exact_repository_symbols)
+                ),
+                "hybrid_results": _channel_result_summary(response.payload.get("results", ())),
+                "dense_results": _channel_result_summary(
+                    response.payload.get("breakdown", {}).get("dense", ())
+                    if isinstance(response.payload.get("breakdown", {}), Mapping) else ()
+                ),
+                "sparse_results": _channel_result_summary(
+                    response.payload.get("breakdown", {}).get("sparse", ())
+                    if isinstance(response.payload.get("breakdown", {}), Mapping) else ()
+                ),
+                "sparse_query_diagnostics": dict(response.payload.get("sparse_query_diagnostics", {})),
+            },
+        )
         tool_calls += 1
         if response.status != "ok":
             raise RuntimeError(f"required_tool_failed: qdrant_hybrid_search:{obligation.id}")
-        semantic_by_obligation[obligation.id] = [
-            dict(item) for item in response.payload.get("results", ()) if isinstance(item, Mapping)
-        ][:MAX_FOCUSED_RESULTS]
+        representatives, held_alternatives, file_groups = _file_group_initial_results(
+            response.payload,
+            limit=MAX_FOCUSED_RESULTS,
+        )
+        semantic_by_obligation[obligation.id] = list(representatives)
+        held_semantic_by_obligation[obligation.id] = list(held_alternatives)
+        ctx.trace.record(
+            "initial_file_groups_fused",
+            {
+                "obligation_id": obligation.id,
+                "selected_file_count": len(file_groups),
+                "representative_count": len(representatives),
+                "held_alternative_count": len(held_alternatives),
+                "file_groups": list(file_groups),
+            },
+        )
 
     all_results = [
         (obligation.id, origin, rank, item)
@@ -125,11 +177,17 @@ def run_obligation_retrieval(
         )
         for rank, item in enumerate(values, start=1)
     ]
+    all_held_results = [
+        (obligation.id, "qdrant_file_group_held", rank, item)
+        for obligation in repository_obligations
+        for rank, item in enumerate(held_semantic_by_obligation.get(obligation.id, ()), start=1)
+    ]
     ranges = [
         {"file": item.get("path"), "line_start": item.get("line_start"), "line_end": item.get("line_end")}
-        for _obligation_id, _origin, _rank, item in all_results
+        for _obligation_id, _origin, _rank, item in (*all_results, *all_held_results)
         if item.get("path") and item.get("line_start")
     ]
+    ranges = list({(str(item["file"]), int(item["line_start"]), int(item["line_end"])): item for item in ranges}.values())
     range_nodes: dict[tuple[str, int, int], tuple[dict[str, Any], ...]] = {}
     if ranges:
         request = ToolRequest(
@@ -173,27 +231,61 @@ def run_obligation_retrieval(
             observation_from_result(
                 result,
                 obligation_id=obligation_id,
-                query_id=f"{origin}:{obligation_id}",
-                rank=rank,
-                retriever=origin,
+                query_id=f"{_file_group_result_origin(result, origin)}:{obligation_id}",
+                rank=int(result.get("file_group_rank") or rank),
+                retriever=_file_group_result_origin(result, origin),
                 nodes=range_nodes.get(key, ()),
                 exact_anchor=str(result.get("exact_prompt_anchor") or "") if origin == "exact_prompt_anchor" else "",
+            )
+        )
+    held_raw_observations: list[DiscoveryObservation] = []
+    for obligation_id, origin, rank, result in all_held_results:
+        key = (str(result.get("path") or ""), int(result.get("line_start") or 0), int(result.get("line_end") or 0))
+        held_raw_observations.extend(
+            observation_from_result(
+                result,
+                obligation_id=obligation_id,
+                query_id=f"{origin}:{obligation_id}",
+                rank=int(result.get("file_group_rank") or rank),
+                retriever=origin,
+                nodes=range_nodes.get(key, ()),
             )
         )
     initial_observations, guardrail_decisions = aggregate_observations(
         raw_observations,
         limit=ctx.config.max_discovery_observations,
+        one_per_path=True,
+        max_obligation_variants_per_path=2,
+        one_per_obligation_per_path=False,
     )
     all_aggregated_observations, _all_decisions = aggregate_observations(
         raw_observations,
         limit=max(1, len(raw_observations)),
     )
     initial_ids = {item.id for item in initial_observations}
-    deferred_observations = tuple(item for item in all_aggregated_observations if item.id not in initial_ids)
+    admission_reason_by_id = {
+        str(item.get("observation_id") or ""): str(item.get("reason") or "")
+        for item in guardrail_decisions
+    }
+    deferred_values = [
+        replace(item, admission_reason=admission_reason_by_id.get(item.id, ""))
+        for item in all_aggregated_observations
+        if item.id not in initial_ids
+    ]
+    held_aggregated, _held_decisions = aggregate_observations(
+        held_raw_observations,
+        limit=max(1, len(held_raw_observations)),
+    )
+    deferred_by_id = {item.id: item for item in deferred_values}
+    for item in held_aggregated:
+        if item.id not in initial_ids:
+            deferred_by_id.setdefault(item.id, replace(item, admission_reason="same_path_alternative"))
+    deferred_observations = tuple(deferred_by_id.values())
     ctx.trace.record(
         "discovery_observations_created",
         {
             "raw_count": len(raw_observations),
+            "held_raw_count": len(held_raw_observations),
             "raw_observations": [item.to_dict(include_text=False) for item in raw_observations],
             "aggregated_count": len(initial_observations),
             "deferred_count": len(deferred_observations),
@@ -254,6 +346,7 @@ def run_obligation_retrieval(
             expanded_edges=controller.edges,
             input_char_budget=ctx.config.max_final_selection_input_chars,
             candidate_islands=candidate_islands,
+            file_traces=controller.file_traces,
         )
         consolidation = _preserve_active_island_candidates(
             consolidation,
@@ -293,6 +386,14 @@ def run_obligation_retrieval(
             item.transitions.append(transition or {"from": dependency_id, "status": "unresolved", "reason": "No qualified controller action established this handoff."})
 
     selected = _selected_evidence(consolidation, candidates_by_id, repository_obligations)
+    selected.extend(
+        _selected_file_trace_evidence(
+            consolidation,
+            controller.file_traces,
+            start_rank=len(selected) + 1,
+            remaining=MAX_EVIDENCE - len(selected),
+        )
+    )
     selected.extend(_selected_connected_evidence(connected_context, start_rank=len(selected) + 1, remaining=MAX_EVIDENCE - len(selected)))
     states = [progress[item.id] for item in obligations]
     required_unresolved = [item.obligation.id for item in states if item.obligation.required and item.status != "supported"]
@@ -332,6 +433,7 @@ def run_obligation_retrieval(
         "unresolved_symbol_anchors": list(unresolved_symbols),
         "ambiguous_symbol_anchors": list(ambiguous_symbols),
         "graph_edge_count": len(controller.edges),
+        "file_trace_evidence": list(controller.file_traces),
         "unresolved_obligations": required_unresolved,
         "unresolved_transitions": unresolved_transitions,
         "connected_source_context": connected_context.to_dict(),
@@ -562,12 +664,269 @@ def _selected_connected_evidence(
     return values
 
 
+def _selected_file_trace_evidence(
+    consolidation: Mapping[str, Any],
+    file_traces: Sequence[Mapping[str, object]],
+    *,
+    start_rank: int,
+    remaining: int,
+) -> list[EvidenceItem]:
+    accepted = {str(value) for value in consolidation.get("accepted_file_trace_ids", ())}
+    values: list[EvidenceItem] = []
+    for trace in file_traces:
+        path = str(trace.get("path") or "")
+        island_id = str(trace.get("source_island_id") or "unknown")
+        trace_id = f"file_trace:{island_id}:{path}"
+        if not path or trace_id not in accepted or len(values) >= remaining:
+            continue
+        source_path = str(trace.get("source_path") or "")
+        relationship = "/".join(str(value) for value in trace.get("relationship_kinds", ()) if str(value)) or "structural"
+        values.append(
+            EvidenceItem(
+                source_category=SourceCategory.SOURCE_CODE,
+                source_id=f"workspace-file:{path}",
+                snippet=str(trace.get("reason") or ""),
+                rank=start_rank + len(values),
+                metadata={
+                    "evidence_kind": "file_trace",
+                    "path": path,
+                    "source_path": source_path,
+                    "relationship": relationship,
+                    "claim_supported": "This file is structurally connected to the unresolved path; it does not prove behavior inside the file.",
+                },
+            )
+        )
+    return values
+
+
+def _initial_sparse_query(
+    obligation: Any,
+    *,
+    exact_repository_symbols: set[str],
+) -> str:
+    """Use only exact-CodeGraph-confirmed identifiers for lexical retrieval.
+
+    The dense channel keeps the complete stage/obligation question.  This
+    companion deliberately excludes example variables, literals, and proposed
+    names even when they occur literally in the issue.
+    """
+    return " ".join(_repository_sparse_anchors(obligation, exact_repository_symbols)).strip()
+
+
+def _file_group_initial_results(
+    payload: Mapping[str, Any],
+    *,
+    limit: int,
+) -> tuple[tuple[dict[str, Any], ...], tuple[dict[str, Any], ...], tuple[dict[str, Any], ...]]:
+    """Fuse dense/sparse file ranks while preserving each channel's owner candidate.
+
+    Qdrant's native RRF operates on chunks, so a file with many similar chunks
+    can push other files down before the later per-path cap runs.  Initial
+    discovery instead gives each path one rank per channel.  The first dense
+    and sparse chunks remain separate qualification candidates when they point
+    at different ranges; one additional result per channel is held for bounded
+    same-file maturation.
+    """
+    breakdown = payload.get("breakdown", {})
+    if not isinstance(breakdown, Mapping):
+        breakdown = {}
+    dense = tuple(dict(item) for item in breakdown.get("dense", ()) if isinstance(item, Mapping))
+    sparse = tuple(dict(item) for item in breakdown.get("sparse", ()) if isinstance(item, Mapping))
+    if not dense and not sparse:
+        native = tuple(
+            dict(item) for item in payload.get("results", ()) if isinstance(item, Mapping)
+        )[:limit]
+        return native, (), tuple(
+            {
+                "file_group_rank": rank,
+                "path": str(item.get("path") or ""),
+                "file_group_score": float(item.get("score") or 0.0),
+                "dense_rank": None,
+                "sparse_rank": None,
+                "fallback_native_hybrid": True,
+            }
+            for rank, item in enumerate(native, start=1)
+        )
+
+    dense_by_path = _channel_results_by_path(dense)
+    sparse_by_path = _channel_results_by_path(sparse)
+    dense_file_ranks = {path: rank for rank, path in enumerate(dense_by_path, start=1)}
+    sparse_file_ranks = {path: rank for rank, path in enumerate(sparse_by_path, start=1)}
+    paths = ordered_unique((*dense_by_path.keys(), *sparse_by_path.keys()))
+    scored_paths = sorted(
+        paths,
+        key=lambda path: (
+            -_file_rrf_score(dense_file_ranks.get(path), sparse_file_ranks.get(path)),
+            min(dense_file_ranks.get(path, 10**9), sparse_file_ranks.get(path, 10**9)),
+            path,
+        ),
+    )[:limit]
+
+    representatives: list[dict[str, Any]] = []
+    held: list[dict[str, Any]] = []
+    groups: list[dict[str, Any]] = []
+    for file_group_rank, path in enumerate(scored_paths, start=1):
+        dense_values = dense_by_path.get(path, ())
+        sparse_values = sparse_by_path.get(path, ())
+        group_score = _file_rrf_score(dense_file_ranks.get(path), sparse_file_ranks.get(path))
+        representative_keys: set[tuple[str, int, int]] = set()
+        representative_records: list[dict[str, Any]] = []
+        for channel, values, file_rank in (
+            ("dense", dense_values, dense_file_ranks.get(path)),
+            ("sparse", sparse_values, sparse_file_ranks.get(path)),
+        ):
+            if not values:
+                continue
+            result = _annotate_file_group_result(
+                values[0],
+                channel=channel,
+                channel_file_rank=file_rank or 0,
+                file_group_rank=file_group_rank,
+                file_group_score=group_score,
+            )
+            key = _result_range_key(result)
+            if key not in representative_keys:
+                representatives.append(result)
+                representative_keys.add(key)
+            representative_records.append(
+                {
+                    "channel": channel,
+                    "channel_file_rank": file_rank,
+                    "line_start": int(result.get("line_start") or 0),
+                    "line_end": int(result.get("line_end") or 0),
+                }
+            )
+        held_keys = set(representative_keys)
+        for channel, values, file_rank in (
+            ("dense", dense_values, dense_file_ranks.get(path)),
+            ("sparse", sparse_values, sparse_file_ranks.get(path)),
+        ):
+            held_count = 0
+            for alternative in values[1:]:
+                alternative_key = _result_range_key(alternative)
+                if alternative_key in held_keys:
+                    continue
+                held.append(
+                    _annotate_file_group_result(
+                        alternative,
+                        channel=channel,
+                        channel_file_rank=file_rank or 0,
+                        file_group_rank=file_group_rank,
+                        file_group_score=group_score,
+                    )
+                )
+                held_keys.add(alternative_key)
+                held_count += 1
+                if held_count >= MAX_HELD_FILE_ALTERNATIVES_PER_CHANNEL:
+                    break
+        groups.append(
+            {
+                "file_group_rank": file_group_rank,
+                "path": path,
+                "file_group_score": round(group_score, 6),
+                "dense_file_rank": dense_file_ranks.get(path),
+                "sparse_file_rank": sparse_file_ranks.get(path),
+                "dense_chunk_count": len(dense_values),
+                "sparse_chunk_count": len(sparse_values),
+                "representatives": representative_records,
+            }
+        )
+    return tuple(representatives), tuple(held), tuple(groups)
+
+
+def _channel_results_by_path(
+    values: Sequence[Mapping[str, Any]],
+) -> dict[str, tuple[dict[str, Any], ...]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for item in values:
+        path = str(item.get("path") or "").replace("\\", "/")
+        if not path:
+            continue
+        grouped.setdefault(path, []).append(dict(item))
+    return {path: tuple(items) for path, items in grouped.items()}
+
+
+def _file_rrf_score(dense_rank: int | None, sparse_rank: int | None) -> float:
+    return sum(1.0 / (rank + 1.0) for rank in (dense_rank, sparse_rank) if rank is not None)
+
+
+def _annotate_file_group_result(
+    item: Mapping[str, Any],
+    *,
+    channel: str,
+    channel_file_rank: int,
+    file_group_rank: int,
+    file_group_score: float,
+) -> dict[str, Any]:
+    return {
+        **dict(item),
+        "retrieval_channel": channel,
+        "channel_file_rank": channel_file_rank,
+        "file_group_rank": file_group_rank,
+        "file_group_score": file_group_score,
+        "score": file_group_score,
+    }
+
+
+def _result_range_key(item: Mapping[str, Any]) -> tuple[str, int, int]:
+    return (
+        str(item.get("path") or "").replace("\\", "/").casefold(),
+        int(item.get("line_start") or 0),
+        int(item.get("line_end") or item.get("line_start") or 0),
+    )
+
+
+def _file_group_result_origin(item: Mapping[str, Any], fallback: str) -> str:
+    channel = str(item.get("retrieval_channel") or "").strip()
+    return f"qdrant_file_group_{channel}" if channel else fallback
+
+
+_REPOSITORY_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _repository_sparse_anchors(obligation: Any, exact_repository_symbols: set[str]) -> tuple[str, ...]:
+    """Return concrete, nontrivial symbol anchors that CodeGraph resolved."""
+    return ordered_unique(
+        value
+        for value in obligation.anchor_refs
+        if value in exact_repository_symbols
+        and len(value) >= 3
+        and _REPOSITORY_IDENTIFIER.fullmatch(value) is not None
+    )
+
+
+def _excluded_sparse_anchor_refs(obligation: Any, exact_repository_symbols: set[str]) -> tuple[str, ...]:
+    return tuple(
+        value
+        for value in obligation.anchor_refs
+        if value not in _repository_sparse_anchors(obligation, exact_repository_symbols)
+    )
+
+
+def _channel_result_summary(values: object) -> list[dict[str, object]]:
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        return []
+    return [
+        {
+            "rank": index,
+            "path": str(item.get("path") or "").replace("\\", "/"),
+            "line_start": int(item.get("line_start") or 0),
+            "line_end": int(item.get("line_end") or item.get("line_start") or 0),
+            "score": round(float(item.get("score") or 0.0), 4),
+            "matched_terms": [str(value) for value in item.get("matched_terms", ()) if str(value)],
+        }
+        for index, item in enumerate(values, start=1)
+        if isinstance(item, Mapping)
+    ]
+
+
 def _skipped_consolidation(states: Sequence[ObligationProgress]) -> dict[str, Any]:
     return {
         "strategy": "explicitly_skipped_for_candidate_pool_diagnostics",
         "skipped": True,
         "llm_calls": 0,
         "accepted_candidate_ids": [],
+        "accepted_file_trace_ids": [],
         "accepted_ids_by_obligation": {},
         "obligation_statuses": {item.obligation.id: "unresolved" for item in states},
         "unresolved_reasons": {item.obligation.id: "Final evidence selection was explicitly disabled." for item in states},

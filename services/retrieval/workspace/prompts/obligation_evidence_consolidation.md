@@ -11,6 +11,13 @@ The input contains:
   relationships between retained candidates.
 - `mechanism_flows`: candidate paths retained by structural mechanism selection.
   They are competing or complementary hypotheses, not separate answers.
+- `candidate_overlap_relations`: same-file containment or substantial-overlap
+  relationships. Use these to select a minimal, non-redundant source set.
+- `file_traces`: bounded file-level structural evidence. Each trace proves only
+  that a qualified source file reaches the named file through the represented
+  relationship while the requested owner remains unresolved. It is not source
+  code, does not prove behavior inside the destination file, and cannot make an
+  obligation repository-supported or jointly-supported.
 
 First identify the smallest coherent causal mechanism that best explains the
 request. Compare competing flows directly. Prefer code that owns a mutation,
@@ -56,6 +63,27 @@ Rules:
 9. Do not claim repository-wide absence unless the input proves it.
 10. Navigation-only evidence may justify `partial`, never
     `repository_supported` or `jointly_supported` without direct evidence.
+11. Select a `file_trace` only when its structural connection adds a distinct
+    link that selected snippets do not already establish. It may be retained as
+    a file-level structural participant, but never as a mutation, propagation,
+    rebuild, diagnostic, or other behavior owner. Use its `allowed_claim`
+    verbatim in spirit: state the connection and the unresolved owner, not an
+    inferred implementation fact. A trace cannot appear in an obligation's
+    `supporting_candidate_ids`, concepts, or mechanisms.
+12. Select the smallest source owner that establishes a proposition. If a
+    selected parent contains a selected child, or two selected ranges overlap
+    substantially, retain both only when each establishes a necessary fact that
+    the other does not. Put that fact in each item's `exclusive_contribution`.
+    The contribution must identify visible source outside the shared region;
+    assigning different role labels to redundant text is not sufficient. If no
+    exclusive contribution exists, select only the more focused candidate.
+    Separate non-overlapping snippets from one file remain valid when they prove
+    different mechanism steps.
+13. A file trace is independent from exact snippet selection. Select it only if
+    at least one of its `source_candidate_ids` is also selected, none of its
+    `destination_candidate_ids` adequately represents the same destination,
+    its obligation remains partial or unresolved, and its endpoint was not
+    rejected. Do not prefer earlier traces merely because they appear first.
 
 Return selected mechanisms, globally selected evidence with its causal role and
 actual obligation mappings, an assessment for every obligation, and concise

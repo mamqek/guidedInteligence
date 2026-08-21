@@ -1,6 +1,320 @@
 # Retrieval Changelog
 
+## 2026-08-20
+
+### Initial File-Group Channel Fusion — Diagnostic, Full Run Withheld
+
+- Stage boundary: initial Qdrant discovery only. Dense and sparse chunks are still retrieved with the existing
+  queries and unchanged index. Before hybrid admission, each channel is reranked by first occurrence of a distinct
+  repository path, and reciprocal-rank fusion is applied to those file ranks. A file therefore contributes at most
+  one rank per channel; repeated chunks no longer push another file down before the later per-path cap.
+- Candidate representation: for each selected file, the first dense chunk and first sparse chunk remain separate
+  qualification observations when their ranges differ. One further chunk per channel is retained as a bounded
+  `same_path_alternative` for the existing maturation path. The existing structural range resolver, contained-owner
+  canonicalization, contextual disclosure, qualification prompt, controller, and final selector remain responsible
+  for owner-level decisions; no new LLM selector was added.
+- Expected impact: broader initial file diversity and a fair chance for a dense mechanism hit that is surrounded by
+  many higher chunks from one repeated file. No new LLM call is introduced. Risks are a larger and more diverse
+  qualification batch, weak per-channel representatives when the generated query itself is poor, and source-budget
+  pressure when dense and sparse representatives differ for many files.
+- Focused verification: 138 qualification-first/obligation tests pass. Tests establish that repeated chunks recompute
+  into consecutive file ranks, that distinct dense and sparse owners from one file can both reach qualification, and
+  that an additional channel result is retained for bounded same-file maturation.
+- Diagnostic Pandas smoke: `run-20260820T220616Z` used the actual pipeline, skipped response generation and final
+  selection, used 17,785 retrieval LLM tokens, and stopped after round one with `no_evidence_gain`. File diversity
+  worked: for the subject obligation, 20 `test_series.py` dense chunks became one dense file vote, 11 `ops.py` chunks
+  became one vote, and `core/series.py` rose to fused file rank 2. The selected top four files were
+  `test_series.py`, `core/series.py`, `core/ops.py`, and `sparse/series.py`.
+- Quality result: the stochastic request-analysis/dense wording in this smoke did not retrieve the `_binop` chunk in
+  either selected channel representation. The `core/series.py` representatives were unrelated owners plus a sparse
+  `to_string`/arithmetic-registration range. Qualification did reach `_flex_method_SERIES`, which explicitly produced
+  a local follow-up to inspect `Series._binop`, but that follow-up was created only after the round-one actions and the
+  existing `no_evidence_gain` stop prevented round two. This is not evidence that file grouping regressed `_binop`,
+  but it also does not establish the intended recovery.
+- Status: retain the code as a diagnostic variant, but do not count it as accepted and do not spend a final-selection
+  run yet. The smoke proves the monopoly correction mechanically; acceptance still requires an actual run in which a
+  useful dense same-file owner is present and survives through complete-owner disclosure and qualification. The
+  round-stop/follow-up timing is a separate pre-existing controller issue and was not changed in this experiment.
+
+### Bounded Same-File Qualification Comparison — Invalid First Attempt, Reverted
+
+- Problem: initial discovery merged duplicate/overlapping hits correctly, but then admitted at most two distinct
+  owners from a file by raw retrieval priority. In Pandas issue 10068, weaker `Series::to_string`/`Series::_reduce`
+  owners could consume those two positions before `Series::_binop` reached qualification. The third owner was kept
+  only as a dormant `same_path_alternative`, so the LLM never assessed its actual code.
+- Incorrect implementation: I temporarily retained three distinct same-file owners in the existing 24-observation
+  qualification batch. That was not the agreed comparison-before-admission design, only a broader cap. It has been
+  reverted, including its prompt wording and focused test.
+- Verification: before the revert, focused qualification-first tests passed (59). The actual final-selection-enabled Pandas run
+  `run-20260820T191613Z` (explanation skipped) was `partial/false`, used 53,832 retrieval LLM tokens over 10 LLM
+  calls, and selected four snippets from three files with zero implementation-Oracle overlap. This is lower than the
+  preceding `run-20260820T184603Z` total of 63,778 tokens, but it is not an efficiency win: the run qualitatively
+  regressed into `pandas/sparse/series.py` and missed `pandas/core/series.py` entirely at final selection.
+- Important diagnostic: this run cannot establish whether an admission comparison would rescue `_binop`, because raw
+  retrieval did not return `Series::_binop` at all. Its only two initial dense-Series observations were the broad
+  `Series` class range (rejected as `sortlevel`) and a `_sanitize_array` range (rejected); the older two-slot failure
+  was not present. Conversely, the third same-file place admitted a duplicate sparse-Series wrapper alongside its
+  nested wrapper, which qualification promoted as navigation and later helped crowd the candidate pool. Therefore
+  the blunt global three-owner allowance has no demonstrated benefit and a concrete crowding risk. The actual
+  experiment must instead form a comparison group before admission, collapse structural containment such as an outer
+  function plus its nested helper, and select based on the specific obligation rather than raw rank. It also needs a
+  separate upstream check because a comparison cannot rescue an owner that Qdrant did not return.
+
+### Initial Hybrid Query Separation And Contained-Owner Canonicalization — In Progress
+
+- Scope: initial repository discovery only. Dense retrieval retains the existing complete stage/obligation question.
+  Sparse retrieval now receives a small, separately supplied string of repository-facing anchors for that obligation;
+  it excludes generated stage prose, LLM search terms, local example variables, literals, and unconfirmed proposed
+  symbols. The Qdrant fusion algorithm, index, candidate cap, qualification, controller, and final selection are unchanged.
+- Structural companion: when two non-anchor CodeGraph owners from the same retrieved range are parent/child, discovery
+  now keeps the inner owner's exact hit and records the parent as structural display context. It does not choose the
+  larger owner, merge a broad exact class anchor into an arbitrary member, or suppress parent/child evidence later in
+  final selection where distinct contributions still control. Qualification renders the parent signature plus the
+  complete inner member as a single card.
+- Observability: every initial obligation now emits compact hybrid/dense/sparse result lists, the exact dense and
+  sparse query strings, and sparse-token diagnostics. Containment canonicalization is recorded in admission decisions.
+- Expected impact: literal API/operation anchors remain effective for sparse scoring even when generated dense wording
+  varies; nested callback owners cannot consume two discovery positions. Token impact should be negligible because no
+  new LLM call or source card is created; compare actual retrieval tokens and raw channel survival, especially
+  `Series::_binop`, before accepting. Risks: local variables in literal expressions can still be poor sparse terms,
+  and narrowly lexical search may overvalue generic symbols such as `name`.
+- Focused verification: 60 qualification-first tests pass. The actual-pipeline Pandas smoke
+  `run-20260820T204825Z` reused the existing flat index, skipped response generation and final selection, made 11 LLM
+  calls, and used 52,699 retrieval tokens. The prior successful `_binop` smoke `run-20260820T181616Z` used 71,310
+  tokens, but the two calls have different LLM-generated obligation wording, so the lower number is not attributable
+  to sparse routing or treated as an efficiency result.
+- Channel result: every initial query recorded its distinct dense and sparse input. For all six obligations,
+  `Series::_binop` was absent from the dense-only, sparse-only, and fused top results. Thus this sparse split did not
+  rescue an owner lost by fusion; it was not retrieved by either channel in this sample. The sparse strings also show
+  a concrete weakness: expressions such as `s1 + s2` become local-variable tokens (`s1`, `s2`, `a`, `b`) under the
+  current tokenizer, which are not strong repository identifiers.
+- Repository-facing anchor gate: primary and supporting symbols are now resolved through CodeGraph exact-symbol lookup.
+  An anchor may enter the sparse query only when that lookup finds an authored repository node and the anchor is a
+  nontrivial identifier (at least three characters); source-expression text itself never becomes a sparse term. This
+  keeps `Series`, `add`, `name`, and `Index`, but excludes `s1`, `s2`, `a`, `b`, `None`, and the full example
+  expressions. The dense question still retains the complete expression contrast.
+- Final-selection-enabled result: `run-20260820T210246Z` reused the existing flat index, skipped explanation
+  generation, completed three controller rounds / 63 tool calls, used 31,890 retrieval LLM tokens, and ended
+  `partial/false` with nine selected snippets and zero implementation-Oracle overlap. The sparse strings were clean
+  (`Series add name`, `Series add`, `Series name`, etc.); no local example token remained. However, the gate did not
+  recover `Series::_binop`: the dense channel returned its 1434-1473 range for the subject and trigger obligations,
+  but hybrid fusion replaced it with `Series::to_string`/other sparse-friendly ranges. This isolates the remaining
+  failure: exact repository existence is necessary but not sufficient for sparse usefulness. Generic confirmed
+  members such as `name` still exert too much lexical influence. Do not accept this routing policy as a quality
+  improvement yet; use the new per-channel trace fields to compare a tighter generic-member policy before another
+  final comparison.
+- Containment result: the previously duplicated sparse `_arith_method` and nested `_arith_method::wrapper` were
+  canonicalized to one initial inner-owner card (`wrapper`, lines 48-68) carrying outer context (`_arith_method`,
+  lines 38-75). A later explicit exact-owner search may still deliberately yield the outer function; that is a new
+  exact lead, not a duplicate initial admission. The smoke logged eleven containment canonicalizations, so later
+  evaluation must watch whether this reduces candidate noise without hiding a genuinely distinct parent role.
+- Status: keep the structural canonicalization for further testing, but do not accept the initial sparse-routing
+  policy yet. The repository-facing filter is correct as hygiene, but requires a second rule to stop broad members
+  such as `name` from outweighing a dense mechanism match.
+
+### Prompt-Symbol Preservation And CodeRepoQA Repository Identity Repair — Diagnostic
+
+- Problem found: the first request-analysis LLM already returned useful literal symbols such as `Series`, `Index`,
+  and `Series.add` for Pandas issue 10068. `_preserve_explicit_prompt_anchors` then discarded them because its
+  visibility rule accepted only two narrow deterministic shapes: `Type type` and camel-cased call syntax. `Series`
+  and `add` did not match those shapes. The stage that creates retrieval obligations consequently received weak
+  anchors such as `name`, `s1`, and `s2`, which let irrelevant `Series::to_string`/`Series::_reduce` observations
+  consume the per-file admission slots while `Series::_binop` became a held-back same-path alternative.
+- Narrow repair: request analysis now explicitly asks the LLM to keep literal repository-facing type/API names and
+  member names from code examples separately from local variables. The preservation gate now retains a returned
+  symbol only when it is an identifier-shaped exact substring of the prompt; it still rejects invented or
+  natural-language multiword symbols. No new deterministic extraction, anchor/symbol object model, special
+  `Series` handling, BM25 weighting, or controller policy was added. The existing second LLM stage continues to
+  classify the surviving symbols as primary, supporting, or ignored.
+- Probe evidence: eight real first-stage LLM probes compared current/no/minimal repository context, prompt wording,
+  and a structured-candidate variant. Context removal/rewording did not preserve `Series` or `add`; the explicit
+  literal-name instruction did. Three production-prompt repeats after the repair each retained both `Series` and
+  `add`. A complete request-analysis call marked `Series` and `add` primary and `Index` supporting, but also retained
+  generic `name` as primary, so the repair is not accepted solely from request-analysis output.
+- Independent regression exposed by the smoke: CodeRepoQA checks out snapshots under commit-hash directories and
+  this older Pandas snapshot has no `package.json`. The new repository-context feature therefore described the
+  workspace as `ed000e98f711` rather than `pandas`; request analysis classified the repository's own implementation
+  as `external`, leaving the controller with no executable actions. CodeRepoQA now passes its already-visible
+  repository owner/name into `WorkspaceRetrievalConfig`; repository context presents that name as canonical, ahead
+  of a hash checkout directory or optional package manifest. This does not infer repository identity from hidden
+  oracle data.
+- Diagnostic actual-pipeline runs used the normal flat-BM25 index and skipped response generation and final evidence
+  selection. Broken pre-repair smoke `run-20260820T181307Z` classified all six Pandas obligations external and
+  stopped after one round with `no_executable_action`; it is diagnostic evidence of the identity failure, not a
+  quality result. Corrected smoke `run-20260820T181616Z` classified all six obligations local, ran four controller
+  rounds / 74 tool calls, admitted `pandas/core/series.py::Series::_binop`, and promoted it from navigation to direct
+  evidence after showing `_maybe_match_name(self, other)` and the constructor/finalization path that omits the
+  computed name. It also recovered the expected related `ops.py` and `common.py` paths.
+- Remaining risk and next check: the corrected smoke still explored irrelevant sparse-Series and string-method
+  candidates, and generic `name` can still add lexical noise. Run two final-selection-enabled Pandas comparisons
+  (with explanation generation skipped) before accepting this behavior; compare `_binop` survival, the quality of
+  same-file admission, selected evidence, and retrieval tokens against the statistics-era runs.
+
+## 2026-08-18
+
+### Field-Aware BM25F Phase 1 — Mixed, Retained as an Isolated Profile
+
+- Scope: chunk-level lexical ranking only. Local BM25 and Qdrant sparse indexing now support explicit body,
+  directory-path, basename, and definition-symbol fields with fixed weights `1/2/5/5`. Queries, tokenization,
+  qualification, disclosure, evidence islands, controller limits, handoffs, and final selection were held fixed.
+  Line scoring and reference-symbol extraction remain later, separate experiments. The design is inspired by
+  Sourcegraph's field-aware lexical-ranking work: [Keeping it boring (and relevant) with BM25F](https://sourcegraph.com/blog/keeping-it-boring-and-relevant-with-bm25f).
+- Index safety: the accepted flat-BM25 profile continues to use `.guided-intelligence/index` and its original
+  repository-scoped Qdrant collection. BM25F uses `.guided-intelligence/index-bm25f-v1`, profile/schema identity
+  `bm25f_v1`, and a separately suffixed Qdrant collection. The TypeScript snapshot was built once and then reused by
+  the smoke and both measured runs; no baseline index was rebuilt or reinterpreted.
+- Build diagnostic: incomplete run `run-20260818T001428Z` was stopped during the first 94,279-point Qdrant upload
+  after the rebuild path retained roughly 10 GB of dense vectors in Python. The uploader was changed to embed and
+  upload one batch at a time, covered by a focused test. Diagnostic run `run-20260818T001746Z` then completed the
+  isolated build with Python near 0.95 GB and verified intended profile routing. Neither run is an acceptance result.
+- Measured TypeScript 35468 runs reused the built index, skipped explanation generation, and kept final evidence
+  selection enabled. `run-20260818T002459Z` was `partial/false`, 18 candidates / 8 selected, 36 tool calls, 57,262
+  retrieval LLM tokens, and 1 final implementation-Oracle overlap. `run-20260818T002831Z` was `partial/false`,
+  19 / 9, 32 tool calls, 64,586 tokens, and 2 overlaps. Their 60,924-token average is 9.4% above the comparable
+  accepted flat-BM25 pair (`run-20260816T204746Z`, `run-20260816T205506Z`: 55,681 average, 2 and 3 overlaps).
+- Intended effect: important builder-state chunks did survive initial discovery at ranks 2 and 1 respectively and
+  were positively qualified in both runs. The second run retained `builderState.ts::updateSignaturesFromCache` in
+  final evidence and also surfaced useful non-Oracle flow context such as project-reference traversal and incremental
+  watch code. This confirms that the field weighting is active and can improve early inspection order.
+- Regressions/noise: the same definition boost elevated generic or ambiguous symbols such as `Session`, `Diagnostic`,
+  `SolutionBuilder`, and wildcard-watching code unrelated to wildcard re-exports. Qualification rejected some of that
+  noise, but paid for it; final selection also discarded both strong builder candidates in the first run, while the
+  second kept one. The pair therefore remained partial and was less stable than the flat baseline.
+- Decision: do not make BM25F the default and do not revert it. Retain it behind the explicit
+  `workspace-bm25f`/`bm25f_v1` profile for inspection and follow-up. Before tuning weights or attempting line scoring,
+  add compact per-result field-contribution tracing so a rank change can be attributed to body, path, basename, or
+  definitions. Present findings before changing the fixed weights.
+
+### Field-Aware BM25F v2 — Corrective Diagnostic, Still Experimental
+
+- Scope: a separately indexed `bm25f_v2` profile combines the approved correctness repairs before rerunning the same
+  TypeScript 35468 case. It uses body/directory/basename/definition weights `1/1.5/3/3`, treats repeated sparse-query
+  words once, allows a `0.25` query-side bonus for meaningful exact two-word phrases in comment-only chunks, rejects
+  generic one-word definitions from the boosted symbol field, and emits per-result field matches and weighted
+  frequencies. Dense retrieval, hybrid RRF, qualification, islands, controller limits, and final selection are fixed.
+- Input corrections: definition extraction is anchored to real declaration headers, so declaration-like prose no
+  longer produces symbols such as `or` or `parameters`. A contiguous leading comment belongs to the following
+  declaration; the former `tsbuildPublic.ts:L1987-L1989` comment is now one `L1987-L1995` chunk containing and naming
+  `reportBuildQueue`, rather than inheriting `reportErrorSummary`. Repository build scripts confirm that
+  `lib/typescript.d.ts`, `lib/typescriptServices.d.ts`, and `lib/tsserverlibrary.d.ts` are generated API bundles, so
+  they join their JavaScript counterparts in the explicit TypeScript exclusion list.
+- Index safety: v2 uses `.guided-intelligence/index-bm25f-v2`, schema/profile `bm25f_v2`, and a separately suffixed
+  Qdrant collection. V1 and flat BM25 were not overwritten. The v2 TypeScript index contains 86,556 chunks versus
+  v1's 94,279 after excluding the generated declaration bundles and rebuilding corrected structural spans. Because
+  the TypeScript exclusion policy is shared across profiles, the existing flat/v1 manifests are intentionally stale
+  under the corrected policy and will rebuild in their own locations on their next run; they were not rebuilt here.
+- Verification: 204 focused retrieval tests pass. Invalid smoke `run-20260818T040946Z` stopped before retrieval because
+  the shell selected Node 20 without `node:sqlite`; it is not experiment evidence. Rerun `run-20260818T041103Z` used
+  bundled Node 24, built the isolated Qdrant collection, and exercised the actual pipeline with final selection
+  skipped. It retained `builderState.ts::updateExportedFilesMapFromCache` at initial rank 2 as direct evidence and
+  produced a 19-candidate preselection pool.
+- Full run `run-20260818T042025Z` reused the v2 index/collection, skipped explanation generation, and enabled final
+  evidence selection. It was `partial/false`, with 28 preselection candidates, 13 selected items, 8 selected source
+  files, 3 implementation-Oracle overlaps, 25,585 qualification tokens, 71,387 total retrieval LLM tokens, and 38
+  traced tool results. Strong selected evidence included `builderState.ts::updateShapeSignature`,
+  `builder.ts::handleDtsMayChangeOf`, `builder.ts::forEachReferencingModulesOfExportOfAffectedFile`,
+  `tsbuildPublic.ts::getNextInvalidatedProject`, and `queueReferencingProjects`.
+- Requested behavior audit: generated API bundles were absent from the index and all raw/hybrid results. No generic
+  `Watch`, `Session`, or `Diagnostic` declaration received a definition contribution; all traced definition matches
+  were specific identifiers such as `reportBuildQueue`, `verifyScenario`, and `TscWatchCompile`. `Session` still led
+  two sparse lists through basename/body matches, proving that generic-name noise was reduced but not eliminated.
+  Query diagnostics confirmed that repetitions were collapsed—for the full issue query, 315 raw terms became 154
+  unique terms and `watch` occurred six times but scored once. No actual top result received the comment-phrase field,
+  so that small bonus is verified only by its focused ranking test and makes no real-run quality claim.
+- Remaining regressions/uncertainty: final selection still admitted language-service `server/session.ts`,
+  `reportUnrecoverableDiagnostic`, and generic `BuildKind`/incremental test navigation that do not establish the
+  wildcard-re-export propagation mechanism. The full run's 71,387 tokens exceed both v1 measured runs, while the
+  smoke and full preselection pools varied from 19 to 28. Do not default-enable or reject v2 from this single full
+  run. Keep it isolated and report these observations before deciding whether to rerun, further restrict basename
+  boosts for generic anchors, or test comment phrases on a purpose-built actual-pipeline case.
+
+### Channel-Specific Structured Queries — Phase 1 Rejected, Experiment Postponed
+
+- Trial scope: initial per-obligation Qdrant discovery only. Dense retrieval received the unchanged obligation
+  description; sparse retrieval received deterministic obligation-relevant lexical anchors. Qualification, disclosure,
+  islands, scheduling, handoffs, file traces, and final selection were held fixed.
+- Diagnostics: focused routing tests and two actual-pipeline smokes completed. The standard profile now reuses the
+  existing SQLite embedding cache (`shared_embedding_cache_root`) rather than loading the 10-GB legacy JSON cache;
+  this is a storage/reliability change only, not a retrieval-policy change.
+- Measurements: final-selection-enabled TypeScript 35468 runs `run-20260817T225228Z` and
+  `run-20260817T225537Z` were both `partial/false`, with respectively 1 and 2 implementation Oracle overlaps, 6
+  retrieved source files, and 27,132 and 22,912 qualification tokens. The five immediately comparable accepted runs
+  were also `partial/false` but retained 2–3 overlaps each. The new split did not improve qualification, island
+  diversity, action handoffs, or final candidate quality enough to offset the loss of issue-level dense context.
+- Decision: remove the Phase 1 routing and its dedicated tests. This rejects only the tested prompt-derived
+  dense-description / broad sparse-lexical split, not channel-specific queries as a whole. Postpone the broader
+  experiment. On resumption, preserve stage-specific technical vocabulary, restrict initial sparse input to genuinely
+  exact terms, and evaluate repository terms learned from promoted evidence separately as later-round/new-island input.
+
 ## 2026-08-16
+
+### File-Level Trace Evidence (Diagnostic Verification)
+
+- Stage boundary: file traces are created only from an executed, represented file-node handoff whose source
+  observation remains qualified/promoted and belongs to a semantic island. A rejected inspected endpoint does not
+  erase the file-level relationship: it establishes only that this owner was not the relevant one. Traces are stored
+  separately as `retrieval_summary.file_trace_evidence`, then supplied to final selection as a distinct typed section.
+  A selected trace becomes a file-link evidence item with no line range or source code. It cannot affect coverage,
+  obligation support, sufficiency, concepts, or mechanisms.
+- Representation: each record contains the normalized reached and source paths, source observation/island, inspected
+  endpoint/symbol and qualification outcome, action and unresolved obligation, represented direction/kinds, and an
+  explicit statement that the file is structurally relevant while its exact owner remains unresolved. Records
+  deduplicate by file/island and the active cap is two, so distinct structural branches are not silently hidden.
+- Scoped LLM result: the final-selection contract retained both the `helpers.ts` and `tsbuildPublic.ts` traces from
+  the real TypeScript handoff as distinct `calls` links, assessed the watch-trigger obligation as `partial`, and did
+  not use either trace as a supporting code candidate. The explanation contract rendered both as file links and
+  explicitly said that their exact owner remains unresolved and they do not prove behavior inside either file.
+  Focused tests pass (140). No CodeRepoQA benchmark run was performed for this representation/LLM-contract diagnostic,
+  so it makes no recall, token, coverage, or sufficiency claim.
+
+### Bounded Cross-File Handoff Completion
+
+- Stage boundary: after qualification, coverage, and semantic-island selection, a promoted direct-evidence or
+  promoted-navigation observation may receive a bounded follow-up only when both qualification and coverage name a
+  concrete unresolved gap. Direct evidence remains admitted; follow-up eligibility is tracked independently from
+  evidence admission. Discovery queries, qualification prompts, Beam 4 ranking, the two-action-per-round limit, and
+  final evidence selection are unchanged.
+- File-node action: the controller resolves the exact CodeGraph file node, checks represented edge capabilities, and
+  may traverse one cross-file outgoing `calls` relationship with the existing three-endpoint cap. Visible, sufficiently
+  specific callable names receive the strongest endpoint preference; otherwise represented endpoints are ranked
+  deterministically by overlap with unresolved request/coverage terms. Generic names such as `concat` are not treated
+  as exact repository-wide leads. Endpoint ranking changes only the bounded structural action and does not rewrite
+  Qdrant/BM25 queries.
+- Completion and accounting: a qualified navigation endpoint receives one deduplicated path-local search in its target
+  file. In later rounds that promised completion outranks another file handoff, and a file node can execute only one
+  handoff per direction/edge kind for the run, even when sibling observations or different obligations request it.
+  Owner-node and file-node effects remain distinct. Traces retain the gap, source observation, island, seed kind,
+  target anchors, represented edges, endpoints, and completion flag.
+- Cheap TypeScript validation iteratively exposed and repaired navigation-core exclusion, arbitrary edge-cap ordering,
+  owner/file effect collision, late file scheduling, generic-symbol endpoint noise, completion starvation, and repeated
+  sibling file expansion. Final smoke `run-20260816T194746Z` executed the intended sequence
+  `watchMode.ts -> verifyTscWatch -> helpers.ts`, then disclosed `tscWatchCompile`, `TscWatchCompile`, and
+  `baselineProgram` in round 3. The file expansion executed once. All 122 focused controller, CodeGraph, qualification,
+  island, and obligation-retrieval tests pass under the bundled Node runtime; JavaScript syntax validation passes.
+- Final TypeScript 35468 acceptance runs reused the existing index, enabled final evidence selection, and disabled
+  explanation generation. `run-20260816T204746Z` was `partial/false`, 17 candidates / 8 selected, 43 tools, 54,971
+  retrieval LLM tokens, and 2 implementation Oracle overlaps (`watchMode.ts` rank 2 and `builderState.ts` rank 3).
+  `run-20260816T205506Z` was `partial/false`, 17 / 8, 41 tools, 56,390 tokens, and 3 implementation overlaps
+  (`builderState.ts` rank 1, `watchMode.ts` rank 4, and `builder.ts` rank 6). Each run executed one three-edge file
+  handoff, with two and one target-file completion searches respectively and no duplicate file expansion. Relative to
+  accepted Beam-4 run `run-20260816T173344Z` (60,954 tokens), the pair averaged 55,681 tokens while retaining
+  comparable Oracle quality.
+- Pandas 10068 cross-language runs reused their index. `run-20260816T210413Z` was `partial/false`, 9 / 3, 61 tools,
+  60,637 tokens, and retained `pandas/core/series.py` at Oracle rank 1. `run-20260816T210812Z` was
+  `partial/false`, 10 / 5, 73 tools, 68,248 tokens, retained the Oracle at rank 2, and selected exact
+  `Series::_binop` in both runs. Distinct-file handoffs did not scope out the Oracle. An earlier diagnostic run retrieved the raw
+  `_binop` chunk but lost it before bounded observation admission; that is upstream candidate-ranking variance for a
+  later experiment, not a handoff or disclosure regression.
+- Vue 10803 cross-language runs were stable. `run-20260816T211229Z` was `partial/false`, 6 / 6, 34 tools, 37,086
+  tokens; `run-20260816T211431Z` was `partial/false`, 14 / 7, 50 tools, 57,812 tokens. Both placed the implementation
+  Oracle `src/platforms/web/server/modules/dom-props.js` at rank 1 and retained `renderDOMProps`; the first needed no
+  file handoff and the second executed one one-edge handoff without repetition. The pair averaged 47,449 tokens versus
+  56,996 for the prior accepted Vue Beam-4 pair.
+- Decision: keep the experiment enabled. It demonstrably recovers the intended TypeScript helper handoff and its
+  path-local owner without increasing action limits, while the two additional repositories show no systematic recall
+  regression. All measured runs remain honestly `partial/false` because their pre-fix snapshots do not establish every
+  issue-specific causal transition. Channel-specific query routing and upstream candidate ranking remain separate next
+  experiments; `FileTraceEvidence` is still not admitted as snippet evidence.
 
 ### Semantic Evidence Islands And Island-Aware Scheduling
 
@@ -20,6 +334,24 @@
 - Contextual-disclosure boundary repair: pandas `run-20260816T175628Z` proved that a 40-line indexed chunk could begin on the final line of one method while its CodeGraph handle identified the following method. Owner resolution now prefers an exact retained CodeGraph node ID, then one exact symbol, then the retained full structural range, before falling back to greatest raw-chunk overlap or comment/declaration adjacency. This is deterministic and does not change query generation, snippet ceilings, qualification prompts, island policy, or action limits. A focused regression fixture reproduces the `Series::append`/`Series::_binop` overlap and verifies that the disclosed card owns `_binop` and includes `name = _maybe_match_name(self, other)`.
 - Measured repair confirmation `run-20260816T183855Z` used the workspace pipeline, beam 4, final evidence selection enabled, explanation generation disabled, and reused the 10,334-document index with `rebuilt=false`. The raw observation still covered lines 1464-1503 but retained `_binop`'s structural range 1466-1511. Disclosure selected `Series::_binop` twice, qualification advanced it from navigation-only on the shorter preview to direct evidence on the complete card, and final selection exported lines 1466-1511 at rank 1 with the exact `_maybe_match_name` assignment. The run ended partial/false with 6 selected snippets, 2 total/1 implementation Oracle overlaps, 74,778 retrieval LLM tokens, 11 preselection candidates, and 62 tool calls. The unrelated Codex-mode run `run-20260816T183447Z` is excluded from repair validation because it did not execute workspace disclosure.
 - Verification: 115 focused qualification, island/scheduler, CodeGraph integration, and obligation-retrieval tests pass under the bundled Node 24 runtime. JavaScript syntax validation and `git diff --check` pass.
+- Later limitation found in TypeScript 35468 `run-20260820T232621Z`: the accepted grouping rules fragmented one
+  real mechanism into separate islands for `builder.ts::getNextAffectedFile`,
+  `builder.ts::forEachReferencingModulesOfExportOfAffectedFile`,
+  `builderState.ts::updateShapeSignature`, and
+  `builderState.ts::getFilesAffectedByUpdatedShapeWhenNonModuleEmit`. The exact call chain
+  `getNextAffectedFile -> BuilderState.getFilesAffectedBy -> getFilesAffectedByUpdatedShapeWhenNonModuleEmit`
+  was not represented because the middle callable was not itself a promoted observation. Same-owner merging did
+  work as designed, but these functions have distinct owners; same-file merging remains intentionally disallowed.
+  This is recorded as open item ISL-1 rather than retroactively treating the original beam comparison as complete.
+- Follow-up experiment boundary: permit one exact, directed, two-call path between promoted observations that share
+  an unresolved obligation. Native CodeGraph call edges are preferred. For namespace-qualified or conditional calls
+  that CodeGraph does not emit, both endpoint and connector owners must still resolve uniquely to CodeGraph nodes,
+  while TypeScript AST localization must prove the two concrete call sites; this is separately labeled
+  `source_verified_connector_path`, not misreported as a native graph edge. The unselected middle callable remains
+  navigation context and never becomes evidence. Paths longer than two calls, vocabulary similarity, and same-file
+  membership remain ineligible. Expected token impact is no extra LLM call; expected cost is bounded graph/source
+  inspection plus a small relationship record. Primary risk is incorrectly joining observations through a generic
+  utility connector, so focused negative tests and an actual TypeScript trace are required before acceptance.
 
 ### Qualification-First Contextual Disclosure And Payload Repair
 
@@ -3136,3 +3468,127 @@ coverage or stable final LLM acceptance of every visible owner node.
 - Known risks: character-based reservation is conservative rather than tokenizer-exact, provider headers can reflect other clients using the same project, and an externally exhausted account can still return a terminal 429 after retries. That failure remains explicit.
 - Completed embedding batches now enter the shared cache from their worker immediately. If a peer batch later fails, all completed entries are persisted before the original error is re-raised, preventing paid work from being repeated on the next attempt.
 - Verification: isolated concurrent checks confirm initial probe serialization, accounting for another in-flight worker, compound reset-header parsing, and persistence of one successful batch when its parallel peer fails. Python compilation and `git diff --check` pass. The full repository test suite is currently unavailable because both local Python environments are missing declared test dependencies (`pytest` and `langgraph`); no surrogate full-suite pass is claimed.
+
+## 2026-08-18 - Independent unresolved-file evidence and overlapping-snippet selection
+
+- Stage boundary: exact snippet consolidation remains responsible for source claims. A separate focused LLM stage may retain a structurally grounded destination file only after the source island has selected evidence, the same obligation remains partial/unresolved, the endpoint was not rejected, and no selected destination snippet already represents the handoff.
+- Removed the controller-time first-two file-trace admission cap. All bounded deduplicated seeds reach deterministic eligibility evaluation; at most two eligible traces may be selected at the final payload boundary. This prevents earlier weak traces from starving a later accepted-source handoff.
+- Added decision records for every file trace and explicit source-island, destination-path, endpoint-qualification, and obligation-status gates. File evidence remains a structural unresolved participant and cannot prove behavior inside the file.
+- Added same-file containment/substantial-overlap metadata to final consolidation. Selected snippets now state an exclusive contribution; overlapping selections without distinct contributions fail explicitly. This permits multiple same-file snippets for different mechanism steps without retaining a redundant parent and child.
+- The existing four-active-plus-two-extra island protection and post-LLM restoration rule was intentionally not changed. Its review is a separately recorded follow-up in `decisions/final_evidence_file_fallback_and_overlap_plan.md`.
+- Focused verification: 127 `unittest` cases pass across `test_file_trace_evidence`, `test_obligation_retrieval`, and `test_qualification_first_retrieval`.
+- `microsoft-TypeScript-35468` run `run-20260818T153523Z`: `partial/false`, 25 candidates, 11 selected, two implementation-Oracle overlaps, and 68,269 calculated retrieval LLM tokens. The overlap contract removed the redundant 295-line `verifyTransitiveReferences` parent while retaining its focused child and a separate invalidation range. The helper trace passed every structural gate, exposing the need for the now-separated focused file stage.
+- `microsoft-TypeScript-35468` run `run-20260818T154042Z`: `partial/false`, 24 candidates, 11 selected, two implementation-Oracle overlaps, and 60,664 calculated retrieval LLM tokens. This retrieval sample did not rediscover the helper handoff; unrelated tsserver traces were rejected by the new gates. A focused actual-LLM replay of the eligible helper trace captured by the first run selected `src/testRunner/unittests/tscWatch/helpers.ts` as an unresolved structural participant without claiming an exact owner.
+- A failed artifact `run-20260818T153311Z` is excluded: the shell initially resolved Node 20, so CodeGraph failed before retrieval. Both measured runs used the compatible Node 24 runtime and kept final evidence selection enabled while skipping response generation.
+- Result: the two stage-boundary behaviors are implemented and directly observed, but upstream retrieval remained stochastic and changed Oracle overlap across runs. No quality claim is based solely on token reduction or Oracle count.
+# Same-owner contextual refinement (2026-08-18)
+
+- Added one bounded same-owner continuation after a `navigation_only` qualification explicitly identifies missing behavior and the owner source was incomplete. The action reveals a later deterministic window of the same owner, then reuses normal LLM qualification; it neither searches broadly nor promotes evidence deterministically.
+- Focused verification passed 128 tests. The TypeScript acceptance run `run-20260818T165410Z` (`--skip-response-generation`, final evidence selection enabled) exercised the mechanism for `src/server/session.ts::Session::updateErrorCheck`: fuller disclosure upgraded the owner from navigation to direct evidence. It finished `partial/false`, with two implementation-oracle overlaps and nine selected evidence items.
+- The run did retrieve `src/compiler/builderState.ts:L81-L86`, but the initial observation guardrail dropped that weak comment/type-alias chunk before qualification. It did not reach the motivating `updateShapeSignature` owner, so this is proof that the mechanism works, not proof that the target BuilderState recovery is solved. See `same_owner_contextual_refinement.md` for the trace and acceptance boundary.
+
+# Deferred implementation-file seed diagnostic (2026-08-18, unaccepted)
+
+- Experimental stage boundary: a deferred raw observation may contribute one file-scoped `SearchWithinFile` action when it is an unrepresented implementation file and has concrete overlap with the unresolved obligation. The action is limited to that path and can create an island only after ordinary qualification; it does not promote the file by itself. The controller is intended to select at most one such seed per round.
+- Focused controller tests pass (52 tests): a BuilderState-like deferred implementation observation receives a separate seed despite another deferred observation sharing its obligation frontier, and no more than one seed is selected in a round.
+- Diagnostic workspace run `run-20260818T172713Z` reused the existing indexes and intentionally skipped response generation and final selection. It is not an acceptance run: its trace ended after round-3 action selection and wrote no result artifact.
+- The diagnostic exposed two blocking behaviors. First, five seeds were enumerated in round 1 but none executed: two active-island scopes consumed both action slots before the reordered seed could be chosen. Second, the preliminary lexical gate admitted noise, including `lib/lib.dom.d.ts` (`event`, `interface`) and `lib/lib.webworker.d.ts` (`reaching`, `than`, `which`, `while`). The run did retrieve `src/compiler/builderState.ts::updateSignaturesFromCache` (lines 290-300) and qualification promoted it directly, so its path was already represented and correctly did not receive a seed. It did not retrieve the desired `updateShapeSignature` owner, so the seed behavior for that particular missed-owner case remains unexercised.
+- The experiment remains present for inspection and is deliberately neither accepted nor reverted. No final-run quality or token claim is made. Any follow-up must reserve a bounded seed slot deliberately and replace generic word overlap with a mechanism- and artifact-aware gate before another acceptance attempt.
+- Follow-up implementation: TypeScript `lib/` is now excluded as one index prefix, making the prior BM25F, Qdrant, and CodeGraph indexes stale. The seed gate now requires two mechanism terms shared by both the unresolved claim and the raw observation. The controller keeps its two normal island actions and adds a separate pool of up to two eligible file-seed actions; its trace records the two pool counts independently. Focused tests pass (97 across qualification/controller, BM25 indexing, and CodeRepoQA harness coverage).
+- Rebuilt-index smoke `run-20260818T190848Z` was intentionally run without final selection or response generation. It proved the isolated pool executes: round 1 selected two normal actions plus a `src/compiler/checker.ts` seed, and ran its three path-local results through ordinary LLM qualification. All three were rejected as generic checker signature/type-inference code with no project-reference, re-export, or watch connection. Round 2 selected two normal actions plus two more seeds (`builderPublic.ts`, `findAllReferences.ts`), but the host ended the run after selection before those actions executed. This is evidence that the pool no longer starves, but that the current mechanism-anchor gate can still choose a semantically misleading implementation lead. No acceptance claim or follow-up repair is made from this smoke.
+- Completion retry `run-20260818T210116Z` finished all three controller rounds and stopped normally at the configured three-round budget (31 tool calls). It found zero eligible file seeds in every round: 18 candidates per round lacked two shared mechanism anchors, 21 were non-implementation, and 8-9 were already represented. This confirms that the separate pool does not cause automatic expansion when the stricter gate cannot justify it. As a smoke run it intentionally skipped final evidence selection and response generation, and it makes no acceptance or token-quality claim.
+
+## 2026-08-19 - Rejected anonymous-callback file-expansion experiment
+
+- Hypothesis: when a promoted source range has no named CodeGraph owner, resolve its nearest enclosing anonymous callback and use only that callback's cross-file calls as file-level structural leads. Exact snippets would remain the only behavioral proof; the existing final file-evidence LLM would decide whether an unresolved connected file should be retained.
+- This was rejected and removed from the controller. In TypeScript 35468, a selected `watchMode.ts` range of only a few lines resolved to the enclosing `describe(...)` callback at lines 542-1109. That 568-line scope included unrelated test setup and generic utility calls, so it was not a meaningful local mechanism boundary. The scoped output still included generic destinations such as `core.ts`, virtual-file-system support, and test-framework collisions alongside potential test helpers.
+- A second actual-pipeline run selected `src/testRunner/unittests/tsbuild/outFile.ts`; its nearest `describe(...)` callback spanned lines 2-731, effectively the entire file, and emitted unrelated test/build helper candidates. This demonstrates that callback scope is not safely bounded merely because it is lexically enclosing.
+- The attempted import-binding repair also exposed a TypeScript-specific limitation: these older tests use namespace/import-equals conventions rather than ES imports, so import binding alone could not resolve their helper calls. Falling back to file-level CodeGraph name edges reintroduced same-name collisions.
+- Decision: no anonymous-callback expansion is retained. Existing named-function/method relationship expansion remains unchanged. Any future proposal must first identify a genuinely small semantic test scope (for example, a bounded `it(...)` scenario) and show that its call resolution is exact before it can create file-level leads. Runs `run-20260819T204810Z`, `run-20260819T205903Z`, and `run-20260819T210218Z` are diagnostic/rejected artifacts, not quality comparisons.
+
+## 2026-08-20 - Maturation-child execution and admission-held Builder alternatives
+
+- Stage boundary: a navigation-only qualified owner may receive one isolated maturation action. If that action yields an explicit path-local child search, the next maturation slot executes that exact child rather than passing it back through ordinary same-mechanism pruning. This is a one-hop follow-up, not a general priority-policy change.
+- Added an isolated one-action deferred-alternative pool. It is restricted to a named implementation observation that the initial one-per-file admission explicitly held as a `same_path_alternative`; it receives ordinary path-local retrieval and LLM qualification. It never promotes a file by itself. This is intended to recover a more specific owner from a file whose initial representative was inadequate.
+- Focused verification: 56 qualification/controller tests pass, including the regression that an eligible maturation child survives its parent effect and the regression that an explicitly admission-held named Builder-like alternative receives the sole rescue action.
+- TypeScript 35468 diagnostic run `run-20260819T222617Z`: direct maturation children executed in rounds 2 and 3, confirming the prior selection bug was fixed. The first alternative gate was too broad: it chose `src/server/protocol.ts` as a generic cache/diagnostic lead and did not exercise the Builder path; that intermediate form is rejected.
+- Refined run `run-20260819T223717Z` used the admission-held alternative boundary. It executed the Builder rescue in round 2 and retrieved `src/compiler/builder.ts::getNextAffectedFile` plus `forEachReferencingModulesOfExportOfAffectedFile`; both became final direct evidence, exposing the affected-file/signature/exported-module chain. The run was still `partial/false` and had two implementation-Oracle overlaps because WatchMode was not retrieved in that stochastic sample. It also still admitted `server/protocol.ts` as a same-path alternative, so the current lexical mechanism gate remains too permissive; this run demonstrates the intended Builder recovery, not acceptance of the full seed policy.
+
+## 2026-08-20 - Obligation-specific same-file admission and test maturation
+
+- Admission no longer lets the first obligation that happens to select a file suppress a distinct observation from that same file for another obligation. Initial discovery keeps at most two non-overlapping observations per path, and the second must cover an obligation not represented by the first. Qualification and final selection still decide every observation independently.
+- Added one isolated test-maturation action per round: a promoted `navigation_only` test range with no named owner may run one path-local search driven by its explicit scenario/assertion follow-up. It does not expand anonymous callbacks or use a file-wide graph traversal.
+- Deferred implementation-file rescue now requires a promoted sibling from the same file with a concrete local follow-up, and incorporates that follow-up into its path-local query. Rejected/deferred siblings cannot authorize a rescue, which blocks the prior `server/protocol.ts` diagnostic-payload false lead.
+- The first complete run after these changes, `run-20260819T232829Z`, was `partial/false` with two implementation-Oracle overlaps. The protocol seed was blocked, the WatchMode-only test maturation action executed in round 1, and the final selector retained `src/testRunner/unittests/tsbuild/watchMode.ts` at rank 6. Its serialized final-selection payload was 52,362 characters, which exposed a separate budgeting defect.
+- Corrected final-flow budgeting to reserve 5,000 characters for flow, connection, overlap, and trace serialization before candidates are selected. Focused verification: 132 retrieval/controller/consolidation tests pass. Retry `run-20260819T233230Z` completed `partial/false` with one implementation-Oracle overlap and a 46,949-character final payload under the 50,000-character limit. In that stochastic sample WatchMode did not enter the action catalogue, so it did not exercise test maturation; `server/protocol.ts` was ineligible. These two runs prove the two bounded gates and the payload safety behavior, but do not yet establish stable WatchMode recovery across retrieval variation.
+
+## 2026-08-20 - Source-driven test refinement after covered-origin recovery
+
+- A qualified anonymous test range now receives a separate, one-action path-local refinement only when its own retrieval obligation(s) are already covered or external while some other required repository work remains unresolved. The refinement uses the qualifier's concrete `local_follow_up`; it does not guess that the range satisfies a different obligation. If the source obligation remains unresolved, the existing ordinary same-file action already performs that search, so the isolated pool does not duplicate it.
+- A rejected short, unowned test header (at most eight lines and rank at most three) is retained only as a traceable same-file trigger hint for that refinement. It cannot itself create an action, become evidence, seed CodeGraph, or appear in final evidence.
+- Focused verification: 134 retrieval/controller/consolidation tests pass. They prove both sides: a covered-origin WatchMode-like scenario still gets exactly one targeted assertion search, and an unresolved-origin scenario gets no duplicate isolated action.
+- `microsoft-TypeScript-35468` diagnostic `run-20260820T004451Z` exposed and then rejected an intermediate duplicate: ordinary WatchMode refinement and the isolated test pool both ran while the source obligation was still open. The final guard removes that duplication rather than hiding it with scheduler ordering.
+- Final verification `run-20260820T004940Z` reused the existing index, skipped explanation generation, and retained final evidence selection. It finished `partial/false`, used 73,254 retrieval LLM tokens, and recovered all three implementation Oracle files within top five: `watchMode.ts` at 1, `builderState.ts` at 4, and `builder.ts` at 5. WatchMode's normal unresolved-origin refinement ran once, disclosed `verifyTransitiveReferences::verifyScenario`, and final selection retained that focused test owner at rank 1. No isolated duplicate action was emitted. This is good evidence that the two mechanisms coexist cleanly; it is still one stochastic sample, not proof of stable sufficiency.
+
+## 2026-08-20 - Verified direct-lead continuation diagnostic
+
+- Stage boundary: after a controller round executes and requalifies changed source, a promoted `navigation_only` observation may create a pending verified lead only when its disclosed source literally calls a target named by `local_follow_up`, CodeGraph resolves that target to one unambiguous repository node, a compatible obligation remains unresolved, and the node is neither observed, pending, nor previously executed. This is navigation work, not evidence.
+- A new verified lead now counts as `verified_lead_gain`, preventing `no_evidence_gain` from stopping before the next scheduling round. One separate verified-lead slot executes at most one queued node per round without competing with the two normal actions or duplicating generic maturation. The experiment permits at most two verified-lead executions per run and reuses the existing controlled fourth round when round 3 discovers the second lead.
+- Multiple obligations naming the same resolved node are deduplicated. Qualified targets such as `Series._binop` outrank unqualified names. Pending leads that cannot run are preserved in the terminal trace with either `execution_cap_reached` or `round_budget_exhausted`; a third lead discovered after two executions is intentionally observable rather than silently dropped.
+- The first actual-pipeline attempt `run-20260820T230613Z` is excluded: the shell selected Node 20 and CodeGraph failed before retrieval. The compatible Node 24 rerun `run-20260820T230710Z` exposed a rejected intermediate gate that depended on LLM backtick formatting. Plain `Inspect Series._binop` was treated differently from backticked output, so no verified action executed. That formatting dependency was removed.
+- Corrected diagnostic smoke `run-20260820T231100Z` skipped final evidence selection and response generation. Round 1 had no evidence, navigation, or coverage gain, but the visible `self._binop(...)` call plus the follow-up `Series._binop` resolved uniquely and produced `verified_lead_gain`; this prevented the prior premature stop. The reserved slot disclosed exact `pandas/core/series.py:Series::_binop` in round 2, and qualification promoted its complete class-member preview as `direct_evidence`.
+- Round 3 then found the visible `_maybe_match_name(...)` call, resolved it uniquely, and used the controlled round 4. Exact `pandas/core/common.py:_maybe_match_name` was promoted as `direct_evidence`; the visible helper established that differing names return `None`. Generic `add` was rejected because exact-symbol resolution returned three owners, and already observed `_sparse_series_op`, `Series`, and `__finalize__` targets did not consume verified slots.
+- The run used 38,819 qualification tokens plus 19,565 coverage tokens (58,384 controller LLM tokens). The immediately preceding four-round formatting-gate diagnostic used 59,127 controller tokens, so successful reserved execution did not increase the matched run's controller total; this is not a general token-savings claim. Compared with the earlier one-round premature-stop artifact, allowing productive continuation necessarily spends substantially more retrieval tokens.
+- Focused verification: all 66 qualification/controller tests pass. The full repository suite ran 362 tests; four unrelated existing fixture failures remain in CodeGraph exact-symbol integration and BM25 index-setup metadata. This diagnostic proves the intended scheduling and qualification behavior, but it is not an acceptance result because final evidence selection was intentionally disabled and the third-lead/cap case did not occur.
+
+## 2026-08-20 - Verified direct-lead full-selection checks
+
+- Both checks used the actual workspace pipeline with final evidence selection enabled and response generation disabled. They are one run per repository, so they exercise the final-selection boundary but do not establish stochastic stability.
+- `pandas-dev-pandas-10068` run `run-20260820T232259Z` completed four controller rounds as `partial/false`. The verified queue executed exact `pandas/core/series.py:Series::_binop` in round 3; qualification promoted the complete owner as direct evidence and final selection retained it at rank 2. Final evidence also retained `pandas/core/ops.py:_flex_method_SERIES` and `pandas/core/common.py:_maybe_match_name`, giving the intended public-dispatch -> binary-operation -> result-name chain. The run selected five of eleven candidates, had the one implementation-Oracle overlap, and used 39,612 qualification, 15,113 coverage, and 14,162 final-selection tokens (68,887 across those recorded retrieval LLM stages). No verified lead remained pending or hit the execution cap.
+- `microsoft-TypeScript-35468` run `run-20260820T232621Z` completed the ordinary three rounds as `partial/false`. One exact verified lead executed in round 3: `ProjectService.watchWildcardDirectory` in `src/server/editorServices.ts`. Qualification correctly disclosed and promoted the concrete method, but final selection rejected it because it belongs to the editor-service watch subsystem rather than the requested solution-builder propagation mechanism. This is a useful negative boundary: exact source-grounded resolution prevents invented navigation, but does not by itself guarantee issue-level usefulness. The separate queue did not displace the ordinary two controller actions, though it still paid qualification cost.
+- The TypeScript final selector retained nine snippets, including `src/compiler/builder.ts` and three focused `src/testRunner/unittests/tsbuild/watchMode.ts` ranges, for two implementation-Oracle overlaps. `src/compiler/builderState.ts:getFilesAffectedByUpdatedShapeWhenNonModuleEmit` was retrieved and qualified as direct evidence, but remained in an inactive island and was rejected by final selection as less complete than the selected Builder chain; the verified-lead experiment neither removed nor recovered it. `src/testRunner/unittests/tscWatch/helpers.ts` was also present in raw dense results and became a discovery observation (`HostOutputWatchDiagnostic`), but it was outside the observation guardrail and never gained an executed WatchMode-to-Helpers handoff, so no file-level evidence trace was eligible.
+- The TypeScript run used 31,759 qualification, 26,220 coverage, and 16,272 final-selection tokens (74,251 across those recorded retrieval LLM stages). It produced no pending verified lead and no cap/round-budget block.
+- Current assessment: retain the bounded verified-lead mechanism for further comparison. Pandas demonstrates the intended end-to-end gain and final retention. TypeScript demonstrates that a uniquely resolved literal callee can still be tangential, so acceptance stability remains open; do not broaden the queue or raise its two-execution cap from these two samples.
+
+## 2026-08-20 - One-connector semantic-island completion
+
+- Motivation: TypeScript `run-20260820T232621Z` qualified related Builder and BuilderState owners but placed every
+  distinct owner in a separate island. The source mechanism contains a two-call path through an unselected middle
+  owner, so closed-set observation-only relationships could not represent it. This is the ISL-1 limitation recorded
+  under the original semantic-island experiment.
+- Implemented boundary: promoted observations with a shared unresolved obligation may join through exactly one
+  unselected callable. Native two-edge CodeGraph call paths are labeled `exact_codegraph_connector_path`. When
+  CodeGraph omits namespace-qualified or conditional calls, both owners must resolve uniquely to CodeGraph nodes and
+  the TypeScript AST must localize both call sites; those paths are separately labeled
+  `source_verified_connector_path`. The connector remains navigation metadata, creates no candidate, establishes no
+  coverage by itself, and is serialized to final selection as a collapsed endpoint relationship. No extra LLM call
+  or action slot was added.
+- Focused real-index verification found the motivating path at exact call sites:
+  `builder.ts:381 getNextAffectedFile -> builderState.ts:267 getFilesAffectedBy -> builderState.ts:515
+  getFilesAffectedByUpdatedShapeWhenNonModuleEmit`. The first leg is namespace-qualified and the second invokes a
+  conditional callable, explaining why the native graph edge set was empty while AST localization succeeded.
+- Intermediate full run `run-20260820T234915Z` used the native-edge-only version. It did not retrieve
+  `getNextAffectedFile`, so it could not exercise the motivating cross-file merge. It did correctly expose one exact
+  two-call relationship among selected Builder owners. The run was `partial/false`, selected 8 of 27 candidates,
+  retained two implementation Oracle files, and used 81,052 recorded retrieval/final-selection tokens. It is a
+  diagnostic boundary, not acceptance evidence for the cross-file case.
+- Corrected full run `run-20260820T235750Z` reused the prepared indexes, enabled final evidence selection, and skipped
+  response generation. It formed one active Builder/BuilderState island containing eight promoted observations from
+  both files. The final relationship payload included the motivating source-verified connector through
+  `BuilderState.getFilesAffectedBy`, and final selection retained `builder.ts::getNextAffectedFile` at rank 4,
+  `builderState.ts::updateShapeSignature` at rank 5, `builder.ts::handleDtsMayChangeOf` at rank 6,
+  `builder.ts::forEachReferencingModulesOfExportOfAffectedFile` at rank 7, and
+  `builderState.ts::updateSignaturesFromCache` at rank 8. Its decision ledger explicitly gave the Builder traversal
+  and BuilderState mutation owners distinct causal contributions instead of treating one side as redundant.
+- That run recovered all four implementation Oracle files within the top five unique files, including
+  `watchMode.ts` at 1, `tscWatch/helpers.ts` at 2, `builder.ts` at 4, and `builderState.ts` at 5. It remained honestly
+  `partial/false` because the complete consumer type-check/diagnostic handoff was not established. It selected 12 of
+  33 candidates across 11 islands and used 38,527 qualification, 34,407 coverage, and 16,707 final-selection tokens
+  (89,641 total across those recorded LLM stages).
+- Connector audit: ten collapsed connector records reached the final pool. They stayed within the retrieved Builder,
+  BuilderState, WatchMode, and solution-builder mechanisms; no generic `core.ts`, Debug utility, unrelated server,
+  or cross-obligation connector caused a merge. The higher token total cannot be credited solely to connectors: this
+  stochastic run used four rounds and a larger candidate pool, while the connector logic itself adds no LLM call.
+- Current decision: retain the bounded correction for further repeated/cross-repository checks. The motivating
+  behavior and final-LLM interpretation are proven in one full run, but generic-utility false-merge risk and repeated
+  stability remain open in ISL-1; do not expand beyond one connector or beyond call relationships.

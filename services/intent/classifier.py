@@ -509,7 +509,6 @@ def _explicit_prompt_symbols(user_prompt: str) -> tuple[str, ...]:
 def _is_visible_prompt_symbol(value: str, user_prompt: str, explicit_symbols: Sequence[str]) -> bool:
     return bool(
         value
-        and value in explicit_symbols
         and value in user_prompt
         and IDENTIFIER_PATTERN.fullmatch(value)
         and not any(separator in value for separator in ("/", "\\"))

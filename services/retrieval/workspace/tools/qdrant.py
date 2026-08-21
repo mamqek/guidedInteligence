@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
-from services.retrieval.workspace.bm25 import BM25Index
+from services.retrieval.workspace.bm25 import BM25Index, LEXICAL_RANKING_BM25F_V2, tokenize
 from services.retrieval.workspace.qdrant_backend import QdrantHybridBackend, QdrantSearchResult
 from services.retrieval.config import RetrievalEmbeddingConfig, RetrievalQdrantConfig
 from services.retrieval.workspace.tools.contracts import ToolObservation, ToolRequest, ToolSpec
@@ -80,12 +81,28 @@ class QdrantHybridSearchTool:
                     for label, values in breakdown.items()
                 }
             }
+        sparse_tokens = tokenize(sparse_query or query)
+        sparse_counts = Counter(sparse_tokens)
+        query_diagnostics = {
+            "term_policy": (
+                "unique_terms_with_comment_phrase_bonus"
+                if self.index.lexical_ranking_profile == LEXICAL_RANKING_BM25F_V2
+                else "term_frequency"
+            ),
+            "raw_term_count": len(sparse_tokens),
+            "unique_term_count": len(sparse_counts),
+            "repeated_terms": {
+                term: count for term, count in sorted(sparse_counts.items()) if count > 1
+            },
+        }
         return ToolObservation(
             tool_name=self.name,
             status="ok",
             payload={
                 "query": query,
                 "sparse_query": sparse_query or query,
+                "sparse_query_diagnostics": query_diagnostics,
+                "lexical_ranking_profile": self.index.lexical_ranking_profile,
                 "path": path,
                 "paths": list(paths),
                 "preferred_ranges": [dict(item) for item in preferred_ranges],
@@ -98,6 +115,7 @@ class QdrantHybridSearchTool:
                 "result_count": str(len(results)),
                 "path_filter_count": str(len(paths)),
                 "max_per_path": str(max_per_path),
+                "lexical_ranking_profile": self.index.lexical_ranking_profile,
             },
         )
 
@@ -150,6 +168,10 @@ def _result_to_payload(result: Any) -> dict[str, Any]:
         "text": chunk.text,
         "score": result.score,
         "matched_terms": list(result.matched_terms),
+        "lexical_field_matches": {
+            str(field): dict(details)
+            for field, details in dict(getattr(result, "lexical_field_matches", {})).items()
+        },
         "visibility": str(chunk.metadata.get("visibility", "")),
         "file_role": str(chunk.metadata.get("file_role", "")),
     }

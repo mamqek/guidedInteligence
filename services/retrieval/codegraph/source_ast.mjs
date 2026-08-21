@@ -109,6 +109,21 @@ function calledName(expression) {
 }
 
 
+function calledNames(expression) {
+  if (ts.isParenthesizedExpression(expression) || ts.isAsExpression(expression) || ts.isNonNullExpression(expression)) {
+    return calledNames(expression.expression);
+  }
+  if (ts.isConditionalExpression(expression)) {
+    return [
+      ...calledNames(expression.whenTrue).map((item) => ({ ...item, expression_kind: `conditional_${item.expression_kind}` })),
+      ...calledNames(expression.whenFalse).map((item) => ({ ...item, expression_kind: `conditional_${item.expression_kind}` })),
+    ];
+  }
+  const single = calledName(expression);
+  return single.name ? [single] : [];
+}
+
+
 function matchingCodeGraphOwner(codegraph, sourcePath, owner, sourceFile) {
   const ownerStart = lineOf(sourceFile, owner.node.getStart(sourceFile));
   const ownerEnd = lineOf(sourceFile, owner.node.end);
@@ -143,7 +158,7 @@ function reliabilityFor(expressionKind, exactCodeGraphCall) {
   if (exactCodeGraphCall) {
     return { tier: 4, code: "exact_codegraph_function_call" };
   }
-  if (expressionKind === "identifier") {
+  if (expressionKind === "identifier" || expressionKind === "conditional_identifier") {
     return { tier: 3, code: "ast_unqualified_target_call" };
   }
   if (expressionKind === "property_access") {
@@ -236,8 +251,7 @@ export function localizeFileCall(codegraph, projectRoot, sourceNode, targetNode)
   const considered = [];
   function visit(node) {
     if (ts.isCallExpression(node)) {
-      const called = calledName(node.expression);
-      if (called.name === targetName) {
+      for (const called of calledNames(node.expression).filter((item) => item.name === targetName)) {
         const owner = outermostNamedExecutable(node, sourceFile);
         if (!owner) {
           considered.push({
@@ -279,3 +293,112 @@ export function localizeFileCall(codegraph, projectRoot, sourceNode, targetNode)
   };
 }
 
+
+export function summarizeFileCallsToDestination(codegraph, projectRoot, sourceNode, destinationPath) {
+  const sourcePath = normalizePath(sourceNode?.filePath);
+  const normalizedDestination = normalizePath(destinationPath);
+  const base = {
+    source_path: sourcePath,
+    destination_path: normalizedDestination,
+    direct_call_site_count: 0,
+    destination_symbols: [],
+    localized_source_owners: [],
+  };
+  if (!sourceNode?.id || !sourcePath || !normalizedDestination) return base;
+  const targets = [];
+  const seenTargets = new Set();
+  for (const edge of codegraph.getOutgoingEdges(sourceNode.id)) {
+    if (edge.kind !== "calls" || seenTargets.has(edge.target)) continue;
+    const target = codegraph.getNode(edge.target);
+    if (!target || normalizePath(target.filePath) !== normalizedDestination) continue;
+    seenTargets.add(edge.target);
+    targets.push(target);
+  }
+  const ownerNames = new Set();
+  const symbols = [];
+  for (const target of targets) {
+    const localization = localizeFileCall(codegraph, projectRoot, sourceNode, target);
+    const callSites = Array.isArray(localization.considered) ? localization.considered : [];
+    const lines = [...new Set(callSites.map((item) => Number(item.anchor?.line_start || item.anchor_line || 0)).filter(Boolean))].sort((a, b) => a - b);
+    for (const item of callSites) {
+      if (item.owner?.qualified_name) ownerNames.add(String(item.owner.qualified_name));
+    }
+    symbols.push({
+      symbol: String(target.name || ""),
+      call_site_count: lines.length,
+      call_lines: lines,
+    });
+  }
+  return {
+    ...base,
+    direct_call_site_count: symbols.reduce((total, item) => total + item.call_site_count, 0),
+    destination_symbols: symbols.sort((left, right) => left.symbol.localeCompare(right.symbol)),
+    localized_source_owners: [...ownerNames].sort(),
+  };
+}
+
+export function scopeCallsForRange(codegraph, projectRoot, sourceNode, args) {
+  const sourcePath = normalizePath(args.path || sourceNode?.filePath);
+  const start = Number(args.line_start || 0), end = Math.max(start, Number(args.line_end || start));
+  const base = { source_path: sourcePath, line_start: start, line_end: end, scope: null, destinations: [] };
+  if (!sourcePath || !start) return base;
+  let text;
+  try { text = fs.readFileSync(path.join(projectRoot, sourcePath), "utf8"); } catch { return base; }
+  const sf = ts.createSourceFile(sourcePath, text, ts.ScriptTarget.Latest, true);
+  let chosen = null;
+  function visit(node) {
+    if (ts.isFunctionLike(node)) {
+      const first = lineOf(sf, node.getStart(sf)), last = lineOf(sf, node.end);
+      if (first <= start && last >= end && (!chosen || last - first < chosen.last - chosen.first)) chosen = { node, first, last };
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sf);
+  if (!chosen) return base;
+  const parentCall = chosen.node.parent && ts.isCallExpression(chosen.node.parent) ? chosen.node.parent : null;
+  const callee = parentCall ? calledName(parentCall.expression).name : "";
+  const label = callee ? `${callee} callback` : (executableIdentity(chosen.node, sf)?.name || "anonymous callback");
+  // CodeGraph's file node can have same-name edges to unrelated declarations.
+  // For a lexical callback scope, resolve imported bindings from TypeScript source
+  // instead: `checkOutputErrorsInitial` must point to the module this file imports.
+  const importedTargets = new Map();
+  for (const statement of sf.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const clause = statement.importClause;
+    if (!clause?.namedBindings || !ts.isNamedImports(clause.namedBindings)) continue;
+    const specifier = statement.moduleSpecifier.text;
+    if (!specifier.startsWith(".")) continue;
+    const basePath = path.resolve(path.dirname(path.join(projectRoot, sourcePath)), specifier);
+    const resolved = [".ts", ".tsx", ".js", "/index.ts"].map((suffix) => `${basePath}${suffix}`).find(fs.existsSync);
+    if (!resolved) continue;
+    const destination = normalizePath(path.relative(projectRoot, resolved));
+    for (const element of clause.namedBindings.elements) importedTargets.set(element.name.text, destination);
+  }
+  if (!importedTargets.size) {
+    // Older TypeScript test sources use namespace/import-equals bindings.  Preserve
+    // CodeGraph's concrete outgoing targets in that case; scope filtering below
+    // still limits the call sites to the enclosing callback.
+    for (const edge of codegraph.getOutgoingEdges(sourceNode?.id || "")) {
+      if (edge.kind !== "calls") continue;
+      const target = codegraph.getNode(edge.target);
+      if (!target || normalizePath(target.filePath) === sourcePath) continue;
+      const values = importedTargets.get(String(target.name || "")) || [];
+      values.push(normalizePath(target.filePath)); importedTargets.set(String(target.name || ""), values);
+    }
+  }
+  const grouped = new Map();
+  function collect(node) {
+    if (ts.isCallExpression(node)) {
+      const called = calledName(node.expression).name;
+      const targetPaths = importedTargets.get(called);
+      for (const destination of Array.isArray(targetPaths) ? targetPaths : (targetPaths ? [targetPaths] : [])) {
+        const entry = grouped.get(destination) || { path: destination, symbols: new Map(), call_lines: [] };
+        entry.symbols.set(called, (entry.symbols.get(called) || 0) + 1);
+        entry.call_lines.push(lineOf(sf, node.getStart(sf))); grouped.set(destination, entry);
+      }
+    }
+    ts.forEachChild(node, collect);
+  }
+  collect(chosen.node);
+  return { ...base, scope: { kind: callee ? "test_callback" : "function", label, line_start: chosen.first, line_end: chosen.last }, destinations: [...grouped.values()].map((item) => ({ path: item.path, direct_call_site_count: item.call_lines.length, call_lines: [...new Set(item.call_lines)].sort((a,b)=>a-b), destination_symbols: [...item.symbols].map(([symbol, call_site_count]) => ({ symbol, call_site_count })) })).sort((a,b) => a.path.localeCompare(b.path)) };
+}
