@@ -1,5 +1,23 @@
 # Retrieval Changelog
 
+## 2026-08-22: Dormant Island Completion — Rejected
+
+- Implemented a separate post-maturation experiment that could reconsider an already-resolved, same-file dormant
+  owner through an exact nested/call relationship and a paired LLM qualification call.
+- Focused suite: 88 tests passing, including exact containment, parent-island provenance, caps, and arbitrary
+  same-file rejection.
+- Diagnostic smoke: `run-20260822T182010Z` stayed idle because no matured source named an eligible structural child.
+- Final-selection TypeScript runs:
+  - `run-20260822T184009Z`: `partial/false`, 4 implementation-Oracle overlaps, 111,815 retrieval LLM tokens;
+    the experiment spent 1,940 tokens and selected `verifyProjectChanges::buildTests`.
+  - `run-20260822T184509Z`: `partial/false`, 3 implementation-Oracle overlaps, 98,389 tokens; the experiment spent
+    2,043 tokens and selected `createWatchProgram::updateProgram`.
+- Pandas `run-20260822T184944Z`: `strong/true`, 1 implementation-Oracle overlap (`Series::_binop`), 104,695 tokens;
+  the experiment spent 1,772 tokens and selected the weak `_create_methods::names` helper.
+- Conclusion: mechanically bounded, but target choice was unstable and admitted navigation-only fragments rather
+  than reliably assembling the intended setup/assertion mechanism. The call is disconnected from the live pipeline;
+  details and the missing joint-comparison design are retained in `dormant-island-completion-experiment.md`.
+
 ## 2026-08-21
 
 ### Compact Initial Owner Comparison — Implemented, Mechanically Verified, Quality Still Variable
@@ -3845,3 +3863,51 @@ coverage or stable final LLM acceptance of every visible owner node.
     `virtualFileSystemWithWatch.ts` and `tsbuildPublic.ts`, so Helpers was absent.
 - Decision: retain the narrow implementation, but do not claim end-to-end acceptance until a natural run exercises
   it. Track that boundary as VL-3 rather than weakening the gate or claiming that Oracle status proves relevance.
+
+### Explicit retrieval-action policy and scheduler refactor (2026-08-22)
+
+- Scope: behavior-preserving organization only. Former boolean combinations such as `is_maturation`,
+  `is_test_maturation`, `is_deferred_file_seed`, `is_handoff_completion`, and `structural_child` on executable
+  actions were replaced by 13 named `ActionPurpose` values. No ranking, cap, trigger, or executor policy was
+  intentionally changed.
+- Architecture:
+  - the subsystem now lives under `execution_flow/actions/`, rather than repeating `retrieval_action` in several
+    filenames;
+  - `policy.py` defines the structured purpose-to-pool mapping. Purpose, trigger, and queue explanations are source
+    comments/docstrings, not repeated runtime strings;
+  - `models.py` defines the typed action payloads;
+  - `catalogue_and_execution.py` owns action production and mechanical execution;
+  - `scheduler.py` owns all queue partitioning and per-round selection. It preserves the configured
+    ordinary beam plus the existing isolated deferred-file, owner-maturation, test-maturation, and verified-lead
+    slots;
+  - `retrieval_controller.py` orchestrates a round by requesting one schedule and executing it. The duplicated
+    selector implementations were removed from the controller;
+  - every enumerated/selected/executed action trace includes only the structured `purpose` and `pool` policy fields;
+    the earlier repeated `meaning`, `trigger`, `capacity`, `deduplication`, and `executor` prose was removed.
+- Focused verification: 87 qualification, comparison, action-policy, scheduler, and execution tests pass. The new
+  policy suite proves that all 13 purposes have a complete registry entry, serialize to JSON, enter exactly one
+  pool, and preserve every independent pool in a combined round schedule. With the bundled Node 24 runtime, the two
+  real CodeGraph integration checks also pass (89 focused tests total).
+- Broader suite: 383 of 387 tests passed. Three pre-existing `test_index_setup` fixture errors lack
+  `lexical_ranking_profile`; one CodeGraph integration test failed under the default old Node runtime because it has
+  no `node:sqlite`. These failures are outside the action refactor.
+- Actual-pipeline smoke:
+  - `run-20260822T163341Z` is an invalid environment artifact: the default Node runtime stopped during CodeGraph
+    index synchronization;
+  - `run-20260822T164018Z`, rerun with bundled Node 24, completed the real TypeScript retrieval path with final
+    selection and explanation generation disabled. Across four rounds it selected ordinary within-file searches,
+    relationship expansion, deferred-file rescue, owner maturation, deferred disclosure, and verified-source leads;
+    every action carried the expected named purpose and pool. Coverage remained `missing/false`, as expected for a
+    diagnostic smoke with final selection disabled. The optional local-notes connector reported a native-module ABI
+    mismatch under Node 24, but repository retrieval completed.
+- WatchMode realism check: in the earlier final run `run-20260822T032015Z`, CodeGraph resolved 36 candidate owners
+  from `watchMode.ts`; owner comparison selected `verifyTransitiveReferences` and its nested `verifyScenario` along
+  with other owners. In the post-refactor smoke, qualification again promoted `verifyTransitiveReferences` as
+  navigation and round three executed its named owner continuation for the requested file-change/assertion details.
+  Therefore the proposed recovery does not require inventing those owners or a second lucky Qdrant hit. The remaining
+  problem is deciding how to represent the setup plus verification sections strongly enough downstream; the exact
+  wildcard-re-export regression test itself does not exist in the pre-fix snapshot.
+- Post-cleanup actual-pipeline smoke `run-20260822T170734Z` completed four controller rounds after the action modules
+  moved under `execution_flow/actions/`. It selected 14 actions across ordinary, deferred-file, owner-maturation, and
+  verified-lead pools. Every selected action retained structured `purpose` and `pool`; zero actions contained the
+  removed prose `policy` object. Final evidence selection and explanation generation were intentionally disabled.

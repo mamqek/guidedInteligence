@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, replace
 import hashlib
 import re
 from typing import Any, Mapping, Sequence
@@ -14,138 +14,23 @@ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations
     observation_from_result,
 )
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
-from services.retrieval.workspace.tools import ToolRequest
-
-
-@dataclass(frozen=True)
-class InspectDeferredObservation:
-    id: str
-    observation_id: str
-    requested_range: tuple[int, int]
-    reason: str
-    deferred_pool: bool = False
-    priority: int = 0
-    scope_id: str = ""
-
-
-@dataclass(frozen=True)
-class InspectOwnerContinuation:
-    """Show one omitted, later section of an already identified owner."""
-
-    id: str
-    obligation_id: str
-    observation_id: str
-    requested_range: tuple[int, int]
-    owner_range: tuple[int, int]
-    reason: str
-    priority: int = 0
-    scope_id: str = ""
-    is_maturation: bool = False
-
-
-@dataclass(frozen=True)
-class ExpandRelationship:
-    id: str
-    obligation_id: str
-    root_observation_id: str
-    root_node_id: str
-    direction: str
-    edge_kinds: tuple[str, ...]
-    need: str
-    max_results: int = 3
-    scope_id: str = ""
-    handoff_reason: str = ""
-    seed_kind: str = "owner"
-    target_symbol_anchors: tuple[str, ...] = ()
-    target_term_anchors: tuple[str, ...] = ()
-    cross_file_only: bool = False
-    obligation_ids: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class SearchWithinFile:
-    id: str
-    obligation_id: str
-    source_observation_id: str
-    path: str
-    dense_query: str
-    sparse_anchors: tuple[str, ...] = ()
-    result_limit: int = 3
-    priority: int = 0
-    scope_id: str = ""
-    handoff_reason: str = ""
-    is_handoff_completion: bool = False
-    is_deferred_file_seed: bool = False
-    is_maturation: bool = False
-    is_test_maturation: bool = False
-    # A rejected short file header can corroborate that this file was retrieved
-    # for the same request, but it never becomes evidence or a graph seed.
-    file_trigger_hint_observation_ids: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class SearchNewIsland:
-    id: str
-    obligation_id: str
-    dense_query: str
-    sparse_anchors: tuple[str, ...] = ()
-    exact_symbol_anchors: tuple[str, ...] = ()
-    exact_path_anchors: tuple[str, ...] = ()
-    result_limit: int = 6
-    scope_id: str = ""
-
-
-@dataclass(frozen=True)
-class InspectVerifiedLead:
-    """Disclose one repository node named by a newly grounded source-code lead."""
-
-    id: str
-    obligation_id: str
-    source_observation_id: str
-    target: str
-    target_node_id: str
-    target_path: str
-    target_line_start: int
-    target_line_end: int
-    target_symbol: str
-    reason: str
-    discovered_round: int
-    scope_id: str = ""
-    structural_child: bool = False
-
-
-@dataclass(frozen=True)
-class StopRetrieval:
-    id: str
-    reason_code: str
-    scope_id: str = ""
-
-
-RetrievalAction = (
-    InspectDeferredObservation
-    | InspectOwnerContinuation
-    | InspectVerifiedLead
-    | SearchWithinFile
-    | ExpandRelationship
-    | SearchNewIsland
-    | StopRetrieval
+from services.retrieval.workspace.pipeline.execution_flow.actions.policy import (
+    ActionPurpose,
+    action_pool,
 )
-
-
-@dataclass(frozen=True)
-class ActionCatalogue:
-    actions: tuple[RetrievalAction, ...]
-    unavailable: tuple[dict[str, Any], ...]
-    tool_calls: int
-
-
-@dataclass(frozen=True)
-class ActionExecution:
-    action_id: str
-    observations: tuple[DiscoveryObservation, ...]
-    edges: tuple[dict[str, Any], ...]
-    tool_calls: int
-    status: str
+from services.retrieval.workspace.pipeline.execution_flow.actions.models import (
+    ActionCatalogue,
+    ActionExecution,
+    ExpandRelationship,
+    InspectDeferredObservation,
+    InspectOwnerContinuation,
+    InspectVerifiedLead,
+    RetrievalAction,
+    SearchNewIsland,
+    SearchWithinFile,
+    StopRetrieval,
+)
+from services.retrieval.workspace.tools import ToolRequest
 
 
 def enumerate_actions(
@@ -274,9 +159,9 @@ def enumerate_actions(
                         handle.full_line_end or handle.line_end,
                     ),
                     reason=f"Inspect deferred discovery handle for unresolved obligation {gap.obligation_id}.",
-                    deferred_pool=True,
                     priority=observation_index,
                     scope_id=_scope_id("unresolved_obligation", gap.obligation_id),
+                    purpose=ActionPurpose.INSPECT_DEFERRED_DISCOVERY,
                 )
                 if action.id not in attempted_fingerprints:
                     actions.append(action)
@@ -306,7 +191,11 @@ def enumerate_actions(
                     reason=_handoff_reason(decision, gap),
                     priority=_navigation_priority(observation, decision),
                     scope_id=island_by_observation.get(observation.id, ""),
-                    is_maturation=bool(decision.local_follow_up),
+                    purpose=(
+                        ActionPurpose.OWNER_MATURATION
+                        if decision.local_follow_up
+                        else ActionPurpose.OWNER_CONTINUATION
+                    ),
                 )
                 if action.id not in attempted_fingerprints:
                     actions.append(action)
@@ -330,6 +219,13 @@ def enumerate_actions(
                 )[:12]
                 completing_handoff = bounded_followup or bool(observation.parent_observation_ids)
                 handoff_reason = _handoff_reason(decision, gap) if completing_handoff else ""
+                owner_maturation = (
+                    decision.disposition == "promote"
+                    and decision.support_level == "navigation_only"
+                    and bool(decision.local_follow_up)
+                    and not (observation.artifact_role == "test" and not handle.node_id)
+                    and gap.status not in {"covered", "external"}
+                )
                 action = SearchWithinFile(
                     id=_action_id("within_file", gap.obligation_id, observation.id, handle.path, *anchors),
                     obligation_id=gap.obligation_id,
@@ -348,13 +244,12 @@ def enumerate_actions(
                         else _scope_id("unresolved_obligation", gap.obligation_id)
                     ),
                     handoff_reason=handoff_reason,
-                    is_handoff_completion=bool(observation.parent_observation_ids),
-                    is_maturation=(
-                        decision.disposition == "promote"
-                        and decision.support_level == "navigation_only"
-                        and bool(decision.local_follow_up)
-                        and not (observation.artifact_role == "test" and not handle.node_id)
-                        and gap.status not in {"covered", "external"}
+                    purpose=(
+                        ActionPurpose.OWNER_MATURATION
+                        if owner_maturation
+                        else ActionPurpose.HANDOFF_COMPLETION
+                        if observation.parent_observation_ids
+                        else ActionPurpose.WITHIN_FILE_SEARCH
                     ),
                 )
                 if action.id not in attempted_fingerprints:
@@ -441,9 +336,8 @@ def enumerate_actions(
                 priority=_navigation_priority(observation, decision) - (200 if hint_ids else 0),
                 scope_id=island_by_observation.get(observation.id, ""),
                 handoff_reason=decision.local_follow_up.strip(),
-                is_maturation=True,
-                is_test_maturation=True,
                 file_trigger_hint_observation_ids=hint_ids,
+                purpose=ActionPurpose.TEST_SCENARIO_MATURATION,
             )
             if action.id not in attempted_fingerprints:
                 actions.append(action)
@@ -658,8 +552,12 @@ def execute_action(
             score=1.0,
             exact_anchor=action.target,
             parent_observation_ids=(action.source_observation_id,),
-            relationship_direction="outgoing" if action.structural_child else "",
-            relationship_kinds=(("calls",) if action.structural_child else ()),
+            relationship_direction=(
+                "outgoing" if action.purpose is ActionPurpose.STRUCTURAL_CHILD_HANDOFF else ""
+            ),
+            relationship_kinds=(
+                ("calls",) if action.purpose is ActionPurpose.STRUCTURAL_CHILD_HANDOFF else ()
+            ),
         )
         return ActionExecution(
             action_id=action.id,
@@ -752,7 +650,11 @@ def execute_action(
             sparse_anchors=action.sparse_anchors,
             result_limit=action.result_limit,
             path=action.path,
-            retriever="deferred_file_seed_search" if action.is_deferred_file_seed else "within_file_search",
+            retriever=(
+                "deferred_file_seed_search"
+                if action.purpose is ActionPurpose.DEFERRED_FILE_RESCUE
+                else "within_file_search"
+            ),
             parent_observation_ids=(action.source_observation_id,),
             exact_symbol_anchors=(),
             qdrant_tool=qdrant_tool,
@@ -783,6 +685,8 @@ def execute_action(
 
 def action_to_dict(action: RetrievalAction) -> dict[str, Any]:
     value = {"type": type(action).__name__, **asdict(action)}
+    value["purpose"] = action.purpose.value
+    value["pool"] = action_pool(action.purpose).value
     if isinstance(action, ExpandRelationship) and action.seed_kind == "file":
         value["obligation_recurrence"] = len(action.obligation_ids or (action.obligation_id,))
     return value
@@ -959,7 +863,7 @@ def _deferred_file_seed_action(
         priority=_deferred_seed_priority(observation, overlap_terms),
         scope_id=_scope_id("deferred_file_seed", obligation.id, path),
         handoff_reason=gap.missing_claim.strip(),
-        is_deferred_file_seed=True,
+        purpose=ActionPurpose.DEFERRED_FILE_RESCUE,
     )
     audit["eligible"] = True
     audit["action_id"] = action.id

@@ -26,7 +26,7 @@ from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification
     QualificationDecision,
     qualify_cards,
 )
-from services.retrieval.workspace.pipeline.execution_flow.retrieval_actions import (
+from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_execution import (
     ExpandRelationship,
     InspectOwnerContinuation,
     InspectVerifiedLead,
@@ -36,17 +36,22 @@ from services.retrieval.workspace.pipeline.execution_flow.retrieval_actions impo
     enumerate_actions,
     execute_action,
 )
+from services.retrieval.workspace.pipeline.execution_flow.actions.policy import (
+    ActionPurpose,
+)
 from services.retrieval.workspace.pipeline.execution_flow.retrieval_controller import run_retrieval_controller
 from services.retrieval.workspace.pipeline.execution_flow.retrieval_controller import (
     MAX_VERIFIED_LEAD_EXECUTIONS,
     VerifiedLead,
-    _action_effect,
     _discover_verified_leads,
     _latest_changed_observations,
+    _select_verified_lead_actions,
+)
+from services.retrieval.workspace.pipeline.execution_flow.actions.scheduler import (
+    _action_effect,
     _select_actions,
     _select_deferred_file_seed_actions,
     _select_maturation_actions,
-    _select_verified_lead_actions,
 )
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationBatch
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import (
@@ -1256,7 +1261,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(refinement.path, "src/helpers.ts")
         self.assertIn("Bounded unresolved handoff", refinement.dense_query)
         self.assertIn("comparison owner", refinement.handoff_reason)
-        self.assertTrue(refinement.is_handoff_completion)
+        self.assertIs(refinement.purpose, ActionPurpose.HANDOFF_COMPLETION)
 
     def test_incomplete_navigation_owner_gets_one_later_continuation_view(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -1354,7 +1359,12 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             attempted_fingerprints=set(), trace=trace,
         )
 
-        seed = next(item for item in catalogue.actions if isinstance(item, SearchWithinFile) and item.is_deferred_file_seed)
+        seed = next(
+            item
+            for item in catalogue.actions
+            if isinstance(item, SearchWithinFile)
+            and item.purpose is ActionPurpose.DEFERRED_FILE_RESCUE
+        )
         self.assertEqual(seed.path, "src/compiler/builderState.ts")
         self.assertIn("affected exported-module state propagation", seed.dense_query)
         self.assertIn("affect", seed.sparse_anchors)
@@ -1368,11 +1378,11 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         normal = SearchWithinFile("normal", "why", "active", "src/builder.ts", "Normal follow-up.", scope_id="island")
         first_seed = SearchWithinFile(
             "seed_a", "why", "deferred_a", "src/compiler/builderState.ts", "Seed A.",
-            scope_id="seed_a", is_deferred_file_seed=True,
+            scope_id="seed_a", purpose=ActionPurpose.DEFERRED_FILE_RESCUE,
         )
         second_seed = SearchWithinFile(
             "seed_b", "why", "deferred_b", "src/compiler/otherState.ts", "Seed B.",
-            scope_id="seed_b", is_deferred_file_seed=True,
+            scope_id="seed_b", purpose=ActionPurpose.DEFERRED_FILE_RESCUE,
         )
 
         normal_selected = _select_actions(
@@ -1403,14 +1413,19 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             attempted_fingerprints=set(), trace=trace,
         )
 
-        self.assertFalse(any(isinstance(item, SearchWithinFile) and item.is_deferred_file_seed for item in catalogue.actions))
+        self.assertFalse(any(
+            isinstance(item, SearchWithinFile)
+            and item.purpose is ActionPurpose.DEFERRED_FILE_RESCUE
+            for item in catalogue.actions
+        ))
         audit = next(payload for event, payload in trace.events if event == "controller_actions_enumerated")["deferred_file_seed_audit"]
         self.assertEqual(audit[0]["reason"], "not_an_admission_held_same_file_alternative")
 
     def test_maturation_child_is_not_pruned_as_its_parent_effect(self) -> None:
         child = SearchWithinFile(
             "child", "why", "root", "src/compiler/builderState.ts", "Find the omitted update.",
-            scope_id="island", handoff_reason="Inspect the missing update.", is_maturation=True,
+            scope_id="island", handoff_reason="Inspect the missing update.",
+            purpose=ActionPurpose.OWNER_MATURATION,
         )
         selected = _select_maturation_actions(
             (child,), (), ("root",), attempted=set(), scope_order=("island",),
@@ -1605,7 +1620,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         action = InspectVerifiedLead(
             "verified", "ordered", "obs_watch", "verifyTscWatch", "function:helper",
             "tests/helpers.ts", 10, 20, "verifyTscWatch", "Inspect helper.", 1,
-            structural_child=True,
+            purpose=ActionPurpose.STRUCTURAL_CHILD_HANDOFF,
         )
 
         result = execute_action(
@@ -1661,7 +1676,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
 
         actions = [
             item for item in catalogue.actions
-            if isinstance(item, SearchWithinFile) and item.is_test_maturation
+            if isinstance(item, SearchWithinFile)
+            and item.purpose is ActionPurpose.TEST_SCENARIO_MATURATION
         ]
         self.assertEqual(len(actions), 1)
         action = actions[0]
@@ -1694,7 +1710,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         )
 
         self.assertFalse(any(
-            isinstance(item, SearchWithinFile) and item.is_test_maturation
+            isinstance(item, SearchWithinFile)
+            and item.purpose is ActionPurpose.TEST_SCENARIO_MATURATION
             for item in catalogue.actions
         ))
 
@@ -1856,7 +1873,10 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
     def test_distinct_file_hypotheses_use_both_action_slots(self) -> None:
         first = SearchWithinFile("first", "owner", "root_a", "src/a.py", "Find owner.", priority=1)
         second = SearchWithinFile("second", "state", "root_b", "src/b.py", "Find state.", priority=2)
-        deferred = replace(_inspect_action("deferred", "owner"), deferred_pool=True)
+        deferred = replace(
+            _inspect_action("deferred", "owner"),
+            purpose=ActionPurpose.INSPECT_DEFERRED_DISCOVERY,
+        )
 
         selected = _select_actions((first, second, deferred), ("root_a", "root_b"), 2)
 
@@ -1906,7 +1926,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
     def test_endpoint_completion_outranks_another_file_handoff(self) -> None:
         completion = SearchWithinFile(
             "completion", "owner", "endpoint", "src/helpers.ts", "Find the implementation.",
-            scope_id="island", handoff_reason="The implementation is missing.", is_handoff_completion=True,
+            scope_id="island", handoff_reason="The implementation is missing.",
+            purpose=ActionPurpose.HANDOFF_COMPLETION,
         )
         handoff = ExpandRelationship(
             "handoff", "owner", "root", "file:src/watch.ts", "outgoing", ("calls",), "downstream",
@@ -2196,7 +2217,7 @@ def _observation(
 
 
 def _inspect_action(action_id: str, obligation_id: str):
-    from services.retrieval.workspace.pipeline.execution_flow.retrieval_actions import InspectDeferredObservation
+    from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_execution import InspectDeferredObservation
 
     return InspectDeferredObservation(
         id=action_id,
