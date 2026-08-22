@@ -1,5 +1,67 @@
 # Retrieval Changelog
 
+## 2026-08-21
+
+### Compact Initial Owner Comparison — Implemented, Mechanically Verified, Quality Still Variable
+
+- Stage boundary: after initial dense/sparse file-group admission and structural range resolution, but before complete
+  contextual disclosure and evidence qualification. A new LLM call compares every distinct owner/range belonging to
+  an already-admitted `(file, obligation)` group. It may select several owners when they plausibly cover different
+  parts. It cannot add a file, qualify evidence, create an island, or schedule an action. Singleton groups are selected
+  without an LLM call.
+- Representation and budget: owner metadata is serialized once under short aliases; obligations are serialized once;
+  groups reference those aliases. Each owner supplies its symbol, outer structural context, a short source-grounded
+  excerpt, best retrieval rank, and separate counts for raw chunks, query views, obligations, and channels. The stage
+  remains one LLM call. Preserving all structurally resolved owners raised measured inputs to 75,584-77,685 characters,
+  so it now has a separate 100,000-character fail-fast contract instead of incorrectly sharing qualification's 40,000
+  character limit. It does not split the semantic comparison into repeated LLM calls.
+- Admission behavior: selected owners proceed to normal complete-owner disclosure and qualification. Rejected owners
+  from a compared admitted group remain trace-only dormant handles and consume no controller action. Observations from
+  groups that were not admitted are not mislabeled dormant and retain their pre-existing deferred exploration path.
+  A real-run bookkeeping defect initially violated that last boundary; it was corrected before the final measured run.
+- Structural range completeness: the CodeGraph tool's old `ranges[:80]` slice silently ignored later Qdrant ranges.
+  `run-20260821T201549Z` submitted 172 distinct ranges; the useful `pandas/core/series.py:1464-1503` range containing
+  most of `Series::_binop` was position 122 and was never resolved. Range resolution now uses parallel, read-only
+  CodeGraph bridge batches of 80, preserves input order, fails on a failed batch, and records submitted, processed,
+  returned, batch-size, batch-count, and completeness values. Smoke `run-20260821T211044Z` resolved all 172 ranges as
+  80/80/12; final run `run-20260821T211538Z` resolved all 192 as 80/80/32.
+- Structural owner representation: overlapping Qdrant chunks are not unioned. Every range is independently resolved;
+  duplicate CodeGraph node IDs collapse to one owner with all provenance. Narrow sibling owners remain separate, while
+  a containing class/outer callable is serialized as structural context. Complete source is disclosed only after the
+  comparison selects an owner. A focused Series fixture turns a mixed range into independent `Series::append` and
+  `Series::_binop` candidates, each with `Series` as outer context.
+- Focused verification: 78 initial-comparison, range-batching, CodeGraph integration, and qualification-first tests pass.
+  They prove that the LLM can choose
+  the third owner rather than raw channel order, singleton groups avoid the call, an oversized payload fails explicitly,
+  group-local response enums prevent cross-file selections, and nonparticipating observations are not suppressed.
+- Correction to the earlier diagnosis: `run-20260821T201222Z` and `run-20260821T201549Z` did retrieve useful `_binop`
+  chunks. The structural first-80 slice, not Qdrant availability, prevented the later range from entering owner
+  comparison. Do not use those runs as evidence that `_binop` was absent upstream.
+- Post-fix smoke `run-20260821T211044Z` skipped response generation and final evidence selection. It compared 220 owners
+  across 36 groups, selected 23, used 25,958 comparison tokens, and later disclosed exact
+  `Series::_binop` lines 1466-1511 as direct evidence. This proves the complete structural path mechanically, but the
+  much larger comparison cost and qualification source-pressure warnings remain material risks.
+- Post-fix final-selection run `run-20260821T211538Z` skipped explanation generation, ended `partial/false`, selected
+  eight items, found one implementation-Oracle file at final rank 5, and used 102,926 retrieval LLM tokens, including
+  26,392 for owner comparison. This stochastic run's initial 192 ranges contained no `_binop` range, so comparison
+  could not select it; final selection retained an unrelated `Series::_repr_footer` owner alongside the useful
+  `_arith_method_SERIES::wrapper`, `_flex_method_SERIES`, `_maybe_match_name`, and operator installers. The structural
+  completeness fix works when the owner is present, but this run does not establish a stable quality improvement.
+- Recurrence diagnostic: support is no longer a single opaque count. In the final run, `_arith_method_SERIES::wrapper`
+  had two distinct raw chunks but five obligation-specific query views from only one channel; `Series::_repr_footer`
+  had one raw chunk repeated across four obligations in one channel. This confirms that recurrence can exaggerate
+  independence, so the four counts remain diagnostic signals rather than evidence strength.
+- Additional diagnostic `run-20260821T200725Z` (before the dormant-boundary correction) was `strong/true` and selected
+  the complete `_arith_method_SERIES -> _flex_method_SERIES -> Series::_binop -> _maybe_match_name` flow plus the exact
+  regression test. It demonstrates the comparison can promote useful held owners, but it is not an acceptance run for
+  the corrected implementation.
+- Token/quality assessment: the added call costs roughly 9,600-12,500 tokens in these samples. The prior comparable
+  `run-20260821T011438Z` used 76,770 retrieval tokens and was `partial/false`; the corrected variant used 91,717 and was
+  also `partial/false`, though its selected evidence was substantially more mechanism-specific. Therefore this is not
+  accepted as a stable end-to-end quality improvement yet. The remaining failure is concrete: an exact later owner lead
+  can still inherit the current source file as its search path and arrive at the final round. That controller issue is
+  separate from choosing among owners already present in the initial group.
+
 ## 2026-08-20
 
 ### Initial File-Group Channel Fusion — Diagnostic, Full Run Withheld
@@ -385,6 +447,12 @@
   receive their signature plus the original indexed hit and up to 12 complete lines on either side, bounded again to
   80 lines and 4,000 characters. Spare global capacity may satisfy that preview but cannot upgrade it to the complete
   large owner. This is deterministic renderer behavior, not an LLM instruction, retry, or repeated Qdrant query.
+- Negative experiment retained for later thesis reporting: blindly replacing every retrieved chunk with its complete
+  enclosing owner was tried and rejected as a universal rule. A 24-line TypeScript hit expanded into a 194-line,
+  9,107-character function, consuming qualification context with code far outside the match. The accepted behavior
+  separates structural resolution from disclosure: owner identity may be used for comparison/navigation, but complete
+  source is rendered only for a selected owner that fits the 80-line/4,000-character boundary; larger owners receive
+  the bounded preview above.
 - Structured-output correction: the first compact ID-bearing decision array saved schema space but allowed a model
   response to repeat one observation ID. Measured run `run-20260816T032407Z` failed explicitly on that duplicate; no
   retry, inferred missing decision, or deterministic semantic substitute was used. Qualification now returns an
@@ -3693,3 +3761,87 @@ coverage or stable final LLM acceptance of every visible owner node.
   obligation before full disclosure/qualification, with containment deduplication and traceable retention of
   unselected owners. It should reuse the qualification model contract rather than hardcode `_binop` terms, and its
   LLM/token cost must be measured before acceptance.
+
+### Initial-retrieval repair playbook — preview loss fixed, combined quality experiment not accepted (2026-08-21/22)
+
+- Scope: this experiment addressed two independently observed losses: request analysis paraphrased the concrete
+  `s1 + s2` versus `s1.add(s2)` contrast into generic wording, and an owner-comparison preview showed
+  `flex_wrapper.__name__ = name` instead of its visible `return self._binop(...)` lead.
+- Accepted isolated repairs:
+  - request analysis now preserves an explicit contrast between code forms/APIs/paths and their differing result;
+    two live pandas probes retained the operator-vs-method/result-name distinction and two TypeScript probes retained
+    repository-local watch/build framing;
+  - all returned ranges remain structurally resolved in parallel batches of at most 80, with no first-80 slice;
+  - compact source views prioritize complete executable call/return/reference lines over owner-name assignments;
+  - initial comparison serializes each raw source view once and refers to it from collapsed CodeGraph owners. It keeps
+    raw-chunk, query-view, obligation, and channel counts separate rather than treating recurrence as proof.
+- Serialization attempt history: a verbose shared-view form cost 83,633 characters / 34,234 comparison tokens;
+  a more aggressive form hit the explicit 100,000-character cap on a 101,807-character stochastic payload. The
+  retained compact form stayed below the cap (42,598–48,004 characters in observed runs) but still consumed
+  19,116–24,636 comparison tokens. It is retained for traceability and mechanical correctness, not accepted as a
+  quality improvement.
+- Diagnostic smoke `pandas-dev-pandas-10068` `run-20260821T224935Z`, with final selection disabled, did exactly
+  what the repair targeted: it exposed the `flex_wrapper -> Series._binop` lead and qualified exact
+  `pandas/core/series.py::Series::_binop` as direct evidence. There were no empty qualification cards.
+- Final-selection checks (explanations disabled):
+  - pandas `run-20260821T225305Z`: `partial/false`, one implementation-Oracle overlap, 81,000 recorded retrieval
+    tokens. The early route was present, but final selection preferred an `ops.py` chain and generic Series/test
+    material over `_binop`.
+  - pandas `run-20260821T225808Z`: `partial/false`, 75,443 tokens. Initial retrieval/selection followed a sparse
+    Series arithmetic branch and never retained `_binop`.
+  - TypeScript `run-20260821T230249Z`: `partial/false`, two implementation-Oracle overlaps, 85,166 tokens; Builder
+    and BuilderState mechanisms were both retained.
+  - TypeScript `run-20260821T231406Z`: `partial/false`, two implementation-Oracle overlaps, 76,599 tokens; Builder,
+    watch, and test-side mechanisms were retained.
+- Decision: do not call the combined initial-owner-comparison change accepted. The preview/first-N correctness bugs
+  are fixed, but the two pandas acceptance runs show that this stage cannot compensate for unstable upstream sparse
+  ranking, while its LLM cost is material. Keep the implementation for the bounded mechanical repairs, but treat
+  future ranking/coverage work as `IOC-1`; do not add further prompt or comparator tuning until an upstream candidate
+  diversity experiment is isolated.
+
+### Held-owner comparison loss and file-group correction (2026-08-22)
+
+- Exact diagnosis: in pandas runs `run-20260821T225305Z` and `run-20260821T225808Z`, Qdrant returned
+  `pandas/core/series.py:1434-1473` and CodeGraph resolved `Series::_binop`, but the owner-comparison payload omitted
+  it. Comparison eligibility was derived from the later global guardrail that allows two obligation variants per
+  path. A useful owner held under a third obligation therefore disappeared before comparison.
+- Rejected intermediate repair: admitting every file/obligation group caused
+  `initial_owner_comparison_input_budget_exceeded:103572>100000` with 439 owners and 70 groups. This invalid smoke
+  is not quality evidence.
+- Retained correction: owner comparison now makes one decision per already-admitted file, with all obligations and
+  all structurally resolved representative/held owners for that file. This removes obligation-order loss without
+  repeating the same owners once per obligation. The later qualification guardrail remains unchanged.
+- Focused verification: 80 owner-comparison/controller tests pass. An exact replay of
+  `run-20260822T030154Z`'s saved Qdrant and CodeGraph outputs grouped 34 distinct `series.py` owners and retained
+  `Series::_binop` with its original `explain_ordered_mechanism` provenance.
+- Actual-pipeline verification:
+  - diagnostic `run-20260822T030613Z` contained the raw `_binop` range, included both the range and owner in a
+    9-file/239-owner comparison, selected it, disclosed complete lines 1466-1511, qualified it as direct evidence,
+    and joined it with `_flex_method_SERIES` in one island;
+  - final-selection `run-20260822T032525Z` was `partial/false`, retained the implementation Oracle
+    `Series::_binop` at rank 4, and used 22,471 comparison + 38,719 qualification + 19,240 coverage + 18,427 final
+    selection tokens. This is one successful acceptance run, not yet a two-run stability claim.
+- Cost/quality assessment: grouping by file reduced the observed comparison group count from 35-53 obligation groups
+  to 9 file groups while retaining 231-239 distinct owners. The comparison remains expensive. Keep IOC-1 open for
+  repeated stability, support-count effects, and the lossy 80-character view.
+
+### Maturation cross-file structural-child continuation (2026-08-22)
+
+- Stage boundary: after a maturation action's result is disclosed and qualified, the verified-lead stage may reserve
+  one exact cross-file callee for the next round. It does not compete with the two ordinary scheduler slots and it
+  reuses the existing two-lead run cap.
+- Safety rules: source must be a newly matured promoted owner; the call must be literal in its source and named by
+  local follow-up or the same unresolved coverage claim; exact-symbol lookup must resolve one uninspected node in a
+  different file. The created child preserves `outgoing/calls` provenance and can seed a file trace.
+- Focused verification: 83 owner-comparison/controller tests pass, including a WatchMode-shaped
+  `verifyProjectChanges -> verifyTscWatch` child, a non-matured rejection, and relationship preservation during
+  execution.
+- Actual behavior:
+  - smoke `run-20260822T031233Z` used the older explicit WatchMode file expansion and produced the correct Helpers
+    trace from 18 direct calls; the new fallback was not eligible and remained dormant;
+  - final run `run-20260822T032015Z` was `partial/false`, retained three implementation-Oracle files (Builder,
+    BuilderState, WatchMode) with WatchMode at rank 9, and spent 21,298 comparison + 36,443 qualification + 25,691
+    coverage + 16,217 final-selection tokens. No maturation child was created; the ordinary expansion followed
+    `virtualFileSystemWithWatch.ts` and `tsbuildPublic.ts`, so Helpers was absent.
+- Decision: retain the narrow implementation, but do not claim end-to-end acceptance until a natural run exercises
+  it. Track that boundary as VL-3 rather than weakening the gate or claiming that Oracle status proves relevance.

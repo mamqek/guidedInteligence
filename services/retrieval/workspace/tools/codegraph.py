@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import queue
 import subprocess
@@ -205,25 +206,85 @@ class CodeGraphResolveLocationsTool:
 
 class CodeGraphResolveRangesTool:
     name = "structural_resolve_ranges"
+    batch_size = 80
 
-    def __init__(self, bridge: CodeGraphBridge) -> None:
+    def __init__(self, bridge: CodeGraphBridge, *, bridge_factory: Any = CodeGraphBridge) -> None:
         self.bridge = bridge
+        self._bridge_factory = bridge_factory
 
     def run(self, request: ToolRequest) -> ToolObservation:
         ranges = request.arguments.get("ranges")
         if not isinstance(ranges, list) or not ranges:
             return _error(self.name, "empty_ranges")
+        batches = [ranges[index : index + self.batch_size] for index in range(0, len(ranges), self.batch_size)]
+        batch_results: list[Mapping[str, Any] | None] = [None] * len(batches)
+        temporary_bridges: list[CodeGraphBridge] = []
+
+        def resolve(batch_index: int) -> tuple[int, Mapping[str, Any]]:
+            bridge = self.bridge
+            if batch_index > 0:
+                bridge = self._bridge_factory(self.bridge.config)
+                temporary_bridges.append(bridge)
+            return batch_index, bridge.request("resolve_ranges", {"ranges": batches[batch_index]})
+
         try:
-            result = self.bridge.request("resolve_ranges", {"ranges": ranges[:80]})
+            # CodeGraph's stdin bridge intentionally serializes requests. Separate
+            # read-only bridge processes make the batches genuinely concurrent.
+            with ThreadPoolExecutor(max_workers=len(batches), thread_name_prefix="codegraph-ranges") as executor:
+                futures = [executor.submit(resolve, index) for index in range(len(batches))]
+                for future in as_completed(futures):
+                    batch_index, batch_result = future.result()
+                    batch_results[batch_index] = batch_result
         except Exception as exc:
-            return _error(self.name, f"structural_range_resolution_failed:{exc}")
+            return _error(
+                self.name,
+                f"structural_range_resolution_failed:{exc}",
+                payload={
+                    "submitted_range_count": len(ranges),
+                    "batch_count": len(batches),
+                    "batch_size": self.batch_size,
+                },
+            )
+        finally:
+            for bridge in temporary_bridges:
+                bridge.close()
+
+        if any(result is None for result in batch_results):
+            return _error(self.name, "structural_range_resolution_incomplete_batch")
+        combined_results = [
+            item
+            for batch_result in batch_results
+            for item in batch_result.get("results", ())  # type: ignore[union-attr]
+            if isinstance(item, Mapping)
+        ]
+        result = dict(batch_results[0] or {})
+        result["results"] = combined_results
+        result["batch_diagnostics"] = {
+            "submitted_range_count": len(ranges),
+            "processed_range_count": sum(len(batch) for batch in batches),
+            "returned_range_count": len(combined_results),
+            "batch_count": len(batches),
+            "batch_size": self.batch_size,
+            "batch_range_counts": [len(batch) for batch in batches],
+            "parallel": len(batches) > 1,
+            "complete": len(combined_results) == len(ranges),
+        }
         results = result.get("results") if isinstance(result.get("results"), list) else []
         node_count = sum(len(item.get("nodes", ())) for item in results if isinstance(item, Mapping))
         return ToolObservation(
             tool_name=self.name,
             status="ok",
             payload=dict(result),
-            metadata={"result_count": str(node_count), "match": "source_range"},
+            metadata={
+                "result_count": str(node_count),
+                "match": "source_range",
+                "submitted_range_count": str(len(ranges)),
+                "returned_range_count": str(len(results)),
+                "batch_count": str(len(batches)),
+                "batch_size": str(self.batch_size),
+                "parallel": str(len(batches) > 1).lower(),
+                "complete": str(len(results) == len(ranges)).lower(),
+            },
         )
 
 

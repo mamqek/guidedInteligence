@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -10,8 +12,61 @@ from services.retrieval.config import (
     RunLLMConfig,
     WorkspaceRetrievalConfig,
 )
-from services.retrieval.workspace.tools.codegraph import close_codegraph_bridge, codegraph_tools
+from services.retrieval.workspace.tools.codegraph import (
+    CodeGraphResolveRangesTool,
+    close_codegraph_bridge,
+    codegraph_tools,
+)
 from services.retrieval.workspace.tools.contracts import ToolRequest
+
+
+class _ConcurrentRangeBridge:
+    active = 0
+    max_active = 0
+    lock = threading.Lock()
+
+    def __init__(self, config: object = None) -> None:
+        self.config = config or object()
+
+    def request(self, operation: str, arguments: object = None) -> dict[str, object]:
+        self.assert_operation(operation)
+        ranges = list((arguments or {}).get("ranges", ()))  # type: ignore[union-attr]
+        with self.lock:
+            type(self).active += 1
+            type(self).max_active = max(type(self).max_active, type(self).active)
+        time.sleep(0.02)
+        with self.lock:
+            type(self).active -= 1
+        return {"results": [{**item, "nodes": []} for item in ranges]}
+
+    def close(self) -> None:
+        return None
+
+    @staticmethod
+    def assert_operation(operation: str) -> None:
+        if operation != "resolve_ranges":
+            raise AssertionError(operation)
+
+
+class CodeGraphRangeBatchTests(unittest.TestCase):
+    def test_resolves_every_range_in_parallel_batches_and_preserves_order(self) -> None:
+        _ConcurrentRangeBridge.active = 0
+        _ConcurrentRangeBridge.max_active = 0
+        bridge = _ConcurrentRangeBridge()
+        tool = CodeGraphResolveRangesTool(bridge, bridge_factory=_ConcurrentRangeBridge)
+        ranges = [
+            {"file": f"src/{index}.ts", "line_start": index + 1, "line_end": index + 2}
+            for index in range(172)
+        ]
+
+        result = tool.run(_request("structural_resolve_ranges", ranges=ranges))
+
+        self.assertEqual(result.status, "ok", result.payload)
+        self.assertEqual([item["file"] for item in result.payload["results"]], [item["file"] for item in ranges])
+        self.assertEqual(result.payload["batch_diagnostics"]["batch_range_counts"], [80, 80, 12])
+        self.assertEqual(result.payload["batch_diagnostics"]["processed_range_count"], 172)
+        self.assertTrue(result.payload["batch_diagnostics"]["complete"])
+        self.assertGreater(_ConcurrentRangeBridge.max_active, 1)
 
 
 class CodeGraphToolsIntegrationTests(unittest.TestCase):

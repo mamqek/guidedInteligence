@@ -38,6 +38,12 @@ Do not classify evidence as external merely because a different library name app
 For each stage:
 
 - Write one request-specific proposition describing what evidence must establish.
+- When the request explicitly contrasts two code forms, APIs, states, outputs, or control-flow paths, preserve that
+  contrast in the relevant proposition: name both forms and the differing result/property. Do not replace a concrete
+  comparison with broad labels such as "entry points", "operations", or "handling". Example: if an issue contrasts an
+  operator expression with a named method call and reports different result metadata, the proposition must retain the
+  operator-versus-method distinction and the metadata difference. Example variables from a reproduction remain context
+  rather than repository symbol anchors unless they are confirmed repository identifiers.
 - Keep the proposition proportionate to the requested outcome. When a stage can be satisfied by confirming a narrow boundary, named location, or unchanged invariant, do not request unrelated callers, dependents, or runtime behavior.
 - When a requested edit is explicitly non-behavioral, limit impact and affected-path propositions to the edited locations and the invariant that behavior remains unchanged. Do not request runtime call chains merely because the changed syntax occurs inside a function.
 - Describe what must be proven, not an expected filename or an assumed root cause.
