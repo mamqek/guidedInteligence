@@ -111,6 +111,7 @@ class InspectVerifiedLead:
     reason: str
     discovered_round: int
     scope_id: str = ""
+    structural_child: bool = False
 
 
 @dataclass(frozen=True)
@@ -657,6 +658,8 @@ def execute_action(
             score=1.0,
             exact_anchor=action.target,
             parent_observation_ids=(action.source_observation_id,),
+            relationship_direction="outgoing" if action.structural_child else "",
+            relationship_kinds=(("calls",) if action.structural_child else ()),
         )
         return ActionExecution(
             action_id=action.id,

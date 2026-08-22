@@ -60,6 +60,7 @@ from services.retrieval.workspace.pipeline.execution_flow.source_disclosure impo
 from services.retrieval.workspace.pipeline.execution_flow.structural_components import build_structural_components
 from services.retrieval.workspace.pipeline.execution_flow.qualification_first_retrieval import (
     _file_group_initial_results,
+    _owner_comparison_admitted_groups,
     _initial_sparse_query,
     _preserve_active_island_candidates,
 )
@@ -198,6 +199,37 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             ("sparse", 80),
             {(item["retrieval_channel"], item["line_start"]) for item in held},
         )
+
+    def test_owner_comparison_admission_identifies_an_important_file_without_opening_new_paths(self) -> None:
+        representatives = tuple(
+            replace(
+                _observation(
+                    f"obs_{obligation_id}",
+                    "pandas/core/series.py",
+                    f"method:{obligation_id}",
+                    (obligation_id,),
+                ),
+                provenance=(DiscoveryProvenance(
+                    "qdrant_file_group_dense",
+                    obligation_id,
+                    (obligation_id,),
+                    (rank,),
+                    (1.0 / rank,),
+                ),),
+            )
+            for rank, obligation_id in enumerate(
+                ("subject", "ordered", "explain_trigger", "explain_why"),
+                start=1,
+            )
+        )
+        baseline = representatives[:2]
+
+        groups = _owner_comparison_admitted_groups(representatives, baseline)
+
+        self.assertEqual(groups, (
+            ("pandas/core/series.py", "subject"),
+            ("pandas/core/series.py", "ordered"),
+        ))
 
     def test_initial_guardrail_can_qualify_two_channel_owners_for_one_file_and_obligation(self) -> None:
         dense = _observation("obs_dense", "pandas/core/series.py", "method:binop", ("subject",))
@@ -1456,6 +1488,77 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(leads, ())
         self.assertEqual(audit[-1]["reason"], "target_resolution_ambiguous")
 
+    def test_matured_direct_owner_gets_one_exact_cross_file_structural_child(self) -> None:
+        observation = _observation(
+            "obs_watch",
+            "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "function:verifyProjectChanges",
+            ("ordered",),
+            role="test",
+        )
+        decision = QualificationDecision(
+            observation.id,
+            "promote",
+            "direct_evidence",
+            "The matured scenario proves the edit sequence but not the helper implementation.",
+        )
+        card = DisclosureCard(
+            observation.id,
+            observation.handle,
+            "complete_owner",
+            "function verifyProjectChanges() {\n  verifyTscWatch({ scenario });\n}\n",
+        )
+
+        leads, audit, calls = _discover_verified_leads(
+            round_index=1,
+            changed_observation_ids=(observation.id,),
+            observations={observation.id: observation},
+            decisions={observation.id: decision},
+            cards={observation.id: card},
+            coverage=(ObligationCoverage(
+                "ordered", "partial", (),
+                "Inspect verifyTscWatch to continue the unresolved watch scenario.",
+                "downstream",
+            ),),
+            pending_node_ids=set(),
+            executed_node_ids=set(),
+            exact_symbol_tool=_Tool("structural_find_exact_symbol", {"nodes": [{
+                "id": "function:verifyTscWatch",
+                "name": "verifyTscWatch",
+                "qualified_name": "verifyTscWatch",
+                "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+                "line_start": 100,
+                "line_end": 130,
+            }]}),
+            trace=None,
+            maturation_observation_ids={observation.id},
+        )
+
+        self.assertEqual(calls, 1)
+        self.assertEqual(len(leads), 1)
+        self.assertTrue(leads[0].structural_child)
+        self.assertEqual(leads[0].target_path, "src/testRunner/unittests/tscWatch/helpers.ts")
+        self.assertEqual(audit[-1]["reason"], "visible_call_resolved")
+
+    def test_direct_owner_without_maturation_does_not_open_structural_child(self) -> None:
+        observation = _observation("obs_watch", "tests/watch.ts", "function:watch", ("ordered",), role="test")
+        decision = QualificationDecision(observation.id, "promote", "direct_evidence", "Direct scenario evidence.")
+        card = DisclosureCard(observation.id, observation.handle, "complete_owner", "verifyTscWatch({});")
+
+        leads, _audit, calls = _discover_verified_leads(
+            round_index=1,
+            changed_observation_ids=(observation.id,),
+            observations={observation.id: observation}, decisions={observation.id: decision},
+            cards={observation.id: card},
+            coverage=(ObligationCoverage("ordered", "partial", (), "Inspect verifyTscWatch.", "downstream"),),
+            pending_node_ids=set(), executed_node_ids=set(),
+            exact_symbol_tool=_FailTool(), trace=None,
+            maturation_observation_ids=set(),
+        )
+
+        self.assertEqual(leads, ())
+        self.assertEqual(calls, 0)
+
     def test_verified_lead_pool_prefers_qualified_target_and_enforces_cap(self) -> None:
         plain = VerifiedLead(
             "obs_sparse", "why", "_maybe_match_name", "function:maybe", "pandas/core/common.py",
@@ -1497,6 +1600,22 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(result.observations[0].handle.path, "pandas/core/series.py")
         self.assertEqual(result.observations[0].parent_observation_ids, ("obs_wrapper",))
         self.assertEqual(result.observations[0].exact_anchor_matches, ("Series._binop",))
+
+    def test_structural_child_execution_preserves_the_exact_call_relationship(self) -> None:
+        action = InspectVerifiedLead(
+            "verified", "ordered", "obs_watch", "verifyTscWatch", "function:helper",
+            "tests/helpers.ts", 10, 20, "verifyTscWatch", "Inspect helper.", 1,
+            structural_child=True,
+        )
+
+        result = execute_action(
+            action,
+            observations=(), relationship_tool=_FailTool(), qdrant_tool=_FailTool(),
+            resolve_ranges_tool=_FailTool(), exact_symbol_tool=_FailTool(),
+        )
+
+        self.assertEqual(result.observations[0].relationship_direction, "outgoing")
+        self.assertEqual(result.observations[0].relationship_kinds, ("calls",))
 
     def test_test_maturation_uses_its_local_followup_after_original_obligation_is_covered(self) -> None:
         header = DiscoveryObservation(

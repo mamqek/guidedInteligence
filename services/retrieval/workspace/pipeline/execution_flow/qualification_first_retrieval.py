@@ -16,6 +16,10 @@ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations
     observation_from_result,
 )
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
+from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import (
+    compare_initial_owners,
+    select_range_candidate_owners,
+)
 from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import (
     MAX_EVIDENCE,
     MAX_FOCUSED_RESULTS,
@@ -23,7 +27,6 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     GroundedCandidate,
     ObligationProgress,
     SemanticDiscovery,
-    _best_overlapping_nodes,
     _candidate_facts,
     _candidate_trace_item,
     _confirmed_obligation_paths,
@@ -47,9 +50,6 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
 from services.retrieval.workspace.pipeline.execution_flow.retrieval_controller import run_retrieval_controller
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard
 from services.retrieval.workspace.tools import ToolRequest
-
-
-MAX_HELD_FILE_ALTERNATIVES_PER_CHANNEL = 1
 
 
 def run_obligation_retrieval(
@@ -205,7 +205,11 @@ def run_obligation_retrieval(
                 continue
             key = (str(item.get("file") or ""), int(item.get("line_start") or 0), int(item.get("line_end") or 0))
             nodes = tuple(dict(node) for node in item.get("nodes", ()) if isinstance(node, Mapping))
-            range_nodes[key] = tuple(_best_overlapping_nodes(nodes, line_start=key[1], line_end=key[2]))
+            range_nodes[key] = select_range_candidate_owners(
+                nodes,
+                line_start=key[1],
+                line_end=key[2],
+            )
 
     raw_observations: list[DiscoveryObservation] = []
     for obligation in repository_obligations:
@@ -225,19 +229,21 @@ def run_obligation_retrieval(
             )
             if observation is not None:
                 raw_observations.append(observation)
+    representative_observations: list[DiscoveryObservation] = []
     for obligation_id, origin, rank, result in all_results:
         key = (str(result.get("path") or ""), int(result.get("line_start") or 0), int(result.get("line_end") or 0))
-        raw_observations.extend(
-            observation_from_result(
-                result,
-                obligation_id=obligation_id,
-                query_id=f"{_file_group_result_origin(result, origin)}:{obligation_id}",
-                rank=int(result.get("file_group_rank") or rank),
-                retriever=_file_group_result_origin(result, origin),
-                nodes=range_nodes.get(key, ()),
-                exact_anchor=str(result.get("exact_prompt_anchor") or "") if origin == "exact_prompt_anchor" else "",
-            )
+        observations = observation_from_result(
+            result,
+            obligation_id=obligation_id,
+            query_id=f"{_file_group_result_origin(result, origin)}:{obligation_id}",
+            rank=int(result.get("file_group_rank") or rank),
+            retriever=_file_group_result_origin(result, origin),
+            nodes=range_nodes.get(key, ()),
+            exact_anchor=str(result.get("exact_prompt_anchor") or "") if origin == "exact_prompt_anchor" else "",
         )
+        raw_observations.extend(observations)
+        if origin == "qdrant_hybrid":
+            representative_observations.extend(observations)
     held_raw_observations: list[DiscoveryObservation] = []
     for obligation_id, origin, rank, result in all_held_results:
         key = (str(result.get("path") or ""), int(result.get("line_start") or 0), int(result.get("line_end") or 0))
@@ -245,13 +251,13 @@ def run_obligation_retrieval(
             observation_from_result(
                 result,
                 obligation_id=obligation_id,
-                query_id=f"{origin}:{obligation_id}",
+                query_id=f"{_file_group_result_origin(result, origin)}:{obligation_id}",
                 rank=int(result.get("file_group_rank") or rank),
-                retriever=origin,
+                retriever=_file_group_result_origin(result, origin),
                 nodes=range_nodes.get(key, ()),
             )
         )
-    initial_observations, guardrail_decisions = aggregate_observations(
+    baseline_initial_observations, baseline_guardrail_decisions = aggregate_observations(
         raw_observations,
         limit=ctx.config.max_discovery_observations,
         one_per_path=True,
@@ -262,24 +268,55 @@ def run_obligation_retrieval(
         raw_observations,
         limit=max(1, len(raw_observations)),
     )
+    # Owner comparison belongs to the per-obligation file-admission boundary.
+    # Deriving these groups from the later global observation guardrail used to
+    # erase a third obligation for an otherwise admitted file.  In particular,
+    # pandas/core/series.py::_binop was retained as an explain_trigger file
+    # alternative and resolved by CodeGraph, but never reached comparison after
+    # two other Series obligation variants consumed the per-path guardrail.
+    admitted_groups = _owner_comparison_admitted_groups(
+        representative_observations,
+        baseline_initial_observations,
+    )
+    comparison_candidates, _comparison_decisions = aggregate_observations(
+        (*representative_observations, *held_raw_observations),
+        limit=max(1, len(representative_observations) + len(held_raw_observations)),
+    )
+    owner_comparison = compare_initial_owners(
+        llm_config=ctx.config.llm_config,
+        obligation_descriptions={item.id: item.description for item in repository_obligations},
+        observations=comparison_candidates,
+        admitted_groups=admitted_groups,
+        max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
+        trace=ctx.trace,
+    )
+    exact_baseline_ids = {
+        item.id for item in baseline_initial_observations
+        if any(provenance.retriever == "exact_anchor" for provenance in item.provenance)
+    }
+    exact_baseline = tuple(item for item in all_aggregated_observations if item.id in exact_baseline_ids)
+    initial_observations, comparison_guardrail_decisions = aggregate_observations(
+        (*exact_baseline, *owner_comparison.selected),
+        limit=ctx.config.max_discovery_observations,
+        one_per_path=True,
+        max_obligation_variants_per_path=2,
+        one_per_obligation_per_path=False,
+    )
+    guardrail_decisions = (*baseline_guardrail_decisions, *comparison_guardrail_decisions)
     initial_ids = {item.id for item in initial_observations}
     admission_reason_by_id = {
         str(item.get("observation_id") or ""): str(item.get("reason") or "")
         for item in guardrail_decisions
     }
+    # Compared-but-unselected owners remain traceable in the comparison result,
+    # but do not silently regain a controller action as deferred observations.
+    dormant_ids = {item.id for item in owner_comparison.dormant}
     deferred_values = [
         replace(item, admission_reason=admission_reason_by_id.get(item.id, ""))
         for item in all_aggregated_observations
-        if item.id not in initial_ids
+        if item.id not in initial_ids and item.id not in dormant_ids
     ]
-    held_aggregated, _held_decisions = aggregate_observations(
-        held_raw_observations,
-        limit=max(1, len(held_raw_observations)),
-    )
     deferred_by_id = {item.id: item for item in deferred_values}
-    for item in held_aggregated:
-        if item.id not in initial_ids:
-            deferred_by_id.setdefault(item.id, replace(item, admission_reason="same_path_alternative"))
     deferred_observations = tuple(deferred_by_id.values())
     ctx.trace.record(
         "discovery_observations_created",
@@ -291,6 +328,8 @@ def run_obligation_retrieval(
             "deferred_count": len(deferred_observations),
             "observations": [item.to_dict(include_text=False) for item in initial_observations],
             "guardrail_decisions": list(guardrail_decisions),
+            "initial_owner_comparison_selected_count": len(owner_comparison.selected),
+            "initial_owner_comparison_dormant_count": len(owner_comparison.dormant),
         },
     )
 
@@ -426,6 +465,9 @@ def run_obligation_retrieval(
         "qualification_decisions": [item.to_dict() for item in controller.decisions],
         "controller_coverage": [item.to_dict() for item in controller.coverage],
         "qualification_usage": dict(controller.qualification_usage),
+        "initial_owner_comparison_usage": dict(owner_comparison.usage),
+        "initial_owner_comparison_serialized_chars": owner_comparison.serialized_chars,
+        "initial_owner_comparison_group_count": owner_comparison.compared_group_count,
         "coverage_usage": dict(controller.coverage_usage),
         "anchor_query_count": len(confirmations),
         "anchor_confirmations": [item.to_dict() for item in confirmations],
@@ -713,6 +755,27 @@ def _initial_sparse_query(
     return " ".join(_repository_sparse_anchors(obligation, exact_repository_symbols)).strip()
 
 
+def _owner_comparison_admitted_groups(
+    representative_observations: Sequence[DiscoveryObservation],
+    baseline_initial_observations: Sequence[DiscoveryObservation],
+) -> tuple[tuple[str, str], ...]:
+    """Identify paths important enough for bounded owner comparison.
+
+    The comparison stage groups all resolved owners for each admitted path in
+    one decision, across the obligations that found them. This avoids both the
+    two-obligation loss and the token explosion caused by repeating the same
+    file's owners in a separate group for every obligation.
+    """
+    del representative_observations
+    return tuple(dict.fromkeys(
+        (item.handle.path.casefold(), obligation_id)
+        for item in baseline_initial_observations
+        for provenance in item.provenance
+        if provenance.retriever != "exact_anchor"
+        for obligation_id in provenance.obligation_ids
+    ))
+
+
 def _file_group_initial_results(
     payload: Mapping[str, Any],
     *,
@@ -723,9 +786,9 @@ def _file_group_initial_results(
     Qdrant's native RRF operates on chunks, so a file with many similar chunks
     can push other files down before the later per-path cap runs.  Initial
     discovery instead gives each path one rank per channel.  The first dense
-    and sparse chunks remain separate qualification candidates when they point
-    at different ranges; one additional result per channel is held for bounded
-    same-file maturation.
+    and sparse chunks seed the admitted file groups. All other returned ranges
+    in those groups are retained for the compact owner-comparison stage; they
+    do not independently consume qualification cards.
     """
     breakdown = payload.get("breakdown", {})
     if not isinstance(breakdown, Mapping):
@@ -801,7 +864,6 @@ def _file_group_initial_results(
             ("dense", dense_values, dense_file_ranks.get(path)),
             ("sparse", sparse_values, sparse_file_ranks.get(path)),
         ):
-            held_count = 0
             for alternative in values[1:]:
                 alternative_key = _result_range_key(alternative)
                 if alternative_key in held_keys:
@@ -816,9 +878,6 @@ def _file_group_initial_results(
                     )
                 )
                 held_keys.add(alternative_key)
-                held_count += 1
-                if held_count >= MAX_HELD_FILE_ALTERNATIVES_PER_CHANNEL:
-                    break
         groups.append(
             {
                 "file_group_rank": file_group_rank,

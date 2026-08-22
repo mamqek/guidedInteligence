@@ -107,6 +107,18 @@
 
 ## Retrieval Pipeline Changes
 
+- For multi-stage retrieval experiments, follow
+  `services/retrieval/docs/incremental-experiment-execution-protocol.md`: separate independently testable changes,
+  verify each boundary before integration, use at most three implementation variants per step, require repeatable
+  focused evidence, and revert steps that do not improve their unchanged baseline.
+
+- Before reporting that a file, owner, or mechanism was "not retrieved," audit every evidence-loss boundary in
+  order: raw dense and sparse results (including textual calls/references to the target), file grouping and held
+  alternatives, CodeGraph range submission and owner resolution, owner-comparison and qualification payloads,
+  controller actions, and final evidence selection. Distinguish an absent exact owner range from a present
+  source-grounded lead that was hidden, demoted, or rejected later. Do not infer raw-retrieval absence from the
+  final candidate set alone.
+
 - Keep retrieval orchestration separate from stage implementation. A function that coordinates the full retrieval
   flow should call a clearly named module for each cohesive stage rather than accumulating that stage's graph,
   ranking, qualification, or serialization algorithms inline. Put semantically related operations for one stage in
@@ -128,3 +140,4 @@
 - After changing retrieval behavior, measure real retrieval tokens from actual pipeline runs and compare results against prior runs. Prefer at least two runs for the main benchmark case when runtime allows.
 - Record run IDs, `coverage_status`, `sufficient`, retrieval token totals, and notable quality changes in the retrieval changelog or the relevant decision note.
 - Do not leave a retrieval behavior change in place only because it reduces tokens. If two real-run comparisons show quality regression or unstable sufficiency, revert or disable the behavior and document the failed experiment.
+- When reporting that evidence was absent, rejected, outranked, or lost, trace the exact item through every recorded boundary before drawing a conclusion: raw dense/sparse results, fused/file-group representatives and held alternatives, CodeGraph resolution, owner-comparison input/output, qualification, controller actions, final candidate pool, and final evidence selection. Name the run ID. Distinguish "not retrieved" from "retrieved but omitted by an intermediate stage" and identify the first stage where the item disappears. Do not infer the loss point from the final candidate list alone.

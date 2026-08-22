@@ -15,6 +15,7 @@ class DiscoveryProvenance:
     ranks: tuple[int, ...] = ()
     scores: tuple[float, ...] = ()
     matched_terms: tuple[str, ...] = ()
+    source_key: str = ""
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,20 @@ class DiscoveryObservation:
     def best_score(self) -> float:
         return max((score for item in self.provenance for score in item.scores), default=0.0)
 
+    @property
+    def support_counts(self) -> dict[str, int]:
+        """Separate independent support from repeated retrieval views."""
+        raw_chunk_keys = {
+            item.source_key or f"unkeyed:{index}"
+            for index, item in enumerate(self.provenance)
+        }
+        return {
+            "raw_chunks": len(raw_chunk_keys),
+            "query_views": len({(item.retriever, item.query_id) for item in self.provenance}),
+            "obligations": len({value for item in self.provenance for value in item.obligation_ids}),
+            "channels": len({_retrieval_channel(item.retriever) for item in self.provenance}),
+        }
+
     def to_dict(self, *, include_text: bool = True) -> dict[str, Any]:
         value = asdict(self)
         if not include_text:
@@ -76,6 +91,7 @@ class DiscoveryObservation:
         value["obligation_ids"] = list(self.obligation_ids)
         value["best_rank"] = self.best_rank
         value["best_score"] = self.best_score
+        value["support_counts"] = self.support_counts
         return value
 
 
@@ -117,6 +133,7 @@ def observation_from_node(
                 query_id=query_id,
                 obligation_ids=_ordered_unique(obligation_ids),
                 scores=(float(score),),
+                source_key=f"{path}:{line_start}:{line_end}",
             ),
         ),
         exact_anchor_matches=((exact_anchor,) if exact_anchor else ()),
@@ -158,6 +175,10 @@ def observation_from_result(
             full_line_end=node_end,
             language=str(node.get("language") or ""),
             adapter="codegraph_node" if node else "indexed_chunk",
+            outer_node_id=str(node.get("outer_node_id") or ""),
+            outer_symbol=str(node.get("outer_symbol") or ""),
+            outer_line_start=max(0, int(node.get("outer_line_start") or 0)),
+            outer_line_end=max(0, int(node.get("outer_line_end") or 0)),
         )
         observations.append(
             DiscoveryObservation(
@@ -172,6 +193,7 @@ def observation_from_result(
                         ranks=(rank,),
                         scores=(float(result.get("score") or 0.0),),
                         matched_terms=_ordered_unique(str(value) for value in result.get("matched_terms", ()) if value),
+                        source_key=f"{path}:{line_start}:{line_end}",
                     ),
                 ),
                 exact_anchor_matches=((exact_anchor,) if exact_anchor else ()),
@@ -430,3 +452,11 @@ def _ordered_unique(values: Iterable[str]) -> tuple[str, ...]:
 
 def _path(value: object) -> str:
     return str(value or "").strip().replace("\\", "/").removeprefix("./")
+
+
+def _retrieval_channel(retriever: str) -> str:
+    value = str(retriever).casefold()
+    for channel in ("dense", "sparse", "exact", "bm25", "graph"):
+        if channel in value:
+            return channel
+    return value or "unknown"

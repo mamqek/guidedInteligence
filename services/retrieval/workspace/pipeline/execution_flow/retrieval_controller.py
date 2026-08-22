@@ -61,6 +61,7 @@ class VerifiedLead:
     discovered_round: int
     source_rank: int
     qualified_target: bool
+    structural_child: bool = False
 
 
 @dataclass(frozen=True)
@@ -92,6 +93,7 @@ def _discover_verified_leads(
     executed_node_ids: set[str],
     exact_symbol_tool: Any,
     trace: Any | None,
+    maturation_observation_ids: set[str] | None = None,
 ) -> tuple[tuple[VerifiedLead, ...], list[dict[str, Any]], int]:
     """Validate newly disclosed, literal call targets before granting a reserved action."""
     coverage_by_id = {item.obligation_id: item for item in coverage}
@@ -99,6 +101,7 @@ def _discover_verified_leads(
     audit: list[dict[str, Any]] = []
     tool_calls = 0
     seen_targets: set[tuple[str, str]] = set()
+    matured_ids = maturation_observation_ids or set()
     for observation_id in dict.fromkeys(changed_observation_ids):
         observation = observations.get(observation_id)
         decision = decisions.get(observation_id)
@@ -111,11 +114,10 @@ def _discover_verified_leads(
         if observation is None or decision is None or card is None:
             audit.append({**base, "status": "rejected", "reason": "missing_observation_decision_or_card"})
             continue
-        if decision.disposition != "promote" or decision.support_level != "navigation_only":
-            continue
-        targets = _followup_called_targets(decision.local_follow_up, card.source_text)
-        if not targets:
-            audit.append({**base, "status": "rejected", "reason": "no_source_called_target_named_in_followup"})
+        is_matured = observation_id in matured_ids
+        if decision.disposition != "promote" or (
+            decision.support_level != "navigation_only" and not is_matured
+        ):
             continue
         unresolved = [
             value
@@ -125,6 +127,21 @@ def _discover_verified_leads(
         ]
         if not unresolved:
             audit.append({**base, "status": "rejected", "reason": "no_compatible_unresolved_obligation"})
+            continue
+        target_context = decision.local_follow_up
+        if is_matured:
+            target_context = " ".join((
+                target_context,
+                *(coverage_by_id[value].missing_claim for value in unresolved),
+            ))
+        targets = _followup_called_targets(target_context, card.source_text)
+        if not targets:
+            audit.append({
+                **base,
+                "status": "rejected",
+                "reason": "no_source_called_target_named_in_followup_or_unresolved_claim",
+                "maturation_source": is_matured,
+            })
             continue
         target = targets[0]
         target_key = (observation_id, target.casefold())
@@ -155,6 +172,21 @@ def _discover_verified_leads(
             continue
         node = nodes[0]
         node_id = str(node.get("id") or "")
+        target_path = str(node.get("path") or "")
+        structural_child = bool(
+            is_matured
+            and target_path
+            and target_path.casefold() != observation.handle.path.casefold()
+        )
+        if is_matured and not structural_child and decision.support_level != "navigation_only":
+            audit.append({
+                **base,
+                "target": target,
+                "target_node_id": node_id,
+                "status": "rejected",
+                "reason": "maturation_direct_target_not_cross_file",
+            })
+            continue
         if not node_id or node_id in pending_node_ids or node_id in executed_node_ids:
             audit.append({
                 **base,
@@ -178,7 +210,7 @@ def _discover_verified_leads(
             obligation_id=unresolved[0],
             target=target,
             target_node_id=node_id,
-            target_path=str(node.get("path") or ""),
+            target_path=target_path,
             target_line_start=max(1, int(node.get("line_start") or 1)),
             target_line_end=max(1, int(node.get("line_end") or node.get("line_start") or 1)),
             target_symbol=str(node.get("qualified_name") or node.get("name") or leaf),
@@ -186,6 +218,7 @@ def _discover_verified_leads(
             discovered_round=round_index,
             source_rank=observation.best_rank,
             qualified_target=("." in target or "::" in target),
+            structural_child=structural_child,
         )
         accepted.append(lead)
         pending_node_ids.add(node_id)
@@ -270,6 +303,7 @@ def _verified_lead_to_dict(lead: VerifiedLead) -> dict[str, Any]:
         "target_symbol": lead.target_symbol,
         "reason": lead.reason,
         "discovered_round": lead.discovered_round,
+        "structural_child": lead.structural_child,
     }
 
 
@@ -284,6 +318,7 @@ def _select_verified_lead_actions(
     lead = min(
         leads,
         key=lambda item: (
+            0 if item.structural_child else 1,
             0 if item.qualified_target else 1,
             item.discovered_round,
             item.source_rank,
@@ -308,6 +343,7 @@ def _select_verified_lead_actions(
             reason=lead.reason,
             discovered_round=lead.discovered_round,
             scope_id=observation_to_island.get(lead.source_observation_id, ""),
+            structural_child=lead.structural_child,
         ),
     )
 
@@ -562,6 +598,7 @@ def run_retrieval_controller(
         }
         previous_coverage = {item.obligation_id: item.status for item in coverage.coverage}
         changed: list[DiscoveryObservation] = []
+        matured_observation_ids: set[str] = set()
         for action in selected:
             attempted.add(action.id)
             attempted_effects.add(_action_effect(action))
@@ -579,6 +616,7 @@ def run_retrieval_controller(
             )
             if bool(getattr(action, "is_maturation", False)):
                 pending_maturation_child_roots.update(item.id for item in execution.observations)
+                matured_observation_ids.update(item.id for item in execution.observations)
             if action in maturation_selected and _action_root_id(action) in pending_maturation_child_roots:
                 pending_maturation_child_roots.discard(_action_root_id(action))
             if isinstance(action, InspectVerifiedLead):
@@ -608,6 +646,33 @@ def run_retrieval_controller(
                                 ),
                             )
                         )
+            if isinstance(action, InspectVerifiedLead) and action.structural_child and execution.observations:
+                source = observations.get(action.source_observation_id)
+                if source is not None and source.handle.path.casefold() != action.target_path.casefold():
+                    endpoint = execution.observations[0]
+                    file_trace_seeds.append(FileTraceSeed(
+                        path=action.target_path,
+                        source_path=source.handle.path,
+                        source_observation_id=action.source_observation_id,
+                        endpoint_observation_id=endpoint.id,
+                        endpoint_symbol=action.target_symbol,
+                        action_id=action.id,
+                        obligation_id=action.obligation_id,
+                        relationship_direction="outgoing",
+                        relationship_kinds=("calls",),
+                        connection_summary={
+                            "source_path": source.handle.path,
+                            "destination_path": action.target_path,
+                            "direct_call_site_count": 1,
+                            "localized_source_owners": [source.handle.symbol],
+                            "destination_symbols": [{
+                                "symbol": action.target_symbol,
+                                "call_site_count": 1,
+                                "call_lines": [],
+                            }],
+                            "provenance": "maturation_visible_exact_call",
+                        },
+                    ))
             for observation in execution.observations:
                 existing = observations.get(observation.id)
                 if existing == observation and not isinstance(action, (InspectDeferredObservation, InspectOwnerContinuation)):
@@ -672,6 +737,7 @@ def run_retrieval_controller(
             executed_node_ids=executed_verified_lead_node_ids,
             exact_symbol_tool=structural_tools["structural_find_exact_symbol"],
             trace=ctx.trace,
+            maturation_observation_ids=matured_observation_ids,
         )
         tool_calls += lead_tool_calls
         for lead in discovered_leads:

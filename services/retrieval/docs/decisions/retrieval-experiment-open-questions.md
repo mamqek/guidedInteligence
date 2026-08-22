@@ -13,6 +13,48 @@ map it to an entry here before treating it as a new regression or inventing anot
 4. Update the item's status and evidence link. Put full measurements in the retrieval changelog.
 5. Remove an item only after actual-pipeline evidence resolves it; do not close it from unit tests alone.
 
+## IOC-1 — Initial owner comparison scale and support independence
+
+- Experiment: compact initial owner comparison plus complete structural range resolution.
+- Status: mechanically implemented; quality/token acceptance remains open.
+- Implemented behavior:
+  - every initial Qdrant range is resolved through parallel CodeGraph batches of 80; no first-80 truncation remains;
+  - duplicate CodeGraph node IDs collapse, sibling owners remain independent, and classes/outer callables are context;
+  - complete owner source is disclosed only after owner comparison selects it;
+  - each owner records distinct raw chunks, query views, obligations, and channels rather than exposing recurrence alone.
+- Measured evidence:
+  - smoke `run-20260821T211044Z` resolved 172/172 ranges, later promoted exact `Series::_binop`, and spent 25,958
+    owner-comparison tokens;
+  - final run `run-20260821T211538Z` resolved 192/192 ranges, but its stochastic initial retrieval contained no
+    `_binop` range; it ended `partial/false` and spent 26,392 comparison tokens out of 102,926 retrieval tokens;
+  - one raw chunk repeated under four or five obligations can still look recurrent while having only one channel.
+  - the follow-up repair playbook retained compact shared views and executable lead lines. Pandas smoke
+    `run-20260821T224935Z` selected and qualified exact `Series::_binop`; two final pandas runs
+    (`run-20260821T225305Z`, `run-20260821T225808Z`) were still `partial/false` and did not retain it in final
+    evidence. Their comparison costs were 21,523 and 23,243 tokens.
+  - TypeScript final runs `run-20260821T230249Z` and `run-20260821T231406Z` remained at two implementation-Oracle
+    overlaps, with 19,116 and 20,650 comparison tokens. This is a non-regression signal, not enough to justify the
+    comparison cost as a stable gain.
+- Still unresolved:
+  - whether comparing 220-235 owners in one call remains accurate across repositories or becomes too diffuse;
+  - whether the roughly doubled comparison-token cost yields stable owner-quality gains;
+  - whether raw chunk/query-view/obligation/channel counts should affect selection at all, and if so how, without
+    turning repeated broad queries into false independent support;
+  - repeated acceptance runs where the correct owner is present in the initial ranges, so selection stability can be
+    separated from upstream stochastic retrieval.
+  - whether the compact comparison should be invoked for every initial owner group, or only after a cheaper,
+    independently validated upstream diversity/ranking gate. Do not solve this by restoring raw first-owner order.
+  - the compact source view is capped at 80 characters and deliberately keeps one or a few high-value complete
+    lines. It preserved the observed `return self._binop(...)` lead, but secondary useful lines may still be hidden.
+    Audit the literal comparison view whenever a resolved owner is unexpectedly rejected; do not call this format
+    lossless until broader repositories exercise multi-line competing leads.
+- Symptoms that map here:
+  - all CodeGraph ranges resolve, but a present correct owner is rejected by initial owner comparison;
+  - a candidate has high query-view/obligation counts but only one raw chunk or one channel;
+  - owner-comparison input approaches its 100,000-character fail-fast limit or dominates retrieval tokens.
+- Do not respond by restoring a first-N range slice, unioning overlapping chunks into large snippets, or treating raw
+  recurrence as proof. Inspect the four support counts and the exact owner-comparison payload first.
+
 ## VL-1 — Verified-lead cap and final-round continuation
 
 - Experiment: verified direct-lead continuation.
@@ -60,6 +102,32 @@ map it to an entry here before treating it as a new regression or inventing anot
   - verified leads execute and become direct evidence but disappear in final selection;
   - token growth comes from extra continuation rounds without a corresponding candidate-quality improvement;
   - repository-generic utilities repeatedly pass exact resolution and occupy the reserved slot.
+
+## VL-3 — Maturation-produced cross-file structural child
+
+- Experiment: a promoted owner produced by a bounded maturation action may expose one exact cross-file callee needed
+  by the same unresolved obligation.
+- Status: mechanically implemented; natural actual-pipeline activation remains open.
+- Implemented safety boundary:
+  - the source observation must be newly produced by a maturation action and promoted;
+  - the exact call must be visible in disclosed source and named by qualification follow-up or the unresolved
+    coverage claim;
+  - exact-symbol lookup must resolve one repository node in another file;
+  - the target must not already be observed, pending, or executed;
+  - the existing verified-lead pool executes at most one such child in a round and two verified leads in the run;
+  - the resulting observation carries an explicit `calls` parent relationship and can seed file-level evidence.
+- Evidence:
+  - focused WatchMode-shaped tests prove `verifyProjectChanges -> verifyTscWatch` creates one structural child, while
+    a non-matured direct observation does not open the gate;
+  - TypeScript smoke `run-20260822T031233Z` did not activate the new rule because the ordinary 18-call file handoff
+    reached Helpers first;
+  - TypeScript final run `run-20260822T032015Z` selected WatchMode but produced no eligible maturation child. Its
+    ordinary file expansion followed virtual-file-system and tsbuildPublic targets, so Helpers was absent.
+- Still unresolved:
+  - a natural run in which WatchMode maturation exposes `verifyTscWatch`, the new child executes, and the Helpers
+    trace is judged by final selection;
+  - whether unresolved-claim wording names exact callees reliably enough without becoming prompt-sensitive;
+  - whether prioritizing a structural child over another verified lead ever suppresses a more useful same-file lead.
 
 ## ISL-1 — Mechanism fragmentation through an unobserved connector
 
