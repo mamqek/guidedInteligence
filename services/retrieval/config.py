@@ -351,7 +351,7 @@ class WorkspaceRetrievalConfig:
     semantic_island_beam_size: int = 4
     max_discovery_observations: int = 24
     max_qualification_input_chars: int = 40000
-    max_agent_planner_input_chars: int = 40000
+    max_agent_planner_input_chars: int = 30000
     max_agent_planner_rounds: int = 3
     max_agent_planner_actions_per_round: int = 2
     max_initial_owner_comparison_input_chars: int = 100000
