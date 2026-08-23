@@ -45,7 +45,7 @@ def _action(action_type: str = "expand_relationship") -> dict[str, object]:
     return {
         "action_type": action_type,
         "obligation_id": "obl_1",
-        "observation_id": "obs_1" if action_type != "search_repository" else "",
+        "observation_id": "obs_1" if action_type != "search_repository" else "repository",
         "query": "dispatch implementation",
         "reason": "Follow the visible call.",
         "expected_signal": "The downstream implementation.",

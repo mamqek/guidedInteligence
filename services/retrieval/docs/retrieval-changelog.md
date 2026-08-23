@@ -10,7 +10,32 @@
   coverage, catalogue, scheduler, rescue, or maturation stages.
 - Persistent state is application-owned and explicitly reprojected: known observations, prior decisions and candidates,
   prior coverage, the last six bounded action outcomes, summary, open questions, and remaining budgets. Total serialized
-  prompt/schema/payload input is fail-fast bounded to 30,000 characters.
+  prompt/schema/payload input was initially bounded to 30,000 characters. Actual integration
+  `run-20260823T182217Z` reached CodeGraph only after selecting Node 24 instead of the system Node 20, then failed before
+  planning because fixed metadata exceeded that cap. Compacting duplicated card/observation metadata still measured
+  36,836 fixed characters in `run-20260823T182421Z` (76 known observations, 21 pending cards). Variant 2 therefore uses
+  a 40,000-character fail-fast cap and removes executor-only ranges/provenance from the model projection while retaining
+  every observation ID, path, symbol, obligation link, qualification, pending source, and owner range.
+- `run-20260823T182718Z` passed the revised budget with a 38,446-character planner request and spent 13,758 tokens, but
+  its first `search_within_file` action omitted the required source observation ID. Deterministic validation rejected it
+  before execution. The third contract variant removes the ambiguous empty observation value: source-bound actions must
+  select an enumerated known ID, while repository-wide searches use an explicit `repository` sentinel that does not
+  constrain the search to initial Qdrant results.
+- Valid final-selection runs used the third contract variant and response generation remained disabled:
+  - `run-20260823T183021Z`: `partial/false`, 9 evidence items, 1 total/0 implementation oracle overlaps, 15 candidates,
+    263 tools, 40,812 planner tokens, and the three-round limit;
+  - `run-20260823T183349Z`: `partial/false`, 6 evidence items, 2 total/1 implementation overlaps, 11 candidates, 132
+    tools, 42,265 planner tokens, and the three-round limit.
+- Both valid traces had three planner calls, six selected native actions, zero old per-round qualification/coverage
+  calls, and native final consolidation. Reference native run `run-20260822T184944Z` was `strong/true`, used 42,834
+  qualification plus 20,986 coverage tokens, and retained 2 total/1 implementation overlaps. The planner reduced its
+  replaced decision tokens by roughly one third, but did not preserve sufficiency.
+- Exact loss audit: both valid agent runs contained `Series::_binop` in raw dense/sparse results, CodeGraph resolution,
+  file grouping/held alternatives, initial owner comparison, and the admitted initial observation set as
+  `obs_7fcee82d964fc060`. Run `183021` twice deferred it as navigation-only, so it first disappeared at planner
+  qualification and never entered the final candidate pool. Run `183349` promoted and immediately inspected the same
+  observation, after which native final selection retained it. This stochastic central-owner loss rejects the
+  experiment despite lower tokens; runtime is reverted/disabled and the commits plus this decision note preserve it.
 - Mechanical checks: five focused planner/controller tests pass repeatedly; 124 unchanged retrieval-server and
   qualification-first tests pass. Full discovery ran 401 tests with four unrelated failures: three stale index-setup
   mocks lack `lexical_ranking_profile`, and the local CodeGraph Node runtime lacks `node:sqlite`.

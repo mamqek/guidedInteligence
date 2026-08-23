@@ -1468,7 +1468,7 @@ class RuntimeState:
                 retrieval_settings.get("max_qualification_input_chars") or 40000
             ),
             max_agent_planner_input_chars=int(
-                retrieval_settings.get("max_agent_planner_input_chars") or 30000
+                retrieval_settings.get("max_agent_planner_input_chars") or 40000
             ),
             max_agent_planner_rounds=int(
                 retrieval_settings.get("max_agent_planner_rounds") or 3
