@@ -2,7 +2,7 @@
 
 ## Status
 
-- State: authorized incremental experiment.
+- State: rejected and runtime reverted after two valid actual-pipeline comparisons on 2026-08-23.
 - Branch: `codex/seeded-agentic-retrieval`, after runtime reversion commit `c5d30f2` restored the native `fbc01cb`
   behavior while preserving the full-agent experiment in history and documentation.
 - Primary case: `pandas-dev-pandas-10068`.
@@ -228,7 +228,44 @@ Maximum three implementation variants are permitted at any failed boundary.
 
 | Step | Attempt | Focused run 1 | Focused run 2 | Actual run | Tokens | Decision |
 |---|---:|---|---|---|---:|---|
-| Contract/validation | 1 | pending | pending | n/a | n/a | pending |
-| Bounded persistent context | 1 | pending | pending | n/a | n/a | pending |
-| Typed action conversion | 1 | pending | pending | n/a | n/a | pending |
-| Controller integration | 1 | pending | pending | pending | pending | pending |
+| Contract/validation | 1 | pass | pass | n/a | n/a | mechanically accepted |
+| Bounded persistent context | 2 | pass | pass | budget failures documented below | n/a | accepted at 40k chars |
+| Typed action conversion | 3 | pass | pass | invalid source action repaired | 13,758 failed-run tokens | mechanically accepted |
+| Controller integration | 3 | pass | pass | `run-20260823T183021Z`, `run-20260823T183349Z` | 40,812 / 42,265 | rejected |
+
+## Result
+
+The implementation is preserved in commits `d938243` and `0066398`; reverts `7387d6c` and `d11537e` remove the failed
+runtime while keeping this record. Focused planner/controller plus unchanged retrieval suites passed 129 tests.
+
+Integration exposed three boundaries before valid comparison:
+
+- `run-20260823T182100Z`: invalid because system Node 20 lacked CodeGraph's required `node:sqlite`; valid attempts used
+  the bundled Node 24 runtime.
+- `run-20260823T182217Z` and `run-20260823T182421Z`: the planned 30,000-character context was impossible for real fixed
+  metadata; the latter measured 36,836 fixed characters for 76 known observations and 21 pending cards. The projection
+  was compacted and bounded at 40,000 characters.
+- `run-20260823T182718Z`: one 13,758-token planner call succeeded, but `search_within_file` omitted its required source
+  observation. The final schema enumerated known IDs and used an explicit `repository` sentinel for global search.
+
+The final contract variant then completed twice with native final selection enabled and response generation skipped:
+
+| Run | Coverage / sufficient | Evidence | Oracle overlap | Planner tokens | Stop |
+|---|---|---:|---:|---:|---|
+| `run-20260823T183021Z` | `partial / false` | 9 | 1 total / 0 implementation | 40,812 | 3-round limit |
+| `run-20260823T183349Z` | `partial / false` | 6 | 2 total / 1 implementation | 42,265 | 3-round limit |
+
+Both valid traces contained exactly three planner calls, six planner-selected native actions, zero old per-round
+qualification/coverage calls, and one native final consolidation. The architectural replacement therefore worked.
+Planner tokens were about one third below the 63,820 qualification-plus-coverage tokens in native reference
+`run-20260822T184944Z`, but that native run was `strong / true` with 2 total/1 implementation overlaps.
+
+The exact loss boundary explains the unstable quality. Both agent runs retained exact `Series::_binop`
+(`obs_7fcee82d964fc060`) through raw dense/sparse retrieval, grouping and held alternatives, CodeGraph resolution,
+initial owner comparison, and initial controller admission. Run `183021` classified its 1,700-character owner preview
+as deferred/navigation-only in rounds 0 and 2, so it first disappeared at planner qualification and never entered the
+final candidate pool. Run `183349` promoted and immediately inspected the identical observation; native final selection
+then retained it. The planner thus reproduced the same destructive qualification instability it was meant to replace.
+
+Conclusion: reject. Lower decision tokens do not compensate for regression from `strong/true` to two `partial/false`
+runs or for stochastic survival of the central implementation owner.
