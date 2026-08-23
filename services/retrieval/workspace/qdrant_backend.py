@@ -330,9 +330,10 @@ class QdrantHybridBackend:
         source_category: str = "",
         file_role: str = "",
         include_breakdown: bool = False,
+        dense_enabled: bool = True,
     ) -> tuple[QdrantSearchResult, ...]:
         self.ensure_available()
-        dense_vector = self._embed_query(query)
+        dense_vector = self._embed_query(query) if dense_enabled else None
         sparse_query_text = sparse_query if sparse_query is not None else query
         sparse_vector = _query_sparse_vector(sparse_query_text, self._sparse_schema)
         qdrant_filter = _build_qdrant_filter(
@@ -351,14 +352,18 @@ class QdrantHybridBackend:
                     "filter": qdrant_filter,
                 }
             )
-        prefetch.append(
-            {
-                "query": dense_vector,
-                "using": QDRANT_DENSE_VECTOR_NAME,
-                "limit": max(limit * 3, limit),
-                "filter": qdrant_filter,
-            }
-        )
+        if dense_vector is not None:
+            prefetch.append(
+                {
+                    "query": dense_vector,
+                    "using": QDRANT_DENSE_VECTOR_NAME,
+                    "limit": max(limit * 3, limit),
+                    "filter": qdrant_filter,
+                }
+            )
+        if not prefetch:
+            self._last_search_breakdown = {"sparse": (), "dense": (), "hybrid": ()} if include_breakdown else None
+            return ()
         response = self._request(
             "POST",
             f"/collections/{self.qdrant_config.collection_name}/points/query",
@@ -388,14 +393,18 @@ class QdrantHybridBackend:
                     min_score=min_score,
                     include_lexical_trace=True,
                 ),
-                "dense": self._search_single_vector(
-                    query=query,
-                    query_vector=dense_vector,
-                    vector_name=QDRANT_DENSE_VECTOR_NAME,
-                    qdrant_filter=qdrant_filter,
-                    limit=limit,
-                    min_score=min_score,
-                    include_lexical_trace=False,
+                "dense": (
+                    self._search_single_vector(
+                        query=query,
+                        query_vector=dense_vector,
+                        vector_name=QDRANT_DENSE_VECTOR_NAME,
+                        qdrant_filter=qdrant_filter,
+                        limit=limit,
+                        min_score=min_score,
+                        include_lexical_trace=False,
+                    )
+                    if dense_vector is not None
+                    else ()
                 ),
                 "hybrid": results,
             }

@@ -304,6 +304,12 @@ def _complete_json_with_codex_cli(
             *command_prefix,
             "--disable",
             "plugins",
+            "--disable",
+            "apps",
+            "--disable",
+            "shell_tool",
+            "--disable",
+            "unified_exec",
             "-a",
             "never",
             "-c",
@@ -378,6 +384,7 @@ def _complete_json_with_codex_cli(
         except OSError as exc:
             raise RuntimeError("Codex CLI LLM request did not write a JSON output file.") from exc
         _store_continuity_response(config, parsed)
+        usage = _codex_usage_from_stdout(completed.stdout)
         if log_event is not None:
             log_event(
                 "llm_response_received",
@@ -394,10 +401,33 @@ def _complete_json_with_codex_cli(
                         "content": parsed,
                         "stdout": completed.stdout,
                         "stderr": completed.stderr,
+                        "usage": usage,
                     },
                 },
             )
         return parsed
+
+
+def _codex_usage_from_stdout(stdout: str) -> dict[str, int]:
+    input_tokens = 0
+    output_tokens = 0
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") != "turn.completed":
+            continue
+        usage = event.get("usage")
+        if not isinstance(usage, Mapping):
+            continue
+        input_tokens += int(usage.get("input_tokens") or 0)
+        output_tokens += int(usage.get("output_tokens") or 0)
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+    }
 
 
 def _codex_output_schema(response_format: Mapping[str, Any] | None) -> Mapping[str, Any]:
