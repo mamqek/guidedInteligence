@@ -51,7 +51,6 @@ class QdrantHybridSearchTool:
         requested_file_role = str(request.arguments.get("file_role", "implementation")).strip()
         file_role = "" if requested_file_role == "any" else (requested_file_role or "implementation")
         include_breakdown = bool(request.arguments.get("include_breakdown", True))
-        dense_enabled = bool(request.arguments.get("dense_enabled", True))
         results = self.backend.search(
             query,
             sparse_query=sparse_query,
@@ -62,7 +61,6 @@ class QdrantHybridSearchTool:
             source_category=source_category,
             file_role=file_role,
             include_breakdown=include_breakdown,
-            dense_enabled=dense_enabled,
         )
         results = _include_preferred_range_results(results, self.index, preferred_ranges)
         if path:
@@ -105,7 +103,6 @@ class QdrantHybridSearchTool:
                 "sparse_query": sparse_query or query,
                 "sparse_query_diagnostics": query_diagnostics,
                 "lexical_ranking_profile": self.index.lexical_ranking_profile,
-                "dense_enabled": dense_enabled,
                 "path": path,
                 "paths": list(paths),
                 "preferred_ranges": [dict(item) for item in preferred_ranges],

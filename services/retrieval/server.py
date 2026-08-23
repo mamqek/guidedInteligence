@@ -37,7 +37,6 @@ from services.retrieval.config import (
     DEFAULT_CODEX_PROMPT_PROFILE,
     DEFAULT_CONNECTED_CONTEXT_DISCLAIMER_REQUIRED_TERMS,
     DEFAULT_CONNECTED_CONTEXT_STALE_BLOCK_TERMS,
-    RETRIEVAL_MODE_AGENTIC,
     RETRIEVAL_MODE_CODEX,
     RETRIEVAL_MODE_WORKSPACE,
     SUPPORTED_CODEX_PROMPT_PROFILES,
@@ -1473,17 +1472,6 @@ class RuntimeState:
             max_final_selection_input_chars=int(
                 retrieval_settings.get("max_final_selection_input_chars") or 50000
             ),
-            agent_max_iterations=int(retrieval_settings.get("agent_max_iterations") or 8),
-            agent_max_tool_calls=int(retrieval_settings.get("agent_max_tool_calls") or 20),
-            agent_max_tool_calls_per_iteration=int(
-                retrieval_settings.get("agent_max_tool_calls_per_iteration") or 3
-            ),
-            agent_max_context_chars=int(retrieval_settings.get("agent_max_context_chars") or 30000),
-            agent_max_source_lines=int(retrieval_settings.get("agent_max_source_lines") or 120),
-            agent_max_no_gain_iterations=int(
-                retrieval_settings.get("agent_max_no_gain_iterations") or 2
-            ),
-            agent_dense_search_enabled=bool(retrieval_settings.get("agent_dense_search_enabled", True)),
             enable_indexing=bool(indexing.get("enable_indexing", load_retrieval_enable_indexing(tool_env_path))),
             structural_graph_timeout_seconds=900,
             index_exclude_paths=index_exclude_paths,
@@ -2301,11 +2289,7 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
         retrieval = {}
         config["retrieval"] = retrieval
     retrieval["mode"] = str(retrieval.get("mode") or RETRIEVAL_MODE_WORKSPACE).strip().lower()
-    if retrieval["mode"] not in {
-        RETRIEVAL_MODE_WORKSPACE,
-        RETRIEVAL_MODE_CODEX,
-        RETRIEVAL_MODE_AGENTIC,
-    }:
+    if retrieval["mode"] not in {RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX}:
         retrieval["mode"] = RETRIEVAL_MODE_WORKSPACE
     command = retrieval.get("codex_command", ["codex"])
     if isinstance(command, str):
@@ -2624,8 +2608,8 @@ def _validate_config(payload: Mapping[str, Any]) -> None:
     if not isinstance(retrieval, Mapping):
         raise RetrievalServerError("`retrieval` must be an object.")
     mode = str(retrieval.get("mode") or RETRIEVAL_MODE_WORKSPACE).strip()
-    if mode not in {RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX, RETRIEVAL_MODE_AGENTIC}:
-        raise RetrievalServerError("`retrieval.mode` must be `workspace`, `agentic`, or `codex`.")
+    if mode not in {RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX}:
+        raise RetrievalServerError("`retrieval.mode` must be either `workspace` or `codex`.")
     command = retrieval.get("codex_command", [])
     if not isinstance(command, list) or not _string_list(command):
         raise RetrievalServerError("`retrieval.codex_command` must be a non-empty array.")
@@ -2744,11 +2728,7 @@ def _experiments_settings(config: Mapping[str, Any]) -> Mapping[str, Any]:
 
 def _retrieval_mode(config: Mapping[str, Any]) -> str:
     mode = str(_retrieval_settings(config).get("mode") or RETRIEVAL_MODE_WORKSPACE).strip().lower()
-    return (
-        mode
-        if mode in {RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX, RETRIEVAL_MODE_AGENTIC}
-        else RETRIEVAL_MODE_WORKSPACE
-    )
+    return mode if mode in {RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX} else RETRIEVAL_MODE_WORKSPACE
 
 
 def _boolean_setting(value: Any, default: bool) -> bool:

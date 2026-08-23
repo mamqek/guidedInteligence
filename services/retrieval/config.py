@@ -17,8 +17,7 @@ from core.models import TurnType
 WORKSPACE_REINDEX_POLICY_ALWAYS = "always"
 RETRIEVAL_MODE_WORKSPACE = "workspace"
 RETRIEVAL_MODE_CODEX = "codex"
-RETRIEVAL_MODE_AGENTIC = "agentic"
-SUPPORTED_RETRIEVAL_MODES = (RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX, RETRIEVAL_MODE_AGENTIC)
+SUPPORTED_RETRIEVAL_MODES = (RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX)
 DEFAULT_CODEX_PROMPT_PROFILE = "efficient"
 DEFAULT_CONNECTED_CONTEXT_DISCLAIMER_REQUIRED_TERMS = ("do not use",)
 DEFAULT_CONNECTED_CONTEXT_STALE_BLOCK_TERMS = ("stale", "superseded", "outdated", "deprecated")
@@ -349,13 +348,6 @@ class WorkspaceRetrievalConfig:
     max_qualification_input_chars: int = 40000
     max_initial_owner_comparison_input_chars: int = 100000
     max_final_selection_input_chars: int = 50000
-    agent_max_iterations: int = 8
-    agent_max_tool_calls: int = 20
-    agent_max_tool_calls_per_iteration: int = 3
-    agent_max_context_chars: int = 30000
-    agent_max_source_lines: int = 120
-    agent_max_no_gain_iterations: int = 2
-    agent_dense_search_enabled: bool = True
     structural_graph_enabled: bool = True
     enable_indexing: bool = True
     structural_graph_timeout_seconds: int = 900
@@ -555,18 +547,6 @@ class WorkspaceRetrievalConfig:
             raise ValueError("max_initial_owner_comparison_input_chars must be greater than zero.")
         if self.max_final_selection_input_chars <= 0:
             raise ValueError("max_final_selection_input_chars must be greater than zero.")
-        if self.agent_max_iterations <= 0:
-            raise ValueError("agent_max_iterations must be greater than zero.")
-        if self.agent_max_tool_calls <= 0:
-            raise ValueError("agent_max_tool_calls must be greater than zero.")
-        if self.agent_max_tool_calls_per_iteration <= 0:
-            raise ValueError("agent_max_tool_calls_per_iteration must be greater than zero.")
-        if self.agent_max_context_chars <= 0:
-            raise ValueError("agent_max_context_chars must be greater than zero.")
-        if self.agent_max_source_lines <= 0:
-            raise ValueError("agent_max_source_lines must be greater than zero.")
-        if self.agent_max_no_gain_iterations <= 0:
-            raise ValueError("agent_max_no_gain_iterations must be greater than zero.")
         if not self.structural_graph_enabled:
             raise ValueError("Workspace retrieval requires structural_graph_enabled=True.")
         if self.structural_graph_timeout_seconds <= 0:
