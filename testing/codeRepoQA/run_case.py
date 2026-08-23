@@ -179,6 +179,7 @@ def run_case(
     embedding_concurrency: int | None = None,
     embedding_cache_path: str | Path | None = None,
     lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
+    agent_dense_search_enabled: bool = True,
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
         issue_json,
@@ -219,6 +220,7 @@ def run_case(
         embedding_concurrency=embedding_concurrency,
         embedding_cache_path=str(embedding_cache_path) if embedding_cache_path is not None else None,
         lexical_ranking_profile=lexical_ranking_profile,
+        agent_dense_search_enabled=agent_dense_search_enabled,
     )
     retrieval_stage = CodexRetrievalStage(retrieval_config) if retrieval_config.retrieval_mode == RETRIEVAL_MODE_CODEX else WorkspaceRetrievalStage(retrieval_config)
     control_layer = ControlLayer(
@@ -292,6 +294,7 @@ def evaluate_case(
     embedding_concurrency: int | None = None,
     shared_embedding_cache_root: str | Path | None = None,
     lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
+    agent_dense_search_enabled: bool = True,
 ) -> Path:
     issue_path = Path(issue_json)
     verification_path = Path(verification_json) if verification_json is not None else _default_verification_path(issue_path)
@@ -372,6 +375,7 @@ def evaluate_case(
         embedding_concurrency=embedding_concurrency,
         embedding_cache_path=embedding_cache_path,
         lexical_ranking_profile=lexical_ranking_profile,
+        agent_dense_search_enabled=agent_dense_search_enabled,
     )
     _write_run_metadata(
         run_dir=run_dir,
@@ -604,6 +608,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             embedding_concurrency=_config_optional_int(run_config, "embedding_concurrency"),
             embedding_cache_path=run_config.get("embedding_cache_path"),
             lexical_ranking_profile=str(run_config.get("lexical_ranking_profile") or LEXICAL_RANKING_FLAT_BM25),
+            agent_dense_search_enabled=_config_bool(run_config, "agent_dense_search_enabled", True),
         )
         return 0
 
@@ -643,6 +648,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             embedding_concurrency=_config_optional_int(run_config, "embedding_concurrency"),
             shared_embedding_cache_root=run_config.get("shared_embedding_cache_root"),
             lexical_ranking_profile=str(run_config.get("lexical_ranking_profile") or LEXICAL_RANKING_FLAT_BM25),
+            agent_dense_search_enabled=_config_bool(run_config, "agent_dense_search_enabled", True),
         )
         print(str(run_dir))
         return 0
@@ -827,7 +833,12 @@ def _load_project_llm_config(run_config: Mapping[str, Any]) -> RunLLMConfig:
             api_style="codex_cli",
             model=str(run_config.get("generation_codex_model") or generation.get("codex_model") or run_config.get("codex_model") or "gpt-5.4-mini").strip(),
             max_tokens=int(generation.get("max_tokens") or 800),
-            timeout_seconds=int(generation.get("timeout_seconds") or codex.get("timeout_seconds") or 30),
+            timeout_seconds=int(
+                run_config.get("generation_timeout_seconds")
+                or generation.get("timeout_seconds")
+                or codex.get("timeout_seconds")
+                or 30
+            ),
             codex_command=tuple(resolve_codex_command(tuple(str(part) for part in command if str(part).strip()))),
             codex_ignore_user_config=bool(codex.get("ignore_user_config", run_config.get("codex_ignore_user_config", True))),
         )
@@ -1443,6 +1454,7 @@ def _workspace_retrieval_config_for_case(
     embedding_concurrency: int | None = None,
     embedding_cache_path: str | None = None,
     lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
+    agent_dense_search_enabled: bool = True,
 ) -> WorkspaceRetrievalConfig:
     # Shared boundary: both testcase retrieval modes receive the same sanitized
     # ConversationState.user_input built by _user_prompt(title, initial_body).
@@ -1487,6 +1499,7 @@ def _workspace_retrieval_config_for_case(
         codex_ignore_user_config=codex_ignore_user_config,
         final_evidence_selection_enabled=final_evidence_selection_enabled,
         semantic_island_beam_size=semantic_island_beam_size,
+        agent_dense_search_enabled=agent_dense_search_enabled,
         enable_indexing=load_retrieval_enable_indexing(TOOL_ENV_PATH) if retrieval_mode != RETRIEVAL_MODE_CODEX else False,
         structural_graph_timeout_seconds=CODE_REPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS,
         qdrant_index_timeout_seconds=CODE_REPOQA_QDRANT_INDEX_TIMEOUT_SECONDS,

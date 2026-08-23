@@ -13,7 +13,7 @@ export type Health = {
   embedding_configured: boolean;
   runs_dir: string;
   index_estimate?: IndexEstimate;
-  retrieval_mode?: "workspace" | "codex";
+  retrieval_mode?: "workspace" | "agentic" | "codex";
   codex_prompt_profile?: string;
   qdrant_reachable?: boolean;
   qdrant_status_detail?: string;
@@ -117,7 +117,7 @@ export type AppConfig = {
     exclude_paths: string[];
   };
   retrieval: {
-    mode: "workspace" | "codex";
+    mode: "workspace" | "agentic" | "codex";
     codex_command: string[];
     codex_model: string;
     workspace_model?: string;
