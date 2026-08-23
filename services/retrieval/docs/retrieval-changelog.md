@@ -3911,3 +3911,52 @@ coverage or stable final LLM acceptance of every visible owner node.
   moved under `execution_flow/actions/`. It selected 14 actions across ordinary, deferred-file, owner-maturation, and
   verified-lead pools. Every selected action retained structured `purpose` and `pool`; zero actions contained the
   removed prose `policy` object. Final evidence selection and explanation generation were intentionally disabled.
+
+### Seeded agentic downstream retrieval experiment (2026-08-23)
+
+- Added experimental retrieval mode `agentic`. It preserves request analysis, obligation-scoped Qdrant discovery,
+  file-group alternatives, range-to-CodeGraph resolution, and the resulting raw observations. It exits at that
+  boundary and invokes an independent stateful agent package; initial owner comparison, qualification, controller
+  rounds/actions, island/recovery flows, and the current final evidence selector are not invoked.
+- The agent owns bounded persistent state across decisions and exposes `list_leads`, `inspect_lead`, arbitrary allowed
+  `open_source`, CodeGraph neighbor expansion, exact `rg`, and Qdrant semantic search. Initial observations are hints,
+  not an eligibility universe. Final citations must refer to inspected artifact IDs and are reread from the snapshot.
+  Invalid premature finishes are rejected and no old-flow or deterministic LLM substitute is used.
+- Codex CLI JSON completion is now tool-less: plugins, apps, shell, and unified execution are disabled. This was
+  required after an early run used provider-native GitHub/shell tools and returned ungrounded URL evidence IDs despite
+  the output schema. Predictable tool-input errors are returned to the agent as observations.
+- Environment failures were explicit: the first attempt hit API `credit_balance_exhausted`; a later attempt failed
+  CodeGraph under Node 20.11 (`node:sqlite` unavailable). Acceptance used bundled Node 24 and an explicit test profile
+  with Codex CLI decisions plus sparse-only Qdrant because the same exhausted account also blocked query embeddings.
+  Production/web agentic mode remains dense+sparse by default.
+- Actual-pipeline run `run-20260823T161050Z` completed with response generation disabled and agent final selection
+  enabled. The trace contained 185 initial leads, four agent decisions, six agent tool calls after eight prefix calls,
+  231 artifacts, and two inspected artifacts. It selected two source-validated ranges in `pandas/core/ops.py`
+  (`721-771`, `756-768`) after forced best-available synthesis. Result: `partial/false`, zero Oracle overlap, zero
+  implementation-Oracle overlap, and 80,573 agent decision tokens. No legacy owner-comparison, qualification,
+  controller, island, recovery, or final-selector event occurred.
+- Decision: the architecture is mechanically demonstrated but not accepted for retrieval quality. It missed the
+  present `pandas/core/series.py` Oracle, selected no natural outside-seed path, and cost more than is justified by the
+  result. Stop architectural iteration here; the next experiment should target decision/context efficiency and early
+  inspection of distinct high-value owners against this unchanged agentic baseline, not add controller-like rules.
+
+#### Referenced-lead activation correction
+
+- Boundary changed: agent state now persists bounded tool outcomes, working context projects exact uninspected
+  initial leads referenced by inspected source, and no-gain termination is deferred once while an unreminded exact
+  referenced lead is actionable. The application does not automatically inspect, promote, or select the lead.
+- Focused evidence: deterministic outcome, exact-reference, and no-gain checks passed twice; two unchanged live Codex
+  provider calls chose `inspect_lead` for `Series::_binop`. The full related suite passed 168 tests with one gated live
+  test skipped in the ordinary run.
+- `run-20260823T163733Z`: the actual pipeline inspected exact stored lead `obs_7fcee82d964fc060`
+  (`Series::_binop`) in iteration 2. It later failed explicitly because accumulated duplicated source previews exceeded
+  the 30,000-character context contract. Progressive context compaction was added and regression-tested; reminded
+  referenced leads remain present in its smallest projection.
+- `run-20260823T164358Z`: the rerun completed all eight agent iterations with context sizes from 16,801 to 27,812
+  characters. It searched for `_binop` and opened its `pandas/core/series.py` implementation, so the earlier
+  two-empty-search/no-gain surrender did not recur. Result: `failed/false`, zero selected evidence, zero Oracle overlap,
+  19 agent tool calls, and 299,499 agent-decision tokens (283,161 prompt; 16,338 completion).
+- Decision: retain the narrowly tested navigation correction, but do not claim overall quality improvement. The run
+  moved the first loss boundary beyond `_binop` inspection; it then failed at a different boundary because the agent
+  could not identify and ground the dynamically generated `Series.add` wrapper path before budget exhaustion. The
+  cost and final quality remain unacceptable for promoting the agentic mode.

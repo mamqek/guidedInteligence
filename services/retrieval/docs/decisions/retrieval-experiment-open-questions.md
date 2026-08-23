@@ -5,6 +5,27 @@ deliberately bounded. It does not repeat measured results; those remain in
 [`../retrieval-changelog.md`](../retrieval-changelog.md). When a later run exposes a suspicious behavior,
 map it to an entry here before treating it as a new regression or inventing another heuristic.
 
+## AGT-1 — Referenced initial lead ignored after source inspection
+
+- Experiment: seeded agentic downstream retrieval.
+- Status: resolved for the specific early-termination boundary on 2026-08-23; overall agent quality remains
+  experimental.
+- Observed evidence: pandas `run-20260823T161050Z` showed exact `Series::_binop` in the first working-context
+  projection, while inspected `flex_wrapper` literally called `self._binop(...)`. The agent ignored that stored lead,
+  repeated empty exact searches, and hit `no_evidence_gain` before inspecting it.
+- Boundary: the lead survived Qdrant, file grouping, CodeGraph, initial-lead construction, and working-context
+  projection. The first loss was the agent navigation decision.
+- Experiment constraint: expose exact referenced stored leads and bounded tool outcomes; do not automatically execute,
+  promote, or select a lead and do not add repository-specific symbol rules.
+- Resolution requires two repeatable focused model decisions plus an actual run where the present referenced lead is
+  inspected before termination. Full measurements belong in the retrieval changelog.
+- Resolution evidence: deterministic reference/outcome/guard checks passed repeatedly; two unchanged live provider
+  calls selected the referenced `_binop` lead. Actual run `run-20260823T163733Z` inspected the exact stored lead in
+  iteration 2. After progressive context compaction fixed the later integration failure, completed run
+  `run-20260823T164358Z` searched and opened `_binop` and continued through all eight iterations rather than stopping
+  on no gain. It still failed to resolve the separate generated `Series.add` wrapper path, so this closure must not be
+  interpreted as agentic-mode quality acceptance.
+
 ## How to use this registry
 
 1. Match the observed symptom to an open item below.
