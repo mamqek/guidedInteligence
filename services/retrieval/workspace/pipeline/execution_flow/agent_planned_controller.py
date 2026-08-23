@@ -374,7 +374,10 @@ def plan_agent_round(
     response_format = _response_format(pending_ids, observation_ids, obligation_ids, remaining_actions)
     compact = {
         "request": user_request,
-        "obligations": [item.to_dict() for item in obligations],
+        "obligations": [_compact_obligation(item) for item in obligations],
+        "known_observation_columns": [
+            "id", "path", "symbol", "obligation_ids", "qualification",
+        ],
         "known_observations": [_compact_observation(item, decisions) for item in observations],
         "promoted_candidates": [_compact_candidate(item) for item in candidate_payloads],
         "prior_coverage": [item.to_dict() for item in prior_coverage],
@@ -383,17 +386,29 @@ def plan_agent_round(
         "budget": {"remaining_rounds": remaining_rounds, "max_actions_this_round": remaining_actions},
     }
     empty_cards = fit_cards_to_source_capacity(pending_cards, source_capacity=0)
-    fixed_payload = {**compact, "new_disclosures": [item.to_dict() for item in empty_cards]}
-    fixed_chars = (
-        len(prompt)
-        + len(json.dumps(response_format, sort_keys=True))
-        + len(json.dumps(fixed_payload, sort_keys=True))
-    )
+    fixed_payload = {**compact, "new_disclosures": [_planner_card_payload(item) for item in empty_cards]}
+    prompt_chars = len(prompt)
+    schema_chars = len(json.dumps(response_format, sort_keys=True))
+    fixed_payload_chars = len(json.dumps(fixed_payload, sort_keys=True))
+    fixed_chars = prompt_chars + schema_chars + fixed_payload_chars
     source_capacity = max_input_chars - fixed_chars - 512
     if source_capacity < 0:
+        if trace is not None:
+            trace.record(
+                "agent_planner_budget_rejected",
+                {
+                    "round": round_index,
+                    "input_char_budget": max_input_chars,
+                    "prompt_chars": prompt_chars,
+                    "schema_chars": schema_chars,
+                    "fixed_payload_chars": fixed_payload_chars,
+                    "known_observation_count": len(observations),
+                    "pending_card_count": len(pending_cards),
+                },
+            )
         raise RuntimeError("agent_planner_input_budget_too_small_for_metadata")
     bounded_cards = fit_cards_to_source_capacity(pending_cards, source_capacity=source_capacity)
-    payload = {**compact, "new_disclosures": [item.to_dict() for item in bounded_cards]}
+    payload = {**compact, "new_disclosures": [_planner_card_payload(item) for item in bounded_cards]}
     serialized = json.dumps(payload, sort_keys=True)
     input_chars = len(prompt) + len(json.dumps(response_format, sort_keys=True)) + len(serialized)
     if input_chars > max_input_chars:
@@ -516,10 +531,13 @@ def _validate_round(
     if not isinstance(actions, list) or len(actions) > max_actions:
         raise RuntimeError("agent_planner_invalid_action_count")
     for action in actions:
-        if str(action.get("action_type") or "") not in ACTION_TYPES:
+        action_type = str(action.get("action_type") or "")
+        if action_type not in ACTION_TYPES:
             raise RuntimeError("agent_planner_invalid_action_type")
         observation_id = str(action.get("observation_id") or "")
-        if observation_id and observation_id not in observation_ids:
+        if action_type == "search_repository" and observation_id != "repository":
+            raise RuntimeError("agent_planner_repository_search_requires_sentinel")
+        if action_type != "search_repository" and observation_id not in observation_ids:
             raise RuntimeError("agent_planner_action_unknown_observation")
         if str(action.get("obligation_id") or "") not in obligation_ids:
             raise RuntimeError("agent_planner_action_unknown_obligation")
@@ -650,7 +668,7 @@ def _response_format(
     action_properties = {
         "action_type": {"type": "string", "enum": list(ACTION_TYPES)},
         "obligation_id": {"type": "string", "enum": list(obligation_ids)},
-        "observation_id": {"type": "string", "enum": ["", *observation_ids]},
+        "observation_id": {"type": "string", "enum": ["repository", *observation_ids]},
         "query": {"type": "string"}, "reason": {"type": "string"},
         "expected_signal": {"type": "string"},
         "direction": {"type": "string", "enum": list(DIRECTIONS)},
@@ -680,17 +698,35 @@ def _response_format(
 
 def _compact_observation(
     observation: DiscoveryObservation, decisions: Sequence[QualificationDecision],
-) -> Mapping[str, Any]:
+) -> list[Any]:
     decision = next((item for item in decisions if item.observation_id == observation.id), None)
+    return [
+        observation.id,
+        observation.handle.path,
+        observation.handle.symbol,
+        list(observation.obligation_ids),
+        f"{decision.disposition}/{decision.support_level}" if decision else "",
+    ]
+
+
+def _compact_obligation(obligation: EvidenceObligation) -> Mapping[str, Any]:
     return {
-        "id": observation.id, "path": observation.handle.path, "symbol": observation.handle.symbol,
-        "range": [observation.handle.line_start, observation.handle.line_end],
-        "node_id": observation.handle.node_id, "obligation_ids": list(observation.obligation_ids),
-        "disclosure_status": observation.disclosure_status,
-        "qualification": (
-            {"disposition": decision.disposition, "support_level": decision.support_level}
-            if decision else None
-        ),
+        "id": obligation.id,
+        "description": obligation.description,
+        "required": obligation.required,
+        "depends_on": list(obligation.depends_on),
+        "anchors": list(obligation.anchor_refs),
+    }
+
+
+def _planner_card_payload(card: DisclosureCard) -> Mapping[str, Any]:
+    return {
+        "observation_id": card.observation_id,
+        "mode": card.mode,
+        "source": card.source_text,
+        "owner": card.owner_name,
+        "owner_range": [card.owner_line_start, card.owner_line_end],
+        "truncation_reason": card.truncation_reason,
     }
 
 
