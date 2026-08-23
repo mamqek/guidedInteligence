@@ -5,6 +5,19 @@ deliberately bounded. It does not repeat measured results; those remain in
 [`../retrieval-changelog.md`](../retrieval-changelog.md). When a later run exposes a suspicious behavior,
 map it to an entry here before treating it as a new regression or inventing another heuristic.
 
+## HAP-1 — One-call hybrid planner versus native action scheduling
+
+- Experiment: [`agent-planned-native-controller.md`](agent-planned-native-controller.md).
+- Status: authorized on 2026-08-23; implementation pending.
+- Question: can one persistent planner call per round jointly classify newly disclosed observations, update coverage,
+  and select bounded typed actions more reliably than qualification + coverage + deterministic pool scheduling?
+- Constraint: this must replace those per-round decisions, not add another LLM call. Native action execution,
+  grounding, islands, and final evidence selection remain.
+- Cost boundary: planner tokens must not exceed the native qualification-plus-coverage tokens replaced unless repeated
+  final-evidence quality justifies a measured small increase.
+- Resolution requires repeated focused validation plus actual-pipeline comparisons with trace-confirmed absence of the
+  old per-round qualification and coverage calls.
+
 ## AGT-1 — Referenced initial lead ignored after source inspection
 
 - Experiment: seeded agentic downstream retrieval.
