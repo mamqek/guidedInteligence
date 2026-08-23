@@ -18,7 +18,6 @@
     "config:web:codex:efficient": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force .guided-intelligence | Out-Null; Copy-Item configs/web-ui/codex-efficient.json .guided-intelligence/config.json -Force\"",
     "config:web:codex:responsibility-complete": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force .guided-intelligence | Out-Null; Copy-Item configs/web-ui/codex-responsibility-complete.json .guided-intelligence/config.json -Force\"",
     "coderepoqa:evaluate:workspace": ".venv\\Scripts\\python.exe testing/codeRepoQA/run_case.py evaluate-case --run-config configs/testing/workspace.json",
-    "coderepoqa:evaluate:agent-planned": ".venv\\Scripts\\python.exe testing/codeRepoQA/run_case.py evaluate-case --run-config configs/testing/agent-planned.json",
     "coderepoqa:evaluate:workspace:bm25f": ".venv\\Scripts\\python.exe testing/codeRepoQA/run_case.py evaluate-case --run-config configs/testing/workspace-bm25f.json",
     "coderepoqa:evaluate:codex": ".venv\\Scripts\\python.exe testing/codeRepoQA/run_case.py evaluate-case --run-config configs/testing/codex.json",
     "coderepoqa:evaluate:codex:efficient": ".venv\\Scripts\\python.exe testing/codeRepoQA/run_case.py evaluate-case --run-config configs/testing/codex-efficient.json",

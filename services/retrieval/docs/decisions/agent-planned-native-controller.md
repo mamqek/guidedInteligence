@@ -2,7 +2,7 @@
 
 ## Status
 
-- State: first implementation variant complete; actual quality acceptance blocked by exhausted API credits.
+- State: authorized incremental experiment.
 - Branch: `codex/seeded-agentic-retrieval`, after runtime reversion commit `c5d30f2` restored the native `fbc01cb`
   behavior while preserving the full-agent experiment in history and documentation.
 - Primary case: `pandas-dev-pandas-10068`.
@@ -228,27 +228,7 @@ Maximum three implementation variants are permitted at any failed boundary.
 
 | Step | Attempt | Focused run 1 | Focused run 2 | Actual run | Tokens | Decision |
 |---|---:|---|---|---|---:|---|
-| Contract/validation | 1 | pass | pass | n/a | n/a | mechanically accepted |
-| Bounded persistent context | 1 | pass | pass | n/a | n/a | mechanically accepted |
-| Typed action conversion | 1 | pass | pass | n/a | n/a | mechanically accepted |
-| Controller integration | 1 | pass | pass | `run-20260823T180922Z` failed before retrieval | 0 planner | awaiting configured API credits |
-
-## Implementation Note — 2026-08-23
-
-Variant 1 is implemented as `agent_planned` without modifying the ordinary `workspace` controller. The planner has a
-strict JSON contract, a 30,000-character total prompt/schema/payload budget, application-owned state, and deterministic
-conversion into the five allowed native action types. The loop rejects unknown observations/obligations, unsupported
-covered claims, invented node-based expansion, repeated action effects, and covered support that cannot resolve to a
-native grounded candidate. Relationship execution also retains native file-trace construction for final consolidation.
-
-Focused verification passed twice. The final focused set proves one model call jointly returns qualification,
-coverage, and action choice; an executed action outcome and the prior state summary reach the next round; native
-candidate IDs replace planner observation support; and the typed executor is called once for the selected action. The
-unchanged retrieval-server and qualification-first suites pass 124/124 tests. Full discovery ran 401 tests and had four
-unrelated existing/environment failures: three `test_index_setup` fixtures omit the already-required
-`lexical_ranking_profile`, and CodeGraph cannot load `node:sqlite` from the installed Node runtime.
-
-The requested actual diagnostic command created `run-20260823T180922Z`, but request analysis failed with API HTTP 429
-`insufficient_quota` before Qdrant, CodeGraph, owner comparison, or the new controller ran. It is not a retrieval run,
-contains no planner tokens or quality result, and cannot count toward acceptance. The LLM failure was surfaced directly;
-no deterministic, Codex, or alternate-model fallback was used.
+| Contract/validation | 1 | pending | pending | n/a | n/a | pending |
+| Bounded persistent context | 1 | pending | pending | n/a | n/a | pending |
+| Typed action conversion | 1 | pending | pending | n/a | n/a | pending |
+| Controller integration | 1 | pending | pending | pending | pending | pending |

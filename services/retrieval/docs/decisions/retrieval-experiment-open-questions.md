@@ -8,8 +8,7 @@ map it to an entry here before treating it as a new regression or inventing anot
 ## HAP-1 — One-call hybrid planner versus native action scheduling
 
 - Experiment: [`agent-planned-native-controller.md`](agent-planned-native-controller.md).
-- Status: first implementation variant mechanically verified on 2026-08-23; actual comparison blocked by configured
-  API quota exhaustion before retrieval (`run-20260823T180922Z`).
+- Status: authorized on 2026-08-23; implementation pending.
 - Question: can one persistent planner call per round jointly classify newly disclosed observations, update coverage,
   and select bounded typed actions more reliably than qualification + coverage + deterministic pool scheduling?
 - Constraint: this must replace those per-round decisions, not add another LLM call. Native action execution,
