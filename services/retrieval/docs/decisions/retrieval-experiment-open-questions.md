@@ -19,6 +19,9 @@ map it to an entry here before treating it as a new regression or inventing anot
   final-evidence quality justifies a measured small increase.
 - Resolution requires repeated focused validation plus actual-pipeline comparisons with trace-confirmed absence of the
   old per-round qualification and coverage calls.
+- A narrower follow-up that separates deterministic source visibility from semantic qualification, guarantees source
+  for explicit inspections, and considers moving only action selection into the coverage call is specified in
+  [`../temporary-source-visibility-and-agent-inspection-plan.md`](../temporary-source-visibility-and-agent-inspection-plan.md).
 
 ## AGT-1 — Referenced initial lead ignored after source inspection
 
