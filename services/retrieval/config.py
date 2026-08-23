@@ -16,13 +16,8 @@ from core.models import TurnType
 
 WORKSPACE_REINDEX_POLICY_ALWAYS = "always"
 RETRIEVAL_MODE_WORKSPACE = "workspace"
-RETRIEVAL_MODE_AGENT_PLANNED = "agent_planned"
 RETRIEVAL_MODE_CODEX = "codex"
-SUPPORTED_RETRIEVAL_MODES = (
-    RETRIEVAL_MODE_WORKSPACE,
-    RETRIEVAL_MODE_AGENT_PLANNED,
-    RETRIEVAL_MODE_CODEX,
-)
+SUPPORTED_RETRIEVAL_MODES = (RETRIEVAL_MODE_WORKSPACE, RETRIEVAL_MODE_CODEX)
 DEFAULT_CODEX_PROMPT_PROFILE = "efficient"
 DEFAULT_CONNECTED_CONTEXT_DISCLAIMER_REQUIRED_TERMS = ("do not use",)
 DEFAULT_CONNECTED_CONTEXT_STALE_BLOCK_TERMS = ("stale", "superseded", "outdated", "deprecated")
@@ -351,9 +346,6 @@ class WorkspaceRetrievalConfig:
     semantic_island_beam_size: int = 4
     max_discovery_observations: int = 24
     max_qualification_input_chars: int = 40000
-    max_agent_planner_input_chars: int = 30000
-    max_agent_planner_rounds: int = 3
-    max_agent_planner_actions_per_round: int = 2
     max_initial_owner_comparison_input_chars: int = 100000
     max_final_selection_input_chars: int = 50000
     structural_graph_enabled: bool = True
@@ -551,12 +543,6 @@ class WorkspaceRetrievalConfig:
             raise ValueError("max_discovery_observations must be greater than zero.")
         if self.max_qualification_input_chars <= 0:
             raise ValueError("max_qualification_input_chars must be greater than zero.")
-        if self.max_agent_planner_input_chars <= 0:
-            raise ValueError("max_agent_planner_input_chars must be greater than zero.")
-        if self.max_agent_planner_rounds <= 0:
-            raise ValueError("max_agent_planner_rounds must be greater than zero.")
-        if self.max_agent_planner_actions_per_round <= 0:
-            raise ValueError("max_agent_planner_actions_per_round must be greater than zero.")
         if self.max_initial_owner_comparison_input_chars <= 0:
             raise ValueError("max_initial_owner_comparison_input_chars must be greater than zero.")
         if self.max_final_selection_input_chars <= 0:

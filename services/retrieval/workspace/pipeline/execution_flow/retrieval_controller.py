@@ -94,7 +94,6 @@ class ControllerResult:
     qualification_usage: Mapping[str, int]
     coverage_usage: Mapping[str, int]
     file_traces: tuple[dict[str, object], ...]
-    planner_usage: Mapping[str, int] | None = None
 
 
 def _discover_verified_leads(

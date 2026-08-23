@@ -6,7 +6,6 @@ from typing import Any, Mapping, Sequence
 
 from core.models import ConversationState, EvidenceItem, RetrievalResult
 from core.source_policy import SourceCategory
-from services.retrieval.config import RETRIEVAL_MODE_AGENT_PLANNED
 from services.intent.models import EvidenceSource
 from services.retrieval.workspace.connected_context import ConnectedSourceContextResult
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
@@ -49,9 +48,6 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     ordered_unique,
 )
 from services.retrieval.workspace.pipeline.execution_flow.retrieval_controller import run_retrieval_controller
-from services.retrieval.workspace.pipeline.execution_flow.agent_planned_controller import (
-    run_agent_planned_controller,
-)
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard
 from services.retrieval.workspace.tools import ToolRequest
 
@@ -337,12 +333,7 @@ def run_obligation_retrieval(
         },
     )
 
-    controller_runner = (
-        run_agent_planned_controller
-        if ctx.config.retrieval_mode == RETRIEVAL_MODE_AGENT_PLANNED
-        else run_retrieval_controller
-    )
-    controller = controller_runner(
+    controller = run_retrieval_controller(
         ctx=ctx,
         user_request=state.user_input,
         obligations=repository_obligations,
@@ -454,16 +445,9 @@ def run_obligation_retrieval(
     ]
     sufficient = bool(selected) and not required_unresolved and not unresolved_transitions
     summary = {
-        "retriever": ctx.config.retrieval_mode,
+        "retriever": "workspace",
         "request_analysis": intent_context.to_dict(),
-        "retrieval_plan": {
-            "strategy": (
-                "agent_planned_native_controller_v1"
-                if ctx.config.retrieval_mode == RETRIEVAL_MODE_AGENT_PLANNED
-                else "qualification_first_controller_v1"
-            ),
-            "obligations": [item.to_dict() for item in states],
-        },
+        "retrieval_plan": {"strategy": "qualification_first_controller_v1", "obligations": [item.to_dict() for item in states]},
         "index_rebuilt": index_rebuilt,
         "index_document_count": index_document_count,
         "selected_count": len(selected),
@@ -485,7 +469,6 @@ def run_obligation_retrieval(
         "initial_owner_comparison_serialized_chars": owner_comparison.serialized_chars,
         "initial_owner_comparison_group_count": owner_comparison.compared_group_count,
         "coverage_usage": dict(controller.coverage_usage),
-        "planner_usage": dict(controller.planner_usage or {}),
         "anchor_query_count": len(confirmations),
         "anchor_confirmations": [item.to_dict() for item in confirmations],
         "resolved_symbol_anchors": sorted({str(item.get("anchor_query") or "") for item in anchor_nodes}),

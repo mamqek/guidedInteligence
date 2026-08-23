@@ -1,24 +1,5 @@
 # Retrieval Changelog
 
-## 2026-08-23: Agent-Planned Native Controller — Implemented, Actual Comparison Blocked
-
-- Added a separate `agent_planned` mode after restoring the ordinary workspace runtime. It retains obligation Qdrant
-  and CodeGraph admission, initial owner comparison, deterministic disclosure and typed execution, islands, grounded
-  candidates, file traces, and native final evidence consolidation.
-- Each controller round now has exactly one planner call that classifies all pending disclosures, updates every
-  obligation, and chooses zero to two native actions or stops. It does not call the native per-round qualification,
-  coverage, catalogue, scheduler, rescue, or maturation stages.
-- Persistent state is application-owned and explicitly reprojected: known observations, prior decisions and candidates,
-  prior coverage, the last six bounded action outcomes, summary, open questions, and remaining budgets. Total serialized
-  prompt/schema/payload input is fail-fast bounded to 30,000 characters.
-- Mechanical checks: five focused planner/controller tests pass repeatedly; 124 unchanged retrieval-server and
-  qualification-first tests pass. Full discovery ran 401 tests with four unrelated failures: three stale index-setup
-  mocks lack `lexical_ranking_profile`, and the local CodeGraph Node runtime lacks `node:sqlite`.
-- Actual diagnostic attempt `run-20260823T180922Z` is excluded from comparison: configured API request analysis failed
-  with HTTP 429 `insufficient_quota` before retrieval started. It produced no controller trace, evidence, coverage,
-  sufficiency, or planner token measurement. No fallback was used. Final-selection acceptance still requires two
-  unchanged actual runs after API credits are available.
-
 ## 2026-08-22: Dormant Island Completion — Rejected
 
 - Implemented a separate post-maturation experiment that could reconsider an already-resolved, same-file dormant
