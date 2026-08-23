@@ -1,5 +1,27 @@
 # Retrieval Changelog
 
+## 2026-08-23: Agent-Planned Native Controller — Rejected And Reverted
+
+- Tested a separate controller that retained Qdrant/CodeGraph admission, deterministic disclosure and typed execution,
+  islands, grounded candidates, file traces, and native final consolidation. One persistent planner call per round
+  replaced native per-round qualification, coverage, catalogue, scheduling, rescue, and maturation decisions.
+- The final contract used at most three 40,000-character planner calls and two actions per round. The cap increased from
+  30,000 only after real fixed metadata measured 36,836 characters; duplicated executor metadata was removed first.
+  An explicit `repository` sentinel plus enumerated observation IDs repaired an invalid ungrounded source action.
+- Valid final-selection runs, with response generation skipped:
+  - `run-20260823T183021Z`: `partial/false`, 9 evidence, 1 total/0 implementation overlaps, 15 candidates, 263 tools,
+    40,812 planner tokens;
+  - `run-20260823T183349Z`: `partial/false`, 6 evidence, 2 total/1 implementation overlaps, 11 candidates, 132 tools,
+    42,265 planner tokens.
+- Both traces had three planner calls, six native actions, zero old per-round qualification/coverage calls, and native
+  final selection. Reference native `run-20260822T184944Z` was `strong/true`, retained 2 total/1 implementation
+  overlaps, and used 42,834 qualification plus 20,986 coverage tokens. The planner was cheaper but worse and unstable.
+- Exact audit: `Series::_binop` survived every upstream boundary and initial admission in both agent runs. Run `183021`
+  twice deferred it as navigation-only, losing it first at planner qualification and before the final pool. Run `183349`
+  promoted the same observation and final selection retained it. This stochastic loss rejects the experiment.
+- Implementation history remains in `d938243` and `0066398`; `7387d6c` and `d11537e` revert the runtime. The ordinary
+  workspace controller is restored, while the detailed decision note and full-agent comparison report remain.
+
 ## 2026-08-22: Dormant Island Completion — Rejected
 
 - Implemented a separate post-maturation experiment that could reconsider an already-resolved, same-file dormant
