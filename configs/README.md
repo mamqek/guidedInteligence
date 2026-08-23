@@ -14,16 +14,6 @@ npm run retrieval:server
 ```
 
 ```powershell
-npm run config:web:agentic
-npm run retrieval:server
-```
-
-`config:web:agentic` keeps the native Qdrant + CodeGraph prefix, then replaces owner comparison,
-qualification, controller rounds, recovery/island stages, and final evidence selection with the bounded
-seeded-agent loop. Initial retrieval results are hints: the agent can inspect graph neighbors and search or
-open other allowed repository paths. Dense+sparse Qdrant search remains enabled by default.
-
-```powershell
 npm run config:web:codex
 npm run retrieval:server
 ```
@@ -50,14 +40,6 @@ behavior. The testcase path normally stays in the command:
 ```powershell
 npm run coderepoqa:evaluate:workspace -- --issue-json testing/codeRepoQA/corpus/cases/microsoft-TypeScript-35468/issue.json
 ```
-
-```powershell
-npm run coderepoqa:evaluate:agentic -- --issue-json testing/codeRepoQA/corpus/cases/microsoft-TypeScript-35468/issue.json
-```
-
-The checked-in agentic test profile explicitly uses Codex CLI for JSON decisions and sparse Qdrant search
-because the current development API account cannot serve LLM or embedding requests. This is an environment
-profile, not the production default; `configs/web-ui/agentic.json` keeps dense retrieval enabled.
 
 ```powershell
 npm run coderepoqa:evaluate:codex -- --issue-json testing/codeRepoQA/corpus/cases/microsoft-TypeScript-35468/issue.json

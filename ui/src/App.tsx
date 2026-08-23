@@ -1896,7 +1896,6 @@ function WorkspaceIndexPanel({
               Evidence provider
               <select value={retrieval.mode || "workspace"} onChange={(event) => updateRetrieval({ mode: event.target.value as AppConfig["retrieval"]["mode"] })}>
                 <option value="workspace">Native workspace retrieval</option>
-                <option value="agentic">Seeded agentic retrieval</option>
                 <option value="codex">Codex retrieval</option>
               </select>
             </label>
@@ -1906,11 +1905,6 @@ function WorkspaceIndexPanel({
                 title="Codex mode asks Codex to inspect the selected workspace directly, so local BM25, embeddings, Qdrant, and CodeGraph index preparation are not used."
               >
                 Codex mode reads the selected workspace directly and does not use BM25, embeddings, Qdrant, or CodeGraph indexing.
-              </p>
-            )}
-            {retrieval.mode === "agentic" && (
-              <p className="infoText">
-                Agentic mode uses native Qdrant and CodeGraph results as starting leads, then lets the retrieval model inspect, search, and follow code beyond those leads before selecting final evidence.
               </p>
             )}
             <DependencyNotice

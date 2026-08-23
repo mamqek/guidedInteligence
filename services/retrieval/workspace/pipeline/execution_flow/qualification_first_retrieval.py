@@ -50,8 +50,6 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
 from services.retrieval.workspace.pipeline.execution_flow.retrieval_controller import run_retrieval_controller
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard
 from services.retrieval.workspace.tools import ToolRequest
-from services.retrieval.config import RETRIEVAL_MODE_AGENTIC
-from services.retrieval.agentic.adapter import run_agentic_downstream
 
 
 def run_obligation_retrieval(
@@ -117,11 +115,6 @@ def run_obligation_retrieval(
             arguments={
                 "query": query,
                 "sparse_query": sparse_query,
-                "dense_enabled": (
-                    ctx.config.agent_dense_search_enabled
-                    if ctx.config.retrieval_mode == RETRIEVAL_MODE_AGENTIC
-                    else True
-                ),
                 "limit": MAX_FOCUSED_RESULTS,
                 "max_per_path": 1,
                 "source_category": _source_category_for_role(obligation.evidence_role),
@@ -263,18 +256,6 @@ def run_obligation_retrieval(
                 retriever=_file_group_result_origin(result, origin),
                 nodes=range_nodes.get(key, ()),
             )
-        )
-    if ctx.config.retrieval_mode == RETRIEVAL_MODE_AGENTIC:
-        return run_agentic_downstream(
-            ctx=ctx,
-            state=state,
-            obligations=repository_obligations,
-            observations=(*raw_observations, *held_raw_observations),
-            qdrant_tool=qdrant_tool,
-            structural_tools=structural_tools,
-            starting_tool_calls=tool_calls,
-            index_document_count=index_document_count,
-            index_rebuilt=index_rebuilt,
         )
     baseline_initial_observations, baseline_guardrail_decisions = aggregate_observations(
         raw_observations,
