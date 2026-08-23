@@ -2,7 +2,7 @@
 
 ## Status
 
-- State: rejected after two valid actual-pipeline runs; runtime scheduled for reversion while commits preserve the experiment.
+- State: first implementation variant complete; actual quality acceptance blocked by exhausted API credits.
 - Branch: `codex/seeded-agentic-retrieval`, after runtime reversion commit `c5d30f2` restored the native `fbc01cb`
   behavior while preserving the full-agent experiment in history and documentation.
 - Primary case: `pandas-dev-pandas-10068`.
@@ -135,10 +135,7 @@ First-variant defaults:
 - maximum planner rounds: 3;
 - maximum actions per planner round: 2;
 - maximum total planner-selected actions: 6;
-- maximum serialized planner input: 40,000 characters. The planned 30,000-character cap was rejected after the first
-  actual integration attempt showed that fixed metadata alone required 36,836 characters for 76 addressable
-  observations and 21 pending cards. Forty thousand remains one bounded planner request replacing the native
-  qualification-plus-coverage pair;
+- maximum serialized planner input: 30,000 characters;
 - maximum source disclosure per pending card: existing 4,000-character bound, water-filled inside the global limit;
 - no planner call after `stop=true`;
 - one unchanged native final-selection call after the controller.
@@ -234,12 +231,12 @@ Maximum three implementation variants are permitted at any failed boundary.
 | Contract/validation | 1 | pass | pass | n/a | n/a | mechanically accepted |
 | Bounded persistent context | 1 | pass | pass | n/a | n/a | mechanically accepted |
 | Typed action conversion | 1 | pass | pass | n/a | n/a | mechanically accepted |
-| Controller integration | 3 | pass | pass | `run-20260823T183021Z`, `run-20260823T183349Z` | 40,812 / 42,265 | rejected for unstable quality |
+| Controller integration | 1 | pass | pass | `run-20260823T180922Z` failed before retrieval | 0 planner | awaiting configured API credits |
 
 ## Implementation Note — 2026-08-23
 
 Variant 1 is implemented as `agent_planned` without modifying the ordinary `workspace` controller. The planner has a
-strict JSON contract, a 40,000-character total prompt/schema/payload budget, application-owned state, and deterministic
+strict JSON contract, a 30,000-character total prompt/schema/payload budget, application-owned state, and deterministic
 conversion into the five allowed native action types. The loop rejects unknown observations/obligations, unsupported
 covered claims, invented node-based expansion, repeated action effects, and covered support that cannot resolve to a
 native grounded candidate. Relationship execution also retains native file-trace construction for final consolidation.
@@ -255,36 +252,3 @@ The requested actual diagnostic command created `run-20260823T180922Z`, but requ
 `insufficient_quota` before Qdrant, CodeGraph, owner comparison, or the new controller ran. It is not a retrieval run,
 contains no planner tokens or quality result, and cannot count toward acceptance. The LLM failure was surfaced directly;
 no deterministic, Codex, or alternate-model fallback was used.
-
-After credits were restored, `run-20260823T182100Z` was excluded because the system Node 20 runtime could not provide
-CodeGraph's required `node:sqlite`; subsequent runs explicitly used the bundled Node 24 runtime. Budget attempts
-`run-20260823T182217Z` and `run-20260823T182421Z` established the real fixed-context size and motivated the documented
-40,000-character variant. `run-20260823T182718Z` then completed one 13,758-token planner decision, but proposed
-`search_within_file` without a source observation ID. The action was rejected before execution. Variant 3 replaces the
-ambiguous empty string with a schema enum of all known IDs plus the explicit `repository` sentinel and validates that
-source-bound actions use known IDs while global search uses only the sentinel.
-
-## Acceptance Result
-
-The final contract variant completed twice with native final selection enabled and response generation skipped:
-
-| Run | Coverage / sufficient | Evidence | Oracle overlap | Planner tokens | Stop |
-|---|---|---:|---:|---:|---|
-| `run-20260823T183021Z` | `partial / false` | 9 | 1 total / 0 implementation | 40,812 | 3-round limit |
-| `run-20260823T183349Z` | `partial / false` | 6 | 2 total / 1 implementation | 42,265 | 3-round limit |
-
-Both traces contained exactly three planner calls, six planner-selected native actions, zero old per-round qualification
-or coverage calls, and one unchanged native final consolidation. Mechanically, the replacement boundary is valid.
-Planner tokens were below the 63,820 native qualification-plus-coverage tokens in reference native run
-`run-20260822T184944Z`, but the native run was `strong / true` and retained one implementation overlap.
-
-The quality failure is precise. In both agent-planned runs, raw retrieval, grouping, CodeGraph resolution, owner
-comparison, and initial admission retained `obs_7fcee82d964fc060`, exact `Series::_binop`. In the first run the planner
-classified its 1,700-character owner preview as deferred/navigation-only in rounds 0 and 2, despite naming it as the
-required implementation target. It never became a grounded candidate, so the first disappearance was planner
-qualification and it was absent from the final pool. In the second run the planner promoted the same observation,
-inspected it immediately, promoted the completed view, and native final selection retained it. The identical boundary
-therefore alternated between losing and retaining the central owner.
-
-This meets the rejection rule: final sufficiency regressed relative to native and central-owner survival was unstable
-across two unchanged runs. The roughly one-third planner-token reduction does not justify acceptance.
