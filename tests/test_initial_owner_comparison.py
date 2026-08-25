@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 import unittest
 from unittest.mock import patch
@@ -64,7 +65,12 @@ class InitialOwnerComparisonTests(unittest.TestCase):
         )
         with patch(
             "services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
-            return_value={"selected_owner_ids": ["o1", "o2"]},
+            return_value={
+                "selections": [
+                    {"group_id": "g1", "primary_owner_id": "o1", "additional_owner_ids": []},
+                    {"group_id": "g2", "primary_owner_id": "o2", "additional_owner_ids": []},
+                ]
+            },
         ):
             result = compare_initial_owners(
                 llm_config=object(),
@@ -73,30 +79,72 @@ class InitialOwnerComparisonTests(unittest.TestCase):
                 admitted_groups=(("pandas/core/series.py", "*"), ("pandas/core/ops.py", "*")),
                 max_input_chars=40_000,
                 max_selected=2,
-                max_per_file=1,
             )
 
         self.assertEqual([item.id for item in result.selected], ["first", "second"])
         self.assertEqual(result.dormant, ())
         self.assertEqual(result.auto_selected_group_count, 0)
 
-    def test_global_selection_rejects_more_than_per_file_limit(self) -> None:
+    def test_global_selection_accepts_distinct_additional_owners_from_one_file(self) -> None:
         values = tuple(
             _observation(str(index), f"owner_{index}", index * 100, f"function owner_{index}() {{}}")
             for index in range(1, 4)
         )
         with patch(
             "services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
-            return_value={"selected_owner_ids": ["o1", "o2", "o3"]},
-        ), self.assertRaisesRegex(RuntimeError, "initial_owner_comparison_file_limit_exceeded"):
-            compare_initial_owners(
+            return_value={
+                "selections": [
+                    {
+                        "group_id": "g1",
+                        "primary_owner_id": "o1",
+                        "additional_owner_ids": ["o2", "o3"],
+                    }
+                ]
+            },
+        ):
+            result = compare_initial_owners(
                 llm_config=object(),
                 obligation_descriptions={"ordered": "Explain the mechanism."},
                 observations=values,
                 admitted_groups=(("pandas/core/series.py", "*"),),
                 max_input_chars=40_000,
                 max_selected=3,
-                max_per_file=2,
+            )
+
+        self.assertEqual(tuple(item.id for item in result.selected), ("1", "2", "3"))
+        self.assertEqual(result.dormant, ())
+
+    def test_global_selection_rejects_owner_outside_declared_group(self) -> None:
+        first = _observation("first", "first", 100, "function first() {}")
+        second = DiscoveryObservation(
+            **{
+                **_observation("second", "second", 200, "function second() {}").__dict__,
+                "handle": SourceHandle(
+                    path="pandas/core/ops.py",
+                    line_start=200,
+                    line_end=239,
+                    node_id="method:second",
+                    symbol="Ops::second",
+                    full_line_start=200,
+                    full_line_end=250,
+                ),
+            }
+        )
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
+            return_value={
+                "selections": [
+                    {"group_id": "g1", "primary_owner_id": "o2", "additional_owner_ids": []}
+                ]
+            },
+        ), self.assertRaisesRegex(RuntimeError, "initial_owner_comparison_invalid_global_selection"):
+            compare_initial_owners(
+                llm_config=object(),
+                obligation_descriptions={"ordered": "Explain the mechanism."},
+                observations=(first, second),
+                admitted_groups=(("pandas/core/series.py", "*"), ("pandas/core/ops.py", "*")),
+                max_input_chars=40_000,
+                max_selected=2,
             )
 
     def test_file_admission_uses_exact_serialized_comparison_budget(self) -> None:
@@ -108,15 +156,73 @@ class InitialOwnerComparisonTests(unittest.TestCase):
             obligation_descriptions={"ordered": "Explain the mechanism."},
             observations=values,
             ranked_paths=("pandas/core/series.py",),
+            preferred_input_chars=30_000,
             max_input_chars=40_000,
             max_files=24,
             max_selected=24,
-            max_per_file=2,
         )
 
         self.assertEqual(admission.admitted_paths, ("pandas/core/series.py",))
         self.assertEqual(admission.candidate_count, 2)
         self.assertGreater(admission.total_input_chars, 0)
+
+    def test_file_admission_stops_at_preferred_prefix_without_backfill(self) -> None:
+        first = _observation("first", "first", 100, "function first() { return build(); }")
+        second = _observation("second", "second", 200, "function second() { return update(); }")
+        third = _observation("third", "third", 300, "function third() { return check(); }")
+        second = DiscoveryObservation(**{
+            **second.__dict__,
+            "handle": replace(second.handle, path="pandas/core/large.py"),
+            "observed_text": "x" * 4_000,
+        })
+        third = DiscoveryObservation(**{
+            **third.__dict__,
+            "handle": replace(third.handle, path="pandas/core/small.py"),
+        })
+        unconstrained = fit_initial_owner_comparison_admission(
+            obligation_descriptions={"ordered": "Explain the mechanism."},
+            observations=(first, second, third),
+            ranked_paths=("pandas/core/series.py", "pandas/core/large.py", "pandas/core/small.py"),
+            preferred_input_chars=40_000,
+            max_input_chars=40_000,
+            max_files=24,
+            max_selected=24,
+        )
+        second_total = int(unconstrained.path_decisions[1]["total_input_chars"])
+
+        admission = fit_initial_owner_comparison_admission(
+            obligation_descriptions={"ordered": "Explain the mechanism."},
+            observations=(first, second, third),
+            ranked_paths=("pandas/core/series.py", "pandas/core/large.py", "pandas/core/small.py"),
+            preferred_input_chars=second_total - 1,
+            max_input_chars=40_000,
+            max_files=24,
+            max_selected=24,
+        )
+
+        self.assertEqual(admission.admitted_paths, ("pandas/core/series.py",))
+        self.assertEqual(
+            admission.excluded_paths,
+            ("pandas/core/large.py", "pandas/core/small.py"),
+        )
+        self.assertEqual(admission.stopping_reason, "preferred_input_target")
+        self.assertEqual(admission.stopped_at_path, "pandas/core/large.py")
+
+    def test_file_admission_allows_first_file_above_preferred_but_below_hard_ceiling(self) -> None:
+        value = _observation("first", "first", 100, "function first() { return build(); }")
+
+        admission = fit_initial_owner_comparison_admission(
+            obligation_descriptions={"ordered": "Explain the mechanism."},
+            observations=(value,),
+            ranked_paths=("pandas/core/series.py",),
+            preferred_input_chars=1,
+            max_input_chars=40_000,
+            max_files=24,
+            max_selected=24,
+        )
+
+        self.assertEqual(admission.admitted_paths, ("pandas/core/series.py",))
+        self.assertEqual(admission.stopping_reason, "ranking_exhausted")
 
     def test_resolves_sibling_methods_and_keeps_class_as_outer_context(self) -> None:
         nodes = (

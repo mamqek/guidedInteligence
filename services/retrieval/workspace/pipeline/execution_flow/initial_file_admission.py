@@ -9,16 +9,13 @@ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations
 @dataclass(frozen=True)
 class InitialFileRanking:
     ranked_paths: tuple[str, ...]
-    coverage_paths: tuple[str, ...]
     path_details: tuple[dict[str, object], ...]
 
 
 def rank_initial_files(
     snippets: Sequence[DiscoveryObservation],
-    *,
-    obligation_ids: Sequence[str],
 ) -> InitialFileRanking:
-    """Rank canonical snippet files once while reserving obligation coverage."""
+    """Rank canonical snippet files once without binary coverage promotion."""
     by_path: dict[str, list[DiscoveryObservation]] = {}
     display_path: dict[str, str] = {}
     for snippet in snippets:
@@ -39,25 +36,7 @@ def rank_initial_files(
         )
 
     ordered = sorted(by_path, key=path_priority)
-    coverage: list[str] = []
-    for obligation_id in obligation_ids:
-        if any(
-            any(obligation_id in item.obligation_ids for item in by_path[path])
-            for path in coverage
-        ):
-            continue
-        path = next(
-            (
-                candidate
-                for candidate in ordered
-                if candidate not in coverage
-                and any(obligation_id in item.obligation_ids for item in by_path[candidate])
-            ),
-            "",
-        )
-        if path:
-            coverage.append(path)
-    ranked = tuple(dict.fromkeys((*coverage, *ordered)))
+    ranked = tuple(ordered)
     details = tuple(
         {
             "path": display_path[path],
@@ -67,12 +46,11 @@ def rank_initial_files(
             "best_rank": min((item.best_rank for item in by_path[path]), default=10_000),
             "best_score": max((item.best_score for item in by_path[path]), default=0.0),
             "max_recurrence": max((item.recurrence for item in by_path[path]), default=1),
-            "coverage_reserved": path in coverage,
+            "coverage_reserved": False,
         }
         for path in ranked
     )
     return InitialFileRanking(
         ranked_paths=tuple(display_path[path] for path in ranked),
-        coverage_paths=tuple(display_path[path] for path in coverage),
         path_details=details,
     )

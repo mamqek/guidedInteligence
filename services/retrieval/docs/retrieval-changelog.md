@@ -1,5 +1,24 @@
 # Retrieval Changelog
 
+## 2026-08-25: Grouped Owner Selection And 60K Quality Prefix — Retained Through Pre-Qualification
+
+- Replaced the contradictory flat 24/two-per-file owner-selection contract with grouped primary/additional selections.
+  Runtime now enforces 24 globally and group membership, but no numerical per-file cap or post-LLM clipping.
+- Exact replays of the saved 159/177-owner payloads each selected 15 owners across six files. Largest-file shares were
+  26.7% and 20%; inspected third-and-later owners represented distinct Builder, BuilderState, and TsBuild mechanisms.
+- Restored the unchanged cost experiment: no binary obligation reservation, one retrieval-ranked file prefix under a
+  preferred 60,000-character target, 100,000 hard ceiling, and no later-file backfill.
+- Actual TypeScript diagnostic-stop runs `run-20260825T035631Z` and `run-20260825T035754Z` admitted 172/191 owners
+  across 14/18 files at 59,457/59,956 characters. Comparison used 22,307/23,756 tokens, selected 10/15 owners across
+  6/8 files, and never exceeded 20% largest-file share in the live runs.
+- Both live selections retained Builder, BuilderState, TsBuildPublic, and watch/project-reference evidence. Lifecycle
+  equations were `412 = 10 selected + 162 dormant + 240 deferred` and
+  `448 = 15 selected + 176 dormant + 257 deferred`.
+- Qualification requests were prepared, but not called, at 29,513/34,982 characters. The change is retained through
+  this requested boundary; controller and final-evidence acceptance remain open. Detailed measurements are in
+  [`decisions/grouped-initial-owner-selection-experiment.md`](decisions/grouped-initial-owner-selection-experiment.md)
+  and [`decisions/initial-file-admission-cost-experiment.md`](decisions/initial-file-admission-cost-experiment.md).
+
 ## 2026-08-23: Agent-Planned Native Controller — Rejected And Reverted
 
 - Tested a separate controller that retained Qdrant/CodeGraph admission, deterministic disclosure and typed execution,
@@ -4250,3 +4269,41 @@ Verification:
   structural-boundary behavior, but this first full comparison provides no final-quality gain and has a material token
   regression. A second unchanged full run is required before deciding whether this is stochastic variance or a
   repeatable downstream regression.
+
+#### Evidence-region attempt 1 — reverted
+
+- Isolated plan and complete measurements: [`decisions/initial-evidence-region-experiment.md`](decisions/initial-evidence-region-experiment.md).
+- The deterministic implementation grouped sibling owners by one directly shared retrieved range, represented nested
+  owners through an enclosing-callable region with local source focus, kept every canonical node as exactly one
+  addressable member, and allowed explicit member promotion. Focused verification passed twice with 98 tests.
+- Pre-qualification run `run-20260825T010258Z` reduced 405 canonical snippets to 348 regions, admitted 245 regions
+  across 27 files at 99,901 characters, selected 24 regions with no promotions, and used 38,788 comparison tokens.
+  The unbounded all-region request measured 139,503 characters. Selection retained strong Builder/BuilderState/watch
+  evidence but also diagnostic, status-constant, server, and tsserver noise.
+- Repeat `run-20260825T010523Z` reduced 443 snippets to 356 regions and admitted 252 across 22 files at 99,962
+  characters; its unbounded request was 146,571 characters and comparison cost was 38,414 tokens. The LLM selected
+  three relevant `builderState.ts` regions, violating the unchanged two-per-file invariant. Runtime validation failed
+  explicitly before qualification; no result was clipped or substituted.
+- Decision: reverted after the two user-authorized runs. The 14% top-level reduction was insufficient: the unchanged
+  fitter still filled 100,000 characters, tokens did not fall, fewer files fit because member descriptors consumed
+  payload, member promotion was not exercised, selection quality was mixed, and repeatability failed. The production
+  path remains the pre-experiment canonical-owner flow. No admission-policy or downstream change was attempted.
+
+#### Preferred-size quality-prefix admission attempt 1 — reverted
+
+- Plan and complete measurements: [`decisions/initial-file-admission-cost-experiment.md`](decisions/initial-file-admission-cost-experiment.md).
+- The isolated change removed binary obligation reservation, retained the existing retrieval-quality file ordering,
+  admitted one complete quality prefix under a preferred 60,000-character request target, stopped rather than
+  backfilling later small files, and kept the 100,000-character hard ceiling. Canonical snippets and within-file owner
+  comparison were unchanged.
+- Focused verification passed twice with 92 tests. Actual pre-qualification runs `run-20260825T032456Z` and
+  `run-20260825T032649Z` admitted ten files and 159/177 owners at 53,179/55,334 characters. Comparison used
+  20,099/21,509 tokens versus 37,960/37,847 in the retained 100K-fill baseline.
+- Selected-owner quality was encouraging: both runs retained WatchMode, TsBuildPublic, Builder, WatchPublic, and
+  BuilderState mechanisms. Run 1 selected four distinct relevant `builder.ts` owners; run 2 selected three relevant
+  `tsbuildPublic.ts` and three relevant `builderState.ts` owners. Neither run selected the earlier diagnostic catalogue
+  noise.
+- Both runs nevertheless failed before round-zero preparation because the unchanged runtime rejected more than two
+  selected owners from one file (`g8` then `g4`). The attempt is reverted rather than silently modifying that separate
+  semantic-selection contract. The traces support revisiting the two-per-file IOC-1 boundary before replaying the
+  unchanged quality-prefix admission policy.

@@ -55,8 +55,9 @@ map it to an entry here before treating it as a new regression or inventing anot
 ## IOC-1 — Initial owner comparison scale and support independence
 
 - Experiment: compact initial owner comparison plus complete structural range resolution.
-- Status: the single-canonical-pool rewrite is mechanically accepted through pre-qualification on the TypeScript
-  case; cross-repository, qualification, controller, final-evidence, and token/quality acceptance remain open.
+- Status: the single-canonical-pool rewrite, grouped owner-selection contract, and 60K quality-prefix admission are
+  mechanically accepted through pre-qualification on the TypeScript case; cross-repository, controller,
+  final-evidence, and overall token/quality acceptance remain open.
 - Implemented behavior:
   - every initial Qdrant range is resolved through parallel CodeGraph batches of 80; no first-80 truncation remains;
   - duplicate CodeGraph node IDs and overlapping unresolved ranges canonicalize once before file admission; sibling
@@ -64,8 +65,10 @@ map it to an entry here before treating it as a new regression or inventing anot
   - complete owner source is disclosed only after owner comparison selects it;
   - each owner records distinct owner-aligned raw views, obligations, and channels rather than exposing recurrence
     alone;
-  - file admission is globally fitted to the literal 100,000-character comparison request; the LLM then performs the
-    only global 24/two-per-file selection, with exhaustive selected/deferred/dormant state accounting.
+  - file admission retains one retrieval-ranked file prefix under a preferred 60,000-character request target, with
+    100,000 as a hard ceiling and no binary obligation reservation or later-file backfill;
+  - the LLM performs the only global 24-owner selection using grouped primary/additional owners. There is no numeric
+    per-file cap; runtime validates global count, group membership, and exhaustive selected/deferred/dormant states.
 - Measured evidence:
   - smoke `run-20260821T211044Z` resolved 172/172 ranges, later promoted exact `Series::_binop`, and spent 25,958
     owner-comparison tokens;
@@ -87,16 +90,31 @@ map it to an entry here before treating it as a new regression or inventing anot
   - Those runs spent 37,960 and 37,847 owner-comparison tokens versus 18,497 in the old-flow baseline. They retained
     central Builder/BuilderState/watch evidence but the second run still selected some unresolved test/config noise.
     This resolves the requested mechanical boundary, not the token/quality question.
+  - The isolated evidence-region attempt in `run-20260825T010258Z` reduced 405 canonical snippets to 348 top-level
+    regions but still filled 99,901 characters and used 38,788 comparison tokens. Repeat
+    `run-20260825T010523Z` failed the unchanged two-per-file invariant after selecting three directly relevant
+    `builderState.ts` regions. The attempt was reverted; details are in
+    [`initial-evidence-region-experiment.md`](initial-evidence-region-experiment.md).
+  - The isolated preferred-size quality-prefix admission attempt in `run-20260825T032456Z` and
+    `run-20260825T032649Z` admitted ten files and 159/177 owners at 53,179/55,334 characters, reducing comparison cost
+    to 20,099/21,509 tokens. Both responses concentrated on several relevant owners in central Builder,
+    BuilderState, or TsBuildPublic files and were rejected by the unchanged two-per-file invariant. The runtime
+    attempt was reverted; details are in
+    [`initial-file-admission-cost-experiment.md`](initial-file-admission-cost-experiment.md).
+  - Exact grouped-contract replays selected 15 owners across six files for both saved 159/177-owner payloads. Largest
+    file shares were 26.7% and 20%; third-and-later owners were distinct Builder/BuilderState/TsBuild mechanisms.
+  - Combined actual runs `run-20260825T035631Z` and `run-20260825T035754Z` admitted 172/191 owners across 14/18
+    files at 59,457/59,956 characters and used 22,307/23,756 comparison tokens. They selected 10/15 owners across
+    6/8 files, completed lifecycle accounting, and prepared qualification within 29,513/34,982 characters.
 - Still unresolved:
-  - whether comparing 220-235 owners in one call remains accurate across repositories or becomes too diffuse;
-  - whether the roughly doubled comparison-token cost yields stable owner-quality gains;
+  - whether comparing roughly 170-190 owners in one call remains accurate across repositories or becomes too diffuse;
+  - whether the reduced comparison-token cost yields stable downstream owner-quality gains;
   - whether raw chunk/query-view/obligation/channel counts should affect selection at all, and if so how, without
     turning repeated broad queries into false independent support;
   - repeated acceptance runs where the correct owner is present in the initial ranges, so selection stability can be
     separated from upstream stochastic retrieval.
-  - whether the global compact comparison should receive every payload-fitting file group, or use a cheaper,
-    independently validated semantic/diversity admission stage. Do not solve this by restoring raw first-owner order
-    or the former fixed file ceiling.
+  - whether the deterministic retrieval-ranked 60K prefix is sufficiently stable across cases or needs a separately
+    validated semantic/diversity admission signal. Do not restore raw first-owner order or a fixed file ceiling.
   - the compact source view is capped at 80 characters and deliberately keeps one or a few high-value complete
     lines. It preserved the observed `return self._binop(...)` lead, but secondary useful lines may still be hidden.
     Audit the literal comparison view whenever a resolved owner is unexpectedly rejected; do not call this format

@@ -22,5 +22,8 @@ Rules:
 - Select more than one owner only when they plausibly cover different necessary parts of the obligation.
 - Do not select a generic owner merely because it ranked first.
 - Follow the supplied response schema. When it asks for `groups`, return one or more IDs from each group's own
-  owner list. When it asks for `selected_owner_ids`, make one global selection; a file group may receive no owner.
-  Never select an owner outside the IDs supplied by the schema.
+  owner list. When it asks for `selections`, make one global selection organized by file group; a file group may
+  receive no owner. Each selected group has one `primary_owner_id`. Add `additional_owner_ids` only when each one
+  contributes a distinct causal step, state mutation, diagnostic path, contrast, or other nonredundant part of the
+  requested mechanism. Prefer a useful owner from another file when its contribution is comparable. Do not fill the
+  global allowance merely because capacity remains. Never select an owner outside its declared group.

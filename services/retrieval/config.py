@@ -347,6 +347,7 @@ class WorkspaceRetrievalConfig:
     semantic_island_beam_size: int = 4
     max_discovery_observations: int = 24
     max_qualification_input_chars: int = 40000
+    preferred_initial_owner_comparison_input_chars: int = 60000
     max_initial_owner_comparison_input_chars: int = 100000
     max_final_selection_input_chars: int = 50000
     structural_graph_enabled: bool = True
@@ -546,6 +547,16 @@ class WorkspaceRetrievalConfig:
             raise ValueError("max_qualification_input_chars must be greater than zero.")
         if self.max_initial_owner_comparison_input_chars <= 0:
             raise ValueError("max_initial_owner_comparison_input_chars must be greater than zero.")
+        if self.preferred_initial_owner_comparison_input_chars <= 0:
+            raise ValueError("preferred_initial_owner_comparison_input_chars must be greater than zero.")
+        if (
+            self.preferred_initial_owner_comparison_input_chars
+            > self.max_initial_owner_comparison_input_chars
+        ):
+            raise ValueError(
+                "preferred_initial_owner_comparison_input_chars must not exceed "
+                "max_initial_owner_comparison_input_chars."
+            )
         if self.max_final_selection_input_chars <= 0:
             raise ValueError("max_final_selection_input_chars must be greater than zero.")
         if not self.structural_graph_enabled:
