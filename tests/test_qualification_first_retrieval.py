@@ -117,20 +117,15 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             [(11, 11, "line11"), (13, 14, "line13\nline14")],
         )
 
-    def test_global_file_ranking_reserves_each_obligation_before_fill(self) -> None:
+    def test_global_file_ranking_does_not_promote_binary_obligation_coverage(self) -> None:
         shared = _observation("shared", "src/shared.ts", "function:shared", ("subject", "trigger"))
         ordered = _observation("ordered", "src/ordered.ts", "function:ordered", ("ordered",))
         why = _observation("why", "src/why.ts", "function:why", ("why",))
 
-        ranking = rank_initial_files(
-            (shared, ordered, why),
-            obligation_ids=("subject", "trigger", "ordered", "why"),
-        )
+        ranking = rank_initial_files((shared, ordered, why))
 
-        self.assertEqual(
-            set(ranking.coverage_paths),
-            {"src/shared.ts", "src/ordered.ts", "src/why.ts"},
-        )
+        self.assertEqual(set(ranking.ranked_paths), {"src/shared.ts", "src/ordered.ts", "src/why.ts"})
+        self.assertFalse(any(item["coverage_reserved"] for item in ranking.path_details))
 
     def test_round_zero_guardrail_defers_selected_owner_from_held_only_range(self) -> None:
         baseline = _observation("baseline", "src/compiler/builder.ts", "function:baseline", ("why",))

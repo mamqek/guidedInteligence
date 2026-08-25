@@ -353,18 +353,15 @@ def run_obligation_retrieval(
         },
     )
 
-    file_ranking = rank_initial_files(
-        canonical_snippets,
-        obligation_ids=tuple(item.id for item in repository_obligations),
-    )
+    file_ranking = rank_initial_files(canonical_snippets)
     admission = fit_initial_owner_comparison_admission(
         obligation_descriptions={item.id: item.description for item in repository_obligations},
         observations=canonical_snippets,
         ranked_paths=file_ranking.ranked_paths,
+        preferred_input_chars=ctx.config.preferred_initial_owner_comparison_input_chars,
         max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
         max_files=max(1, len(file_ranking.ranked_paths)),
         max_selected=ctx.config.max_discovery_observations,
-        max_per_file=2,
     )
     admitted_path_keys = {path.casefold() for path in admission.admitted_paths}
     file_admission_decisions = tuple(
@@ -384,14 +381,18 @@ def run_obligation_retrieval(
             "input_file_count": len(file_ranking.ranked_paths),
             "admitted_file_count": len(admission.admitted_paths),
             "admitted_paths": list(admission.admitted_paths),
-            "coverage_reserved_paths": list(file_ranking.coverage_paths),
+            "coverage_reserved_paths": [],
             "excluded_file_count": len(admission.excluded_paths),
             "excluded_paths": list(admission.excluded_paths),
             "participating_candidate_count": admission.candidate_count,
             "comparison_total_input_chars": admission.total_input_chars,
+            "comparison_preferred_input_chars": ctx.config.preferred_initial_owner_comparison_input_chars,
             "comparison_input_char_budget": ctx.config.max_initial_owner_comparison_input_chars,
             "file_limit": 0,
-            "admission_limit": "exact_owner_comparison_input_char_budget",
+            "admission_limit": "ranked_quality_prefix_under_preferred_input_chars",
+            "stopping_reason": admission.stopping_reason,
+            "stopped_at_path": admission.stopped_at_path,
+            "path_decisions": list(admission.path_decisions),
             "ranking": list(file_ranking.path_details),
             "nonadmitted_disposition": "deferred",
         },
@@ -403,7 +404,6 @@ def run_obligation_retrieval(
         admitted_groups=admission.admitted_groups,
         max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
         max_selected=ctx.config.max_discovery_observations,
-        max_per_file=2,
         trace=ctx.trace,
     )
     initial_observations = owner_comparison.selected
@@ -415,7 +415,8 @@ def run_obligation_retrieval(
             "output_snippet_count": len(initial_observations),
             "output_file_count": len({item.handle.path for item in initial_observations}),
             "global_limit": ctx.config.max_discovery_observations,
-            "per_file_limit": 2,
+            "per_file_limit": 0,
+            "per_file_selection_policy": "grouped_primary_plus_semantically_distinct_additional_owners",
             "selection_method": "initial_owner_comparison_global_semantic_selection",
             "post_comparison_reducer_applied": False,
             "owner_comparison_dormant_count": len(owner_comparison.dormant),

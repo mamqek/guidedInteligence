@@ -1466,6 +1466,9 @@ class RuntimeState:
             max_qualification_input_chars=int(
                 retrieval_settings.get("max_qualification_input_chars") or 40000
             ),
+            preferred_initial_owner_comparison_input_chars=int(
+                retrieval_settings.get("preferred_initial_owner_comparison_input_chars") or 60000
+            ),
             max_initial_owner_comparison_input_chars=int(
                 retrieval_settings.get("max_initial_owner_comparison_input_chars") or 100000
             ),
