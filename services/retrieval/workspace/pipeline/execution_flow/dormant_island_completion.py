@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 import json
 from pathlib import Path
 import re
+import sys
 from typing import Any, Mapping, Sequence
 
 from services.llm.json_completion import complete_json
@@ -23,6 +24,42 @@ from services.retrieval.workspace.tools import ToolRequest
 PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "dormant_island_completion.md"
 INPUT_SAFETY_RESERVE_CHARS = 512
 MAX_COMPLETIONS_PER_ISLAND = 2
+
+
+def announce_dormant_completion_llm_call(
+    *,
+    round_index: int,
+    source_observation_id: str,
+    target_observation_id: str,
+    relationship_kind: str,
+) -> None:
+    """Make the experiment's extra model cost visible in normal process output."""
+
+    print(
+        "[DORMANT-ISLAND-COMPLETION] EXTRA LLM CALL "
+        f"round={round_index} source={source_observation_id} "
+        f"target={target_observation_id} relationship={relationship_kind}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
+def announce_dormant_completion_promotion(
+    *,
+    round_index: int,
+    source_observation_id: str,
+    target_observation_id: str,
+    support_level: str,
+) -> None:
+    """Make an experiment-created evidence promotion visible to operators."""
+
+    print(
+        "[DORMANT-ISLAND-COMPLETION] EXTRA PROMOTION "
+        f"round={round_index} source={source_observation_id} "
+        f"target={target_observation_id} support={support_level}",
+        file=sys.stderr,
+        flush=True,
+    )
 
 
 @dataclass(frozen=True)
@@ -225,6 +262,12 @@ def qualify_dormant_island_completion(
                 "prompt": str(PROMPT_PATH),
             },
         )
+    announce_dormant_completion_llm_call(
+        round_index=round_index,
+        source_observation_id=source_card.observation_id,
+        target_observation_id=target_card.observation_id,
+        relationship_kind=relationship_kind,
+    )
     response = complete_json(
         llm_config,
         (

@@ -336,6 +336,7 @@ class WorkspaceRetrievalConfig:
     codex_ignore_user_config: bool = True
     codex_evidence_organizer_enabled: bool = True
     final_evidence_selection_enabled: bool = True
+    stop_before_round_zero_qualification: bool = False
     run_dir: str | None = None
     chunk_line_count: int = 40
     chunk_line_overlap: int = 10

@@ -24,6 +24,7 @@ from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification
     qualify_cards,
 )
 from services.retrieval.workspace.pipeline.execution_flow.dormant_island_completion import (
+    announce_dormant_completion_promotion,
     completion_observation,
     qualify_dormant_island_completion,
     select_dormant_island_completions,
@@ -815,6 +816,12 @@ def run_retrieval_controller(
                 candidates[str(payload["candidate_id"])] = candidate
             changed.append(target_observation)
             successful_completion_source_ids.append(selection.source_observation_id)
+            announce_dormant_completion_promotion(
+                round_index=round_index,
+                source_observation_id=selection.source_observation_id,
+                target_observation_id=target_observation.id,
+                support_level=completion_decision.support_level,
+            )
             ctx.trace.record(
                 "dormant_island_completion_promoted",
                 {

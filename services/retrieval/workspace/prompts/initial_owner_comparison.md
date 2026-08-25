@@ -21,5 +21,6 @@ Rules:
 - `outer_symbol` only identifies structural context. Judge the candidate `symbol` and its supporting source views.
 - Select more than one owner only when they plausibly cover different necessary parts of the obligation.
 - Do not select a generic owner merely because it ranked first.
-- For each group, return one or more IDs from that group's own owner_ids list. The schema requires every group and
-  prevents selecting an owner from another group.
+- Follow the supplied response schema. When it asks for `groups`, return one or more IDs from each group's own
+  owner list. When it asks for `selected_owner_ids`, make one global selection; a file group may receive no owner.
+  Never select an owner outside the IDs supplied by the schema.

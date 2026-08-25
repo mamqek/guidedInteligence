@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from contextlib import redirect_stderr
+from io import StringIO
 import unittest
 from unittest.mock import patch
 
@@ -11,6 +13,7 @@ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations
     SourceHandle,
 )
 from services.retrieval.workspace.pipeline.execution_flow.dormant_island_completion import (
+    announce_dormant_completion_promotion,
     completion_observation,
     qualify_dormant_island_completion,
     select_dormant_island_completions,
@@ -167,20 +170,37 @@ class DormantIslandCompletionTests(unittest.TestCase):
         complete_json.side_effect = answer
         source_card = DisclosureCard("parent", self.parent.handle, "complete_owner", "parent source")
         target_card = DisclosureCard("helper", self.helper.handle, "complete_owner", "helper source")
-        decision, usage, bounded = qualify_dormant_island_completion(
-            llm_config=object(),
-            user_request="Explain the watch regression.",
-            source_card=source_card,
-            target_card=target_card,
-            source_decision=promoted_navigation("parent", "Inspect verifyScenario."),
-            relationship_kind="contains",
-            max_input_chars=40_000,
-        )
+        stderr = StringIO()
+        with redirect_stderr(stderr):
+            decision, usage, bounded = qualify_dormant_island_completion(
+                llm_config=object(),
+                user_request="Explain the watch regression.",
+                source_card=source_card,
+                target_card=target_card,
+                source_decision=promoted_navigation("parent", "Inspect verifyScenario."),
+                relationship_kind="contains",
+                max_input_chars=40_000,
+                round_index=2,
+            )
         self.assertEqual(decision.support_level, "direct_evidence")
         self.assertEqual(usage["total_tokens"], 123)
         self.assertEqual([bounded[0].observation_id, bounded[1].observation_id], ["parent", "helper"])
         self.assertEqual(captured["payload"]["promoted_source"]["observation_id"], "parent")
         self.assertEqual(captured["payload"]["dormant_candidate"]["observation_id"], "helper")
+        self.assertIn("[DORMANT-ISLAND-COMPLETION] EXTRA LLM CALL", stderr.getvalue())
+        self.assertIn("round=2 source=parent target=helper relationship=contains", stderr.getvalue())
+
+    def test_promotion_announcement_is_prominent(self) -> None:
+        stderr = StringIO()
+        with redirect_stderr(stderr):
+            announce_dormant_completion_promotion(
+                round_index=3,
+                source_observation_id="parent",
+                target_observation_id="helper",
+                support_level="navigation_only",
+            )
+        self.assertIn("[DORMANT-ISLAND-COMPLETION] EXTRA PROMOTION", stderr.getvalue())
+        self.assertIn("round=3 source=parent target=helper support=navigation_only", stderr.getvalue())
 
 
 if __name__ == "__main__":

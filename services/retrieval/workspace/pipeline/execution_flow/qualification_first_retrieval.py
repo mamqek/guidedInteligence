@@ -11,15 +11,22 @@ from services.retrieval.workspace.connected_context import ConnectedSourceContex
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
 from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import (
     DiscoveryObservation,
-    aggregate_observations,
+    canonicalize_observations,
+    merge_observation_pair,
     observation_from_node,
     observation_from_result,
 )
-from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
+from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import (
+    PROMPT_PATH as QUALIFICATION_PROMPT_PATH,
+    QualificationDecision,
+    prepare_qualification_request,
+)
 from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import (
     compare_initial_owners,
+    fit_initial_owner_comparison_admission,
     select_range_candidate_owners,
 )
+from services.retrieval.workspace.pipeline.execution_flow.initial_file_admission import rank_initial_files
 from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import (
     MAX_EVIDENCE,
     MAX_FOCUSED_RESULTS,
@@ -48,7 +55,10 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     ordered_unique,
 )
 from services.retrieval.workspace.pipeline.execution_flow.retrieval_controller import run_retrieval_controller
-from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard
+from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import (
+    DisclosureCard,
+    disclose_observations,
+)
 from services.retrieval.workspace.tools import ToolRequest
 
 
@@ -97,7 +107,6 @@ def run_obligation_retrieval(
     )
     exact_prompt_seeds = _exact_prompt_seed_results(confirmations, repository_obligations)
     semantic_by_obligation: dict[str, list[dict[str, Any]]] = {}
-    held_semantic_by_obligation: dict[str, list[dict[str, Any]]] = {}
     for obligation in repository_obligations:
         query = _obligation_query(
             _obligation_stage_query_text(obligation),
@@ -132,6 +141,8 @@ def run_obligation_retrieval(
                 "obligation_id": obligation.id,
                 "dense_query": query,
                 "sparse_query": sparse_query,
+                "requested_sparse_query": sparse_query,
+                "effective_sparse_query": str(response.payload.get("sparse_query") or ""),
                 "repository_sparse_anchors": list(repository_sparse_anchors),
                 "excluded_sparse_anchor_refs": list(
                     _excluded_sparse_anchor_refs(obligation, exact_repository_symbols)
@@ -145,25 +156,60 @@ def run_obligation_retrieval(
                     response.payload.get("breakdown", {}).get("sparse", ())
                     if isinstance(response.payload.get("breakdown", {}), Mapping) else ()
                 ),
+                "hybrid_result_count": len(response.payload.get("results", ())),
+                "dense_result_count": len(
+                    response.payload.get("breakdown", {}).get("dense", ())
+                    if isinstance(response.payload.get("breakdown", {}), Mapping) else ()
+                ),
+                "sparse_result_count": len(
+                    response.payload.get("breakdown", {}).get("sparse", ())
+                    if isinstance(response.payload.get("breakdown", {}), Mapping) else ()
+                ),
+                "hybrid_unique_file_count": _unique_result_path_count(response.payload.get("results", ())),
+                "dense_unique_file_count": _unique_result_path_count(
+                    response.payload.get("breakdown", {}).get("dense", ())
+                    if isinstance(response.payload.get("breakdown", {}), Mapping) else ()
+                ),
+                "sparse_unique_file_count": _unique_result_path_count(
+                    response.payload.get("breakdown", {}).get("sparse", ())
+                    if isinstance(response.payload.get("breakdown", {}), Mapping) else ()
+                ),
+                "requested_final_limit": MAX_FOCUSED_RESULTS,
+                "backend_hybrid_limit": min(50, MAX_FOCUSED_RESULTS * 4),
+                "backend_channel_prefetch_limit": min(50, MAX_FOCUSED_RESULTS * 4) * 3,
                 "sparse_query_diagnostics": dict(response.payload.get("sparse_query_diagnostics", {})),
             },
         )
         tool_calls += 1
         if response.status != "ok":
             raise RuntimeError(f"required_tool_failed: qdrant_hybrid_search:{obligation.id}")
-        representatives, held_alternatives, file_groups = _file_group_initial_results(
+        representatives, alternatives, file_groups = _file_group_initial_results(
             response.payload,
-            limit=MAX_FOCUSED_RESULTS,
+            limit=max(
+                1,
+                _unique_result_path_count(
+                    tuple(response.payload.get("breakdown", {}).get("dense", ()))
+                    + tuple(response.payload.get("breakdown", {}).get("sparse", ()))
+                    if isinstance(response.payload.get("breakdown", {}), Mapping) else ()
+                ),
+            ),
         )
-        semantic_by_obligation[obligation.id] = list(representatives)
-        held_semantic_by_obligation[obligation.id] = list(held_alternatives)
+        all_channel_ranges = (*representatives, *alternatives)
+        semantic_by_obligation[obligation.id] = list(all_channel_ranges)
         ctx.trace.record(
-            "initial_file_groups_fused",
+            "initial_file_candidates_scored",
             {
                 "obligation_id": obligation.id,
-                "selected_file_count": len(file_groups),
+                "candidate_file_count": len(file_groups),
+                "file_limit_applied": False,
                 "representative_count": len(representatives),
-                "held_alternative_count": len(held_alternatives),
+                "alternative_count": len(alternatives),
+                "candidate_range_count": len(all_channel_ranges),
+                "representative_file_count": _unique_result_path_count(representatives),
+                "alternative_file_count": _unique_result_path_count(alternatives),
+                "dense_input_count": len(response.payload.get("breakdown", {}).get("dense", ())),
+                "sparse_input_count": len(response.payload.get("breakdown", {}).get("sparse", ())),
+                "candidate_disposition": "all channel ranges continue to global exact-range deduplication",
                 "file_groups": list(file_groups),
             },
         )
@@ -173,22 +219,31 @@ def run_obligation_retrieval(
         for obligation in repository_obligations
         for origin, values in (
             ("exact_prompt_anchor", exact_prompt_seeds.get(obligation.id, ())),
-            ("qdrant_hybrid", semantic_by_obligation.get(obligation.id, ())),
+            ("qdrant_all_channels", semantic_by_obligation.get(obligation.id, ())),
         )
         for rank, item in enumerate(values, start=1)
     ]
-    all_held_results = [
-        (obligation.id, "qdrant_file_group_held", rank, item)
-        for obligation in repository_obligations
-        for rank, item in enumerate(held_semantic_by_obligation.get(obligation.id, ()), start=1)
-    ]
-    ranges = [
+    submitted_ranges = [
         {"file": item.get("path"), "line_start": item.get("line_start"), "line_end": item.get("line_end")}
-        for _obligation_id, _origin, _rank, item in (*all_results, *all_held_results)
+        for _obligation_id, _origin, _rank, item in all_results
         if item.get("path") and item.get("line_start")
     ]
-    ranges = list({(str(item["file"]), int(item["line_start"]), int(item["line_end"])): item for item in ranges}.values())
-    range_nodes: dict[tuple[str, int, int], tuple[dict[str, Any], ...]] = {}
+    ranges = list({(str(item["file"]), int(item["line_start"]), int(item["line_end"])): item for item in submitted_ranges}.values())
+    ctx.trace.record(
+        "initial_exact_ranges_deduplicated",
+        {
+            "input_range_count": len(submitted_ranges),
+            "unique_range_count": len(ranges),
+            "duplicate_range_count": len(submitted_ranges) - len(ranges),
+            "input_file_count": len({str(item["file"]) for item in submitted_ranges}),
+            "unique_file_count": len({str(item["file"]) for item in ranges}),
+            "ranges": ranges,
+        },
+    )
+    range_nodes: dict[tuple[str, int, int], tuple[dict[str, Any], ...]] = {
+        (str(item["file"]), int(item["line_start"]), int(item["line_end"])): ()
+        for item in ranges
+    }
     if ranges:
         request = ToolRequest(
             tool_name="structural_resolve_ranges",
@@ -210,6 +265,40 @@ def run_obligation_retrieval(
                 line_start=key[1],
                 line_end=key[2],
             )
+        resolution_rows = [
+            {
+                "path": path,
+                "line_start": line_start,
+                "line_end": line_end,
+                "owner_count": len(nodes),
+                "owners": [
+                    {
+                        "node_id": str(node.get("id") or ""),
+                        "kind": str(node.get("kind") or ""),
+                        "symbol": str(node.get("qualified_name") or node.get("name") or ""),
+                        "line_start": int(node.get("line_start") or 0),
+                        "line_end": int(node.get("line_end") or 0),
+                    }
+                    for node in nodes
+                ],
+            }
+            for (path, line_start, line_end), nodes in range_nodes.items()
+        ]
+        ctx.trace.record(
+            "initial_codegraph_ranges_resolved",
+            {
+                "requested_range_count": len(ranges),
+                "returned_range_count": len(response.payload.get("results", ())),
+                "resolved_range_count": sum(bool(row["owner_count"]) for row in resolution_rows),
+                "unresolved_range_count": sum(not row["owner_count"] for row in resolution_rows),
+                "single_owner_range_count": sum(row["owner_count"] == 1 for row in resolution_rows),
+                "multi_owner_range_count": sum(row["owner_count"] > 1 for row in resolution_rows),
+                "owner_snippet_count": sum(int(row["owner_count"]) for row in resolution_rows),
+                "file_count": len({row["path"] for row in resolution_rows}),
+                "batch_diagnostics": dict(response.payload.get("batch_diagnostics", {})),
+                "ranges": resolution_rows,
+            },
+        )
 
     raw_observations: list[DiscoveryObservation] = []
     for obligation in repository_obligations:
@@ -229,7 +318,7 @@ def run_obligation_retrieval(
             )
             if observation is not None:
                 raw_observations.append(observation)
-    representative_observations: list[DiscoveryObservation] = []
+    structural_exact_anchor_snippet_count = len(raw_observations)
     for obligation_id, origin, rank, result in all_results:
         key = (str(result.get("path") or ""), int(result.get("line_start") or 0), int(result.get("line_end") or 0))
         observations = observation_from_result(
@@ -242,96 +331,185 @@ def run_obligation_retrieval(
             exact_anchor=str(result.get("exact_prompt_anchor") or "") if origin == "exact_prompt_anchor" else "",
         )
         raw_observations.extend(observations)
-        if origin == "qdrant_hybrid":
-            representative_observations.extend(observations)
-    held_raw_observations: list[DiscoveryObservation] = []
-    for obligation_id, origin, rank, result in all_held_results:
-        key = (str(result.get("path") or ""), int(result.get("line_start") or 0), int(result.get("line_end") or 0))
-        held_raw_observations.extend(
-            observation_from_result(
-                result,
-                obligation_id=obligation_id,
-                query_id=f"{_file_group_result_origin(result, origin)}:{obligation_id}",
-                rank=int(result.get("file_group_rank") or rank),
-                retriever=_file_group_result_origin(result, origin),
-                nodes=range_nodes.get(key, ()),
-            )
-        )
-    baseline_initial_observations, baseline_guardrail_decisions = aggregate_observations(
-        raw_observations,
-        limit=ctx.config.max_discovery_observations,
-        one_per_path=True,
-        max_obligation_variants_per_path=2,
-        one_per_obligation_per_path=False,
+    canonical_snippets, canonicalization_decisions = canonicalize_observations(raw_observations)
+    ctx.trace.record(
+        "initial_snippets_canonicalized",
+        {
+            **_aggregation_trace_payload(
+                input_observations=raw_observations,
+                output_observations=canonical_snippets,
+                decisions=canonicalization_decisions,
+                limit=0,
+                per_file_limit=0,
+            ),
+            "exact_anchor_snippet_count": structural_exact_anchor_snippet_count,
+            "exact_prompt_seed_snippet_count": (
+                sum(origin == "exact_prompt_anchor" for _obligation_id, origin, _rank, _item in all_results)
+            ),
+            "channel_range_occurrence_count": len(all_results),
+            "canonical_file_count": len({item.handle.path for item in canonical_snippets}),
+            "canonicalization_pass_count": 1,
+            "canonical_disposition": "shared immutable candidate pool for file admission and owner comparison",
+        },
     )
-    all_aggregated_observations, _all_decisions = aggregate_observations(
-        raw_observations,
-        limit=max(1, len(raw_observations)),
+
+    file_ranking = rank_initial_files(
+        canonical_snippets,
+        obligation_ids=tuple(item.id for item in repository_obligations),
     )
-    # Owner comparison belongs to the per-obligation file-admission boundary.
-    # Deriving these groups from the later global observation guardrail used to
-    # erase a third obligation for an otherwise admitted file.  In particular,
-    # pandas/core/series.py::_binop was retained as an explain_trigger file
-    # alternative and resolved by CodeGraph, but never reached comparison after
-    # two other Series obligation variants consumed the per-path guardrail.
-    admitted_groups = _owner_comparison_admitted_groups(
-        representative_observations,
-        baseline_initial_observations,
+    admission = fit_initial_owner_comparison_admission(
+        obligation_descriptions={item.id: item.description for item in repository_obligations},
+        observations=canonical_snippets,
+        ranked_paths=file_ranking.ranked_paths,
+        max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
+        max_files=max(1, len(file_ranking.ranked_paths)),
+        max_selected=ctx.config.max_discovery_observations,
+        max_per_file=2,
     )
-    comparison_candidates, _comparison_decisions = aggregate_observations(
-        (*representative_observations, *held_raw_observations),
-        limit=max(1, len(representative_observations) + len(held_raw_observations)),
+    admitted_path_keys = {path.casefold() for path in admission.admitted_paths}
+    file_admission_decisions = tuple(
+        {
+            "observation_id": item.id,
+            "path": item.handle.path,
+            "symbol": item.handle.symbol,
+            "reason": "file_not_admitted",
+        }
+        for item in canonical_snippets
+        if item.handle.path.casefold() not in admitted_path_keys
+    )
+    ctx.trace.record(
+        "initial_files_admitted",
+        {
+            "input_snippet_count": len(canonical_snippets),
+            "input_file_count": len(file_ranking.ranked_paths),
+            "admitted_file_count": len(admission.admitted_paths),
+            "admitted_paths": list(admission.admitted_paths),
+            "coverage_reserved_paths": list(file_ranking.coverage_paths),
+            "excluded_file_count": len(admission.excluded_paths),
+            "excluded_paths": list(admission.excluded_paths),
+            "participating_candidate_count": admission.candidate_count,
+            "comparison_total_input_chars": admission.total_input_chars,
+            "comparison_input_char_budget": ctx.config.max_initial_owner_comparison_input_chars,
+            "file_limit": 0,
+            "admission_limit": "exact_owner_comparison_input_char_budget",
+            "ranking": list(file_ranking.path_details),
+            "nonadmitted_disposition": "deferred",
+        },
     )
     owner_comparison = compare_initial_owners(
         llm_config=ctx.config.llm_config,
         obligation_descriptions={item.id: item.description for item in repository_obligations},
-        observations=comparison_candidates,
-        admitted_groups=admitted_groups,
+        observations=canonical_snippets,
+        admitted_groups=admission.admitted_groups,
         max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
+        max_selected=ctx.config.max_discovery_observations,
+        max_per_file=2,
         trace=ctx.trace,
     )
-    exact_baseline_ids = {
-        item.id for item in baseline_initial_observations
-        if any(provenance.retriever == "exact_anchor" for provenance in item.provenance)
-    }
-    exact_baseline = tuple(item for item in all_aggregated_observations if item.id in exact_baseline_ids)
-    initial_observations, comparison_guardrail_decisions = aggregate_observations(
-        (*exact_baseline, *owner_comparison.selected),
-        limit=ctx.config.max_discovery_observations,
-        one_per_path=True,
-        max_obligation_variants_per_path=2,
-        one_per_obligation_per_path=False,
+    initial_observations = owner_comparison.selected
+    ctx.trace.record(
+        "round_zero_snippets_selected",
+        {
+            "input_snippet_count": admission.candidate_count,
+            "input_file_count": len(admission.admitted_paths),
+            "output_snippet_count": len(initial_observations),
+            "output_file_count": len({item.handle.path for item in initial_observations}),
+            "global_limit": ctx.config.max_discovery_observations,
+            "per_file_limit": 2,
+            "selection_method": "initial_owner_comparison_global_semantic_selection",
+            "post_comparison_reducer_applied": False,
+            "owner_comparison_dormant_count": len(owner_comparison.dormant),
+            "output_snippets": [item.to_dict(include_text=False) for item in initial_observations],
+        },
     )
-    guardrail_decisions = (*baseline_guardrail_decisions, *comparison_guardrail_decisions)
-    initial_ids = {item.id for item in initial_observations}
-    admission_reason_by_id = {
-        str(item.get("observation_id") or ""): str(item.get("reason") or "")
-        for item in guardrail_decisions
-    }
-    # Compared-but-unselected owners remain traceable in the comparison result,
-    # but do not silently regain a controller action as deferred observations.
-    dormant_ids = {item.id for item in owner_comparison.dormant}
-    deferred_values = [
-        replace(item, admission_reason=admission_reason_by_id.get(item.id, ""))
-        for item in all_aggregated_observations
-        if item.id not in initial_ids and item.id not in dormant_ids
-    ]
-    deferred_by_id = {item.id: item for item in deferred_values}
-    deferred_observations = tuple(deferred_by_id.values())
+    deferred_observations = _deferred_after_initial_owner_comparison(
+        baseline_candidates=canonical_snippets,
+        owner_comparison_selected=owner_comparison.selected,
+        round_zero_selected=initial_observations,
+        owner_comparison_dormant=owner_comparison.dormant,
+        guardrail_decisions=file_admission_decisions,
+    )
     ctx.trace.record(
         "discovery_observations_created",
         {
             "raw_count": len(raw_observations),
-            "held_raw_count": len(held_raw_observations),
+            "canonical_count": len(canonical_snippets),
             "raw_observations": [item.to_dict(include_text=False) for item in raw_observations],
             "aggregated_count": len(initial_observations),
             "deferred_count": len(deferred_observations),
+            "deferred_observations": [
+                item.to_dict(include_text=False) for item in deferred_observations
+            ],
+            "deferred_disposition": (
+                "passed_to_controller_in_normal_execution_and_eligible_for_explicit_deferred_inspection; "
+                "not inspected by the pre-qualification diagnostic stop"
+            ),
             "observations": [item.to_dict(include_text=False) for item in initial_observations],
-            "guardrail_decisions": list(guardrail_decisions),
+            "file_admission_decisions": list(file_admission_decisions),
+            "lifecycle_partition_complete": (
+                len(initial_observations) + len(deferred_observations) + len(owner_comparison.dormant)
+                == len(canonical_snippets)
+            ),
             "initial_owner_comparison_selected_count": len(owner_comparison.selected),
             "initial_owner_comparison_dormant_count": len(owner_comparison.dormant),
         },
     )
+
+    if ctx.config.stop_before_round_zero_qualification:
+        disclosure = disclose_observations(
+            initial_observations,
+            workspace_root=ctx.config.workspace_root,
+            outline_tool=structural_tools["structural_file_outline"],
+            trace=ctx.trace,
+            round_index=0,
+        )
+        tool_calls += disclosure.tool_calls
+        preparation = prepare_qualification_request(
+            user_request=state.user_input,
+            cards=disclosure.cards,
+            max_input_chars=ctx.config.max_qualification_input_chars,
+        )
+        ctx.trace.record(
+            "round_zero_qualification_input_prepared",
+            {
+                "round": 0,
+                "diagnostic_stop": True,
+                "llm_called": False,
+                "snippet_count": len(preparation.cards),
+                "file_count": len({item.handle.path for item in preparation.cards}),
+                "serialized_chars": preparation.serialized_chars,
+                "total_input_chars": preparation.input_chars,
+                "fixed_input_chars": preparation.fixed_input_chars,
+                "source_capacity": preparation.source_capacity,
+                "source_used_chars": sum(len(item.source_text) for item in preparation.cards),
+                "input_char_budget": ctx.config.max_qualification_input_chars,
+                "prompt": str(QUALIFICATION_PROMPT_PATH),
+                "cards": [item.to_dict() for item in preparation.cards],
+                "payload": dict(preparation.payload),
+            },
+        )
+        return RetrievalResult(
+            evidence=(),
+            coverage_status="missing",
+            sufficient=False,
+            retrieval_summary={
+                "retriever": "workspace",
+                "diagnostic_stop": "before_round_zero_qualification",
+                "request_analysis": intent_context.to_dict(),
+                "retrieval_plan": {
+                    "strategy": "qualification_first_controller_v1",
+                    "obligations": [item.to_dict() for item in progress.values()],
+                },
+                "index_rebuilt": index_rebuilt,
+                "index_document_count": index_document_count,
+                "tool_calls": tool_calls,
+                "round_zero_snippet_count": len(initial_observations),
+                "round_zero_file_count": len({item.handle.path for item in initial_observations}),
+                "initial_owner_comparison_usage": dict(owner_comparison.usage),
+                "qualification_llm_called": False,
+            },
+            failures_or_fallbacks=("diagnostic_stop_before_round_zero_qualification",),
+        )
 
     controller = run_retrieval_controller(
         ctx=ctx,
@@ -755,27 +933,6 @@ def _initial_sparse_query(
     return " ".join(_repository_sparse_anchors(obligation, exact_repository_symbols)).strip()
 
 
-def _owner_comparison_admitted_groups(
-    representative_observations: Sequence[DiscoveryObservation],
-    baseline_initial_observations: Sequence[DiscoveryObservation],
-) -> tuple[tuple[str, str], ...]:
-    """Identify paths important enough for bounded owner comparison.
-
-    The comparison stage groups all resolved owners for each admitted path in
-    one decision, across the obligations that found them. This avoids both the
-    two-obligation loss and the token explosion caused by repeating the same
-    file's owners in a separate group for every obligation.
-    """
-    del representative_observations
-    return tuple(dict.fromkeys(
-        (item.handle.path.casefold(), obligation_id)
-        for item in baseline_initial_observations
-        for provenance in item.provenance
-        if provenance.retriever != "exact_anchor"
-        for obligation_id in provenance.obligation_ids
-    ))
-
-
 def _file_group_initial_results(
     payload: Mapping[str, Any],
     *,
@@ -784,11 +941,10 @@ def _file_group_initial_results(
     """Fuse dense/sparse file ranks while preserving each channel's owner candidate.
 
     Qdrant's native RRF operates on chunks, so a file with many similar chunks
-    can push other files down before the later per-path cap runs.  Initial
-    discovery instead gives each path one rank per channel.  The first dense
-    and sparse chunks seed the admitted file groups. All other returned ranges
-    in those groups are retained for the compact owner-comparison stage; they
-    do not independently consume qualification cards.
+    can push other files down before a later path decision. Initial discovery
+    instead gives each path one rank per channel. The first dense and sparse
+    chunks are returned separately from the remaining ranges for traceability;
+    the canonical-pool caller retains both collections without admitting files.
     """
     breakdown = payload.get("breakdown", {})
     if not isinstance(breakdown, Mapping):
@@ -977,6 +1133,77 @@ def _channel_result_summary(values: object) -> list[dict[str, object]]:
         for index, item in enumerate(values, start=1)
         if isinstance(item, Mapping)
     ]
+
+
+def _unique_result_path_count(values: object) -> int:
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        return 0
+    return len({
+        str(item.get("path") or "").replace("\\", "/")
+        for item in values
+        if isinstance(item, Mapping) and str(item.get("path") or "").strip()
+    })
+
+
+def _deferred_after_initial_owner_comparison(
+    *,
+    baseline_candidates: Sequence[DiscoveryObservation],
+    owner_comparison_selected: Sequence[DiscoveryObservation],
+    round_zero_selected: Sequence[DiscoveryObservation],
+    owner_comparison_dormant: Sequence[DiscoveryObservation],
+    guardrail_decisions: Sequence[Mapping[str, Any]],
+) -> tuple[DiscoveryObservation, ...]:
+    """Retain every plausible snippet removed by a deterministic boundary.
+
+    Selected owners can originate only from held ranges and therefore may not
+    exist in the representative-only baseline pool.  They remain plausible
+    when the round-zero guardrail removes them and must become deferred rather
+    than disappearing into the trace.  Owners explicitly left unselected by
+    owner comparison remain dormant and are intentionally excluded here.
+    """
+    candidates_by_id: dict[str, DiscoveryObservation] = {}
+    for candidate in (*baseline_candidates, *owner_comparison_selected):
+        current = candidates_by_id.get(candidate.id)
+        candidates_by_id[candidate.id] = (
+            merge_observation_pair(current, candidate) if current is not None else candidate
+        )
+    selected_ids = {item.id for item in round_zero_selected}
+    dormant_ids = {item.id for item in owner_comparison_dormant}
+    admission_reason_by_id = {
+        str(item.get("observation_id") or ""): str(item.get("reason") or "")
+        for item in guardrail_decisions
+    }
+    return tuple(
+        replace(candidate, admission_reason=admission_reason_by_id.get(candidate.id, ""))
+        for candidate in candidates_by_id.values()
+        if candidate.id not in selected_ids and candidate.id not in dormant_ids
+    )
+
+
+def _aggregation_trace_payload(
+    *,
+    input_observations: Sequence[DiscoveryObservation],
+    output_observations: Sequence[DiscoveryObservation],
+    decisions: Sequence[Mapping[str, Any]],
+    limit: int,
+    per_file_limit: int,
+) -> dict[str, Any]:
+    reason_counts: dict[str, int] = {}
+    for decision in decisions:
+        reason = str(decision.get("reason") or "unknown")
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+    return {
+        "input_snippet_count": len(input_observations),
+        "input_file_count": len({item.handle.path for item in input_observations}),
+        "output_snippet_count": len(output_observations),
+        "output_file_count": len({item.handle.path for item in output_observations}),
+        "removed_or_merged_count": len(input_observations) - len(output_observations),
+        "global_limit": limit,
+        "per_file_limit": per_file_limit,
+        "decision_reason_counts": reason_counts,
+        "decisions": [dict(item) for item in decisions],
+        "output_snippets": [item.to_dict(include_text=False) for item in output_observations],
+    }
 
 
 def _skipped_consolidation(states: Sequence[ObligationProgress]) -> dict[str, Any]:

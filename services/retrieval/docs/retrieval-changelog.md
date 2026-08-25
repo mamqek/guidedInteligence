@@ -3982,3 +3982,271 @@ coverage or stable final LLM acceptance of every visible owner node.
   moved the first loss boundary beyond `_binop` inspection; it then failed at a different boundary because the agent
   could not identify and ground the dynamically generated `Series.add` wrapper path before budget exhaustion. The
   cost and final quality remain unacceptable for promoting the agentic mode.
+
+### Early retrieval canonical-pool rewrite (2026-08-25)
+
+#### Experiment plan and unchanged baseline
+
+- Scope: qualification-first retrieval from the six initial obligation searches through round-zero source-card
+  preparation. Qualification, controller rounds, final evidence selection, and explanation generation are outside
+  this experiment. The intentionally separate tiny-owner/owner-cluster experiment is not included: sibling and
+  nested owner splitting retain their existing semantics in this rewrite.
+- Baseline artifact: TypeScript CodeRepoQA case `microsoft-TypeScript-35468`, diagnostic run
+  `run-20260824T043832Z`, stopped immediately before the round-zero qualification LLM. The repository snapshot,
+  Qdrant index, CodeGraph index, model configuration, prompts, and 40,000-character qualification budget are the
+  fixed comparison inputs.
+- Intended stage boundary: replace repeated subset-specific aggregation and early file admission with one canonical
+  runtime snippet pool, one global file-admission pass, and one semantic final selection of 24 snippets. Existing
+  CodeGraph nodes are not recreated; canonical snippets add retrieval provenance and lifecycle state to resolved
+  node identities or unresolved ranges.
+- Expected quality effect: structurally useful files are not rejected before owner resolution; held-owner recovery is
+  no longer necessary; LLM-selected owners are not silently removed; every nonselected snippet remains explicitly
+  deferred, dormant, or rejected; owner comparison receives source aligned to each owner rather than a shared raw
+  range preview.
+- Expected cost effect: baseline CodeGraph submission is 253 unique ranges. Resolving every uncapped dense/sparse hit
+  would submit 421 unique ranges for this run (+168, +66%). The owner-comparison payload remains bounded by its
+  existing 100,000-character fail-fast contract. Qualification remains capped at 40,000 characters and is prepared
+  but not executed in diagnostic runs.
+- Regression risks: a larger structural pool can increase CodeGraph runtime and owner-comparison context; global
+  canonicalization can accidentally erase provenance if identity and selection remain coupled; one global file pass
+  can reduce obligation coverage unless coverage is explicit; exact anchors can dominate despite weak issue
+  relevance; stochastic owner comparison can change the final file mix. Roll back a step if two unchanged diagnostic
+  runs disagree mechanically, if lifecycle accounting is incomplete, or if direct Builder/BuilderState/watch evidence
+  is consistently replaced by weaker lexical matches.
+
+#### Baseline flow and measurements
+
+- Six obligation searches each returned 48 dense, 48 sparse, and 12 hybrid snippets. Per-obligation uncapped unique
+  file counts were 36 subject, 37 trigger, 42 ordered mechanism, 31 state changes, 35 resulting effect, and 32 why.
+- The current 12-files-per-obligation gate produced 72 file-obligation admissions but only 45 unique files because
+  `src/compiler/tsbuildPublic.ts` and `src/testRunner/unittests/tsbuild/watchMode.ts` occurred in all six obligations.
+  It retained 94 representative ranges and 248 held ranges. Without this gate the six searches contain 213
+  file-obligation groups, 116 unique files, 570 per-obligation exact ranges, and 421 globally unique ranges.
+- Global exact-range deduplication reduced 342 admitted range occurrences to 253 unique CodeGraph submissions.
+  CodeGraph resolved 162 ranges and left 91 without a non-file structural owner; 136 resolved to one owner and 26 to
+  multiple owners, producing 228 structural owner results across 45 files.
+- Reapplying unique-range resolutions to every channel/obligation occurrence produced 110 representative snippets
+  from 94 ranges and 301 held snippets from 248 ranges. Five exact-anchor occurrences for
+  `scripts/bisect-test.ts::tsc` raised the baseline input to 115 snippets across 46 files and explain the extra file.
+- The first aggregation merged 19 repeated node identities, two substantially overlapping unresolved ranges, and one
+  contained owner. It then selected 24 snippets across 17 files, excluding 47 at the global ceiling and 22 at the
+  two-per-file ceiling.
+- The owner-comparison superset contained 411 occurrence-level snippets and canonicalized to 278 snippets across 45
+  files. Only 167 snippets across 16 non-anchor admitted files participated; the LLM selected 33 and made 134
+  participating owners dormant.
+- The post-comparison reducer combined those 33 selections with one protected exact anchor, retained 24 snippets
+  across 17 files, and removed ten LLM-selected same-file alternatives. Only two of those ten reappeared in the
+  deferred pool. The other eight became trace-only even though owner comparison selected them.
+- Round-zero disclosure prepared 24 cards across 17 files. Source cards used 14,323 characters; serialized
+  observations used 32,362 characters; total qualification input was 37,734 of the 40,000-character budget. The
+  qualification LLM was not called.
+- Observed quality losses: the 12-file gate excluded direct watch/export evidence including
+  `tscWatch/programUpdates.ts` and `tscWatch/emitAndErrorUpdates.ts`; the final deterministic cap discarded selected
+  mechanism owners including `updateModuleResolutionCache`, `createSolutionBuilderWorker`, `updateExportedModules`,
+  `getFilesAffectedByUpdatedShapeWhenModuleEmit`, `Project::updateGraph`, and
+  `handleDtsMayChangeOfAffectedFile`. Multi-owner candidates also shared the original Qdrant compact view rather than
+  receiving owner-aligned source.
+
+#### Main problems in the current stages
+
+1. File admission occurs before structural owner identity is known, so a textual range chooses a file before the
+   system knows which owner or owners it represents.
+2. Representative-only path admission forces a later held-snippet recovery stage; the recovery is compensating for
+   the earlier ordering rather than adding new retrieval information.
+3. `aggregate_observations` mixes identity/provenance canonicalization with global and per-file selection. It is run
+   over three different subsets, so identity work and lifecycle decisions are repeated and hard to audit.
+4. Unique CodeGraph results are expanded back into occurrence-level representative and held snippets before being
+   merged again. Provenance can be accumulated without recreating duplicate runtime candidates.
+5. Owner comparison semantically selects 33 owners, after which a deterministic recurrence/rank cap silently removes
+   ten. Eight removed held-derived selections receive no runtime state.
+6. Owner comparison distinguishes owners split from one range mainly by symbol because their compact source view is
+   still the shared original Qdrant range.
+
+#### Current-to-proposed stage mapping
+
+| Current stage | Current responsibility/problem | Proposed stage |
+|---|---|---|
+| 1 | Qdrant retrieval | 1. Per-obligation Qdrant Search |
+| 2 | File admission before structural meaning | Move to 4. Single Global File Admission |
+| 3 | Exact-range deduplication after the file gate | 2. Global Exact-Range Deduplication before admission |
+| 4 | Resolve ranges to existing owners | First half of 3. CodeGraph Range Resolution and Single Snippet Canonicalization |
+| 5A | Canonicalize representative snippets | Fold into proposed stage 3 |
+| 5B | Use 24 snippets primarily to admit paths | Replace with proposed stage 4 |
+| 6 | Recover held owners and canonicalize again | Replace with canonical pool plus proposed stage 5 |
+| 7 | LLM compares owners | Fold into proposed stage 6 |
+| 8A | Canonicalize LLM-selected owners again | Remove; proposed stage 3 already established identity |
+| 8B | Deterministically reduce LLM selections to 24 | Incorporate into proposed stage 6 semantic decision |
+| 9-10 | Source disclosure and qualification preparation | 7. Round-0 Source Disclosure and Qualification Input Preparation |
+
+#### Refined proposed stages
+
+1. **Per-obligation Qdrant Search:** retain complete dense, sparse, hybrid, obligation, and channel provenance. The
+   internal 144-candidate Qdrant prefetch remains backend diagnostics, not downstream inventory.
+2. **Global Exact-Range Deduplication:** combine all initial dense/sparse ranges and exact anchors before file
+   admission; submit every exact `(path, start, end)` once while retaining all originating views.
+3. **CodeGraph Range Resolution and Single Snippet Canonicalization:** resolve to existing graph nodes; create one
+   canonical runtime snippet per node ID or unresolved overlapping range; merge provenance additively; represent
+   containment as context; apply no file or 24-snippet limit. Owner clustering is explicitly deferred to a later
+   experiment.
+4. **Single Global File Admission:** select files once from canonical snippets using obligation coverage, retrieval
+   quality/recurrence, and the 100,000-character owner-comparison budget. Nonadmitted snippets become deferred.
+5. **Owner-Comparison Candidate Construction:** build one group per admitted file directly from the canonical pool and
+   provide owner-aligned bounded previews. There is no representative/held recovery or new canonicalization.
+6. **Initial Owner Comparison and Single 24-Snippet Round-0 Guardrail:** make one semantic decision under the global
+   24 and two-per-file constraints. Exhaustively partition candidates into selected, deferred, and dormant; do not
+   apply another deterministic cap after the LLM.
+7. **Round-0 Source Disclosure and Qualification Input Preparation:** disclose the selected canonical owners and fit
+   cards into the unchanged 40,000-character budget; diagnostic runs stop before the qualification LLM.
+
+#### Incremental execution ledger
+
+| Step | Attempt | Focused run 1 | Focused run 2 | Cost change | Decision | Remaining issue |
+|---|---:|---|---|---|---|---|
+| Exhaustive post-comparison lifecycle state | 1 | 77 tests pass | 77 tests pass | No LLM/payload change; deferred 33 -> 40 in checkpoint run | Accepted | Seven exercised post-cap omissions all deferred |
+| Pure canonical pool and owner-aligned views | 1 | 90 tests pass | 90 tests pass | One canonicalization over 674 -> 415 and 718 -> 464 occurrences | Accepted | Cross-repository identity/overlap behavior remains unmeasured |
+| Single global file admission | 2 | 49 files/329 candidates | 38 files/324 candidates | Exact comparison inputs reached 100,000 and 99,986 characters | Accepted for this boundary | Admission count is payload-dependent; broader quality remains open |
+| Single semantic final-24 selection | 1 | 15 selected/10 files | 23 selected/15 files | 37,960 and 37,847 comparison tokens versus 18,497 baseline | Accepted mechanically | Roughly doubled token cost needs downstream quality evidence |
+| Combined pre-qualification path | 3 | `run-20260824T223236Z` | `run-20260824T223430Z` | Qualification preparation stayed within 40,000 characters | Accepted for requested diagnostic scope | Qualification/controller/final-selection acceptance was intentionally not run |
+
+Attempt history for the combined path:
+
+| Attempt | Hypothesis | Exact change | Observed failure | Root cause | Future option |
+|---:|---|---|---|---|---|
+| 1 | A strict global owner-ID array can encode the final 24 directly | Added `selected_owner_ids` with `maxItems=24` and `uniqueItems=true` | Actual pipeline reached owner comparison, then HTTP 400 before an LLM decision | Provider strict-schema subset does not permit `uniqueItems` | Remove unsupported keyword; runtime validation already deduplicates IDs |
+| 2 | Cross-obligation recurrence should identify the most broadly useful files | Ranked files by obligation count/recurrence and admitted 24 before global comparison | `run-20260824T222923Z` completed mechanically but ranked `builder.ts` 26 and `builderState.ts` 43; neither entered comparison | Broad generic files matched more obligations than narrower mechanism files; the obsolete 24-file ceiling remained after global schema no longer required one owner per file | Rank by best file retrieval quality before recurrence and admit until the exact 100,000-character payload budget |
+| 3 | Best retrieval quality followed by support, with exact payload fitting, can preserve mechanism files without a fixed file count | Ranked canonical file groups by exact-anchor status, best rank, best score, obligation support, and recurrence; admitted groups while serializing the real prompt, payload, and schema | Both retained runs admitted `builder.ts`, `builderState.ts`, `programUpdates.ts`, and `emitAndErrorUpdates.ts`; all six obligations remained represented | None at the requested boundary; admitted file count varied from 49 to 38 because the stochastic candidate pool and literal payload sizes varied | Measure whether the approximately doubled comparison cost improves qualified/final evidence before broader acceptance |
+
+#### Lifecycle bug-fix checkpoint
+
+- Focused verification passed twice: 77 qualification-first retrieval tests, including a held-only owner selected by
+  owner comparison and removed by the round-zero guardrail. The owner is deferred with its
+  `same_path_alternative` reason; an explicitly unselected owner remains dormant.
+- Invalid environment artifact `run-20260824T221409Z` stopped before retrieval because Node 20.11 lacks
+  `node:sqlite`. It is excluded from behavioral comparison.
+- Actual pre-qualification run `run-20260824T221504Z` used bundled Node 24.19 and stopped before qualification as
+  requested. Its stochastic raw path contained 440 admitted range occurrences, 259 unique CodeGraph ranges across
+  35 files, 205 resolved ranges, 54 unresolved ranges, and 28 multi-owner ranges producing 267 structural owners.
+  Materialization produced 120 representative and 430 held snippets. The first reducer retained 24 snippets across
+  14 files; owner comparison considered 215 candidates in those files, selected 30, and made 185 dormant. The final
+  guardrail retained 23 snippets across 14 files and removed seven same-file alternatives.
+- All seven post-cap removals became deferred:
+  `builder.ts::isChangedSignagure`,
+  `builder.ts::createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile`,
+  `builderState.ts::updateExportedModules`,
+  `builderState.ts::updateExportedFilesMapFromCache`,
+  `builderState.ts::getFilesAffectedByUpdatedShapeWhenModuleEmit`,
+  `tsbuildPublic.ts::invalidateProjectAndScheduleBuilds`, and
+  `watchPublic.ts::createWatchProgram::updateProgram`.
+  This proves the state-accounting repair on the actual path. The run's selected/deferred totals were 23/40 versus
+  baseline 24/49, but those totals are not a direct quality comparison because upstream Qdrant and LLM results were
+  stochastic; the relevant deterministic change is that 7/7 exercised post-cap selections retained a runtime state.
+- Owner comparison used 21,999 tokens. Round-zero preparation used 13,378 source characters, 31,581 serialized
+  observation characters, and 36,875 total input characters. The qualification LLM was not called.
+
+#### Canonical-pool rewrite results
+
+The two retained runs used the same TypeScript case, index, prompt profile, model configuration, and diagnostic stop
+immediately before qualification. Counts that vary because Qdrant and the comparison LLM are stochastic are reported
+separately; the invariant stage changes are identified below.
+
+| Boundary | Old flow `run-20260824T043832Z` | Rewrite run 1 `run-20260824T223236Z` | Rewrite run 2 `run-20260824T223430Z` |
+|---|---:|---:|---:|
+| Initial exact-range occurrences entering CodeGraph path | 342 after early file gate | 565 before file admission | 569 before file admission |
+| Globally unique exact ranges | 253 | 365 | 397 |
+| Files represented before CodeGraph | 45 | 93 | 93 |
+| CodeGraph resolved / unresolved ranges | 162 / 91 | 236 / 129 | 239 / 158 |
+| Multi-owner ranges / structural owner outputs | 26 / 228 | 33 / 316 | 36 / 351 |
+| Materialized occurrences -> canonical snippets | Separate 115 baseline and 411 comparison pools | 674 -> 415 | 718 -> 464 |
+| Canonicalization merges: same node / overlap / contained | Repeated over subsets | 199 / 59 / 1 | 180 / 72 / 2 |
+| Files admitted to owner comparison | 16 non-anchor files after first reducer | 49 | 38 |
+| Owner-comparison candidates | 167 | 329 | 324 |
+| Owner-comparison input characters | Not recorded literally | 100,000 | 99,986 |
+| LLM-selected round-zero snippets / files | 33 before post-cap; 24 / 17 after cap | 15 / 10 | 23 / 15 |
+| Deterministically removed after LLM selection | 10 | 0 | 0 |
+| Deferred / dormant snippets | 49 / 134, with eight trace-only losses | 86 / 314 | 140 / 301 |
+| Canonical lifecycle equation | Incomplete | 415 = 15 + 86 + 314 | 464 = 23 + 140 + 301 |
+| Owner-comparison tokens | 18,497 | 37,960 | 37,847 |
+| Qualification input characters | 37,734 | 34,960 | 39,554 |
+
+Behavior caused by the rewrite rather than run randomness:
+
+- Exact deduplication and CodeGraph resolution now precede file admission. Consequently every initially retrieved
+  dense/sparse range is structurally classified, including ranges whose files would previously have failed a
+  per-obligation 12-file gate.
+- Canonical identity/provenance merging occurs once. The first retained run combined 674 occurrence views into 415
+  snippets; the second combined 718 into 464. Later stages reference those identities without another merge.
+- File admission has no fixed file-count ceiling. It fits the literal comparison request to 100,000 characters,
+  admitting 49 files in run 1 and 38 in run 2. Both runs preserved all six obligation categories and admitted the
+  four specifically audited mechanism/test paths: `builder.ts`, `builderState.ts`, `programUpdates.ts`, and
+  `emitAndErrorUpdates.ts`.
+- The LLM makes the only final 24/two-per-file decision. Run 1 chose 15 snippets and run 2 chose 23; both satisfied
+  the limits directly. No selected owner was discarded by a later recurrence/rank reducer.
+- Every canonical snippet has exactly one terminal pre-qualification state. Nonadmitted snippets are deferred;
+  admitted but unselected snippets are dormant; selected snippets proceed to disclosure. There are no trace-only
+  losses at either selection boundary.
+- Owners split from one Qdrant range retain independent owner-aligned compact views. A literal payload audit found
+  324 distinct owners represented by 366 views and no two distinct owners with the same complete view set. The
+  separate experiment that would cluster or subordinate tiny sibling/nested owners was not implemented.
+
+Selection quality inspection:
+
+- Run 1 selected the central chain through `createSolutionAndWatchModeOfProject`, `verifyTransitiveReferences`,
+  `createWatchProgram`, `emitFilesAndReportErrors`, both module and non-module affected-file traversal in
+  `builderState.ts`, and semantic-diagnostic traversal in `builder.ts`. It selected 15 snippets across ten files.
+- Run 2 independently retained `createSolutionAndWatchModeOfProject`, `verifyTransitiveReferences`,
+  `createWatchProgram`, builder reference traversal, `handleDtsMayChangeOf`, `updateShapeSignature`,
+  `updateExportedFilesMapFromCache`, and direct `emitAndErrorUpdates::verifyTransitiveExports` regression evidence.
+  It selected 23 snippets across 15 files.
+- Both runs dropped baseline-selected lexical noise such as `scripts/bisect-test.ts::tsc`, the blank `tsconfig`
+  range, the blank diagnostics range, and `IScriptSnapshot`. Run 2 still selected several unresolved test/config
+  snippets, so the semantic selector is improved at the observed loss boundaries but is not noise-free.
+- Exact selected-owner overlap with the stochastic baseline was five owners in run 1 and nine in run 2. The reliable
+  improvement is not overlap count: it is the survival of direct builder/watch candidates past file admission and
+  the absence of a post-LLM cap. The cost regression is material: comparison tokens rose by about 19,400 per run,
+  roughly twice the baseline. Downstream acceptance is therefore still required before treating the rewrite as a
+  general quality/cost win.
+
+Verification:
+
+- The focused pre-qualification suites passed twice with 90 tests each.
+- The full suite executed 404 tests: 401 passed and three existing `test_index_setup` fixtures errored because their
+  `SimpleNamespace` configuration lacks `lexical_ranking_profile`. The same failures predate this rewrite; no new
+  full-suite failure was introduced.
+- `git diff --check` passed. Both retained actual-pipeline runs stopped before the qualification LLM, as requested.
+
+#### First downstream full-pipeline checkpoint
+
+- Actual run `run-20260825T000741Z` exercised round-zero qualification, all three controller rounds, and final evidence
+  selection; only response prose generation was skipped. It completed `partial/false`, with 27 candidates before
+  final selection and 11 selected evidence items across five files.
+- Initial processing contained 568 range occurrences, 382 globally unique ranges across 86 files, 272 resolved and
+  110 unresolved ranges, 35 multi-owner ranges, and 351 structural owner outputs. The single canonicalization pass
+  reduced 722 occurrences to 417 snippets. Exact payload fitting admitted 323 snippets across 42 files at 99,929 of
+  100,000 characters. Global owner comparison selected 17 snippets across 11 files and made 306 dormant.
+- The final evaluator found two Oracle implementation files: `src/compiler/builder.ts` at final file rank 2 and
+  `src/testRunner/unittests/tsbuild/watchMode.ts` at rank 4. `src/compiler/builderState.ts` and
+  `src/testRunner/unittests/tscWatch/helpers.ts` were absent. This equals the two implementation overlaps in prior
+  full runs `run-20260821T230249Z` and `run-20260821T231406Z`, and is below the three-overlap result of
+  `run-20260823T144549Z`.
+- The final files were `tsbuildPublic.ts`, `builder.ts`, `inferredTypeFromTransitiveModule.ts`, `watchMode.ts`, and
+  `watch.ts`. Strong selected mechanisms included `queueReferencingProjects`, `getUpToDateStatusWorker`,
+  `handleDtsMayChangeOfAffectedFile`, `forEachReferencingModulesOfExportOfAffectedFile`, and
+  `createBuilderProgram::getSemanticDiagnostics`. The set did not retain the direct `builderState.ts` cache/signature
+  owners or the `verifyTransitiveExports` regression test that appeared in some previous runs.
+- `builderState.ts` survived the rewritten initial boundaries: owner comparison selected
+  `getFilesAffectedByUpdatedShapeWhenNonModuleEmit` and `updateExportedFilesMapFromCache`. Round-zero qualification
+  rejected the former as irrelevant to the project-reference/wildcard mechanism and deferred the latter because its
+  visible source only established cache reuse. Neither was selected for a controller action or entered the final
+  candidate pool. This loss was semantic qualification/scheduling, not the 100,000-character admission boundary or
+  trace-only state loss.
+- Total retrieval LLM usage was 114,240 tokens: 38,262 initial owner comparison, 30,994 qualification, 26,090
+  coverage, 17,057 final consolidation, and 1,837 connected context. Comparable totals were 103,534 and 95,166 in
+  the two 2026-08-21 runs and 101,497 in the three-overlap 2026-08-23 run. The approximately 18,000-19,000 extra
+  comparison tokens were not offset by improved coverage or Oracle overlap in this first downstream checkpoint.
+- The controller used 369 tools overall and stopped after the configured three-round budget. Four required
+  obligations remained unresolved because the run did not establish the concrete cached-program/declaration update,
+  the reported diagnostic difference, or the exact condition behind the wildcard re-export/watch-only failure.
+- Decision: do not claim downstream acceptance from this run. The canonical-pool rewrite fixes lifecycle and
+  structural-boundary behavior, but this first full comparison provides no final-quality gain and has a material token
+  regression. A second unchanged full run is required before deciding whether this is stochastic variance or a
+  repeatable downstream regression.
