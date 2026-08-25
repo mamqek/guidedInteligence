@@ -13,6 +13,7 @@ from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparis
     _candidate_groups,
     _compact_source_view,
     compare_initial_owners,
+    fit_initial_owner_comparison_admission,
     select_range_candidate_owners,
 )
 
@@ -44,6 +45,79 @@ def _observation(identifier: str, symbol: str, start: int, text: str) -> Discove
 
 
 class InitialOwnerComparisonTests(unittest.TestCase):
+    def test_global_selection_is_the_only_round_zero_limit(self) -> None:
+        first = _observation("first", "first", 100, "function first() { return build(); }")
+        second = _observation("second", "second", 200, "function second() { return update(); }")
+        second = DiscoveryObservation(
+            **{
+                **second.__dict__,
+                "handle": SourceHandle(
+                    path="pandas/core/ops.py",
+                    line_start=200,
+                    line_end=239,
+                    node_id="method:second",
+                    symbol="Ops::second",
+                    full_line_start=200,
+                    full_line_end=250,
+                ),
+            }
+        )
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
+            return_value={"selected_owner_ids": ["o1", "o2"]},
+        ):
+            result = compare_initial_owners(
+                llm_config=object(),
+                obligation_descriptions={"ordered": "Explain the mechanism."},
+                observations=(first, second),
+                admitted_groups=(("pandas/core/series.py", "*"), ("pandas/core/ops.py", "*")),
+                max_input_chars=40_000,
+                max_selected=2,
+                max_per_file=1,
+            )
+
+        self.assertEqual([item.id for item in result.selected], ["first", "second"])
+        self.assertEqual(result.dormant, ())
+        self.assertEqual(result.auto_selected_group_count, 0)
+
+    def test_global_selection_rejects_more_than_per_file_limit(self) -> None:
+        values = tuple(
+            _observation(str(index), f"owner_{index}", index * 100, f"function owner_{index}() {{}}")
+            for index in range(1, 4)
+        )
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
+            return_value={"selected_owner_ids": ["o1", "o2", "o3"]},
+        ), self.assertRaisesRegex(RuntimeError, "initial_owner_comparison_file_limit_exceeded"):
+            compare_initial_owners(
+                llm_config=object(),
+                obligation_descriptions={"ordered": "Explain the mechanism."},
+                observations=values,
+                admitted_groups=(("pandas/core/series.py", "*"),),
+                max_input_chars=40_000,
+                max_selected=3,
+                max_per_file=2,
+            )
+
+    def test_file_admission_uses_exact_serialized_comparison_budget(self) -> None:
+        values = (
+            _observation("first", "first", 100, "function first() { return build(); }"),
+            _observation("second", "second", 200, "function second() { return update(); }"),
+        )
+        admission = fit_initial_owner_comparison_admission(
+            obligation_descriptions={"ordered": "Explain the mechanism."},
+            observations=values,
+            ranked_paths=("pandas/core/series.py",),
+            max_input_chars=40_000,
+            max_files=24,
+            max_selected=24,
+            max_per_file=2,
+        )
+
+        self.assertEqual(admission.admitted_paths, ("pandas/core/series.py",))
+        self.assertEqual(admission.candidate_count, 2)
+        self.assertGreater(admission.total_input_chars, 0)
+
     def test_resolves_sibling_methods_and_keeps_class_as_outer_context(self) -> None:
         nodes = (
             {"id": "series", "kind": "class", "qualified_name": "Series", "line_start": 84, "line_end": 2550},

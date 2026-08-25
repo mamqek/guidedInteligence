@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 import json
 from pathlib import Path
 import re
+from types import SimpleNamespace
 from typing import Any, Mapping, Sequence
 
 from services.llm.json_completion import complete_json
@@ -37,6 +38,15 @@ class InitialOwnerComparison:
     compared_group_count: int
     auto_selected_group_count: int
     selected_by_group: Mapping[str, tuple[str, ...]]
+
+
+@dataclass(frozen=True)
+class InitialOwnerComparisonAdmission:
+    admitted_groups: tuple[tuple[str, str], ...]
+    admitted_paths: tuple[str, ...]
+    excluded_paths: tuple[str, ...]
+    total_input_chars: int
+    candidate_count: int
 
 
 def select_range_candidate_owners(
@@ -98,6 +108,8 @@ def compare_initial_owners(
     observations: Sequence[DiscoveryObservation],
     admitted_groups: Sequence[tuple[str, str]],
     max_input_chars: int,
+    max_selected: int | None = None,
+    max_per_file: int = 2,
     trace: Any | None = None,
 ) -> InitialOwnerComparison:
     """Choose structural owners inside already-admitted file/obligation groups.
@@ -106,12 +118,15 @@ def compare_initial_owners(
     silently choosing one owner before the normal qualification LLM sees it.
     """
     groups = _candidate_groups(observations, admitted_groups)
-    auto_selected = {
+    global_selection = max_selected is not None
+    auto_selected = {} if global_selection else {
         group_id: (values[0].id,)
         for group_id, values in groups.items()
         if len(values) == 1
     }
-    compared = {group_id: values for group_id, values in groups.items() if len(values) > 1}
+    compared = dict(groups) if global_selection else {
+        group_id: values for group_id, values in groups.items() if len(values) > 1
+    }
     usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     selected_by_group: dict[str, tuple[str, ...]] = dict(auto_selected)
     serialized_chars = 0
@@ -120,8 +135,11 @@ def compare_initial_owners(
         payload, external_groups, group_aliases, owner_aliases = _payload(
             obligation_descriptions, compared
         )
-        prompt_text = PROMPT_PATH.read_text(encoding="utf-8")
-        response_format = _response_format(external_groups)
+        prompt_text = _prompt_text(max_selected=max_selected, max_per_file=max_per_file)
+        response_format = (
+            _global_response_format(external_groups, max_selected=max_selected or 1)
+            if global_selection else _response_format(external_groups)
+        )
         serialized = json.dumps(payload, sort_keys=True)
         serialized_chars = len(serialized)
         schema_chars = len(json.dumps(response_format, sort_keys=True))
@@ -172,7 +190,15 @@ def compare_initial_owners(
             response_format=response_format,
             log_event=log_event,
         )
-        external_selection = _validate_response(response, external_groups)
+        external_selection = (
+            _validate_global_response(
+                response,
+                external_groups,
+                max_selected=max_selected or 1,
+                max_per_file=max_per_file,
+            )
+            if global_selection else _validate_response(response, external_groups)
+        )
         selected_by_group.update(
             {
                 group_aliases[group_id]: tuple(owner_aliases[owner_id] for owner_id in owner_ids)
@@ -207,8 +233,16 @@ def compare_initial_owners(
             "initial_owner_comparison_created",
             {
                 "selected_by_group": {key: list(value) for key, value in selected_by_group.items()},
+                "input_candidate_count": len(observations),
+                "participating_candidate_count": len(participating_ids),
+                "nonparticipating_candidate_count": len(observations) - len(participating_ids),
+                "participating_file_count": len({
+                    item.handle.path for item in observations if item.id in participating_ids
+                }),
                 "selected_count": len(selected),
+                "selected_file_count": len({item.handle.path for item in selected}),
                 "dormant_count": len(dormant),
+                "dormant_file_count": len({item.handle.path for item in dormant}),
                 "dormant_owners": [_owner_trace(item) for item in dormant],
                 "usage": dict(usage),
             },
@@ -221,6 +255,56 @@ def compare_initial_owners(
         compared_group_count=len(compared),
         auto_selected_group_count=len(auto_selected),
         selected_by_group=selected_by_group,
+    )
+
+
+def fit_initial_owner_comparison_admission(
+    *,
+    obligation_descriptions: Mapping[str, str],
+    observations: Sequence[DiscoveryObservation],
+    ranked_paths: Sequence[str],
+    max_input_chars: int,
+    max_files: int,
+    max_selected: int,
+    max_per_file: int,
+) -> InitialOwnerComparisonAdmission:
+    """Admit ranked files while measuring the exact comparison payload budget."""
+    admitted: list[str] = []
+    excluded: list[str] = []
+    total_input_chars = 0
+    candidate_count = 0
+    for path in ranked_paths:
+        if len(admitted) >= max_files:
+            excluded.append(path)
+            continue
+        tentative = (*admitted, path)
+        groups = _candidate_groups(
+            observations,
+            tuple((value.casefold(), _ALL_FILE_OBLIGATIONS) for value in tentative),
+        )
+        payload, external_groups, _group_aliases, _owner_aliases = _payload(
+            obligation_descriptions,
+            groups,
+        )
+        prompt_text = _prompt_text(max_selected=max_selected, max_per_file=max_per_file)
+        response_format = _global_response_format(external_groups, max_selected=max_selected)
+        measured = (
+            len(prompt_text)
+            + len(json.dumps(response_format, sort_keys=True))
+            + len(json.dumps(payload, sort_keys=True))
+        )
+        if measured > max_input_chars:
+            excluded.append(path)
+            continue
+        admitted.append(path)
+        total_input_chars = measured
+        candidate_count = len({item.id for values in groups.values() for item in values})
+    return InitialOwnerComparisonAdmission(
+        admitted_groups=tuple((path.casefold(), _ALL_FILE_OBLIGATIONS) for path in admitted),
+        admitted_paths=tuple(admitted),
+        excluded_paths=tuple(excluded),
+        total_input_chars=total_input_chars,
+        candidate_count=candidate_count,
     )
 
 
@@ -272,14 +356,17 @@ def _payload(
             owner_alias = owner_alias_by_id.setdefault(observation.id, f"o{len(owner_alias_by_id) + 1}")
             owner_id_by_alias[owner_alias] = observation.id
             owner_ids.append(owner_alias)
-            view_key = _source_view_key(observation)
-            view_alias = source_view_alias_by_key.setdefault(view_key, f"v{len(source_view_alias_by_key) + 1}")
-            if view_alias not in source_views:
-                source_views[view_alias] = _source_view_payload(observation)
             owner = owners.setdefault(owner_alias, _owner_payload(observation))
             view_ids = owner["v"]
-            if view_alias not in view_ids:
-                view_ids.append(view_alias)
+            for view_key, view_payload in _source_view_payloads(observation):
+                view_alias = source_view_alias_by_key.setdefault(
+                    view_key,
+                    f"v{len(source_view_alias_by_key) + 1}",
+                )
+                if view_alias not in source_views:
+                    source_views[view_alias] = view_payload
+                if view_alias not in view_ids:
+                    view_ids.append(view_alias)
         external_groups[group_alias] = tuple(owner_ids)
         rendered_groups.append(
             {
@@ -312,23 +399,29 @@ def _owner_payload(observation: DiscoveryObservation) -> dict[str, Any]:
     }
 
 
-def _source_view_key(observation: DiscoveryObservation) -> tuple[str, int, int, str]:
+def _source_view_payloads(
+    observation: DiscoveryObservation,
+) -> tuple[tuple[tuple[str, int, int, str], dict[str, Any]], ...]:
     handle = observation.handle
-    return (
-        handle.path.casefold(),
-        handle.line_start,
-        handle.line_end,
-        observation.observed_text,
+    values = observation.source_views or (
+        SimpleNamespace(
+            path=handle.path,
+            line_start=handle.line_start,
+            line_end=handle.line_end,
+            text=observation.observed_text,
+        ),
     )
-
-
-def _source_view_payload(observation: DiscoveryObservation) -> dict[str, Any]:
-    handle = observation.handle
-    return {
-        "p": handle.path,
-        "r": [handle.line_start, handle.line_end],
-        "x": _compact_source_view(observation.observed_text),
-    }
+    return tuple(
+        (
+            (view.path.casefold(), view.line_start, view.line_end, view.text),
+            {
+                "p": view.path,
+                "r": [view.line_start, view.line_end],
+                "x": _compact_source_view(view.text),
+            },
+        )
+        for view in values
+    )
 
 
 def _compact_source_view(text: str) -> str:
@@ -398,6 +491,71 @@ def _response_format(expected: Mapping[str, Sequence[str]]) -> dict[str, Any]:
             },
         },
     }
+
+
+def _global_response_format(
+    expected: Mapping[str, Sequence[str]],
+    *,
+    max_selected: int,
+) -> dict[str, Any]:
+    owner_ids = list(dict.fromkeys(owner_id for values in expected.values() for owner_id in values))
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "initial_owner_comparison",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "selected_owner_ids": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": owner_ids},
+                        "minItems": 1,
+                        "maxItems": min(max_selected, len(owner_ids)),
+                    }
+                },
+                "required": ["selected_owner_ids"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
+def _validate_global_response(
+    response: Mapping[str, Any],
+    expected: Mapping[str, Sequence[str]],
+    *,
+    max_selected: int,
+    max_per_file: int,
+) -> dict[str, tuple[str, ...]]:
+    raw_selected = response.get("selected_owner_ids", ())
+    if not isinstance(raw_selected, Sequence) or isinstance(raw_selected, (str, bytes)):
+        raise RuntimeError("initial_owner_comparison_invalid_global_selection")
+    selected = tuple(dict.fromkeys(str(value) for value in raw_selected if value))
+    allowed = {value for values in expected.values() for value in values}
+    if not selected or len(selected) > max_selected or any(value not in allowed for value in selected):
+        raise RuntimeError("initial_owner_comparison_invalid_global_selection")
+    rendered: dict[str, tuple[str, ...]] = {}
+    for group_id, owner_ids in expected.items():
+        group_selection = tuple(value for value in selected if value in owner_ids)
+        if len(group_selection) > max_per_file:
+            raise RuntimeError(f"initial_owner_comparison_file_limit_exceeded:{group_id}")
+        if group_selection:
+            rendered[group_id] = group_selection
+    return rendered
+
+
+def _prompt_text(*, max_selected: int | None, max_per_file: int) -> str:
+    prompt = PROMPT_PATH.read_text(encoding="utf-8")
+    if max_selected is None:
+        return prompt
+    return (
+        f"{prompt}\n\nGlobal round-zero selection:\n"
+        f"- Return `selected_owner_ids`, selecting no more than {max_selected} owners globally.\n"
+        f"- Select no more than {max_per_file} owners from any one file group.\n"
+        "- Cover the listed obligations across the complete selection; a file group may receive no owner.\n"
+        "- This is the final round-zero guardrail. Do not select a weaker owner merely to represent every file.\n"
+    )
 
 
 def _validate_response(

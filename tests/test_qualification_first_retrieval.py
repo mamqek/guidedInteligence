@@ -19,11 +19,14 @@ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations
     DiscoveryProvenance,
     SourceHandle,
     aggregate_observations,
+    canonicalize_observations,
     observation_from_result,
 )
+from services.retrieval.workspace.pipeline.execution_flow.initial_file_admission import rank_initial_files
 from services.retrieval.workspace.pipeline.execution_flow.evidence_islands import build_semantic_islands
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import (
     QualificationDecision,
+    prepare_qualification_request,
     qualify_cards,
 )
 from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_execution import (
@@ -64,8 +67,8 @@ from services.retrieval.workspace.pipeline.execution_flow.source_disclosure impo
 )
 from services.retrieval.workspace.pipeline.execution_flow.structural_components import build_structural_components
 from services.retrieval.workspace.pipeline.execution_flow.qualification_first_retrieval import (
+    _deferred_after_initial_owner_comparison,
     _file_group_initial_results,
-    _owner_comparison_admitted_groups,
     _initial_sparse_query,
     _preserve_active_island_candidates,
 )
@@ -73,6 +76,117 @@ from services.retrieval.workspace.tools import ToolObservation
 
 
 class QualificationFirstRetrievalTests(unittest.TestCase):
+    def test_canonicalization_merges_identity_without_selecting_or_limiting(self) -> None:
+        first = _observation("first", "src/a.ts", "function:same", ("subject",))
+        repeated = replace(
+            first,
+            provenance=(DiscoveryProvenance("sparse", "q2", ("trigger",), (2,), (0.5,)),),
+        )
+        second = _observation("second", "src/a.ts", "function:second", ("ordered",))
+        third = _observation("third", "src/a.ts", "function:third", ("why",))
+
+        canonical, decisions = canonicalize_observations((first, repeated, second, third))
+
+        self.assertEqual(len(canonical), 3)
+        merged = next(item for item in canonical if item.handle.node_id == "function:same")
+        self.assertEqual(set(merged.obligation_ids), {"subject", "trigger"})
+        self.assertEqual([item["reason"] for item in decisions], ["merged_same_entity"])
+
+    def test_multi_owner_materialization_aligns_each_visible_range_and_text(self) -> None:
+        result = {
+            "path": "Gulpfile.js",
+            "line_start": 10,
+            "line_end": 14,
+            "text": "line10\nline11\nline12\nline13\nline14",
+            "score": 0.5,
+        }
+        snippets = observation_from_result(
+            result,
+            obligation_id="subject",
+            query_id="dense:subject",
+            rank=1,
+            retriever="qdrant_file_group_dense",
+            nodes=(
+                {"id": "function:first", "kind": "function", "name": "first", "line_start": 11, "line_end": 11},
+                {"id": "function:second", "kind": "function", "name": "second", "line_start": 13, "line_end": 14},
+            ),
+        )
+
+        self.assertEqual(
+            [(item.handle.line_start, item.handle.line_end, item.observed_text) for item in snippets],
+            [(11, 11, "line11"), (13, 14, "line13\nline14")],
+        )
+
+    def test_global_file_ranking_reserves_each_obligation_before_fill(self) -> None:
+        shared = _observation("shared", "src/shared.ts", "function:shared", ("subject", "trigger"))
+        ordered = _observation("ordered", "src/ordered.ts", "function:ordered", ("ordered",))
+        why = _observation("why", "src/why.ts", "function:why", ("why",))
+
+        ranking = rank_initial_files(
+            (shared, ordered, why),
+            obligation_ids=("subject", "trigger", "ordered", "why"),
+        )
+
+        self.assertEqual(
+            set(ranking.coverage_paths),
+            {"src/shared.ts", "src/ordered.ts", "src/why.ts"},
+        )
+
+    def test_round_zero_guardrail_defers_selected_owner_from_held_only_range(self) -> None:
+        baseline = _observation("baseline", "src/compiler/builder.ts", "function:baseline", ("why",))
+        held_selected = _observation(
+            "held_selected",
+            "src/compiler/builderState.ts",
+            "function:updateExportedModules",
+            ("state_changes",),
+        )
+        dormant = _observation("dormant", "src/compiler/watch.ts", "function:dormant", ("trigger",))
+
+        deferred = _deferred_after_initial_owner_comparison(
+            baseline_candidates=(baseline,),
+            owner_comparison_selected=(held_selected,),
+            round_zero_selected=(baseline,),
+            owner_comparison_dormant=(dormant,),
+            guardrail_decisions=(
+                {
+                    "observation_id": held_selected.id,
+                    "reason": "same_path_alternative",
+                },
+            ),
+        )
+
+        self.assertEqual([item.id for item in deferred], [held_selected.id])
+        self.assertEqual(deferred[0].admission_reason, "same_path_alternative")
+
+    def test_prepare_qualification_request_builds_bounded_payload_without_calling_llm(self) -> None:
+        card = DisclosureCard(
+            observation_id="obs_watch",
+            handle=SourceHandle("tests/watch.ts", 10, 20, symbol="verifyWatch"),
+            mode="full",
+            source_text="function verifyWatch() { return true; }",
+            owner_kind="function",
+            owner_name="verifyWatch",
+            owner_line_start=10,
+            owner_line_end=20,
+            complete_source_text="function verifyWatch() { return true; }",
+            preview_source_text="function verifyWatch() { return true; }",
+        )
+
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.evidence_qualification.complete_json"
+        ) as completion:
+            prepared = prepare_qualification_request(
+                user_request="Explain watch behavior.",
+                cards=(card,),
+                max_input_chars=40000,
+            )
+
+        completion.assert_not_called()
+        self.assertEqual(len(prepared.cards), 1)
+        self.assertEqual(prepared.payload["observations"][0]["observation_id"], "obs_watch")
+        self.assertEqual(prepared.payload["file_contexts"]["file_1"]["path"], "tests/watch.ts")
+        self.assertLessEqual(prepared.input_chars, 40000)
+
     def test_observation_guardrail_merges_entities_and_is_role_neutral(self) -> None:
         first = observation_from_result(
             {"path": "tests/watch.ts", "line_start": 1, "line_end": 20, "text": "watch", "score": 0.5, "file_role": "test"},
@@ -204,37 +318,6 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             ("sparse", 80),
             {(item["retrieval_channel"], item["line_start"]) for item in held},
         )
-
-    def test_owner_comparison_admission_identifies_an_important_file_without_opening_new_paths(self) -> None:
-        representatives = tuple(
-            replace(
-                _observation(
-                    f"obs_{obligation_id}",
-                    "pandas/core/series.py",
-                    f"method:{obligation_id}",
-                    (obligation_id,),
-                ),
-                provenance=(DiscoveryProvenance(
-                    "qdrant_file_group_dense",
-                    obligation_id,
-                    (obligation_id,),
-                    (rank,),
-                    (1.0 / rank,),
-                ),),
-            )
-            for rank, obligation_id in enumerate(
-                ("subject", "ordered", "explain_trigger", "explain_why"),
-                start=1,
-            )
-        )
-        baseline = representatives[:2]
-
-        groups = _owner_comparison_admitted_groups(representatives, baseline)
-
-        self.assertEqual(groups, (
-            ("pandas/core/series.py", "subject"),
-            ("pandas/core/series.py", "ordered"),
-        ))
 
     def test_initial_guardrail_can_qualify_two_channel_owners_for_one_file_and_obligation(self) -> None:
         dense = _observation("obs_dense", "pandas/core/series.py", "method:binop", ("subject",))

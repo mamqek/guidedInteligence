@@ -55,12 +55,17 @@ map it to an entry here before treating it as a new regression or inventing anot
 ## IOC-1 — Initial owner comparison scale and support independence
 
 - Experiment: compact initial owner comparison plus complete structural range resolution.
-- Status: mechanically implemented; quality/token acceptance remains open.
+- Status: the single-canonical-pool rewrite is mechanically accepted through pre-qualification on the TypeScript
+  case; cross-repository, qualification, controller, final-evidence, and token/quality acceptance remain open.
 - Implemented behavior:
   - every initial Qdrant range is resolved through parallel CodeGraph batches of 80; no first-80 truncation remains;
-  - duplicate CodeGraph node IDs collapse, sibling owners remain independent, and classes/outer callables are context;
+  - duplicate CodeGraph node IDs and overlapping unresolved ranges canonicalize once before file admission; sibling
+    owners remain independent, and classes/outer callables are context;
   - complete owner source is disclosed only after owner comparison selects it;
-  - each owner records distinct raw chunks, query views, obligations, and channels rather than exposing recurrence alone.
+  - each owner records distinct owner-aligned raw views, obligations, and channels rather than exposing recurrence
+    alone;
+  - file admission is globally fitted to the literal 100,000-character comparison request; the LLM then performs the
+    only global 24/two-per-file selection, with exhaustive selected/deferred/dormant state accounting.
 - Measured evidence:
   - smoke `run-20260821T211044Z` resolved 172/172 ranges, later promoted exact `Series::_binop`, and spent 25,958
     owner-comparison tokens;
@@ -74,6 +79,14 @@ map it to an entry here before treating it as a new regression or inventing anot
   - TypeScript final runs `run-20260821T230249Z` and `run-20260821T231406Z` remained at two implementation-Oracle
     overlaps, with 19,116 and 20,650 comparison tokens. This is a non-regression signal, not enough to justify the
     comparison cost as a stable gain.
+  - TypeScript pre-qualification runs `run-20260824T223236Z` and `run-20260824T223430Z` canonicalized 674 -> 415 and
+    718 -> 464 occurrence views, admitted 49 and 38 files within exact comparison payload budgets, and selected
+    15/10-files and 23/15-files without a post-LLM reducer. Their complete lifecycle equations were
+    `415 = 15 selected + 86 deferred + 314 dormant` and
+    `464 = 23 selected + 140 deferred + 301 dormant`.
+  - Those runs spent 37,960 and 37,847 owner-comparison tokens versus 18,497 in the old-flow baseline. They retained
+    central Builder/BuilderState/watch evidence but the second run still selected some unresolved test/config noise.
+    This resolves the requested mechanical boundary, not the token/quality question.
 - Still unresolved:
   - whether comparing 220-235 owners in one call remains accurate across repositories or becomes too diffuse;
   - whether the roughly doubled comparison-token cost yields stable owner-quality gains;
@@ -81,8 +94,9 @@ map it to an entry here before treating it as a new regression or inventing anot
     turning repeated broad queries into false independent support;
   - repeated acceptance runs where the correct owner is present in the initial ranges, so selection stability can be
     separated from upstream stochastic retrieval.
-  - whether the compact comparison should be invoked for every initial owner group, or only after a cheaper,
-    independently validated upstream diversity/ranking gate. Do not solve this by restoring raw first-owner order.
+  - whether the global compact comparison should receive every payload-fitting file group, or use a cheaper,
+    independently validated semantic/diversity admission stage. Do not solve this by restoring raw first-owner order
+    or the former fixed file ceiling.
   - the compact source view is capped at 80 characters and deliberately keeps one or a few high-value complete
     lines. It preserved the observed `return self._binop(...)` lead, but secondary useful lines may still be hidden.
     Audit the literal comparison view whenever a resolved owner is unexpectedly rejected; do not call this format

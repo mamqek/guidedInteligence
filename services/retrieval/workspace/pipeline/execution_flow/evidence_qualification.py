@@ -52,6 +52,50 @@ class QualificationBatch:
     source_capacity: int = 0
 
 
+@dataclass(frozen=True)
+class QualificationPreparation:
+    cards: tuple[DisclosureCard, ...]
+    payload: Mapping[str, Any]
+    serialized_chars: int
+    input_chars: int
+    fixed_input_chars: int
+    source_capacity: int
+
+
+def prepare_qualification_request(
+    *,
+    user_request: str,
+    cards: Sequence[DisclosureCard],
+    max_input_chars: int,
+) -> QualificationPreparation:
+    """Build the exact bounded request that qualification would receive.
+
+    This is used by the explicit pre-qualification diagnostic mode.  It does
+    not call an LLM and therefore cannot be mistaken for a qualification
+    decision or a deterministic substitute for one.
+    """
+    if not cards:
+        return QualificationPreparation((), {}, 0, 0, 0, 0)
+    prompt_text = PROMPT_PATH.read_text(encoding="utf-8")
+    ids = tuple(card.observation_id for card in cards)
+    payload, bounded_cards, budget = _bounded_payload(
+        user_request,
+        cards,
+        max_input_chars=max_input_chars,
+        prompt_text=prompt_text,
+        response_format=_response_format(ids),
+    )
+    serialized = json.dumps(payload, sort_keys=True)
+    return QualificationPreparation(
+        cards=bounded_cards,
+        payload=payload,
+        serialized_chars=len(serialized),
+        input_chars=budget["total_input_chars"],
+        fixed_input_chars=budget["fixed_input_chars"],
+        source_capacity=budget["source_capacity"],
+    )
+
+
 def qualify_cards(
     *,
     llm_config: Any,

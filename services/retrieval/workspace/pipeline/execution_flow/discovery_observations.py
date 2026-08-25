@@ -36,11 +36,20 @@ class SourceHandle:
 
 
 @dataclass(frozen=True)
+class RetrievedSourceView:
+    path: str
+    line_start: int
+    line_end: int
+    text: str
+
+
+@dataclass(frozen=True)
 class DiscoveryObservation:
     id: str
     handle: SourceHandle
     observed_text: str
     provenance: tuple[DiscoveryProvenance, ...]
+    source_views: tuple[RetrievedSourceView, ...] = ()
     exact_anchor_matches: tuple[str, ...] = ()
     artifact_role: str = "other"
     recurrence: int = 1
@@ -88,6 +97,7 @@ class DiscoveryObservation:
         value = asdict(self)
         if not include_text:
             value.pop("observed_text", None)
+            value.pop("source_views", None)
         value["obligation_ids"] = list(self.obligation_ids)
         value["best_rank"] = self.best_rank
         value["best_score"] = self.best_score
@@ -165,10 +175,21 @@ def observation_from_result(
     for node in selected_nodes:
         node_start = max(1, int(node.get("line_start") or line_start))
         node_end = max(node_start, int(node.get("line_end") or line_end))
+        visible_start = max(line_start, node_start) if node else line_start
+        visible_end = min(line_end, node_end) if node else line_end
+        if visible_end < visible_start:
+            visible_start, visible_end = line_start, line_end
+        observed_text = _owner_aligned_result_text(
+            str(result.get("text") or ""),
+            range_start=line_start,
+            range_end=line_end,
+            owner_start=node_start,
+            owner_end=node_end,
+        )
         handle = SourceHandle(
             path=path,
-            line_start=line_start,
-            line_end=line_end,
+            line_start=visible_start,
+            line_end=visible_end,
             node_id=str(node.get("id") or ""),
             symbol=str(node.get("qualified_name") or node.get("name") or ""),
             full_line_start=node_start,
@@ -184,7 +205,7 @@ def observation_from_result(
             DiscoveryObservation(
                 id=observation_id(handle),
                 handle=handle,
-                observed_text=str(result.get("text") or ""),
+                observed_text=observed_text,
                 provenance=(
                     DiscoveryProvenance(
                         retriever=retriever,
@@ -196,11 +217,41 @@ def observation_from_result(
                         source_key=f"{path}:{line_start}:{line_end}",
                     ),
                 ),
+                source_views=(
+                    RetrievedSourceView(path, visible_start, visible_end, observed_text),
+                ),
                 exact_anchor_matches=((exact_anchor,) if exact_anchor else ()),
                 artifact_role=str(result.get("file_role") or file_role(path)),
             )
         )
     return tuple(observations)
+
+
+def _owner_aligned_result_text(
+    text: str,
+    *,
+    range_start: int,
+    range_end: int,
+    owner_start: int,
+    owner_end: int,
+) -> str:
+    """Return the visible part of one owner instead of copying a shared range.
+
+    Qdrant text is already bounded to ``range_start``/``range_end``.  For a
+    multi-owner range, slice that text to the lines intersecting this owner.
+    Complete owner disclosure remains a later stage.
+    """
+    if not text or (owner_start <= range_start and owner_end >= range_end):
+        return text
+    visible_start = max(range_start, owner_start)
+    visible_end = min(range_end, owner_end)
+    if visible_end < visible_start:
+        return text
+    lines = text.splitlines()
+    first = max(0, visible_start - range_start)
+    last = min(len(lines), visible_end - range_start + 1)
+    rendered = "\n".join(lines[first:last]).strip()
+    return rendered or text
 
 
 def aggregate_observations(
@@ -211,42 +262,8 @@ def aggregate_observations(
     max_obligation_variants_per_path: int = 1,
     one_per_obligation_per_path: bool = True,
 ) -> tuple[tuple[DiscoveryObservation, ...], tuple[dict[str, Any], ...]]:
-    merged: dict[str, DiscoveryObservation] = {}
-    decisions: list[dict[str, Any]] = []
-    for observation in observations:
-        key = _aggregation_key(observation)
-        merge_reason = "merged_same_entity"
-        if not observation.handle.node_id:
-            overlapping_key = next(
-                (
-                    existing_key
-                    for existing_key, existing in merged.items()
-                    if not existing.handle.node_id and _substantial_range_overlap(existing, observation)
-                ),
-                "",
-            )
-            if overlapping_key:
-                key = overlapping_key
-                merge_reason = "merged_overlapping_range"
-        current = merged.get(key)
-        if current is None:
-            merged[key] = observation
-            continue
-        combined = _merge(current, observation)
-        merged[key] = combined
-        decisions.append(
-            {
-                "observation_id": observation.id,
-                "path": observation.handle.path,
-                "kept_id": combined.id,
-                "reason": merge_reason,
-            }
-        )
-
-    values = list(merged.values())
-    values, containment_decisions = _canonicalize_contained_owners(values)
-    decisions.extend(containment_decisions)
-    values.sort(key=_priority_key)
+    values, decisions = canonicalize_observations(observations)
+    decisions = list(decisions)
     selected: list[DiscoveryObservation] = []
     selected_keys: set[str] = set()
     selected_paths: set[str] = set()
@@ -298,6 +315,54 @@ def aggregate_observations(
                 }
             )
     return tuple(selected), tuple(decisions)
+
+
+def canonicalize_observations(
+    observations: Iterable[DiscoveryObservation],
+) -> tuple[tuple[DiscoveryObservation, ...], tuple[dict[str, Any], ...]]:
+    """Merge source identities and provenance without performing admission.
+
+    This is the reusable identity boundary.  It deliberately has no global or
+    per-file limit so callers can construct one canonical pool and make later
+    lifecycle decisions as views over that pool.
+    """
+    merged: dict[str, DiscoveryObservation] = {}
+    decisions: list[dict[str, Any]] = []
+    for observation in observations:
+        key = _aggregation_key(observation)
+        merge_reason = "merged_same_entity"
+        if not observation.handle.node_id:
+            overlapping_key = next(
+                (
+                    existing_key
+                    for existing_key, existing in merged.items()
+                    if not existing.handle.node_id and _substantial_range_overlap(existing, observation)
+                ),
+                "",
+            )
+            if overlapping_key:
+                key = overlapping_key
+                merge_reason = "merged_overlapping_range"
+        current = merged.get(key)
+        if current is None:
+            merged[key] = observation
+            continue
+        combined = _merge(current, observation)
+        merged[key] = combined
+        decisions.append(
+            {
+                "observation_id": observation.id,
+                "path": observation.handle.path,
+                "kept_id": combined.id,
+                "reason": merge_reason,
+            }
+        )
+
+    values = list(merged.values())
+    values, containment_decisions = _canonicalize_contained_owners(values)
+    decisions.extend(containment_decisions)
+    values.sort(key=_priority_key)
+    return tuple(values), tuple(decisions)
 
 
 def _canonicalize_contained_owners(
@@ -409,12 +474,27 @@ def _merge(left: DiscoveryObservation, right: DiscoveryObservation) -> Discovery
         left,
         observed_text=observed_text,
         provenance=provenance,
+        source_views=_ordered_unique_source_views((*left.source_views, *right.source_views)),
         exact_anchor_matches=_ordered_unique((*left.exact_anchor_matches, *right.exact_anchor_matches)),
         recurrence=max(1, len(query_views)),
         parent_observation_ids=_ordered_unique((*left.parent_observation_ids, *right.parent_observation_ids)),
         relationship_kinds=_ordered_unique((*left.relationship_kinds, *right.relationship_kinds)),
         ambiguity_count=max(left.ambiguity_count, right.ambiguity_count),
     )
+
+
+def _ordered_unique_source_views(
+    values: Iterable[RetrievedSourceView],
+) -> tuple[RetrievedSourceView, ...]:
+    rendered: list[RetrievedSourceView] = []
+    seen: set[tuple[str, int, int, str]] = set()
+    for value in values:
+        key = (value.path.casefold(), value.line_start, value.line_end, value.text)
+        if key in seen:
+            continue
+        seen.add(key)
+        rendered.append(value)
+    return tuple(rendered)
 
 
 def _aggregation_key(observation: DiscoveryObservation) -> str:
