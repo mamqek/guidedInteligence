@@ -91,6 +91,18 @@ map it to an entry here before treating it as a new regression or inventing anot
   inspection must materially expand the view and then undergo ordinary qualification. See the replacement plan in
   [`../temporary-source-visibility-and-agent-inspection-plan.md`](../temporary-source-visibility-and-agent-inspection-plan.md).
 
+## RAS-1 — Stable exact anchors versus downstream retrieval quality
+
+- Experiment: [`request-analysis-anchor-stability-experiment.md`](request-analysis-anchor-stability-experiment.md).
+- Status: exact anchor inventory resolved at the focused request-analysis boundary on 2026-08-26. Two accepted
+  repetitions produced identical paths, symbol roles, error phrase, complete command/version literals, and identifiers.
+- Open question: does the stabilized exact inventory repeatably improve initial file/owner admission and Oracle rank?
+  Conceptual search terms, proposition wording, and some stage `anchor_refs` remain LLM-generated and may still move
+  dense retrieval ranks.
+- Constraint: evaluate this with unchanged retrieval configuration and at least two actual-pipeline runs before
+  claiming retrieval improvement. Do not infer it from the two historical baseline runs, which motivated the change
+  but differ in the entire LLM request analysis.
+
 ## How to use this registry
 
 1. Match the observed symptom to an open item below.

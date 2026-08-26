@@ -5,6 +5,8 @@ import unittest
 from services.intent.classifier import (
     _explicit_prompt_paths,
     _explicit_prompt_symbols,
+    _apply_symbol_decisions,
+    _normalize_prompt_anchor_categories,
     _preserve_explicit_prompt_anchors,
     _preserve_explicit_prompt_paths,
 )
@@ -80,6 +82,14 @@ class IntentSystemTests(unittest.TestCase):
         normalized = _preserve_explicit_prompt_anchors(response, prompt)
         self.assertEqual(normalized["anchors"]["symbols"], ["Session", "renderVmWithOptions"])
 
+    def test_prompt_symbols_do_not_parse_filenames_or_urls_as_members(self) -> None:
+        prompt = (
+            "Inspect src/pure/session.ts and pure/index.ts from "
+            "https://github.com/example/repository, then compare Series.add with add(value)."
+        )
+
+        self.assertEqual(_explicit_prompt_symbols(prompt), ("Series", "add", "Series.add"))
+
     def test_prompt_symbols_keep_literal_pascal_and_lowercase_api_names(self) -> None:
         prompt = "Series arithmetic differs from Series.add when calling add(s2)."
         response = {
@@ -95,6 +105,54 @@ class IntentSystemTests(unittest.TestCase):
         normalized = _preserve_explicit_prompt_anchors(response, prompt)
 
         self.assertEqual(normalized["anchors"]["symbols"], ["Series", "add", "Series.add"])
+
+    def test_exact_anchor_categories_do_not_keep_concepts_or_command_fragments(self) -> None:
+        prompt = (
+            "Search Terms: project references, reexports\n"
+            "Run `./bin/tool --build src --watch` with Widget.parse and expect a type error on 3.7.2. "
+            "The `main` project is only a reproduction label."
+        )
+        response = {
+            "anchors": {
+                "paths": [],
+                "symbols": ["Widget.parse"],
+                "errors": [],
+                "literals": ["--build", "src", "watch mode"],
+                "identifiers": ["project references", "tool", "main", "src"],
+            },
+            "search_terms": ["watch mode"],
+        }
+
+        normalized = _normalize_prompt_anchor_categories(response, prompt)
+
+        self.assertEqual(normalized["anchors"]["identifiers"], [])
+        self.assertEqual(
+            normalized["anchors"]["literals"],
+            ["./bin/tool --build src --watch", "3.7.2"],
+        )
+        self.assertEqual(normalized["anchors"]["errors"], ["type error"])
+        self.assertEqual(normalized["search_terms"], ["project references", "reexports", "watch mode"])
+
+    def test_reproduction_type_is_not_promoted_to_primary_mechanism(self) -> None:
+        analysis = {"anchors": {"symbols": ["Session"]}}
+        stage_response = {
+            "symbol_decisions": {
+                "Session": {"relevance": "primary", "reason": "The changed reproduction type."},
+            }
+        }
+
+        normalized = _apply_symbol_decisions(
+            analysis,
+            stage_response,
+            user_prompt=(
+                "Explain the code context needed for this issue.\n\n"
+                "Title: Watch build misses a downstream change\n\n"
+                "Add a field to the Session type and save it."
+            ),
+        )
+
+        self.assertEqual(normalized["anchors"]["primary_symbols"], [])
+        self.assertEqual(normalized["anchors"]["supporting_symbols"], ["Session"])
 
     def test_registry_has_one_complete_contract_per_intent(self) -> None:
         validate_contract_registry()

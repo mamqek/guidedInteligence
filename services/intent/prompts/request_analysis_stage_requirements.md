@@ -49,6 +49,9 @@ For each stage:
 - Describe what must be proven, not an expected filename or an assumed root cause.
 - Preserve uncertainty: a cause stage states what retrieval must determine, not that an unverified suspected cause is already true.
 - Use only exact strings from the supplied `anchors` in `anchor_refs`.
+- Include an anchor reference only when its exact spelling materially narrows the repository evidence required by
+  that stage. A version, external URL, reproduction-only value, or command is context rather than a repository anchor
+  unless the stage specifically establishes version-gated behavior, an external boundary, or command invocation.
 - Use an empty `anchor_refs` array when no explicit anchor grounds that stage.
 
 Return only the JSON required by the supplied schema.

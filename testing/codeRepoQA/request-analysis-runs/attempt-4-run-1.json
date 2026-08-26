@@ -1,0 +1,211 @@
+{
+  "created_at": "2026-08-26T09:07:04.766653+00:00",
+  "issue_json": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-35468\\raw\\issue.json",
+  "snapshot_root": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-35468\\s\\f7860b048037",
+  "input": {
+    "repository_name": "TypeScript",
+    "repository_context": {
+      "repository": {
+        "workspace_name": "f7860b048037",
+        "repository_name": "TypeScript",
+        "repository_owner": "microsoft",
+        "package_name": "typescript"
+      },
+      "indexed_scope": {
+        "excluded_paths": []
+      },
+      "issue_path_checks": [
+        {
+          "issue_reference": "pure/index.ts",
+          "exists_in_indexed_repository": false
+        },
+        {
+          "issue_reference": "src/pure/session.ts",
+          "exists_in_indexed_repository": false
+        },
+        {
+          "issue_reference": "src/main/index.ts",
+          "exists_in_indexed_repository": false
+        }
+      ]
+    },
+    "user_prompt": "Explain the code context needed for this issue.\n\nTitle: TS does not recompile correctly when using a combination of project references, wildcard re-exports and watch mode\n\nThe simplest example I could come up with is this (full example available as github repo):\r\n\r\nSetup: Two projects, `main` and `pure`. The index file of `pure` uses a wildcard re-export from another file which defines an interface type. The `main` project uses the interface type.\r\n\r\nI start tsc in watch mode. Then I add a field to the interface type, which should cause a type error in the `main` project, but tsc remains quiet, reporting no errors. Restarting tsc does not help.\r\n\r\nObservations:\r\n\r\n * TypeScript reports the error when not started in watch mode (ie. when I start it manually once before making the change, and then again after making the change).\r\n * TypeScript reports the error when I import the session.ts file directly instead of going through the pure/index.ts file.\r\n * VS Code (TS 3.7.2) reports type error correctly.\r\n\r\n**Search Terms:** project references, reexports\r\n\r\n**Code**: https://github.com/wereHamster/typescript-project-references-reexport-bug\r\n\r\nClone the repo, install tsc (I tried with 3.8.0-dev.20191203), start tsc in watch mode (`./node_modules/.bin/tsc --build src --watch`), and then add a new field to the Session type (file: src/pure/session.ts), and save the file.\r\n\r\n**Expected behavior:** tsc should report a type error in the src/main/index.ts file, where the Session type is used.\r\n\r\n**Actual behavior:** tsc remains quiet and does not report any errors.\r\n"
+  },
+  "result": {
+    "status": "success",
+    "classification": {
+      "intents": [
+        "explain"
+      ],
+      "turn_relation": "new_task",
+      "solution_pressure": "none",
+      "specificity": "medium",
+      "target_state": "explicit",
+      "explicit_targets": [
+        {
+          "target_type": "file",
+          "value": "pure/index.ts"
+        },
+        {
+          "target_type": "file",
+          "value": "src/pure/session.ts"
+        },
+        {
+          "target_type": "file",
+          "value": "src/main/index.ts"
+        },
+        {
+          "target_type": "subsystem",
+          "value": "project references"
+        },
+        {
+          "target_type": "subsystem",
+          "value": "watch mode"
+        },
+        {
+          "target_type": "issue",
+          "value": "TS does not recompile correctly when using a combination of project references, wildcard re-exports and watch mode"
+        }
+      ],
+      "confidence": 0.99,
+      "classification_basis": [
+        "The user explicitly asks to explain the code context needed for the reported issue."
+      ],
+      "anchors": {
+        "paths": [
+          "pure/index.ts",
+          "src/pure/session.ts",
+          "src/main/index.ts"
+        ],
+        "primary_symbols": [],
+        "supporting_symbols": [
+          "Session"
+        ],
+        "errors": [
+          "type error"
+        ],
+        "literals": [
+          "./node_modules/.bin/tsc --build src --watch",
+          "3.7.2",
+          "3.8.0-dev.20191203"
+        ],
+        "identifiers": []
+      },
+      "search_terms": [
+        "project references",
+        "reexports",
+        "wildcard re-exports",
+        "watch mode",
+        "Session type",
+        "recompile",
+        "type error propagation",
+        "tsc --build --watch"
+      ],
+      "evidence_obligations": [
+        {
+          "id": "explain_subject",
+          "description": "Establish the TypeScript compiler mechanism that handles a downstream project consuming an interface through a wildcard re-export from a referenced project, specifically in watch mode, and explain how a change to that interface is expected to reach the consuming project.",
+          "required": true,
+          "depends_on": [],
+          "anchor_refs": [],
+          "evidence_role": "implementation",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.subject"
+          ],
+          "requires_repository_handoff": false
+        },
+        {
+          "id": "explain_trigger",
+          "description": "Establish what the TypeScript build watcher does when a source file defining the Session interface changes during the project-reference build invoked with \"./node_modules/.bin/tsc --build src --watch\", including which referenced and consuming projects are scheduled for update.",
+          "required": true,
+          "depends_on": [],
+          "anchor_refs": [
+            "./node_modules/.bin/tsc --build src --watch"
+          ],
+          "evidence_role": "implementation",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.trigger"
+          ],
+          "requires_repository_handoff": false
+        },
+        {
+          "id": "explain_ordered_mechanism",
+          "description": "Trace the ordered local path from watch-file change detection through project-reference invalidation, rebuilding or declaration/output updates, wildcard re-export resolution, and rechecking the consuming project that uses the Session type; distinguish this path from importing session.ts directly.",
+          "required": true,
+          "depends_on": [
+            "explain_trigger"
+          ],
+          "anchor_refs": [],
+          "evidence_role": "implementation",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.ordered_mechanism"
+          ],
+          "requires_repository_handoff": true
+        },
+        {
+          "id": "explain_state_changes",
+          "description": "Establish the relevant changes to the watch build's cached project, source/declaration graph, export-resolution state, and downstream invalidation state after the Session interface gains a field, and identify any state that remains stale across the wildcard re-export boundary.",
+          "required": true,
+          "depends_on": [
+            "explain_ordered_mechanism"
+          ],
+          "anchor_refs": [],
+          "evidence_role": "implementation",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.state_changes"
+          ],
+          "requires_repository_handoff": true
+        },
+        {
+          "id": "explain_resulting_effect",
+          "description": "Connect the established watch-mode path to the observed outcome: whether the consuming main project reports a type error after the Session interface changes, while a non-watch rebuild and a direct import of session.ts do report the error.",
+          "required": true,
+          "depends_on": [
+            "explain_state_changes"
+          ],
+          "anchor_refs": [
+            "type error"
+          ],
+          "evidence_role": "any",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.resulting_effect"
+          ],
+          "requires_repository_handoff": true
+        },
+        {
+          "id": "explain_why",
+          "description": "Determine from the TypeScript implementation why watch mode can remain quiet for the wildcard-re-export path even though a non-watch rebuild and direct import detect the changed Session type, identifying the precise invalidation, reuse, or dependency-tracking boundary responsible without assuming the cause in advance.",
+          "required": true,
+          "depends_on": [
+            "explain_ordered_mechanism",
+            "explain_resulting_effect"
+          ],
+          "anchor_refs": [],
+          "evidence_role": "implementation",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.why"
+          ],
+          "requires_repository_handoff": true
+        }
+      ]
+    },
+    "error": null,
+    "fallback_used": false,
+    "latency_ms": 15994,
+    "classifier_model": "gpt-5.6-luna",
+    "classifier_prompt_version": "request_analysis_v2",
+    "classifier_schema_version": "request_analysis_v2"
+  }
+}
