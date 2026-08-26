@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "campaign": "2026-08-26-codex-luna-four-runs",
+  "created_at": "2026-08-26T14:26:23.423606+00:00",
+  "updated_at": "2026-08-26T14:26:23.423606+00:00",
+  "retrieval_mode": "codex",
+  "codex_model": "gpt-5.6-luna",
+  "codex_prompt_profile": "efficient",
+  "run_config": "configs/testing/statistics-codex-luna.json",
+  "target_valid_runs_per_case": 4,
+  "historical_runs_are_reference_only": true,
+  "active_case": "",
+  "stop_reason": "",
+  "cases": {
+    "microsoft-TypeScript-10020": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T005105Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "microsoft-TypeScript-10041": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T010234Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "microsoft-TypeScript-10473": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T005839Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "microsoft-TypeScript-16278": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T005500Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "microsoft-TypeScript-19074": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T010953Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "microsoft-TypeScript-24625": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "microsoft-TypeScript-2953": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "microsoft-TypeScript-35468": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "microsoft-TypeScript-45713": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "microsoft-TypeScript-46770": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "microsoft-TypeScript-52695": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-10068": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-10150": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T010631Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-14942": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-16499": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-16764": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-22698": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-22872": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-25183": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-32289": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-35925": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-36617": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-4542": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-10004": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T005220Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-10519": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T004953Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-10803": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-11718": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T005631Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-11782": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T010829Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-13052": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T005357Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-5884": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-6097": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T005939Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-6301": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-8528": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T005738Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-9042": {
+      "status": "pending",
+      "historical_luna_runs": [],
+      "campaign_runs": [],
+      "failed_attempts": []
+    },
+    "vuejs-vue-9842": {
+      "status": "pending",
+      "historical_luna_runs": [
+        "run-20260815T010104Z"
+      ],
+      "campaign_runs": [],
+      "failed_attempts": []
+    }
+  }
+}
