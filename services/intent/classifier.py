@@ -31,7 +31,19 @@ IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-
 NAMED_TYPE_PATTERN = re.compile(
     r"\b([A-Z][A-Za-z0-9_$]*)\s+type\b"
 )
-CAMEL_CALL_PATTERN = re.compile(r"\b([a-z_$][A-Za-z0-9_$]*[A-Z][A-Za-z0-9_$]*)\s*\(")
+CALL_PATTERN = re.compile(r"\b([a-z_$][A-Za-z0-9_$]*[A-Z][A-Za-z0-9_$]*)\s*\(")
+MEMBER_ACCESS_PATTERN = re.compile(
+    r"\b([A-Za-z_$][A-Za-z0-9_$]*)\.([A-Za-z_$][A-Za-z0-9_$]*)\b"
+)
+URL_PATTERN = re.compile(r"https?://\S+")
+SOURCE_FILE_EXTENSIONS = frozenset({
+    "c", "cc", "cpp", "cs", "css", "go", "h", "hpp", "html", "java", "js", "json", "jsx",
+    "md", "mjs", "py", "rs", "sh", "ts", "tsx", "vue", "xml", "yaml", "yml",
+})
+INLINE_CODE_PATTERN = re.compile(r"`([^`\r\n]+)`")
+VERSION_PATTERN = re.compile(r"(?<![A-Za-z0-9])(?:\d+\.){1,3}\d+(?:-[A-Za-z0-9.]+)?(?![A-Za-z0-9])")
+ERROR_PHRASE_PATTERN = re.compile(r"\b([A-Za-z][A-Za-z0-9_-]*\s+error)\b", re.IGNORECASE)
+DECLARED_SEARCH_TERMS_PATTERN = re.compile(r"(?im)^\*{0,2}search terms:\*{0,2}\s*([^\r\n]+)")
 
 JsonCompletion = Callable[..., Mapping[str, Any]]
 
@@ -108,6 +120,7 @@ def classify_intent(
         )
         analysis = _normalize_intent_decisions(analysis)
         analysis = _preserve_explicit_prompt_anchors(analysis, classification_input.user_prompt)
+        analysis = _normalize_prompt_anchor_categories(analysis, classification_input.user_prompt)
         selected_intents = _selected_intents(analysis)
         stage_ids = _selected_stage_ids(selected_intents)
         stage_response = complete_json_fn(
@@ -118,7 +131,7 @@ def classify_intent(
                 symbol_candidates=_anchor_values(analysis, "symbols"),
             ),
         )
-        analysis = _apply_symbol_decisions(analysis, stage_response)
+        analysis = _apply_symbol_decisions(analysis, stage_response, user_prompt=classification_input.user_prompt)
         stage_groups = _self_stage_groups(stage_ids)
         if len(selected_intents) > 1:
             stage_groups = complete_json_fn(
@@ -441,6 +454,8 @@ def _stage_purpose(stage_id: str) -> str:
 def _apply_symbol_decisions(
     analysis: Mapping[str, Any],
     stage_response: Mapping[str, Any],
+    *,
+    user_prompt: str = "",
 ) -> dict[str, Any]:
     decisions_value = stage_response.get("symbol_decisions")
     decisions = dict(decisions_value) if isinstance(decisions_value, Mapping) else {}
@@ -449,15 +464,20 @@ def _apply_symbol_decisions(
     symbols = _anchor_values(analysis, "symbols")
     primary: list[str] = []
     supporting: list[str] = []
+    reproduction_types = {
+        match.group(1)
+        for match in NAMED_TYPE_PATTERN.finditer(user_prompt)
+        if not _symbol_is_explicit_request_target(match.group(1), user_prompt)
+    }
     for symbol in symbols:
         decision_value = decisions.get(symbol)
         decision = dict(decision_value) if isinstance(decision_value, Mapping) else {}
         relevance = str(decision.get("relevance") or "").strip()
         if relevance not in {"primary", "supporting", "ignore"}:
             raise ValueError(f"Request analysis omitted a valid relevance decision for symbol {symbol!r}.")
-        if relevance == "primary":
+        if relevance == "primary" and symbol not in reproduction_types:
             primary.append(symbol)
-        elif relevance == "supporting":
+        elif relevance in {"primary", "supporting"}:
             supporting.append(symbol)
     anchors.pop("symbols", None)
     anchors["primary_symbols"] = primary
@@ -465,22 +485,22 @@ def _apply_symbol_decisions(
     return {**analysis, "anchors": anchors}
 
 
+def _symbol_is_explicit_request_target(symbol: str, user_prompt: str) -> bool:
+    title_match = re.search(r"(?im)^title:\s*([^\r\n]+)", user_prompt)
+    if title_match and re.search(rf"\b{re.escape(symbol)}\b", title_match.group(1)):
+        return True
+    return bool(re.search(
+        rf"(?i)\b(?:explain|understand|describe|how|why|what)\b[^\r\n.!?]{{0,100}}\b{re.escape(symbol)}\b",
+        user_prompt,
+    ))
+
+
 def _preserve_explicit_prompt_anchors(response: Mapping[str, Any], user_prompt: str) -> dict[str, Any]:
     anchors_value = response.get("anchors")
     anchors = dict(anchors_value) if isinstance(anchors_value, Mapping) else {}
     anchors["paths"] = list(_explicit_prompt_paths(user_prompt))[:12]
     explicit_symbols = _explicit_prompt_symbols(user_prompt)
-    model_symbols = anchors.get("symbols")
-    visible_model_symbols = (
-        [
-            str(value).strip()
-            for value in model_symbols
-            if _is_visible_prompt_symbol(str(value).strip(), user_prompt, explicit_symbols)
-        ]
-        if isinstance(model_symbols, Sequence) and not isinstance(model_symbols, (str, bytes))
-        else []
-    )
-    anchors["symbols"] = list(dict.fromkeys((*explicit_symbols, *visible_model_symbols)))[:16]
+    anchors["symbols"] = list(explicit_symbols)[:16]
     return {**response, "anchors": anchors}
 
 
@@ -494,25 +514,91 @@ def _preserve_explicit_prompt_paths(response: Mapping[str, Any], user_prompt: st
     return {**normalized, "anchors": anchors}
 
 
+def _normalize_prompt_anchor_categories(response: Mapping[str, Any], user_prompt: str) -> dict[str, Any]:
+    """Keep exact anchor categories tied to unambiguous prompt syntax.
+
+    Concept discovery remains an LLM responsibility through ``search_terms``. Exact
+    identifiers and literals are deliberately narrower because downstream code may
+    treat them as sparse repository anchors.
+    """
+    anchors_value = response.get("anchors")
+    anchors = dict(anchors_value) if isinstance(anchors_value, Mapping) else {}
+    inline_values = tuple(dict.fromkeys(match.group(1).strip() for match in INLINE_CODE_PATTERN.finditer(user_prompt)))
+    source_identifiers = tuple(
+        value
+        for value in inline_values
+        if IDENTIFIER_PATTERN.fullmatch(value)
+        and _is_distinctive_source_identifier(value)
+    )
+    command_literals = tuple(
+        value
+        for value in inline_values
+        if _looks_like_complete_command(value)
+    )
+    version_literals = tuple(dict.fromkeys(match.group(0) for match in VERSION_PATTERN.finditer(user_prompt)))
+    error_phrases = tuple(dict.fromkeys(
+        phrase
+        for match in ERROR_PHRASE_PATTERN.finditer(user_prompt)
+        if (phrase := match.group(1).lower()) not in {"a error", "an error", "the error", "this error", "that error"}
+    ))
+    anchors["identifiers"] = list(source_identifiers)[:16]
+    anchors["literals"] = list(dict.fromkeys((*command_literals, *version_literals)))[:12]
+    anchors["errors"] = list(error_phrases)[:8]
+
+    search_terms = [
+        str(value).strip()
+        for value in response.get("search_terms", ())
+        if str(value).strip()
+    ] if isinstance(response.get("search_terms"), Sequence) and not isinstance(response.get("search_terms"), (str, bytes)) else []
+    declared_terms = tuple(
+        term.strip()
+        for match in DECLARED_SEARCH_TERMS_PATTERN.finditer(user_prompt)
+        for term in match.group(1).split(",")
+        if term.strip()
+    )
+    return {
+        **response,
+        "anchors": anchors,
+        "search_terms": list(dict.fromkeys((*declared_terms, *search_terms)))[:16],
+    }
+
+
+def _is_distinctive_source_identifier(value: str) -> bool:
+    return bool(
+        "." in value
+        or "_" in value
+        or "$" in value
+        or any(character.isupper() for character in value[1:])
+        or value[:1].isupper()
+    )
+
+
+def _looks_like_complete_command(value: str) -> bool:
+    return bool(
+        any(character.isspace() for character in value)
+        and ("--" in value or value.startswith(("./", "../", ".\\", "..\\")))
+    )
+
+
 def _explicit_prompt_paths(user_prompt: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(match.group(0) for match in EXPLICIT_PATH_PATTERN.finditer(user_prompt)))
 
 
 def _explicit_prompt_symbols(user_prompt: str) -> tuple[str, ...]:
     candidates: list[str] = []
+    url_spans = tuple(match.span() for match in URL_PATTERN.finditer(user_prompt))
     for match in NAMED_TYPE_PATTERN.finditer(user_prompt):
         candidates.append(match.group(1))
-    candidates.extend(match.group(1) for match in CAMEL_CALL_PATTERN.finditer(user_prompt))
+    for match in MEMBER_ACCESS_PATTERN.finditer(user_prompt):
+        owner, member = match.groups()
+        if member.lower() in SOURCE_FILE_EXTENSIONS or any(
+            start <= match.start() < end for start, end in url_spans
+        ):
+            continue
+        if owner[:1].isupper() or member.islower():
+            candidates.extend((owner, member, f"{owner}.{member}"))
+    candidates.extend(match.group(1) for match in CALL_PATTERN.finditer(user_prompt))
     return tuple(dict.fromkeys(candidates))[:16]
-
-
-def _is_visible_prompt_symbol(value: str, user_prompt: str, explicit_symbols: Sequence[str]) -> bool:
-    return bool(
-        value
-        and value in user_prompt
-        and IDENTIFIER_PATTERN.fullmatch(value)
-        and not any(separator in value for separator in ("/", "\\"))
-    )
 
 
 def _known_anchors(response: Mapping[str, Any]) -> set[str]:

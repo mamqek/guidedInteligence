@@ -1,0 +1,234 @@
+{
+  "created_at": "2026-08-26T09:01:46.521802+00:00",
+  "issue_json": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-35468\\raw\\issue.json",
+  "snapshot_root": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-35468\\s\\f7860b048037",
+  "input": {
+    "repository_name": "TypeScript",
+    "repository_context": {
+      "repository": {
+        "workspace_name": "f7860b048037",
+        "repository_name": "TypeScript",
+        "repository_owner": "microsoft",
+        "package_name": "typescript"
+      },
+      "indexed_scope": {
+        "excluded_paths": []
+      },
+      "issue_path_checks": [
+        {
+          "issue_reference": "pure/index.ts",
+          "exists_in_indexed_repository": false
+        },
+        {
+          "issue_reference": "src/pure/session.ts",
+          "exists_in_indexed_repository": false
+        },
+        {
+          "issue_reference": "src/main/index.ts",
+          "exists_in_indexed_repository": false
+        }
+      ]
+    },
+    "user_prompt": "Explain the code context needed for this issue.\n\nTitle: TS does not recompile correctly when using a combination of project references, wildcard re-exports and watch mode\n\nThe simplest example I could come up with is this (full example available as github repo):\r\n\r\nSetup: Two projects, `main` and `pure`. The index file of `pure` uses a wildcard re-export from another file which defines an interface type. The `main` project uses the interface type.\r\n\r\nI start tsc in watch mode. Then I add a field to the interface type, which should cause a type error in the `main` project, but tsc remains quiet, reporting no errors. Restarting tsc does not help.\r\n\r\nObservations:\r\n\r\n * TypeScript reports the error when not started in watch mode (ie. when I start it manually once before making the change, and then again after making the change).\r\n * TypeScript reports the error when I import the session.ts file directly instead of going through the pure/index.ts file.\r\n * VS Code (TS 3.7.2) reports type error correctly.\r\n\r\n**Search Terms:** project references, reexports\r\n\r\n**Code**: https://github.com/wereHamster/typescript-project-references-reexport-bug\r\n\r\nClone the repo, install tsc (I tried with 3.8.0-dev.20191203), start tsc in watch mode (`./node_modules/.bin/tsc --build src --watch`), and then add a new field to the Session type (file: src/pure/session.ts), and save the file.\r\n\r\n**Expected behavior:** tsc should report a type error in the src/main/index.ts file, where the Session type is used.\r\n\r\n**Actual behavior:** tsc remains quiet and does not report any errors.\r\n"
+  },
+  "result": {
+    "status": "success",
+    "classification": {
+      "intents": [
+        "explain"
+      ],
+      "turn_relation": "new_task",
+      "solution_pressure": "guidance",
+      "specificity": "medium",
+      "target_state": "contextual",
+      "explicit_targets": [
+        {
+          "target_type": "issue",
+          "value": "TS does not recompile correctly when using a combination of project references, wildcard re-exports and watch mode"
+        },
+        {
+          "target_type": "file",
+          "value": "pure/index.ts"
+        },
+        {
+          "target_type": "file",
+          "value": "src/pure/session.ts"
+        },
+        {
+          "target_type": "file",
+          "value": "src/main/index.ts"
+        }
+      ],
+      "confidence": 0.98,
+      "classification_basis": [
+        "The user explicitly asks for the code context needed to explain how the reported project-reference, re-export, and watch-mode behavior works."
+      ],
+      "anchors": {
+        "paths": [
+          "pure/index.ts",
+          "src/pure/session.ts",
+          "src/main/index.ts"
+        ],
+        "primary_symbols": [
+          "Session"
+        ],
+        "supporting_symbols": [],
+        "errors": [],
+        "literals": [
+          "`./node_modules/.bin/tsc --build src --watch`",
+          "3.8.0-dev.20191203",
+          "TS 3.7.2",
+          "https://github.com/wereHamster/typescript-project-references-reexport-bug"
+        ],
+        "identifiers": [
+          "Session",
+          "tsc",
+          "main",
+          "pure",
+          "index.ts",
+          "session.ts",
+          "src"
+        ]
+      },
+      "search_terms": [
+        "project references",
+        "wildcard re-exports",
+        "reexports",
+        "watch mode",
+        "project-reference build invalidation",
+        "watch-mode dependency tracking"
+      ],
+      "evidence_obligations": [
+        {
+          "id": "explain_subject",
+          "description": "Establish how TypeScript's project-reference build and watch implementation tracks a type declared in `src/pure/session.ts`, re-exported through `pure/index.ts`, and consumed in `src/main/index.ts`, including the intended propagation of a changed `Session` shape to the consuming project.",
+          "required": true,
+          "depends_on": [],
+          "anchor_refs": [
+            "Session",
+            "src/pure/session.ts",
+            "pure/index.ts",
+            "src/main/index.ts"
+          ],
+          "evidence_role": "implementation",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.subject"
+          ],
+          "requires_repository_handoff": false
+        },
+        {
+          "id": "explain_trigger",
+          "description": "Establish what the TypeScript build-watch path does when the file defining `Session` is edited during `./node_modules/.bin/tsc --build src --watch`, and how that edit is detected and scheduled across the referenced `pure` and `main` projects.",
+          "required": true,
+          "depends_on": [],
+          "anchor_refs": [
+            "`./node_modules/.bin/tsc --build src --watch`",
+            "Session",
+            "src/pure/session.ts"
+          ],
+          "evidence_role": "implementation",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.trigger"
+          ],
+          "requires_repository_handoff": false
+        },
+        {
+          "id": "explain_ordered_mechanism",
+          "description": "Trace the ordered local implementation path from the watched change to rebuilding the `pure` project, processing its wildcard re-export from `pure/index.ts`, determining affected project-reference outputs, and checking the `Session` use in `src/main/index.ts`; preserve the contrast that importing `src/pure/session.ts` directly reports the error while reaching it through `pure/index.ts` may remain quiet.",
+          "required": true,
+          "depends_on": [
+            "explain_trigger"
+          ],
+          "anchor_refs": [
+            "pure/index.ts",
+            "src/pure/session.ts",
+            "src/main/index.ts",
+            "Session"
+          ],
+          "evidence_role": "implementation",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.ordered_mechanism"
+          ],
+          "requires_repository_handoff": true
+        },
+        {
+          "id": "explain_state_changes",
+          "description": "Establish which watch, project-reference, module/dependency, output, or type-signature state changes after the `Session` interface gains a field, and whether the wildcard re-export path records and propagates that changed type information to `main` differently from a direct import of `src/pure/session.ts`.",
+          "required": true,
+          "depends_on": [
+            "explain_ordered_mechanism"
+          ],
+          "anchor_refs": [
+            "Session",
+            "pure/index.ts",
+            "src/pure/session.ts"
+          ],
+          "evidence_role": "implementation",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.state_changes"
+          ],
+          "requires_repository_handoff": true
+        },
+        {
+          "id": "explain_resulting_effect",
+          "description": "Connect the established implementation path to the observed result: after the `Session` change, a non-watch rebuild reports the type error in `src/main/index.ts`, whereas watch mode remains quiet when the type is consumed through `pure/index.ts`; also account for the reported direct-import contrast without treating the VS Code result as TypeScript repository behavior.",
+          "required": true,
+          "depends_on": [
+            "explain_state_changes"
+          ],
+          "anchor_refs": [
+            "Session",
+            "src/main/index.ts",
+            "pure/index.ts",
+            "src/pure/session.ts",
+            "`./node_modules/.bin/tsc --build src --watch`"
+          ],
+          "evidence_role": "any",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.resulting_effect"
+          ],
+          "requires_repository_handoff": true
+        },
+        {
+          "id": "explain_why",
+          "description": "Determine from the TypeScript implementation why the watch-mode project-reference path fails or succeeds to invalidate and recheck `src/main/index.ts` after a `Session` change propagated through the wildcard re-export in `pure/index.ts`, and why the behavior differs from a manual rebuild and from direct import of `src/pure/session.ts`, without assuming the suspected invalidation cause in advance.",
+          "required": true,
+          "depends_on": [
+            "explain_ordered_mechanism",
+            "explain_resulting_effect"
+          ],
+          "anchor_refs": [
+            "Session",
+            "pure/index.ts",
+            "src/pure/session.ts",
+            "src/main/index.ts",
+            "`./node_modules/.bin/tsc --build src --watch`"
+          ],
+          "evidence_role": "implementation",
+          "evidence_source": "repository",
+          "evidence_boundary": "local",
+          "stage_ids": [
+            "explain.why"
+          ],
+          "requires_repository_handoff": true
+        }
+      ]
+    },
+    "error": null,
+    "fallback_used": false,
+    "latency_ms": 24465,
+    "classifier_model": "gpt-5.6-luna",
+    "classifier_prompt_version": "request_analysis_v2",
+    "classifier_schema_version": "request_analysis_v2"
+  }
+}

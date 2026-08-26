@@ -4529,3 +4529,23 @@ Verification:
     replays, but naturally retrieved small owners were already shown completely and naturally incomplete owners fell
     outside the bounded eligibility rule. A future design needs a naturally exercised completeness signal or a safe
     large-owner inspection strategy before claiming that qualification can distinguish these failure modes.
+
+## 2026-08-26 — Request-analysis exact-anchor stabilization
+
+- Scope: TypeScript 35468 request analysis only. No Qdrant, CodeGraph, qualification, controller, final selection,
+  or explanation stages ran. The focused plan and complete artifacts are recorded in
+  [`decisions/request-analysis-anchor-stability-experiment.md`](decisions/request-analysis-anchor-stability-experiment.md).
+- Baseline full-pipeline traces `run-20260826T080457Z` and `run-20260826T080907Z` used the same issue and model
+  configuration but produced materially different exact anchors. The former treated conceptual phrases as identifiers,
+  split the command, omitted `type error`, and placed `builderState.ts` at global file position 36; the latter retained
+  the command/error and placed that Oracle file at position 10.
+- Five bounded request-analysis approaches were evaluated twice. Prompt instructions alone failed. The retained
+  approach makes exact categories prompt-grounded: paths, syntactically explicit source symbols, complete inline
+  commands, versions, explicit error phrases, and declared search terms are normalized deterministically. Conceptual
+  search formulation and evidence propositions remain LLM-owned.
+- The final two focused runs, `attempt-5-accepted-run-1.json` and `attempt-5-accepted-run-2.json`, produced identical exact
+  anchors: three prompt paths, supporting `Session`, `type error`, the complete watch command, two versions, and no
+  identifiers. Both produced mechanism-complete, uncertainty-preserving obligations. Additional conceptual search
+  terms and some obligation anchor references still varied but did not change the requested mechanism boundary.
+- Focused verification: 26 intent tests passed. Downstream retrieval effect is intentionally unmeasured and must not
+  be inferred from the earlier baseline rank difference.
