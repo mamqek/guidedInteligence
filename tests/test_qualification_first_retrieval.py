@@ -67,6 +67,7 @@ from services.retrieval.workspace.pipeline.execution_flow.source_disclosure impo
 )
 from services.retrieval.workspace.pipeline.execution_flow.structural_components import build_structural_components
 from services.retrieval.workspace.pipeline.execution_flow.qualification_first_retrieval import (
+    _candidate_from_qualified,
     _deferred_after_initial_owner_comparison,
     _file_group_initial_results,
     _initial_sparse_query,
@@ -543,7 +544,14 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertNotIn("const valu\n", fitted.source_text)
 
     def test_qualification_requires_every_known_id_and_valid_combination(self) -> None:
-        card = DisclosureCard("obs_a", SourceHandle("src/a.ts", 1, 2), "preview", "function a() {}")
+        card = DisclosureCard(
+            "obs_a",
+            SourceHandle("src/a.ts", 1, 2),
+            "preview",
+            "function a() {}",
+            provenance_summary={"obligation_ids": ["owner"]},
+        )
+        obligation = EvidenceObligation("owner", "Explain the behavior owned by a.", True)
         response = {
             "decisions": {
                 "obs_a": {
@@ -551,6 +559,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
                     "reason": "Defines the requested behavior.",
                     "visible_support": ["Defines a()."],
                     "missing_information": [],
+                    "local_follow_up": "",
+                    "supported_obligation_ids": ["owner"],
                 }
             }
         }
@@ -562,7 +572,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
                 llm_config=SimpleNamespace(),
                 user_request="Explain a",
                 cards=(card,),
-                max_input_chars=4000,
+                obligations=(obligation,),
+                max_input_chars=8000,
             )
         self.assertEqual(batch.decisions[0].support_level, "direct_evidence")
 
@@ -576,7 +587,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
                     llm_config=SimpleNamespace(),
                     user_request="Explain a",
                     cards=(card,),
-                    max_input_chars=4000,
+                    obligations=(obligation,),
+                    max_input_chars=8000,
                 )
 
         mismatched = {"decisions": {"obs_unknown": response["decisions"]["obs_a"]}}
@@ -589,7 +601,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
                     llm_config=SimpleNamespace(),
                     user_request="Explain a",
                     cards=(card,),
-                    max_input_chars=4000,
+                    obligations=(obligation,),
+                    max_input_chars=8000,
                 )
 
     def test_qualification_shares_file_context_but_decides_each_observation(self) -> None:
@@ -612,6 +625,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
                 outer_owner_line_end=100,
                 allocated_chars=999,
                 used_chars=21,
+                provenance_summary={"obligation_ids": ["owner"]},
             ),
             DisclosureCard(
                 "obs_second",
@@ -627,6 +641,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
                 outer_owner_line_end=100,
                 allocated_chars=999,
                 used_chars=22,
+                provenance_summary={"obligation_ids": ["owner"]},
             ),
         )
         captured: dict[str, object] = {}
@@ -638,17 +653,21 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
                 "obs_first": {
                     "classification": "promote_direct", "reason": "First is relevant.",
                     "visible_support": ["Returns one."], "missing_information": [],
+                    "local_follow_up": "", "supported_obligation_ids": ["owner"],
                 },
                 "obs_second": {
                     "classification": "reject_insufficient", "reason": "Second is unrelated.",
                     "visible_support": [], "missing_information": ["relevant behavior"],
+                    "local_follow_up": "", "supported_obligation_ids": [],
                 },
             }}
 
         with patch("services.retrieval.workspace.pipeline.execution_flow.evidence_qualification.complete_json",
                    side_effect=respond) as completion:
             batch = qualify_cards(llm_config=SimpleNamespace(), user_request="Explain first",
-                                  cards=cards, max_input_chars=12000)
+                                  cards=cards,
+                                  obligations=(EvidenceObligation("owner", "Find the first owner.", True),),
+                                  max_input_chars=12000)
 
         self.assertEqual(completion.call_count, 1)
         self.assertEqual(len(captured["file_contexts"]), 1)
@@ -661,6 +680,69 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertNotIn("allocated_chars", serialized)
         self.assertNotIn("used_chars", serialized)
         self.assertEqual([item.support_level for item in batch.decisions], ["direct_evidence", "insufficient"])
+        self.assertEqual(batch.decisions[0].supported_obligation_ids, ("owner",))
+
+    def test_qualification_rejects_unknown_obligation_support(self) -> None:
+        card = DisclosureCard(
+            "obs_a",
+            SourceHandle("src/a.ts", 1, 2),
+            "preview",
+            "function a() {}",
+            provenance_summary={"obligation_ids": ["subject"]},
+        )
+        response = {"decisions": {"obs_a": {
+            "classification": "promote_direct",
+            "reason": "Defines a.",
+            "visible_support": ["Defines a()."],
+            "missing_information": [],
+            "local_follow_up": "",
+            "supported_obligation_ids": ["why"],
+        }}}
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.evidence_qualification.complete_json",
+            return_value=response,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "unsupported obligation IDs"):
+                qualify_cards(
+                    llm_config=SimpleNamespace(),
+                    user_request="Explain a",
+                    cards=(card,),
+                    obligations=(EvidenceObligation("subject", "Identify a.", True),),
+                    max_input_chars=8000,
+                )
+
+    def test_promoted_candidate_uses_qualified_obligation_subset_not_retrieval_union(self) -> None:
+        observation = _observation(
+            "obs_a",
+            "src/a.ts",
+            "function:a",
+            ("subject", "ordered", "why"),
+        )
+        card = DisclosureCard(
+            observation.id,
+            observation.handle,
+            "full",
+            "function a() { return 1; }",
+        )
+        decision = QualificationDecision(
+            observation.id,
+            "promote",
+            "direct_evidence",
+            "Only the resulting effect is visible.",
+            ("Returns one.",),
+            ("The mechanism and cause are absent.",),
+            "",
+            ("subject",),
+        )
+
+        candidate = _candidate_from_qualified(observation, decision, card)
+
+        self.assertIsNotNone(candidate)
+        self.assertEqual(candidate.obligation_ids, ("subject",))
+        self.assertEqual(
+            {item.obligation_id for item in candidate.facts.semantic_discoveries},
+            {"subject", "ordered", "why"},
+        )
 
     def test_empty_qualification_source_emits_loud_trace_event(self) -> None:
         card = DisclosureCard("obs_empty", SourceHandle("src/a.ts", 1, 1), "preview", "")

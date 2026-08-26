@@ -277,7 +277,11 @@ def qualify_dormant_island_completion(
         response_format=response_format,
         log_event=log_event,
     )
-    decision = _decision(response, target_card.observation_id)
+    decision = _decision(
+        response,
+        target_card.observation_id,
+        supported_obligation_ids=source_decision.supported_obligation_ids,
+    )
     if trace is not None:
         trace.record(
             "dormant_island_completion_decision_created",
@@ -470,7 +474,12 @@ def _response_format() -> dict[str, Any]:
     }
 
 
-def _decision(response: Mapping[str, Any], observation_id: str) -> QualificationDecision:
+def _decision(
+    response: Mapping[str, Any],
+    observation_id: str,
+    *,
+    supported_obligation_ids: Sequence[str] = (),
+) -> QualificationDecision:
     classification = str(response.get("classification") or "")
     if classification not in CLASSIFICATION_TO_DECISION:
         raise RuntimeError("dormant_island_completion_invalid_response")
@@ -483,4 +492,5 @@ def _decision(response: Mapping[str, Any], observation_id: str) -> Qualification
         visible_support=tuple(str(item) for item in response.get("visible_support", ()) if str(item)),
         missing_information=tuple(str(item) for item in response.get("missing_information", ()) if str(item)),
         local_follow_up=str(response.get("local_follow_up") or "").strip(),
+        supported_obligation_ids=tuple(str(item) for item in supported_obligation_ids if str(item)),
     )
