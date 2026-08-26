@@ -5,6 +5,20 @@ deliberately bounded. It does not repeat measured results; those remain in
 [`../retrieval-changelog.md`](../retrieval-changelog.md). When a later run exposes a suspicious behavior,
 map it to an entry here before treating it as a new regression or inventing another heuristic.
 
+## DIC-1 — Dormant completion final value and activation stability
+
+- Experiment: [`../dormant-island-completion-experiment.md`](../dormant-island-completion-experiment.md).
+- Status: candidate handoff restored as best-effort on 2026-08-26. Two TypeScript acceptance runs activated the stage
+  without reducing their three implementation-Oracle overlaps; one activation produced a useful downstream handoff,
+  while the other remained navigation-only. Pandas selected no dormant owner and retained its complete causal chain.
+- Open question: do dormant completions repeatedly add distinct final evidence or necessary controller actions across
+  more cases, rather than merely enlarging an already represented same-file island?
+- Constraint: do not broaden same-file structural eligibility, the explicit missing-information match, attempt caps,
+  or semantic qualification. Every activation must remain attributable in the trace with exact stage tokens and
+  downstream actions.
+- Symptoms that map here: repeated navigation-only dormant promotions, final omission of every completion, or a
+  dormant helper consuming cost without changing later actions, coverage, or selected evidence.
+
 ## HAP-1 — One-call hybrid planner versus native action scheduling
 
 - Experiment: [`agent-planned-native-controller.md`](agent-planned-native-controller.md).

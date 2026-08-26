@@ -518,6 +518,7 @@ def run_obligation_retrieval(
         obligations=repository_obligations,
         initial_observations=initial_observations,
         deferred_observations=deferred_observations,
+        dormant_completion_observations=owner_comparison.dormant,
         structural_tools=structural_tools,
         qdrant_tool=qdrant_tool,
         candidate_factory=lambda observation, decision, card: _candidate_from_qualified(

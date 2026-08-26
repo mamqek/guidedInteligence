@@ -72,3 +72,101 @@ as the measured experiment record.
 The missing design element is a bounded joint comparison of all exact structural siblings against the incomplete
 source, followed by admission only when the combined pair directly completes a missing claim. Choosing one sibling
 from qualification wording before that comparison is not reliable enough.
+
+## 2026-08-26 reconnection experiment
+
+### Observed disconnection
+
+The stage remains invoked by `run_retrieval_controller`, but the live qualification-first caller does not pass
+`owner_comparison.dormant` through `dormant_completion_observations`. Consequently the controller constructs an empty
+`completion_candidate_ids` set and every live evaluation is a no-op. Current Pandas run `run-20260826T055210Z` and
+Vue run `run-20260826T055743Z` each evaluated the stage in three rounds without a request or promotion.
+
+Historical connected traces establish the intended boundary:
+
+- TypeScript `run-20260822T184009Z`: 159 dormant candidates, one `buildTests` activation, 1,940 stage tokens;
+- TypeScript `run-20260822T184509Z`: 163 dormant candidates, one `updateProgram` activation, 2,043 stage tokens;
+- Pandas `run-20260822T184944Z`: 226 dormant candidates, one `names` activation, 1,772 stage tokens.
+
+### Attempt 1 — minimal candidate handoff
+
+- Boundary: pass the existing `owner_comparison.dormant` tuple into the existing controller argument. Do not change
+  dormant candidate construction, deterministic eligibility, source disclosure, paired qualification, promotion,
+  per-source attempt count, per-island cap, scheduler budgets, or final selection.
+- Expected quality impact: restore the previously exercised opportunity to inspect an exact dormant nested owner or
+  uniquely resolved same-file callee after a promoted maturation result names it as missing.
+- Expected cost: zero additional LLM cost when no deterministic candidate qualifies; one bounded paired
+  qualification call for each activation, historically about 1,800–2,100 tokens.
+- Candidate-volume impact: dormant owners become controller-visible but remain excluded from ordinary qualification,
+  scheduling, deferred inspection, and final candidates unless this stage explicitly promotes one.
+- Risks: the old stage selected navigation-only helpers, including Pandas `_create_methods::names`; current grouped
+  owner selection produces a different and potentially larger dormant pool; an activation may add noise without
+  improving final evidence.
+
+### Verification and decision
+
+1. Add a focused integration assertion that the qualification-first boundary passes exactly the owner-comparison
+   dormant tuple and does not mix it into ordinary deferred observations.
+2. Run the existing dormant-island focused suite and the affected retrieval/controller tests.
+3. Run one actual TypeScript diagnostic smoke with final selection disabled. Audit dormant pool size, matured sources,
+   deterministic selections, paired qualification, promoted snippets, and stage tokens.
+4. If the stage activates coherently or the trace proves the restored boundary is mechanically reachable, run two
+   TypeScript acceptance runs with final selection enabled and explanation skipped, followed by one Pandas regression
+   run. If stochastic upstream behavior prevents activation twice, record the experiment as naturally unexercised
+   rather than attributing the final result to it.
+5. Retain only if activations are semantically useful or the unchanged dormant opportunity measurably improves the
+   downstream candidate/final-evidence chain without unstable Oracle loss. Revert if it repeatedly promotes noisy
+   navigation, adds unexplained cost, or fails to improve the unchanged baseline.
+
+| Step | Attempt | Focused run 1 | Focused run 2 | Cost change | Decision | Remaining issue |
+|---|---:|---|---|---|---|---|
+| Dormant candidate handoff | 1 | Pass: 95 focused tests | Pass: 95 focused tests | 0–4,550 stage tokens in acceptance | Best-effort retained | Useful TypeScript activation was not itself selected as final evidence. |
+
+### Attempt 1 diagnostic result
+
+- Invalid infrastructure artifact `run-20260826T064744Z` used Node 20 and failed before retrieval because CodeGraph
+  requires `node:sqlite`; it is excluded.
+- Valid Node-24 TypeScript diagnostic `run-20260826T064839Z` passed 122 dormant owners into the controller. Round 1
+  matured `verifyTransitiveReferences` and selected its contained dormant owner
+  `verifyTransitiveReferences::verifyScenario`.
+- The paired qualifier promoted the owner as navigation-only because its visible body concretely applies the edit,
+  checks incremental diagnostics, and verifies watch/server state, while the scenario-specific wildcard-export edit
+  and expected error remained outside the owner. This is mechanism-relevant test infrastructure rather than the
+  generic-name noise observed in the historical Pandas activation.
+- The stage request used 11,350 input characters and 2,522 tokens (2,146 prompt, 376 completion). The owner entered
+  the controller candidate pool; final selection was intentionally disabled in this diagnostic.
+- The whole diagnostic used 83,243 retrieval LLM tokens. The stage itself accounted for the exact 2,522-token
+  increment; upstream stochastic candidate and round differences prevent treating the remaining total as a causal
+  cost comparison.
+
+### Attempt 1 acceptance results
+
+- TypeScript `run-20260826T065559Z`: 163 dormant owners; two natural activations.
+  `verifyProjectChanges::buildTests` and `verifyTransitiveReferences::verifyScenario` were both qualified as direct
+  evidence. `buildTests` then seeded one ordinary same-file handoff search for the omitted scenario helpers. Neither
+  dormant owner was selected directly in final evidence, but both joined their test-mechanism islands. The run ended
+  `partial/false` with ten final items, three implementation-Oracle overlaps, and 112,781 retrieval tokens. Dormant
+  completion accounted for 4,550 tokens.
+- TypeScript `run-20260826T070033Z`: 122 dormant owners; one natural round-3 call relationship selected
+  `incrementalBuild`. Qualification retained it as navigation-only because it executes the incremental build and
+  timeout queue but does not establish the wildcard-re-export error. It caused no later action and was not final
+  evidence. The run ended `partial/false` with eleven final items, three implementation-Oracle overlaps, and 99,337
+  retrieval tokens. Dormant completion accounted for 1,362 tokens.
+- Pandas `run-20260826T070527Z`: 103 dormant owners were visible, but no target passed all deterministic gates and no
+  extra LLM call occurred. Final evidence retained the complete five-item arithmetic-name chain
+  `_arith_method_SERIES::wrapper -> _flex_method_SERIES -> Series::_binop -> _maybe_match_name -> __finalize__`,
+  including the sole implementation Oracle. The run ended `partial/false` and used 81,421 retrieval tokens.
+- Invalid TypeScript acceptance attempt immediately before `065559Z` failed at the unchanged initial-owner response
+  validator and is excluded because dormant completion never ran.
+
+### Reconnection decision
+
+Best-effort retain the one-line candidate handoff. The restored stage activated in both valid TypeScript acceptance
+runs, chose source-grounded test/build continuations rather than generic unrelated owners, and did not reduce the
+three implementation-Oracle endpoint. Pandas did not repeat the historical `_create_methods::names` mistake and
+incurred zero stage cost while retaining its complete causal chain.
+
+This is not a claim of final-evidence improvement. One TypeScript run gained a concrete downstream handoff; the other
+gained only navigation, and final selection omitted every dormant completion. Keep the strict existing gates and
+caps unchanged. Further expansion, broader sibling matching, or deterministic promotion is not justified by these
+runs.
