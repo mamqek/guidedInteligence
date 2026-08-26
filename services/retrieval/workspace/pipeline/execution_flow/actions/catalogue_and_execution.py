@@ -1137,25 +1137,40 @@ def _execute_search(
             key = (str(item.get("file") or ""), int(item.get("line_start") or 0), int(item.get("line_end") or 0))
             nodes_by_range[key] = tuple(dict(node) for node in item.get("nodes", ()) if isinstance(node, Mapping))
     created: list[DiscoveryObservation] = []
+    raw_source_ids: list[str] = []
+    materialization_losses: list[dict[str, Any]] = []
     for rank, result in enumerate(results, start=1):
         key = (str(result.get("path") or ""), int(result.get("line_start") or 0), int(result.get("line_end") or 0))
-        created.extend(
-            observation_from_result(
-                result,
-                obligation_id=obligation_id,
-                query_id=action_id,
-                rank=rank,
-                retriever=retriever,
-                nodes=nodes_by_range.get(key, ()),
-            )
+        raw_id = str(result.get("chunk_id") or f"{key[0]}:{key[1]}:{key[2]}")
+        raw_source_ids.append(raw_id)
+        materialized = observation_from_result(
+            result,
+            obligation_id=obligation_id,
+            query_id=action_id,
+            rank=rank,
+            retriever=retriever,
+            nodes=nodes_by_range.get(key, ()),
         )
+        if not materialized:
+            materialization_losses.append({
+                "raw_source_id": raw_id,
+                "path": key[0],
+                "line_start": key[1],
+                "line_end": key[2],
+                "reason": "raw_source_produced_no_snippet",
+            })
+        created.extend(materialized)
     bounded, _decisions = aggregate_observations(
         (*exact_observations, *created),
         limit=result_limit + min(3, len(exact_observations)),
     )
     if parent_observation_ids:
         bounded = tuple(replace(item, parent_observation_ids=parent_observation_ids) for item in bounded)
-    return ActionExecution(action_id, bounded, (), tool_calls, "ok")
+    return ActionExecution(
+        action_id, bounded, (), tool_calls, "ok",
+        raw_source_ids=tuple(raw_source_ids),
+        materialization_losses=tuple(materialization_losses),
+    )
 
 
 def _source_call_identifiers(source: str) -> tuple[str, ...]:

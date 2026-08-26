@@ -381,6 +381,9 @@ def run_retrieval_controller(
     candidate_factory: Callable[[DiscoveryObservation, QualificationDecision, DisclosureCard], Any | None],
     candidate_payload: Callable[[Any], Mapping[str, Any]],
 ) -> ControllerResult:
+    from services.retrieval.workspace.pipeline.execution_flow.action_novelty import RequestMemoizer
+
+    structural_tools = RequestMemoizer().wrap_tools(structural_tools)
     # Dormant owner-comparison results are visible only to the bounded island
     # completion stage. With no qualification decision they cannot become
     # roots or ordinary scheduled actions.
@@ -483,6 +486,7 @@ def run_retrieval_controller(
     pending_verified_leads: dict[str, VerifiedLead] = {}
     executed_verified_lead_node_ids: set[str] = set()
     verified_lead_executions = 0
+    seen_raw_source_ids: set[str] = set()
 
     for round_index in range(1, ctx.config.max_exploration_rounds + 1):
         if stop_reason:
@@ -577,6 +581,8 @@ def run_retrieval_controller(
                     for index, item in enumerate(selected, start=1)
                 ],
                 "selection_policy": "two_normal_island_actions_plus_one_isolated_deferred_file_seed_action_plus_one_maturation_action_plus_one_test_maturation_action_plus_one_verified_lead_action",
+                "suppressed_action_count": len(schedule.suppressed),
+                "suppressed_actions": list(schedule.suppressed),
             },
         )
         previous_candidate_ids = set(candidates)
@@ -585,6 +591,8 @@ def run_retrieval_controller(
         }
         previous_coverage = {item.obligation_id: item.status for item in coverage.coverage}
         changed: list[DiscoveryObservation] = []
+        round_new_raw_source_ids: set[str] = set()
+        round_materialization_losses: list[dict[str, Any]] = []
         matured_observation_ids: set[str] = set()
         for action in selected:
             attempted.add(action.id)
@@ -611,6 +619,13 @@ def run_retrieval_controller(
                 executed_verified_lead_node_ids.add(action.target_node_id)
                 verified_lead_executions += 1
             tool_calls += execution.tool_calls
+            new_raw_ids = set(execution.raw_source_ids) - seen_raw_source_ids
+            round_new_raw_source_ids.update(new_raw_ids)
+            seen_raw_source_ids.update(execution.raw_source_ids)
+            round_materialization_losses.extend(
+                item for item in execution.materialization_losses
+                if str(item.get("raw_source_id") or "") in new_raw_ids
+            )
             all_edges.extend(execution.edges)
             if isinstance(action, ExpandRelationship) and action.seed_kind == "file" and execution.edges:
                 source_path = observations.get(action.root_observation_id, None)
@@ -703,6 +718,10 @@ def run_retrieval_controller(
                     "status": execution.status,
                     "endpoint_observation_ids": [item.id for item in execution.observations],
                     "edge_count": len(execution.edges),
+                    "raw_source_count": len(execution.raw_source_ids),
+                    "new_raw_source_count": len(new_raw_ids),
+                    "materialized_snippet_count": len(execution.observations),
+                    "materialization_losses": list(execution.materialization_losses),
                 },
             )
             if isinstance(action, InspectOwnerContinuation):
@@ -898,12 +917,20 @@ def run_retrieval_controller(
                 "verified_lead_gain": lead_gain,
                 "pending_verified_lead_count": len(pending_verified_leads),
                 "verified_lead_execution_count": verified_lead_executions,
+                "new_raw_source_count": len(round_new_raw_source_ids),
+                "new_materialized_snippet_count": len(changed),
+                "source_materialization_loss_count": len(round_materialization_losses),
+                "source_materialization_losses": round_materialization_losses,
             },
         )
         if _required_covered(obligations, coverage.coverage):
             stop_reason = "all_required_obligations_covered"
         elif not evidence_gain and not navigation_gain and not coverage_gain and not lead_gain:
-            stop_reason = "no_evidence_gain"
+            stop_reason = (
+                "source_materialization_loss"
+                if round_new_raw_source_ids and round_materialization_losses
+                else "no_evidence_gain"
+            )
 
     if not stop_reason:
         stop_reason = "controller_round_limit_reached"

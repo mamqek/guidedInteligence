@@ -18,6 +18,10 @@ from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_
     SearchNewIsland,
     SearchWithinFile,
 )
+from services.retrieval.workspace.pipeline.execution_flow.action_novelty import (
+    action_suppression_reason,
+    normalized_action_effect,
+)
 
 
 @dataclass(frozen=True)
@@ -30,6 +34,7 @@ class ScheduledRoundActions:
     maturation_children: tuple[RetrievalAction, ...]
     test_maturation: tuple[RetrievalAction, ...]
     verified_lead: tuple[RetrievalAction, ...]
+    suppressed: tuple[dict[str, object], ...] = ()
 
     @property
     def selected(self) -> tuple[RetrievalAction, ...]:
@@ -64,7 +69,22 @@ def schedule_round_actions(
     only; producers and executors remain independent.
     """
 
-    by_pool = partition_actions_by_pool(actions)
+    suppression_records: list[dict[str, object]] = []
+    novel_actions: list[RetrievalAction] = []
+    for action in actions:
+        is_pending_maturation_child = (
+            isinstance(action, SearchWithinFile)
+            and _action_root_id(action) in pending_maturation_child_roots
+            and bool(action.handoff_reason)
+        )
+        suppression = None if is_pending_maturation_child else action_suppression_reason(
+            action, completed_effects=tuple(attempted_effects),
+        )
+        if suppression is not None:
+            suppression_records.append(suppression)
+        else:
+            novel_actions.append(action)
+    by_pool = partition_actions_by_pool(novel_actions)
     normal = _select_actions(
         by_pool[ActionPool.ORDINARY],
         active_root_ids,
@@ -117,6 +137,7 @@ def schedule_round_actions(
         maturation_children=maturation_children,
         test_maturation=test_maturation,
         verified_lead=tuple(verified_lead_actions),
+        suppressed=tuple(suppression_records),
     )
 
 
@@ -314,32 +335,7 @@ def _select_maturation_actions(
 
 
 def _action_effect(action: RetrievalAction) -> tuple[str, ...]:
-    if isinstance(action, InspectVerifiedLead):
-        return ("verified_lead", action.target_node_id)
-    if isinstance(action, InspectDeferredObservation):
-        return ("inspect", action.observation_id, str(action.requested_range))
-    if isinstance(action, InspectOwnerContinuation):
-        return ("owner_continuation", action.observation_id, str(action.owner_range))
-    if isinstance(action, ExpandRelationship):
-        if action.seed_kind == "file":
-            return ("file_expand", action.root_node_id, action.direction, *action.edge_kinds)
-        return (
-            "expand",
-            action.root_observation_id,
-            action.root_node_id,
-            action.direction,
-            *action.edge_kinds,
-            *sorted(set(action.target_symbol_anchors)),
-            *sorted(set(action.target_term_anchors)),
-            str(action.cross_file_only),
-        )
-    if isinstance(action, SearchWithinFile):
-        return ("within_file", action.obligation_id, action.path, action.dense_query)
-    if isinstance(action, SearchNewIsland):
-        if action.exact_symbol_anchors:
-            return ("exact_search", *sorted(set(action.exact_symbol_anchors)))
-        return ("search", action.obligation_id, action.dense_query)
-    return ("stop", action.id)
+    return normalized_action_effect(action)
 
 
 def _action_root_id(action: RetrievalAction) -> str:

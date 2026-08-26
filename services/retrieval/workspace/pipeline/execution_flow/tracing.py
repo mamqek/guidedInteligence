@@ -16,7 +16,17 @@ class RetrievalTrace:
         self.run_dir = Path(run_dir) if run_dir else None
 
     def record_tool(self, request: ToolRequest, observation: ToolObservation, *, round_index: int) -> None:
-        self.record("tool_call_requested", {"round": round_index, **request.to_dict()})
+        if observation.metadata.get("cache_hit") == "true":
+            self.record(
+                "tool_request_cache_hit",
+                {
+                    "round": round_index,
+                    **request.to_dict(),
+                    "source_ref_count": len(observation.source_refs),
+                },
+            )
+        else:
+            self.record("tool_call_requested", {"round": round_index, **request.to_dict()})
         self.record("tool_observation_created", {"round": round_index, **observation.to_dict()})
         self.record(
             "tool_result_summary",

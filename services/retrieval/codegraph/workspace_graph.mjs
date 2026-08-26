@@ -2,7 +2,7 @@ import readline from "node:readline";
 import fs from "node:fs";
 import path from "node:path";
 import codegraphPackage from "@colbymchenry/codegraph";
-import { localizeFileCall, sourceOwnerCalls, summarizeFileCallsToDestination } from "./source_ast.mjs";
+import { localizeFileCall, resolveSourceOwners, sourceOwnerCalls, summarizeFileCallsToDestination } from "./source_ast.mjs";
 
 const { CodeGraph, setLogger, silentLogger } = codegraphPackage;
 
@@ -663,6 +663,7 @@ async function dispatch(operation, args) {
     if (!sourceNode) return { status: "failed", reason: "unknown_source_node", calls: [] };
     return sourceOwnerCalls(codegraph, projectRoot, sourceNode);
   }
+  if (operation === "resolve_source_owners") return resolveSourceOwners(projectRoot, args);
   if (operation === "edge_capabilities") return edgeCapabilities(args);
   if (operation === "expand_relationships") return expandRelationships(args);
   if (operation === "expand_nodes") return expandNodes(args);

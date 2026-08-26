@@ -211,6 +211,10 @@ class CodeGraphResolveRangesTool:
     def __init__(self, bridge: CodeGraphBridge, *, bridge_factory: Any = CodeGraphBridge) -> None:
         self.bridge = bridge
         self._bridge_factory = bridge_factory
+        self._source_ast = SourceAstRouter(
+            getattr(bridge.config, "workspace_root", Path.cwd()),
+            codegraph_bridge=bridge,
+        )
 
     def run(self, request: ToolRequest) -> ToolObservation:
         ranges = request.arguments.get("ranges")
@@ -257,6 +261,48 @@ class CodeGraphResolveRangesTool:
             for item in batch_result.get("results", ())  # type: ignore[union-attr]
             if isinstance(item, Mapping)
         ]
+        source_owner_count = 0
+        for item in combined_results:
+            path = str(item.get("file") or "")
+            start = int(item.get("line_start") or 0)
+            end = int(item.get("line_end") or start)
+            nodes = item.get("nodes") if isinstance(item.get("nodes"), list) else []
+            # CodeGraph already resolves ordinary Python definitions reliably.
+            # Consult its language adapter only for unresolved Python ranges;
+            # JavaScript must still be inspected when a small sibling owner was
+            # found because assignment-defined functions can surround it.
+            if Path(path).suffix.casefold() in {".py", ".pyi"} and nodes:
+                continue
+            fallback = self._source_ast.resolve_source_owners(path, start, end)
+            fallback_owners = fallback.get("owners") if isinstance(fallback.get("owners"), list) else []
+            identities = {str(node.get("id") or "") for node in nodes if isinstance(node, Mapping)}
+            structural_locations = {
+                (
+                    str(node.get("name") or node.get("qualified_name") or ""),
+                    int(node.get("line_start") or 0),
+                    int(node.get("line_end") or node.get("line_start") or 0),
+                )
+                for node in nodes
+                if isinstance(node, Mapping)
+                and str(node.get("kind") or "") in {"function", "method", "assigned_function"}
+            }
+            for owner in fallback_owners:
+                location = (
+                    str(owner.get("name") or owner.get("qualified_name") or ""),
+                    int(owner.get("line_start") or 0),
+                    int(owner.get("line_end") or owner.get("line_start") or 0),
+                ) if isinstance(owner, Mapping) else ("", 0, 0)
+                if (
+                    not isinstance(owner, Mapping)
+                    or str(owner.get("id") or "") in identities
+                    or location in structural_locations
+                ):
+                    continue
+                nodes.append(dict(owner))
+                identities.add(str(owner.get("id") or ""))
+                structural_locations.add(location)
+                source_owner_count += 1
+            item["nodes"] = nodes
         result = dict(batch_results[0] or {})
         result["results"] = combined_results
         result["batch_diagnostics"] = {
@@ -268,6 +314,7 @@ class CodeGraphResolveRangesTool:
             "batch_range_counts": [len(batch) for batch in batches],
             "parallel": len(batches) > 1,
             "complete": len(combined_results) == len(ranges),
+            "source_ast_owner_count": source_owner_count,
         }
         results = result.get("results") if isinstance(result.get("results"), list) else []
         node_count = sum(len(item.get("nodes", ())) for item in results if isinstance(item, Mapping))
@@ -284,6 +331,7 @@ class CodeGraphResolveRangesTool:
                 "batch_size": str(self.batch_size),
                 "parallel": str(len(batches) > 1).lower(),
                 "complete": str(len(results) == len(ranges)).lower(),
+                "source_ast_owner_count": str(source_owner_count),
             },
         )
 

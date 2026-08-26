@@ -37,6 +37,82 @@ function assignedFunctionName(node, sourceFile) {
 }
 
 
+function stableAssignmentPath(expression, sourceFile) {
+  if (ts.isIdentifier(expression)) return expression.text;
+  if (ts.isPropertyAccessExpression(expression)) {
+    const base = stableAssignmentPath(expression.expression, sourceFile);
+    return base ? `${base}.${expression.name.text}` : "";
+  }
+  if (
+    ts.isElementAccessExpression(expression)
+    && expression.argumentExpression
+    && (ts.isStringLiteral(expression.argumentExpression) || ts.isNumericLiteral(expression.argumentExpression))
+  ) {
+    const base = stableAssignmentPath(expression.expression, sourceFile);
+    return base ? `${base}.${String(expression.argumentExpression.text || "")}` : "";
+  }
+  return "";
+}
+
+
+export function resolveSourceOwners(projectRoot, args) {
+  const sourcePath = normalizePath(args.path || args.file);
+  const requestedStart = Math.max(1, Number(args.line_start || 1));
+  const requestedEnd = Math.max(requestedStart, Number(args.line_end || requestedStart));
+  const extension = path.extname(sourcePath).toLowerCase();
+  const base = {
+    source_path: sourcePath,
+    line_start: requestedStart,
+    line_end: requestedEnd,
+    adapter: SUPPORTED_EXTENSIONS.has(extension) ? "typescript_compiler_api" : "unsupported",
+    owners: [],
+  };
+  if (!SUPPORTED_EXTENSIONS.has(extension)) return { ...base, status: "unsupported" };
+  let source;
+  try {
+    source = fs.readFileSync(path.join(projectRoot, sourcePath), "utf8");
+  } catch {
+    return { ...base, status: "failed", reason: "source_unreadable" };
+  }
+  const scriptKind = extension === ".tsx" ? ts.ScriptKind.TSX
+    : extension === ".jsx" ? ts.ScriptKind.JSX
+      : [".js", ".mjs", ".cjs"].includes(extension) ? ts.ScriptKind.JS
+        : ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(sourcePath, source, ts.ScriptTarget.Latest, true, scriptKind);
+  const owners = [];
+  function visit(node) {
+    if (
+      ts.isBinaryExpression(node)
+      && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+      && (ts.isFunctionExpression(node.right) || ts.isArrowFunction(node.right))
+      && ts.isExpressionStatement(node.parent)
+      && ts.isSourceFile(node.parent.parent)
+    ) {
+      const name = stableAssignmentPath(node.left, sourceFile);
+      const start = lineOf(sourceFile, node.parent.getStart(sourceFile));
+      const end = lineOf(sourceFile, node.parent.end);
+      if (name && start <= requestedEnd && end >= requestedStart) {
+        owners.push({
+          id: `source_owner:${sourcePath}:${start}:${end}`,
+          kind: "assigned_function",
+          name,
+          qualified_name: name,
+          path: sourcePath,
+          line_start: start,
+          line_end: end,
+          language: "typescript",
+          adapter: "typescript_compiler_api",
+          decision_code: "direct_top_level_function_assignment",
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
+  return { ...base, status: "ok", owners };
+}
+
+
 function executableIdentity(node, sourceFile) {
   if (ts.isFunctionDeclaration(node) && node.name) {
     return { kind: "function", name: node.name.text };
