@@ -174,7 +174,8 @@ runs.
 ### Disabled comparison and runtime flag
 
 `WorkspaceRetrievalConfig.dormant_island_completion_enabled` now controls only the handoff of initial-owner dormant
-snippets into the controller's completion stage. It defaults to `true`. The CodeRepoQA runner exposes
+snippets into the controller's completion stage. It defaults to `false`; the rejected/best-effort experiment must be
+enabled explicitly. The CodeRepoQA runner exposes
 `--dormant-island-completion` / `--no-dormant-island-completion`, accepts the same setting from a run configuration,
 and records the effective value in run metadata and the retrieval trace. Disabling it does not change Qdrant,
 CodeGraph resolution, initial owner comparison, ordinary deferred recovery, controller scheduling, or final evidence
@@ -203,6 +204,15 @@ owners from influencing later rounds.
 Two additional disabled attempts, `run-20260826T073633Z` and `run-20260826T074217Z`, failed the
 unchanged initial-owner global-selection validator before the completion boundary and are excluded.
 
-The default remains enabled. The ablation does not establish sufficiency improvement, but it provides no reason to
-reverse the best-effort retention decision: disabling saved 1,362–4,550 direct stage tokens while both measured runs
-lost one implementation-Oracle endpoint relative to the enabled pair.
+At that experiment boundary the default remained enabled. The ablation did not establish sufficiency improvement:
+disabling saved 1,362–4,550 direct stage tokens while both measured runs lost one implementation-Oracle endpoint
+relative to the enabled pair. The later correction below supersedes that operational default without changing the
+historical comparison result.
+
+### Default corrected after acceptance-run contamination
+
+Later TypeScript acceptance runs `run-20260826T093942Z` and `run-20260826T094609Z` unintentionally omitted the
+disable override and therefore inherited the experiment's enabled default. Both metadata files recorded `true`, and
+both runs made a dormant-completion LLM call. The comparison flag itself worked, but the ordinary workspace run
+surface did not preserve the intended disabled baseline. The runtime, CodeRepoQA, server, and workspace-profile
+defaults are now `false`; `--dormant-island-completion` remains the explicit opt-in for this experiment.

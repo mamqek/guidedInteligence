@@ -337,7 +337,7 @@ class WorkspaceRetrievalConfig:
     codex_evidence_organizer_enabled: bool = True
     final_evidence_selection_enabled: bool = True
     stop_before_round_zero_qualification: bool = False
-    dormant_island_completion_enabled: bool = True
+    dormant_island_completion_enabled: bool = False
     run_dir: str | None = None
     chunk_line_count: int = 40
     chunk_line_overlap: int = 10
