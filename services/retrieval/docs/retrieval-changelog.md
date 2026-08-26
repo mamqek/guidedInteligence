@@ -4595,3 +4595,28 @@ Verification:
   first rerun retained a coherent watch/build/signature chain; the second spent a conditional fourth round without
   any coverage gain and selected unrelated `importTracker.ts` material while losing `builderState.ts`. This does not
   justify re-enabling dormant completion.
+## 2026-08-26 — Explicit dormant-completion enabled rerun after default correction
+
+- Configuration: the unchanged `configs/testing/workspace.json` disabled default was overridden explicitly with
+  `--dormant-island-completion`. Final evidence selection remained enabled, explanation generation was skipped, and
+  controller round configuration was not changed.
+- Invalid attempt `run-20260826T102959Z` failed the unchanged initial-owner global-selection validator before the
+  dormant-completion boundary and is excluded.
+- Valid actual-pipeline runs:
+  - `run-20260826T103130Z`: metadata `true`; one round-1 dormant request promoted
+    `verifyTransitiveReferences::verifyScenario` as direct evidence for 2,553 tokens. The promoted owner seeded one
+    same-file handoff search and became final rank 1. The run stopped after three rounds as `partial/false`, selected
+    nine final items, retained three implementation-Oracle files (`watchMode.ts`, `builderState.ts`, `builder.ts`),
+    and used 99,464 retrieval tokens.
+  - `run-20260826T103528Z`: metadata `true`; one round-2 dormant request promoted the same contained owner as
+    navigation-only for 2,511 tokens. It seeded no later controller action and was absent from final evidence. The run
+    stopped after three rounds as `partial/false`, selected eleven final items, retained two implementation-Oracle
+    files (`builder.ts`, `builderState.ts`), and used 102,521 retrieval tokens.
+- Comparison with disabled runs `run-20260826T101602Z` / `run-20260826T102023Z`: enabled totals were lower by 2,087
+  and 10,965 tokens even after the 2,553 / 2,511-token dormant calls, primarily because both enabled runs stopped at
+  three rounds while the second disabled run executed a conditional fourth round. This is not a causal token-saving
+  result for dormant completion.
+- Behavioral conclusion: explicit enablement works and can materially preserve a contained test helper, but the
+  effect remains unstable. One activation survived and produced follow-up work; the repeated activation was only
+  navigation and disappeared. Both runs remained insufficient, and enabled retrieval did not consistently improve
+  implementation-Oracle retention over the disabled pair.
