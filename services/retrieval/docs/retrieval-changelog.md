@@ -1,5 +1,32 @@
 # Retrieval Changelog
 
+## 2026-08-26: Dormant Island Completion Candidate Handoff Restored
+
+- Diagnosis: the controller still invoked dormant-island completion, but qualification-first retrieval never passed
+  `owner_comparison.dormant` into `dormant_completion_observations`. Every current evaluation therefore had an empty
+  candidate pool. The implementation was present but behaviorally disconnected.
+- Restored only that one candidate handoff. Dormant owners remain excluded from ordinary deferred actions,
+  qualification, scheduling, and final candidates unless the existing strict same-file structural and missing-claim
+  gates select one after owner/test maturation. Ranking, prompt, caps, scheduler, and final selection are unchanged.
+- Focused verification passed twice: 95 tests each across dormant completion, qualification-first retrieval, and
+  action policy.
+- TypeScript diagnostic `run-20260826T064839Z` naturally promoted
+  `verifyTransitiveReferences::verifyScenario` as navigation-only for 2,522 stage tokens.
+- TypeScript acceptance `run-20260826T065559Z` promoted `verifyProjectChanges::buildTests` and
+  `verifyTransitiveReferences::verifyScenario` as direct evidence; the first seeded one additional same-file handoff.
+  It finished `partial/false`, selected ten items with three implementation-Oracle overlaps, and used 112,781 tokens,
+  including 4,550 dormant-stage tokens.
+- Repeat `run-20260826T070033Z` promoted only `incrementalBuild` as navigation, caused no later action, and finished
+  `partial/false` with eleven items, three implementation-Oracle overlaps, and 99,337 tokens, including 1,362
+  dormant-stage tokens.
+- Pandas regression `run-20260826T070527Z` exposed 103 dormant owners but selected none, spent zero dormant-stage
+  tokens, and retained the five-item generated-wrapper/name/finalization chain including `Series::_binop`. It finished
+  `partial/false` with one implementation-Oracle overlap and 81,421 tokens.
+- Decision: best-effort retain. Activations were structurally and semantically related and caused no measured Oracle
+  regression, but final selection omitted every dormant completion and only one run gained a downstream action. Do
+  not broaden the eligibility or promotion policy from this evidence. Detailed boundaries are in
+  [`dormant-island-completion-experiment.md`](dormant-island-completion-experiment.md).
+
 ## 2026-08-25: Controller Discovery Reliability Sequence
 
 - Retained run-local memoization for deterministic structural requests and typed action-effect suppression before
