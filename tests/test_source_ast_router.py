@@ -60,6 +60,31 @@ class SourceAstRouterTests(unittest.TestCase):
             [("source_owner_calls", {"node_id": "function:caller"})],
         )
 
+    def test_typescript_source_owner_resolution_is_routed(self) -> None:
+        bridge = _RecordingBridge({"status": "ok", "adapter": "typescript_compiler_api", "owners": []})
+        router = SourceAstRouter(Path.cwd(), codegraph_bridge=bridge)
+
+        router.resolve_source_owners("src/parser.js", 103, 142)
+
+        self.assertEqual(bridge.requests, [(
+            "resolve_source_owners",
+            {"path": "src/parser.js", "line_start": 103, "line_end": 142},
+        )])
+
+    def test_python_source_owner_resolution_includes_defs_and_lambda_assignments(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "owners.py").write_text(
+                "def ordinary():\n    return 1\n\nexports = object()\nexports.parse = lambda value: value\n",
+                encoding="utf-8",
+            )
+            result = SourceAstRouter(root, codegraph_bridge=_FailBridge()).resolve_source_owners(
+                "owners.py", 1, 5,
+            )
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual({owner["name"] for owner in result["owners"]}, {"ordinary", "exports.parse"})
+
     def test_unsupported_language_has_normalized_result(self) -> None:
         result = SourceAstRouter(Path.cwd(), codegraph_bridge=_FailBridge()).source_owner_calls(
             {"id": "function:main", "path": "main.go", "name": "main"}
@@ -67,6 +92,7 @@ class SourceAstRouterTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "unsupported")
         self.assertEqual(result["calls"], [])
+
 
 
 class _RecordingBridge:

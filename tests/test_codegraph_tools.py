@@ -29,6 +29,8 @@ class _ConcurrentRangeBridge:
         self.config = config or object()
 
     def request(self, operation: str, arguments: object = None) -> dict[str, object]:
+        if operation == "resolve_source_owners":
+            return {"status": "ok", "owners": []}
         self.assert_operation(operation)
         ranges = list((arguments or {}).get("ranges", ()))  # type: ignore[union-attr]
         with self.lock:

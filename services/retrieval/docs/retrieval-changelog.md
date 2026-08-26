@@ -1,5 +1,36 @@
 # Retrieval Changelog
 
+## 2026-08-25: Controller Discovery Reliability Sequence
+
+- Retained run-local memoization for deterministic structural requests and typed action-effect suppression before
+  slot allocation. Pandas runs `run-20260825T185635Z` / `run-20260825T190049Z` recorded 57/130 cache hits and 2/6
+  pre-slot suppressions without losing the implementation Oracle, but remained `partial/false`. Retrieval LLM usage
+  was 71,531/79,235 tokens.
+- Tested expanded deferred recovery from same-admitted-file alternatives to canonical deferred implementation snippets.
+  The first variant proved the old relevance vocabulary was TypeScript-specific (329/265 candidates rejected). The
+  retained language-neutral overlap variant selected one isolated rescue per round: `run-20260825T202753Z` promoted
+  `series_flex_funcs`; `run-20260825T203210Z` instead selected comparison/sparse arithmetic owners, documenting an
+  unresolved sibling-ranking limitation. Final combined Pandas runs `run-20260825T212159Z` /
+  `run-20260825T212535Z` then alternated between omitting the sole implementation Oracle and retaining
+  `Series::_binop` at rank 1. The policy and language-neutral relevance gate were therefore reverted.
+- Retained language-routed assignment-defined owners. Vue runs `run-20260825T204226Z` and
+  `run-20260825T204554Z` resolved `exports.parse = function` as stable owner
+  `source_owner:src/exp-parser.js:117:174`, promoted its complete body as direct evidence, and retained it in final
+  evidence at ranks 4/3. Both remained `partial/false` because the caller/diagnostic chain was incomplete.
+  Retrieval LLM usage was 70,319/66,095 tokens.
+- Rejected and reverted source-derived callable-registration relationships. The first variant was never scheduled;
+  the second executed one valid but non-target `_wrap_inplace_method -> f` relationship in one of two runs and never
+  connected `series_flex_funcs -> _flex_method_SERIES -> flex_wrapper -> Series.add`.
+- Added per-action raw-source/materialized-snippet/loss telemetry and a conservative
+  `source_materialization_loss` stop reason only when a genuinely new raw result produces no snippet. Vue
+  `run-20260825T211321Z` recorded 6/3 new raw sources, 5/3 changed snippets, and zero losses across its two rounds,
+  so ordinary `no_evidence_gain` correctly remained active. Replacement run `run-20260825T211857Z` repeated the
+  result with 6/3 new raw sources, 7/3 changed snippets, zero losses, and the same stop reason. The telemetry and
+  explicit loss stop are retained; no repair action was added because neither real run exercised a genuine loss.
+  Retrieval LLM usage was 61,320/67,456 tokens.
+- Detailed contracts, excluded failures, and per-attempt decisions are in
+  [`decisions/controller-discovery-reliability-experiment-plan.md`](decisions/controller-discovery-reliability-experiment-plan.md).
+
 ## 2026-08-25: Grouped Owner Selection And 60K Quality Prefix — Retained Through Pre-Qualification
 
 - Replaced the contradictory flat 24/two-per-file owner-selection contract with grouped primary/additional selections.
@@ -18,6 +49,25 @@
   this requested boundary; controller and final-evidence acceptance remain open. Detailed measurements are in
   [`decisions/grouped-initial-owner-selection-experiment.md`](decisions/grouped-initial-owner-selection-experiment.md)
   and [`decisions/initial-file-admission-cost-experiment.md`](decisions/initial-file-admission-cost-experiment.md).
+- Full acceptance runs `run-20260825T043113Z` and `run-20260825T044117Z` completed `partial/false` with 12/10 final
+  evidence items. Both retained three substantive Oracle implementation files—Builder, BuilderState, and WatchMode—
+  versus two in the earlier `run-20260825T000741Z` checkpoint. The second scorecard also counted `tscWatch/helpers.ts`,
+  but only through a structural file trace explicitly marked as non-behavioral evidence.
+- Total retrieval LLM usage fell from 114,240 in that earlier checkpoint to 101,747 and 93,656. Initial comparison
+  used 23,466 and 19,321 tokens. The controllers preserved all promoted initial evidence in their candidate pools and
+  added useful continuations; remaining `partial/false` status is caused by missing issue-specific watcher,
+  project-reference, wildcard/direct-import, and diagnostic handoffs rather than loss of the improved initial owners.
+- Intervening `run-20260825T043613Z` aborted explicitly when evidence consolidation returned invalid JSON twice. It is
+  excluded from quality comparison and retained as LLM reliability evidence.
+- Cross-repository full acceptance also completed twice each with final selection enabled and explanation skipped:
+  - Pandas `run-20260825T062635Z` / `run-20260825T063006Z` both retained exact `Series::_binop` and the sole
+    implementation Oracle `pandas/core/series.py` at rank 1. They completed `partial/false` with 4/3 evidence items
+    and used 70,047/53,030 retrieval LLM tokens.
+  - Vue `run-20260825T063303Z` / `run-20260825T063619Z` both retained `src/exp-parser.js::makeGetter`, the sole
+    implementation Oracle, at ranks 1/4. They completed `partial/false` with 6/7 evidence items and used
+    71,024/56,161 tokens.
+- These four runs provide repeatable cross-case endpoint retention for the grouped-selection/60K-prefix behavior.
+  They do not establish sufficient causal coverage: every run remained `partial/false`.
 
 ## 2026-08-23: Agent-Planned Native Controller — Rejected And Reverted
 
@@ -4307,3 +4357,128 @@ Verification:
   selected owners from one file (`g8` then `g4`). The attempt is reverted rather than silently modifying that separate
   semantic-selection contract. The traces support revisiting the two-per-file IOC-1 boundary before replaying the
   unchanged quality-prefix admission policy.
+## 2026-08-26 — Controller uncovered-source and visibility telemetry
+
+- Added the first, non-behavioral step from
+  [`decisions/controller-uncovered-source-and-visibility-experiment.md`](decisions/controller-uncovered-source-and-visibility-experiment.md).
+  Only controller Qdrant searches calculate the portions of each raw range not covered by resolved-owner
+  intersections. Initial retrieval and prequalification remain unchanged, and no residual observation is created yet.
+- Focused range fixtures and the unchanged controller/qualification suites passed (90 tests).
+- Pandas diagnostics:
+  - `run-20260825T224035Z`: 21 raw controller ranges; five had uncovered source; 12 residual intervals covered 57
+    lines. The `pandas/core/series.py:2718-2737` hit would preserve lines 2723-2724 and 2726-2737, including
+    `ops.add_flex_arithmetic_methods(Series, **ops.series_flex_funcs)` and the special-method installation call.
+  - `run-20260825T224325Z`: 30 raw controller ranges; five had uncovered source; 12 residual intervals covered 44
+    lines. Useful source included the module imports of `_maybe_match_name` and arithmetic-factory context; several
+    other intervals were blank separators or unrelated module-level source.
+- The repeated mechanics are accepted: both runs emitted exact residual ranges while `behavior_changed=false` and
+  retained the original materialized-snippet behavior. The telemetry confirms both the motivating recoverable-source
+  case and the noise risk that must be measured before retaining behavioral residual materialization.
+- Added a pure rendered-owner completeness contract and traced its value after qualification source fitting. The field
+  was deliberately not serialized into the qualification prompt in this telemetry step, so it could not alter model
+  decisions. Focused fixtures covered complete nested members, large owners, unresolved/unavailable source, and a
+  complete card made incomplete by global fitting (95 tests passed with the unchanged policy suites).
+- Pandas `run-20260825T224806Z` rendered 38 cards: 28 complete and 10 incomplete. Pandas
+  `run-20260825T225115Z` rendered 40: 23 complete and 17 incomplete. Neither run naturally needed global-budget
+  truncation; incomplete cards were 8/15 ambiguous-name folds plus two large, unresolved, or continuation previews in
+  each run. The deterministic contract is accepted, while actual reserved-inspection behavior remains untested.
+- Enabled non-whitespace residual materialization only for controller Qdrant searches. Existing owner results pass
+  through their unchanged action limit first; exact residual slices are then appended and canonicalized, retaining the
+  raw range as provenance. Initial retrieval remains unchanged. Focused integration proved one selected owner plus two
+  residuals survive a one-result action limit (99 tests passed with the unchanged suites).
+- Pandas `run-20260825T225608Z` qualified four unique residuals. It promoted the exact Series arithmetic-installation
+  block as navigation evidence, deferred then rejected a sparse import lead, and rejected two weak residuals. Pandas
+  `run-20260825T230202Z` qualified three unique residuals, promoting two bounded navigation leads and rejecting one.
+  Retrieval tokens were 59,172/73,339; preceding telemetry diagnostics ranged from 38,510 to 63,302 with materially
+  different controller paths, so the upper increase is not yet causally attributable. The step is retained
+  provisionally for the reserved-inspection and combined acceptance checks. One intervening run
+  `run-20260825T225934Z` is excluded because an unchanged ambiguous constructor fold was promoted without visible
+  support and failed the qualification schema.
+- Added complete-owner reservation for at most two executed `InspectDeferredObservation` actions. Reservation occurs
+  inside the existing qualification fit, uses the existing 80-line/4,000-character eligibility limits, adds no model
+  call, and fails explicitly if the owner itself cannot fit. Initial and ordinary controller cards are unchanged.
+- Pandas `run-20260825T231307Z` executed two native inspections and completely reserved their 613/558-character
+  owners. `run-20260825T231704Z` executed inspections in rounds 1 and 3 and completely reserved 37/980-character
+  owners; the latter was the relevant `_arith_method::wrapper`. Every requested eligible reservation was marked
+  `explicit_inspection_complete_owner_reserved` and fit under 40,000 characters. Run `run-20260825T230906Z` completed
+  without scheduling an inspection and is a non-activation check, not one of the two focused successes. An earlier
+  launch before `run-20260825T230906Z` exposed and fixed a pre-LLM wiring error where reservation IDs were passed to
+  disclosure rather than qualification.
+- Added the bounded incomplete-handle lifecycle: a rejected or deferred resolved small owner whose fitted card is
+  incomplete retains one ordinary typed inspection opportunity. Complete rejected owners and unresolved ranges do
+  not regain inspection. Focused tests exercised all three outcomes. Pandas `run-20260825T232212Z` contained no
+  globally truncated eligible owner, so this invariant was mechanically verified but did not naturally activate.
+- A final audit found that ranges with no resolved owner were already preserved by the existing unresolved path. The
+  first behavioral attempt incorrectly added residual provenance to that same canonical range, inflating the apparent
+  benefit. That duplication was fixed before acceptance; the earlier preliminary full runs are excluded from the
+  final decision.
+- Corrected actual-pipeline acceptance (final evidence selection enabled, explanation skipped):
+  - Pandas `run-20260825T234452Z`: `partial/false`, four final snippets, implementation Oracle
+    `pandas/core/series.py` at file rank 2, 72,015 retrieval tokens. Two true residuals were qualified; neither reached
+    final evidence.
+  - Pandas `run-20260825T234825Z`: `partial/false`, six final snippets, the same Oracle at rank 2, 73,003 tokens. One
+    true residual was repeatedly judged but did not reach final evidence.
+  - Vue `run-20260825T235205Z`: `partial/false`, seven final snippets, implementation Oracle
+    `src/platforms/web/server/modules/dom-props.js` at rank 1, 66,146 tokens. The only materialized residual was a
+    two-character closing test line and was rejected.
+  - Vue `run-20260825T235513Z`: `partial/false`, six final snippets, the same Oracle at rank 1, 63,043 tokens. Three
+    benchmark residuals were qualified; one benchmark body was promoted and benchmark evidence reached final rank 6.
+- Controller-wide residual materialization is rejected and reverted. It did not improve final mechanism coverage in
+  the corrected repeats and introduced a demonstrated noise path. Exact uncovered-range telemetry and post-fit owner
+  completeness remain. A future experiment may expose residual source only through explicit typed inspection rather
+  than canonicalizing every fragment.
+- The later retained-state check showed that forced complete-source reservation also lacked a stable quality result.
+  Pandas `run-20260826T000256Z` reserved two deferred test owners and selected only two test snippets, losing the
+  implementation Oracle; `run-20260826T000519Z` reserved one test owner and retained `_binop` at rank 2. The
+  rejected-owner lifecycle rule did not naturally activate in these runs. Both behaviors were reverted rather than
+  retained on mechanical correctness alone.
+- Final non-behavioral acceptance retains only exact source-loss telemetry and post-fit `owner_source_complete`:
+  - Pandas `run-20260826T001953Z`: `partial/false`, six final snippets, implementation Oracle rank 3, 73,763 tokens,
+    30 hypothetical residual intervals and zero behavior changes.
+  - Pandas `run-20260826T002319Z`: `partial/false`, six final snippets, implementation Oracle rank 2, 65,955 tokens,
+    19 hypothetical intervals and zero behavior changes.
+  - Vue `run-20260826T001050Z`: `partial/false`, four final snippets, implementation Oracle rank 1, 66,721 tokens,
+    one hypothetical interval and zero behavior changes.
+  - Vue `run-20260826T001345Z`: `partial/false`, six final snippets, implementation Oracle rank 1, 63,452 tokens,
+    two hypothetical intervals and zero behavior changes.
+- One Pandas and one Vue launch failed before the controller at the unchanged
+  `initial_owner_comparison_invalid_global_selection` validator. They are excluded and were not replaced by fallback
+  behavior. The final retained telemetry is non-regressive in the valid repeats but does not complete the missing
+  generated-registration or SSR-serialization handoffs.
+- Follow-up design correction: the preceding “retained telemetry” state was not the intended experiment. The central
+  hypothesis requires an LLM to receive semantic qualification plus exact fitted-source completeness and decide
+  whether a promising incomplete owner merits inspection. Trace-only `owner_source_complete` and hypothetical
+  uncovered-range metrics could not exercise that behavior. Their runtime code and focused fixtures were removed,
+  restoring the clean pre-visibility baseline while retaining the independent raw-source/materialized-snippet/loss
+  telemetry used by `no_evidence_gain`.
+- Replaced the old staged plan with
+  [`temporary-source-visibility-and-agent-inspection-plan.md`](temporary-source-visibility-and-agent-inspection-plan.md).
+  The new plan evaluates compact incomplete-handle construction, coverage-owned LLM action selection, typed
+  validation/novelty suppression, materially expanded disclosure, and ordinary requalification as one central
+  behavioral chain. Deterministic reservation is no longer treated as a retrieval-quality experiment by itself.
+- 2026-08-26 — LLM-guided incomplete-source inspection: rejected and reverted.
+  - Hypothesis: qualification plus an exact fitted-source completeness fact would let the coverage LLM select zero
+    to two bounded complete-owner inspections, routed through typed validation, pre-slot novelty suppression,
+    scheduler accounting, memoized structural requests, and ordinary requalification.
+  - The intended quality distinction was explicit: separate a snippet that appears weak only because its displayed
+    source was shortened or incomplete from a snippet whose complete visible source is genuinely irrelevant, noisy,
+    or otherwise unsuitable as evidence. The former should receive one bounded full-owner inspection; the latter
+    should remain rejected or deferred without spending an action.
+  - Deterministic payload audit fit 1/8/24 handles in 24,015/28,173/37,762 characters under the unchanged 40,000
+    ceiling.
+  - Two source-backed Pandas replays selected the incomplete `_binop` implementation and relevant arithmetic-name
+    test, rejected the unrelated pickle test, and made zero repeated proposals after completed outcomes were returned.
+    Total replay usage was 8,580 and 8,438 tokens across three LLM calls per replay.
+  - Pandas diagnostic `run-20260826T055210Z` produced zero eligible handles in every controller round. Its relevant
+    46-line `_binop` owner was already completely visible. A second diagnostic `run-20260826T055501Z` also had zero
+    handles through round 1 before an unrelated invalid qualification response terminated the run.
+  - Vue diagnostic `run-20260826T055743Z` produced zero handles and zero proposals in rounds 0–3.
+  - No final-selection acceptance runs were performed because the experiment had no live activation in either
+    repository. Runtime, prompt-schema, completeness, forced-source-allocation, and replay-fixture code was reverted;
+    independently accepted memoization, novelty suppression, assignment-defined owners, and materialization telemetry
+    remain unchanged.
+  - Resulting limitation and future-work point: the experiment did not solve the live distinction between
+    incomplete presentation and unsuitable evidence. The decision contract worked in controlled source-backed
+    replays, but naturally retrieved small owners were already shown completely and naturally incomplete owners fell
+    outside the bounded eligibility rule. A future design needs a naturally exercised completeness signal or a safe
+    large-owner inspection strategy before claiming that qualification can distinguish these failure modes.

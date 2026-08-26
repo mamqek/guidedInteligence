@@ -23,6 +23,8 @@ from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_
 from services.retrieval.workspace.pipeline.execution_flow.actions.scheduler import (
     schedule_round_actions,
 )
+from services.retrieval.workspace.pipeline.execution_flow.action_novelty import RequestMemoizer
+from services.retrieval.workspace.tools.contracts import ToolObservation, ToolRequest
 
 
 def _action_for(purpose: ActionPurpose):
@@ -122,6 +124,65 @@ class RetrievalActionPolicyTests(unittest.TestCase):
         self.assertEqual(schedule.test_maturation, (test_maturation,))
         self.assertEqual(schedule.verified_lead, (verified,))
         self.assertEqual(len(schedule.selected), 5)
+
+    def test_repeated_action_is_suppressed_before_slots_and_novel_action_backfills(self) -> None:
+        repeated = SearchWithinFile(
+            "repeat", "why", "root_repeat", "src/repeat.ts", "Changed prose.",
+            sparse_anchors=("targetMethod",), scope_id="island_repeat",
+        )
+        novel = SearchWithinFile(
+            "novel", "why", "root_novel", "src/novel.ts", "Find novel code.",
+            sparse_anchors=("novelMethod",), scope_id="island_novel",
+        )
+        prior = SearchWithinFile(
+            "prior", "subject", "root_repeat", "src/repeat.ts", "Original prose.",
+            sparse_anchors=("targetMethod",), scope_id="island_repeat",
+        )
+        from services.retrieval.workspace.pipeline.execution_flow.action_novelty import normalized_action_effect
+
+        schedule = schedule_round_actions(
+            (repeated, novel),
+            active_root_ids=("root_repeat", "root_novel"),
+            active_island_ids=("island_repeat", "island_novel"),
+            normal_limit=1,
+            round_index=1,
+            refined_paths=set(),
+            attempted_action_ids={"prior"},
+            attempted_effects={normalized_action_effect(prior)},
+            pending_maturation_child_roots=set(),
+            blocked_maturation_root_ids=set(),
+            verified_lead_actions=(),
+        )
+
+        self.assertEqual(schedule.normal, (novel,))
+        self.assertEqual(len(schedule.suppressed), 1)
+        self.assertEqual(schedule.suppressed[0]["action_id"], "repeat")
+
+    def test_request_memoizer_reuses_normalized_deterministic_request(self) -> None:
+        class FakeTool:
+            name = "structural_find_exact_symbol"
+
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def run(self, request: ToolRequest) -> ToolObservation:
+                self.calls += 1
+                return ToolObservation(
+                    tool_name=self.name,
+                    status="ok",
+                    payload={"query": request.arguments["query"]},
+                    source_refs=("src/a.ts:1:2",),
+                )
+
+        tool = FakeTool()
+        wrapped = RequestMemoizer().wrap_tools({tool.name: tool})[tool.name]
+        first = wrapped.run(ToolRequest(tool.name, {"query": "target"}, "First reason"))
+        second = wrapped.run(ToolRequest(tool.name, {"query": "target"}, "Changed reason"))
+
+        self.assertEqual(tool.calls, 1)
+        self.assertEqual(first.metadata["cache_hit"], "false")
+        self.assertEqual(second.metadata["cache_hit"], "true")
+        self.assertEqual(first.payload, second.payload)
 
 
 if __name__ == "__main__":

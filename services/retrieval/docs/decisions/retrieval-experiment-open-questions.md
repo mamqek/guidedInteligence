@@ -44,6 +44,39 @@ map it to an entry here before treating it as a new regression or inventing anot
   on no gain. It still failed to resolve the separate generated `Series.add` wrapper path, so this closure must not be
   interpreted as agentic-mode quality acceptance.
 
+## CDR-1 — Deferred sibling ranking and dynamic callable installation
+
+- Experiment: [`controller-discovery-reliability-experiment-plan.md`](controller-discovery-reliability-experiment-plan.md).
+- Status: partially resolved on 2026-08-25. Assignment-defined JavaScript functions now have stable source-owner
+  identities. Expanded nonadmitted deferred recovery was tested and reverted after unstable final Oracle retention.
+- Open question: how should the controller rank structurally distinct sibling owners that inherited identical Qdrant
+  provenance? Pandas repeats alternated between `series_flex_funcs`, comparison wrappers, and sparse arithmetic.
+- Rejected approach: a repository-wide source callable-relationship provider produced one unrelated factory edge and
+  did not repeatably connect the generated `Series.add` chain; it was reverted.
+- Constraint: a follow-up must produce the exact factory/registration chain repeatably without global speculative
+  edges, repository-wide scan cost, or an extra unbounded controller action family.
+
+## CSV-1 — Selective inspection of uncovered controller source
+
+- Experiment: [`controller-uncovered-source-and-visibility-experiment.md`](controller-uncovered-source-and-visibility-experiment.md).
+- Status: controller-wide residual materialization, forced complete-source reservation, rejected-owner lifecycle
+  re-entry, experiment-specific residual telemetry, and trace-only completeness were rejected or reverted on
+  2026-08-26. The runtime is restored to a clean pre-visibility baseline; independently accepted raw-source
+  materialization-loss telemetry remains.
+- Evidence: corrected acceptance runs `run-20260825T234452Z`, `run-20260825T234825Z`,
+  `run-20260825T235205Z`, and `run-20260825T235513Z` retained their implementation Oracles at ranks 1–2 but remained
+  `partial/false`. True residuals did not improve final mechanism coverage; a promoted Vue benchmark residual helped
+  place benchmark evidence at final rank 6.
+- Final retained-state evidence: Pandas `run-20260826T001953Z` / `run-20260826T002319Z` retained the implementation
+  Oracle at ranks 3/2 using 73,763/65,955 tokens; Vue `run-20260826T001050Z` / `run-20260826T001345Z` retained it at
+  rank 1 using 66,721/63,452 tokens. All four remained `partial/false`, and every residual remained telemetry-only.
+- Open question: can the coverage/action LLM combine semantic qualification with exact fitted-source completeness to
+  choose a useful inspection, without admitting all residual fragments into canonical evidence or prequalification?
+- Constraint: proposals must pass typed validation, pre-slot novelty suppression, scheduler/executor accounting,
+  run-local memoization, and trace logging. Suppressed outcomes return to the next action context. A selected
+  inspection must materially expand the view and then undergo ordinary qualification. See the replacement plan in
+  [`../temporary-source-visibility-and-agent-inspection-plan.md`](../temporary-source-visibility-and-agent-inspection-plan.md).
+
 ## How to use this registry
 
 1. Match the observed symptom to an open item below.
@@ -106,6 +139,10 @@ map it to an entry here before treating it as a new regression or inventing anot
   - Combined actual runs `run-20260825T035631Z` and `run-20260825T035754Z` admitted 172/191 owners across 14/18
     files at 59,457/59,956 characters and used 22,307/23,756 comparison tokens. They selected 10/15 owners across
     6/8 files, completed lifecycle accounting, and prepared qualification within 29,513/34,982 characters.
+  - Full runs `run-20260825T043113Z` and `run-20260825T044117Z` retained three substantive Oracle implementation
+    files each versus two in earlier checkpoint `run-20260825T000741Z`, while total retrieval tokens fell from
+    114,240 to 101,747/93,656. Both remained `partial/false`; missing links are now downstream issue-specific
+    watcher/project-reference/wildcard/direct-import/diagnostic handoffs rather than loss of the initial owners.
 - Still unresolved:
   - whether comparing roughly 170-190 owners in one call remains accurate across repositories or becomes too diffuse;
   - whether the reduced comparison-token cost yields stable downstream owner-quality gains;

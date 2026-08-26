@@ -136,3 +136,5 @@ class ActionExecution:
     edges: tuple[dict[str, Any], ...]
     tool_calls: int
     status: str
+    raw_source_ids: tuple[str, ...] = ()
+    materialization_losses: tuple[dict[str, Any], ...] = ()

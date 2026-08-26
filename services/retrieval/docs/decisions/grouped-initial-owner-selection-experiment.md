@@ -86,3 +86,58 @@ separately reversible step 2.
   `448 = 15 selected + 176 dormant + 257 deferred`.
 - Both runs stopped before the round-zero qualification LLM. These results accept the initial boundary only; they do
   not establish controller or final-evidence quality.
+
+## Full-pipeline acceptance checkpoint
+
+Two actual runs kept final evidence selection enabled and skipped only explanation generation:
+
+- `run-20260825T043113Z`: 446 canonical snippets across 94 files; 187 owners across 11 files admitted at 59,277
+  characters; 16 owners across seven files selected initially; 21 final candidates and 12 final evidence items across
+  six files. It finished `partial/false`, used 101,747 retrieval LLM tokens, and retained three substantive Oracle
+  implementation files: Builder, BuilderState, and WatchMode.
+- `run-20260825T044117Z`: 356 canonical snippets across 67 files; 149 owners across ten files admitted at 51,590
+  characters; eight owners across five files selected initially; 13 final candidates and ten final evidence items
+  across six files. It finished `partial/false`, used 93,656 tokens, and retained the same three substantive Oracle
+  files. The scorecard's fourth overlap, `tscWatch/helpers.ts`, is only a structural file trace whose own text says it
+  does not prove behavior inside the file; it is not counted as complete source evidence here.
+- Earlier downstream checkpoint `run-20260825T000741Z` retained two substantive Oracle implementation files and used
+  114,240 tokens. Both new runs therefore improved substantive overlap from two to three while reducing total
+  retrieval tokens by 10.9% and 18.0%.
+- The controller did not erase the initial improvement. Run 1 promoted 15 of 16 initial snippets and all 15 entered
+  the final candidate pool; run 2 promoted all eight, all entered the pool, and all remained represented in final
+  evidence. Controller actions also added useful Builder/BuilderState/TsBuild continuations.
+- Final coverage remained `partial/false`. Missing evidence is the concrete watcher-to-project-pending handoff, the
+  `Session`/wildcard-re-export-to-consumer path, the direct-import/non-watch contrast, and the actual quiet diagnostic
+  result. Both controllers stopped at the configured three-round budget; run 2 still had two pending verified leads
+  after reaching its verified-lead execution cap.
+- One intervening attempt, `run-20260825T043613Z`, failed explicitly during obligation evidence consolidation after
+  both the original LLM response and its retry returned empty/non-JSON content. It is reliability evidence, not a
+  retrieval-quality comparison.
+
+Decision: retain the grouped selection and 60K prefix for this case. The two completed downstream runs show a
+repeatable substantive-overlap improvement and lower total cost, but do not resolve cross-case acceptance or the
+remaining controller coverage gaps.
+
+## Cross-repository full-run checkpoint
+
+Four additional actual runs kept final evidence selection enabled and skipped only explanation generation:
+
+- Pandas `pandas-dev-pandas-10068`:
+  - `run-20260825T062635Z` completed `partial/false`, selected four evidence items across three files, and retained
+    the sole implementation Oracle `pandas/core/series.py` at rank 1 through exact `Series::_binop`. It admitted 69
+    comparison owners across seven files at 23,920 characters and used 70,047 retrieval LLM tokens, including 9,135
+    initial-comparison tokens.
+  - `run-20260825T063006Z` completed `partial/false`, selected three evidence items across two files, and again
+    retained `pandas/core/series.py` at rank 1 through exact `Series::_binop`. It admitted 86 owners across seven files
+    at 27,446 characters and used 53,030 tokens, including 11,007 initial-comparison tokens.
+- Vue `vuejs-vue-242`:
+  - `run-20260825T063303Z` completed `partial/false`, selected six evidence items across five files, and retained the
+    sole implementation Oracle `src/exp-parser.js` at rank 1 through `makeGetter`. All 179 canonical owners across 48
+    files fit at 51,972 characters; total usage was 71,024 tokens, including 20,994 comparison tokens.
+  - `run-20260825T063619Z` completed `partial/false`, selected seven evidence items across five files, and again
+    retained `src/exp-parser.js::makeGetter`, this time at rank 4. All 189 canonical owners across 34 files fit at
+    52,658 characters; total usage was 56,161 tokens, including 22,597 comparison tokens.
+
+Both cases therefore retained their exact sole implementation Oracle in both repeats. This expands mechanical and
+final-selection acceptance beyond TypeScript, but all four runs remained `partial/false`; stable endpoint retrieval
+does not by itself complete the requested causal explanation.
