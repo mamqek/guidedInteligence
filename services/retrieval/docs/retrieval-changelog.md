@@ -4549,3 +4549,22 @@ Verification:
   terms and some obligation anchor references still varied but did not change the requested mechanism boundary.
 - Focused verification: 26 intent tests passed. Downstream retrieval effect is intentionally unmeasured and must not
   be inferred from the earlier baseline rank difference.
+- Actual-pipeline acceptance, final evidence selection enabled and explanation skipped:
+  - `run-20260826T093942Z`: `partial/false`, 10 final snippets, three implementation Oracles represented. Final file
+    ranks were `watchMode.ts` 1, `builder.ts` 3, and `builderState.ts` 5. Retrieval used 118,400 tokens.
+  - `run-20260826T094609Z`: `partial/false`, 14 final evidence items, all four implementation Oracles represented;
+    `tscWatch/helpers.ts` was retained as file-trace evidence. Final file ranks were `watchMode.ts` 1,
+    `builderState.ts` 3, `builder.ts` 5, and `tscWatch/helpers.ts` 14. Retrieval used 124,770 tokens.
+- The exact request-anchor inventory matched in both runs. At file admission, `builderState.ts` ranked 5 in both;
+  `builder.ts` ranked 6/4 and `watchMode.ts` 3/1. All three were admitted in both runs. This removes the observed
+  baseline `builderState.ts` swing from position 36 (excluded) to 10 (admitted), although conceptual query wording
+  still caused candidate-volume differences.
+- The canonical pools were 382/385 snippets across 75 files. Cost-aware admission retained 13/11 files and 160/168
+  owner-comparison candidates in 57,665/58,699 characters. Owner comparison selected 22/15 snippets; no second
+  deterministic reducer ran. Both controllers reached the four-round limit with 687/615 tool calls.
+- Quality improved from the earlier 1/3 implementation-Oracle overlap to 3/4, but both runs remained partial because
+  the final consolidation still lacked the exact wildcard-re-export/project-reference failure handoff and concrete
+  direct-import/non-watch diagnostic contrast. Retrieval tokens increased from the earlier 102,590/104,746 totals.
+- Excluded diagnostics `run-20260826T093810Z` and `run-20260826T093839Z` stopped before retrieval because the shell's
+  Node runtime lacked `node:sqlite`. Acceptance used the bundled Node 24 runtime. The optional local-notes query then
+  failed because its `better-sqlite3` binary was built for another Node ABI; source-code retrieval continued normally.

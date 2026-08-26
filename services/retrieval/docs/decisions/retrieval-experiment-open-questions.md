@@ -94,14 +94,15 @@ map it to an entry here before treating it as a new regression or inventing anot
 ## RAS-1 — Stable exact anchors versus downstream retrieval quality
 
 - Experiment: [`request-analysis-anchor-stability-experiment.md`](request-analysis-anchor-stability-experiment.md).
-- Status: exact anchor inventory resolved at the focused request-analysis boundary on 2026-08-26. Two accepted
-  repetitions produced identical paths, symbol roles, error phrase, complete command/version literals, and identifiers.
-- Open question: does the stabilized exact inventory repeatably improve initial file/owner admission and Oracle rank?
-  Conceptual search terms, proposition wording, and some stage `anchor_refs` remain LLM-generated and may still move
-  dense retrieval ranks.
-- Constraint: evaluate this with unchanged retrieval configuration and at least two actual-pipeline runs before
-  claiming retrieval improvement. Do not infer it from the two historical baseline runs, which motivated the change
-  but differ in the entire LLM request analysis.
+- Status: exact anchor inventory and the TypeScript file-admission boundary resolved on 2026-08-26. Actual runs
+  `run-20260826T093942Z` and `run-20260826T094609Z` produced identical exact anchors, admitted `builderState.ts` at
+  file rank 5 in both, and retained three/four implementation Oracles in final evidence.
+- Remaining question: conceptual search terms, proposition wording, and stage `anchor_refs` remain LLM-generated.
+  They still changed canonical snippets (382/385), admitted files (13/11), selected owners (22/15), controller work,
+  and total tokens (118,400/124,770). Both runs remained `partial/false` because the precise failing handoff and
+  concrete behavioral contrast were unresolved.
+- Constraint: do not broaden exact anchors to eliminate semantic-query variation. Treat proposition/query stability
+  and controller completion as separate experiments with their own repeated acceptance runs.
 
 ## How to use this registry
 
