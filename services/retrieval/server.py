@@ -1455,6 +1455,9 @@ class RuntimeState:
             codex_evidence_organizer_enabled=bool(
                 _experiments_settings(self.config).get("codex_evidence_organizer_enabled", True)
             ),
+            dormant_island_completion_enabled=bool(
+                retrieval_settings.get("dormant_island_completion_enabled", True)
+            ),
             max_exploration_rounds=int(retrieval_settings.get("max_exploration_rounds") or 4),
             max_controller_actions_per_round=int(
                 retrieval_settings.get("max_controller_actions_per_round") or 2

@@ -1,5 +1,25 @@
 # Retrieval Changelog
 
+## 2026-08-26: Dormant Island Completion Flag And Disabled Ablation
+
+- Added `dormant_island_completion_enabled` at the qualification-first/controller boundary. It defaults to enabled;
+  the CodeRepoQA runner exposes `--dormant-island-completion` / `--no-dormant-island-completion`, and both run
+  metadata and retrieval traces record the effective state.
+- Disabled TypeScript acceptance `run-20260826T073825Z` withheld 164 dormant snippets from the controller, made zero
+  dormant-stage LLM calls, ended `partial/false`, selected 12 items across five files, retained two implementation
+  Oracles, and used 94,839 retrieval tokens.
+- Repeat `run-20260826T074349Z` withheld 154 dormant snippets, again made zero dormant-stage calls, ended
+  `partial/false`, selected 12 items across six files, retained two implementation Oracles, and used 102,205 tokens.
+- The enabled pair retained three implementation Oracles in each run and spent 4,550 / 1,362 direct dormant-stage
+  tokens. The disabled runs inconsistently lost `builderState.ts` or `watchMode.ts`, while upstream/controller choices
+  also varied. Therefore only the zero completion calls and withheld promotions are causal; total-token and exact-file
+  differences are comparative evidence rather than isolated effects.
+- Keep the feature enabled by default. The flag makes the ablation reproducible, but the two disabled runs provide no
+  quality reason to reverse the earlier best-effort retention decision.
+- Two disabled attempts failed the unchanged initial-owner response validator before this feature boundary and are
+  excluded. Detailed evidence is in
+  [`dormant-island-completion-experiment.md`](dormant-island-completion-experiment.md).
+
 ## 2026-08-26: Dormant Island Completion Candidate Handoff Restored
 
 - Diagnosis: the controller still invoked dormant-island completion, but qualification-first retrieval never passed

@@ -175,6 +175,7 @@ def run_case(
     skip_response_generation: bool = False,
     skip_final_evidence_selection: bool = False,
     stop_before_round_zero_qualification: bool = False,
+    dormant_island_completion_enabled: bool = True,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
@@ -216,6 +217,7 @@ def run_case(
         codex_ignore_user_config=codex_ignore_user_config,
         final_evidence_selection_enabled=not skip_final_evidence_selection,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
+        dormant_island_completion_enabled=dormant_island_completion_enabled,
         semantic_island_beam_size=semantic_island_beam_size,
         embedding_batch_size=embedding_batch_size,
         embedding_concurrency=embedding_concurrency,
@@ -290,6 +292,7 @@ def evaluate_case(
     skip_response_generation: bool = False,
     skip_final_evidence_selection: bool = False,
     stop_before_round_zero_qualification: bool = False,
+    dormant_island_completion_enabled: bool = True,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
@@ -371,6 +374,7 @@ def evaluate_case(
         skip_response_generation=skip_response_generation,
         skip_final_evidence_selection=skip_final_evidence_selection,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
+        dormant_island_completion_enabled=dormant_island_completion_enabled,
         semantic_island_beam_size=semantic_island_beam_size,
         embedding_batch_size=embedding_batch_size,
         embedding_concurrency=embedding_concurrency,
@@ -395,6 +399,7 @@ def evaluate_case(
         skip_response_generation=skip_response_generation,
         skip_final_evidence_selection=skip_final_evidence_selection,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
+        dormant_island_completion_enabled=dormant_island_completion_enabled,
         embedding_cache_path=embedding_cache_path,
         lexical_ranking_profile=lexical_ranking_profile,
     )
@@ -513,6 +518,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_parser.add_argument("--skip-response-generation", action="store_true")
     run_parser.add_argument("--skip-final-evidence-selection", action="store_true")
     run_parser.add_argument("--stop-before-round-zero-qualification", action="store_true")
+    run_parser.add_argument(
+        "--dormant-island-completion",
+        dest="dormant_island_completion_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
     run_parser.add_argument("--semantic-island-beam-size", type=int)
     evaluate_parser = subparsers.add_parser("evaluate-case")
     evaluate_parser.add_argument("--issue-json", required=True)
@@ -533,6 +544,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     evaluate_parser.add_argument("--skip-response-generation", action="store_true")
     evaluate_parser.add_argument("--skip-final-evidence-selection", action="store_true")
     evaluate_parser.add_argument("--stop-before-round-zero-qualification", action="store_true")
+    evaluate_parser.add_argument(
+        "--dormant-island-completion",
+        dest="dormant_island_completion_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
     evaluate_parser.add_argument("--semantic-island-beam-size", type=int)
     batch_parser = subparsers.add_parser("evaluate-batch")
     batch_parser.add_argument("--run-config", required=True)
@@ -608,6 +625,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.stop_before_round_zero_qualification
                 or run_config.get("stop_before_round_zero_qualification", False)
             ),
+            dormant_island_completion_enabled=_config_bool_override(
+                args,
+                run_config,
+                "dormant_island_completion_enabled",
+                True,
+            ),
             semantic_island_beam_size=int(
                 _config_value(args, run_config, "semantic_island_beam_size", 4)
             ),
@@ -650,6 +673,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             stop_before_round_zero_qualification=bool(
                 args.stop_before_round_zero_qualification
                 or run_config.get("stop_before_round_zero_qualification", False)
+            ),
+            dormant_island_completion_enabled=_config_bool_override(
+                args,
+                run_config,
+                "dormant_island_completion_enabled",
+                True,
             ),
             semantic_island_beam_size=int(
                 _config_value(args, run_config, "semantic_island_beam_size", 4)
@@ -885,6 +914,18 @@ def _config_bool(config: Mapping[str, Any], key: str, default: bool) -> bool:
     return bool(value)
 
 
+def _config_bool_override(
+    args: argparse.Namespace,
+    config: Mapping[str, Any],
+    key: str,
+    default: bool,
+) -> bool:
+    value = getattr(args, key, None)
+    if value is not None:
+        return bool(value)
+    return _config_bool(config, key, default)
+
+
 def _config_optional_int(config: Mapping[str, Any], key: str) -> int | None:
     value = config.get(key)
     if value in (None, ""):
@@ -1086,6 +1127,7 @@ def _write_run_metadata(
     skip_response_generation: bool,
     skip_final_evidence_selection: bool,
     stop_before_round_zero_qualification: bool,
+    dormant_island_completion_enabled: bool,
     embedding_cache_path: Path | None = None,
     lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> None:
@@ -1105,6 +1147,7 @@ def _write_run_metadata(
         "skip_response_generation": skip_response_generation,
         "skip_final_evidence_selection": skip_final_evidence_selection,
         "stop_before_round_zero_qualification": stop_before_round_zero_qualification,
+        "dormant_island_completion_enabled": dormant_island_completion_enabled,
         "embedding_cache_path": str(embedding_cache_path) if embedding_cache_path is not None else "",
         "lexical_ranking_profile": lexical_ranking_profile,
         "intent_system": "request_analysis_obligations_v1",
@@ -1456,6 +1499,7 @@ def _workspace_retrieval_config_for_case(
     codex_ignore_user_config: bool,
     final_evidence_selection_enabled: bool = True,
     stop_before_round_zero_qualification: bool = False,
+    dormant_island_completion_enabled: bool = True,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
@@ -1505,6 +1549,7 @@ def _workspace_retrieval_config_for_case(
         codex_ignore_user_config=codex_ignore_user_config,
         final_evidence_selection_enabled=final_evidence_selection_enabled,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
+        dormant_island_completion_enabled=dormant_island_completion_enabled,
         semantic_island_beam_size=semantic_island_beam_size,
         enable_indexing=load_retrieval_enable_indexing(TOOL_ENV_PATH) if retrieval_mode != RETRIEVAL_MODE_CODEX else False,
         structural_graph_timeout_seconds=CODE_REPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS,

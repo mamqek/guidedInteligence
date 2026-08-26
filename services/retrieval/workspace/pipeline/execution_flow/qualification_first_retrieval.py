@@ -453,6 +453,7 @@ def run_obligation_retrieval(
             ),
             "initial_owner_comparison_selected_count": len(owner_comparison.selected),
             "initial_owner_comparison_dormant_count": len(owner_comparison.dormant),
+            "dormant_island_completion_enabled": ctx.config.dormant_island_completion_enabled,
         },
     )
 
@@ -518,7 +519,9 @@ def run_obligation_retrieval(
         obligations=repository_obligations,
         initial_observations=initial_observations,
         deferred_observations=deferred_observations,
-        dormant_completion_observations=owner_comparison.dormant,
+        dormant_completion_observations=(
+            owner_comparison.dormant if ctx.config.dormant_island_completion_enabled else ()
+        ),
         structural_tools=structural_tools,
         qdrant_tool=qdrant_tool,
         candidate_factory=lambda observation, decision, card: _candidate_from_qualified(
@@ -648,6 +651,7 @@ def run_obligation_retrieval(
         "initial_owner_comparison_usage": dict(owner_comparison.usage),
         "initial_owner_comparison_serialized_chars": owner_comparison.serialized_chars,
         "initial_owner_comparison_group_count": owner_comparison.compared_group_count,
+        "dormant_island_completion_enabled": ctx.config.dormant_island_completion_enabled,
         "coverage_usage": dict(controller.coverage_usage),
         "anchor_query_count": len(confirmations),
         "anchor_confirmations": [item.to_dict() for item in confirmations],
