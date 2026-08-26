@@ -422,6 +422,7 @@ def run_retrieval_controller(
             llm_config=ctx.config.llm_config,
             user_request=user_request,
             cards=disclosure.cards,
+            obligations=obligations,
             max_input_chars=ctx.config.max_qualification_input_chars,
             trace=ctx.trace,
             round_index=round_index,

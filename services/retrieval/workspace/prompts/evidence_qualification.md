@@ -4,6 +4,16 @@ The payload contains shared `file_contexts` plus separately identified `observat
 
 For every observation ID, decide whether that observation's visible source supports the user's request. Retrieval rank, exact matches, recurrence, file role, and graph metadata are navigation signals only; never use them as proof. Cite only facts visible in that observation's source and its referenced owner context.
 
+The payload also contains the repository `obligations`. For each decision,
+return `supported_obligation_ids`: only the IDs whose described claim is
+actually established by this observation's visible source. Choose from any of
+the listed repository obligations. The obligation IDs in an observation's
+`navigation_context` record which searches retrieved it; they are provenance,
+not eligibility restrictions or proof of support. Never copy them wholesale.
+Use an empty list when none of those obligations is visibly supported.
+`promote_direct` requires at least one supported obligation. Navigation,
+deferred, and rejected observations may return an empty list.
+
 Allowed decisions:
 - `promote_direct`: visible source establishes a fact needed to answer the request.
 - `promote_navigation`: visible source identifies a concrete relevant owner or handoff worth one bounded follow-up, but is not final evidence.

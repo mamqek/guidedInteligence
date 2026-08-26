@@ -37,6 +37,7 @@ class QualificationDecision:
     visible_support: tuple[str, ...] = ()
     missing_information: tuple[str, ...] = ()
     local_follow_up: str = ""
+    supported_obligation_ids: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -67,6 +68,7 @@ def prepare_qualification_request(
     user_request: str,
     cards: Sequence[DisclosureCard],
     max_input_chars: int,
+    obligations: Sequence[Any] = (),
 ) -> QualificationPreparation:
     """Build the exact bounded request that qualification would receive.
 
@@ -81,6 +83,7 @@ def prepare_qualification_request(
     payload, bounded_cards, budget = _bounded_payload(
         user_request,
         cards,
+        obligations=obligations,
         max_input_chars=max_input_chars,
         prompt_text=prompt_text,
         response_format=_response_format(ids),
@@ -102,6 +105,7 @@ def qualify_cards(
     user_request: str,
     cards: Sequence[DisclosureCard],
     max_input_chars: int,
+    obligations: Sequence[Any] = (),
     trace: Any | None = None,
     round_index: int = 0,
 ) -> QualificationBatch:
@@ -112,6 +116,7 @@ def qualify_cards(
         llm_config=llm_config,
         user_request=user_request,
         cards=cards,
+        obligations=obligations,
         max_input_chars=max_input_chars,
         prompt_text=prompt_text,
         trace=trace,
@@ -121,12 +126,12 @@ def qualify_cards(
 
 def _qualify_card_batch(
     *, llm_config: Any, user_request: str, cards: Sequence[DisclosureCard], max_input_chars: int,
-    prompt_text: str, trace: Any | None, round_index: int,
+    obligations: Sequence[Any], prompt_text: str, trace: Any | None, round_index: int,
 ) -> QualificationBatch:
     ids = tuple(card.observation_id for card in cards)
     response_format = _response_format(ids)
     payload, bounded_cards, budget = _bounded_payload(
-        user_request, cards, max_input_chars=max_input_chars,
+        user_request, cards, obligations=obligations, max_input_chars=max_input_chars,
         prompt_text=prompt_text, response_format=response_format,
     )
     serialized = json.dumps(payload, sort_keys=True)
@@ -199,7 +204,16 @@ def _qualify_card_batch(
         response_format=response_format,
         log_event=log_event,
     )
-    decisions = _validate_decisions(response, ids)
+    known_obligation_ids = tuple(
+        str(getattr(item, "id", ""))
+        for item in obligations
+        if str(getattr(item, "id", ""))
+    )
+    allowed_obligations = {
+        card.observation_id: known_obligation_ids
+        for card in bounded_cards
+    }
+    decisions = _validate_decisions(response, ids, allowed_obligations)
     if trace is not None:
         trace.record(
             "qualification_decisions_created",
@@ -213,6 +227,7 @@ def _bounded_payload(
     user_request: str,
     cards: Sequence[DisclosureCard],
     *,
+    obligations: Sequence[Any] = (),
     max_input_chars: int,
     prompt_text: str | None = None,
     response_format: Mapping[str, Any] | None = None,
@@ -223,26 +238,36 @@ def _bounded_payload(
     prepared = tuple(cards)
 
     def fixed_input_chars(values: Sequence[DisclosureCard]) -> int:
-        return _total_input_chars(system_prompt, schema, _payload(user_request, values, blank_source=True))
+        return _total_input_chars(
+            system_prompt,
+            schema,
+            _payload(user_request, values, obligations=obligations, blank_source=True),
+        )
 
     fixed = fixed_input_chars(prepared)
     if fixed > max_input_chars:
         raise RuntimeError("qualification_input_budget_too_small_for_metadata")
     source_capacity = max(0, max_input_chars - fixed)
     bounded = fit_cards_to_source_capacity(prepared, source_capacity=source_capacity)
-    payload = _payload(user_request, bounded)
+    payload = _payload(user_request, bounded, obligations=obligations)
     total = _total_input_chars(system_prompt, schema, payload)
     while total > max_input_chars and source_capacity > 0:
         source_capacity = max(0, source_capacity - (total - max_input_chars))
         bounded = fit_cards_to_source_capacity(prepared, source_capacity=source_capacity)
-        payload = _payload(user_request, bounded)
+        payload = _payload(user_request, bounded, obligations=obligations)
         total = _total_input_chars(system_prompt, schema, payload)
     if total > max_input_chars:
         raise RuntimeError("qualification_input_budget_too_small_for_metadata")
     return payload, bounded, {"fixed_input_chars": fixed, "source_capacity": source_capacity, "total_input_chars": total}
 
 
-def _payload(user_request: str, cards: Sequence[DisclosureCard], *, blank_source: bool = False) -> dict[str, Any]:
+def _payload(
+    user_request: str,
+    cards: Sequence[DisclosureCard],
+    *,
+    obligations: Sequence[Any] = (),
+    blank_source: bool = False,
+) -> dict[str, Any]:
     file_ids: dict[str, str] = {}
     owner_ids: dict[tuple[object, ...], str] = {}
     file_contexts: dict[str, dict[str, Any]] = {}
@@ -305,7 +330,21 @@ def _payload(user_request: str, cards: Sequence[DisclosureCard], *, blank_source
                 "navigation_context": navigation_context,
             }, preserve={"source_text"})
         )
-    return {"request": user_request, "file_contexts": file_contexts, "observations": rendered}
+    rendered_obligations = [
+        {
+            "obligation_id": str(getattr(item, "id", "")),
+            "description": str(getattr(item, "description", "")),
+            "evidence_role": str(getattr(getattr(item, "evidence_role", ""), "value", getattr(item, "evidence_role", ""))),
+        }
+        for item in obligations
+        if str(getattr(item, "id", ""))
+    ]
+    return {
+        "request": user_request,
+        "obligations": rendered_obligations,
+        "file_contexts": file_contexts,
+        "observations": rendered,
+    }
 
 
 def _without_empty_values(
@@ -331,7 +370,11 @@ def _total_input_chars(prompt_text: str, response_format: Mapping[str, Any], pay
     return len(prompt_text) + len(json.dumps(response_format, sort_keys=True)) + len(json.dumps(payload, sort_keys=True)) + INPUT_SAFETY_RESERVE_CHARS
 
 
-def _validate_decisions(response: Mapping[str, Any], ids: Sequence[str]) -> tuple[QualificationDecision, ...]:
+def _validate_decisions(
+    response: Mapping[str, Any],
+    ids: Sequence[str],
+    allowed_obligations: Mapping[str, Sequence[str]] | None = None,
+) -> tuple[QualificationDecision, ...]:
     raw = response.get("decisions")
     if not isinstance(raw, Mapping):
         raise RuntimeError("qualification_response_invalid: decisions must be an object keyed by observation ID")
@@ -357,6 +400,18 @@ def _validate_decisions(response: Mapping[str, Any], ids: Sequence[str]) -> tupl
         visible_support = _strings(value.get("visible_support"), limit=6)
         if disposition == "promote" and not visible_support:
             raise RuntimeError(f"qualification_response_invalid: promotion lacks visible support for {observation_id}")
+        supported_obligation_ids = _strings(value.get("supported_obligation_ids"), limit=12)
+        allowed = set((allowed_obligations or {}).get(observation_id, ()))
+        unknown_obligations = set(supported_obligation_ids) - allowed
+        if unknown_obligations:
+            raise RuntimeError(
+                "qualification_response_invalid: unsupported obligation IDs for "
+                f"{observation_id}: {sorted(unknown_obligations)}"
+            )
+        if support_level == "direct_evidence" and not supported_obligation_ids:
+            raise RuntimeError(
+                f"qualification_response_invalid: direct evidence lacks supported obligations for {observation_id}"
+            )
         decisions.append(
             QualificationDecision(
                 observation_id=observation_id,
@@ -366,6 +421,7 @@ def _validate_decisions(response: Mapping[str, Any], ids: Sequence[str]) -> tupl
                 visible_support=visible_support,
                 missing_information=_strings(value.get("missing_information"), limit=6),
                 local_follow_up=str(value.get("local_follow_up") or "").strip()[:500],
+                supported_obligation_ids=supported_obligation_ids,
             )
         )
     return tuple(decisions)
@@ -387,8 +443,16 @@ def _response_format(ids: Sequence[str]) -> dict[str, Any]:
             "visible_support": {"type": "array", "items": {"type": "string"}},
             "missing_information": {"type": "array", "items": {"type": "string"}},
             "local_follow_up": {"type": "string"},
+            "supported_obligation_ids": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["classification", "reason", "visible_support", "missing_information", "local_follow_up"],
+        "required": [
+            "classification",
+            "reason",
+            "visible_support",
+            "missing_information",
+            "local_follow_up",
+            "supported_obligation_ids",
+        ],
     }
     return {
         "type": "json_schema",

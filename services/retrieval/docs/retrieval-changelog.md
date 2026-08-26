@@ -4620,3 +4620,19 @@ Verification:
   effect remains unstable. One activation survived and produced follow-up work; the repeated activation was only
   navigation and disappeared. Both runs remained insufficient, and enabled retrieval did not consistently improve
   implementation-Oracle retention over the disabled pair.
+# 2026-08-26 — Qualification-scoped obligation support
+
+- Added `supported_obligation_ids` to semantic qualification. Promoted candidates now receive direct obligation
+  support from the qualification decision rather than copying every obligation-specific query that retrieved them.
+  Retrieval provenance remains intact in semantic discovery facts and traces.
+- Rejected attempt 1's restriction to retrieval-associated IDs after actual run `run-20260826T140105Z` proved that
+  visible source can validly support an obligation that did not retrieve it. Attempt 2 validates returned IDs against
+  all known repository obligations instead.
+- Two exact saved-batch qualification replays independently changed the noisy
+  `src/testRunner/unittests/tsserver/compileOnSave.ts:120-159` range from broad direct support to
+  `defer/navigation_only` with zero supported obligations. They used 8,173 and 8,115 tokens.
+- Actual TypeScript runs `run-20260826T140738Z` and `run-20260826T141453Z` completed `partial/false`, retained one and
+  two implementation Oracles, and used 97,031 and 100,105 retrieval tokens. The target compile-on-save range was not
+  present upstream in either run, so natural final-flow removal remains unexercised.
+- Decision: best-effort retained. See
+  [`qualification-obligation-scope-experiment.md`](qualification-obligation-scope-experiment.md).

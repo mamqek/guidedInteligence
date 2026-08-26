@@ -716,7 +716,7 @@ def _candidate_from_qualified(
         provenance_origins=origins,
         source_paths=(),
         relationship_types=observation.relationship_kinds,
-        obligation_ids=observation.obligation_ids,
+        obligation_ids=decision.supported_obligation_ids,
         facts=_candidate_facts(
             card.source_text,
             semantic_discoveries=semantic,

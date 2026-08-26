@@ -1,5 +1,16 @@
 # Retrieval Experiment Open Questions
 
+## QOS-1 — Qualification-scoped obligation support in final-flow admission
+
+- Experiment: [`../qualification-obligation-scope-experiment.md`](../qualification-obligation-scope-experiment.md).
+- Status: best-effort retained on 2026-08-26. Exact saved-batch replays twice removed all direct obligation support
+  from an unrelated compile-on-save test range. Two actual TypeScript runs completed without contract failures, but
+  neither naturally retrieved that range.
+- Open question: when a broadly recurrent but semantically narrow candidate is naturally present, does qualification
+  scoping reliably reduce its flow score and final admission without suppressing valid implementation owners?
+- Constraint: do not add a blanket test penalty or conflate retrieval provenance with semantic proof. Audit qualified
+  support IDs, retrieval provenance IDs, flow score, budget admission, and final selection separately.
+
 This file is the small registry for retrieval-experiment behavior that remains untested, unresolved, or
 deliberately bounded. It does not repeat measured results; those remain in
 [`../retrieval-changelog.md`](../retrieval-changelog.md). When a later run exposes a suspicious behavior,
