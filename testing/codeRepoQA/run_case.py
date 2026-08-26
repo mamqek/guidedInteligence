@@ -175,7 +175,7 @@ def run_case(
     skip_response_generation: bool = False,
     skip_final_evidence_selection: bool = False,
     stop_before_round_zero_qualification: bool = False,
-    dormant_island_completion_enabled: bool = True,
+    dormant_island_completion_enabled: bool = False,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
@@ -292,7 +292,7 @@ def evaluate_case(
     skip_response_generation: bool = False,
     skip_final_evidence_selection: bool = False,
     stop_before_round_zero_qualification: bool = False,
-    dormant_island_completion_enabled: bool = True,
+    dormant_island_completion_enabled: bool = False,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
@@ -629,7 +629,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args,
                 run_config,
                 "dormant_island_completion_enabled",
-                True,
+                False,
             ),
             semantic_island_beam_size=int(
                 _config_value(args, run_config, "semantic_island_beam_size", 4)
@@ -678,7 +678,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args,
                 run_config,
                 "dormant_island_completion_enabled",
-                True,
+                False,
             ),
             semantic_island_beam_size=int(
                 _config_value(args, run_config, "semantic_island_beam_size", 4)
@@ -1499,7 +1499,7 @@ def _workspace_retrieval_config_for_case(
     codex_ignore_user_config: bool,
     final_evidence_selection_enabled: bool = True,
     stop_before_round_zero_qualification: bool = False,
-    dormant_island_completion_enabled: bool = True,
+    dormant_island_completion_enabled: bool = False,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,

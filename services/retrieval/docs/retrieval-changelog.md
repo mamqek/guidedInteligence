@@ -4568,3 +4568,30 @@ Verification:
 - Excluded diagnostics `run-20260826T093810Z` and `run-20260826T093839Z` stopped before retrieval because the shell's
   Node runtime lacked `node:sqlite`. Acceptance used the bundled Node 24 runtime. The optional local-notes query then
   failed because its `better-sqlite3` binary was built for another Node ABI; source-code retrieval continued normally.
+## 2026-08-26 — Dormant-completion default corrected and disabled acceptance rerun
+
+- Root cause: TypeScript runs `run-20260826T093942Z` and `run-20260826T094609Z` did not pass
+  `--no-dormant-island-completion`. The comparison flag worked, but every runtime and harness default remained
+  enabled, so ordinary workspace acceptance runs silently inherited the experimental stage.
+- Change: `WorkspaceRetrievalConfig`, the retrieval server, CodeRepoQA function/config fallback, and the reusable
+  `configs/testing/workspace.json` profile now default dormant-island completion to `false`. Explicit
+  `--dormant-island-completion` remains the opt-in comparison path. The stage implementation and its eligibility,
+  prompt, and promotion behavior are unchanged.
+- Focused verification: `python -m unittest tests.test_coderepoqa_retrieval -v` passed all 10 tests. The harness
+  assertion verifies that an ordinary workspace run constructs retrieval configuration with dormant completion
+  disabled.
+- Actual-pipeline acceptance, final evidence selection enabled and explanation generation skipped:
+  - `run-20260826T101602Z`: metadata `false`, zero dormant requests/decisions/promotions, three controller rounds,
+    `partial/false`, 10 final evidence items, three implementation-Oracle files (`watchMode.ts`, `builder.ts`, and
+    `builderState.ts`), and 101,551 retrieval tokens.
+  - `run-20260826T102023Z`: metadata `false`, zero dormant requests/decisions/promotions, four controller rounds,
+    `partial/false`, 10 final evidence items, two implementation-Oracle files (`builder.ts` and `watchMode.ts`), and
+    113,486 retrieval tokens.
+- Token comparison against the accidentally enabled `093942Z` / `094609Z` pair: totals fell by 16,849 and 11,284
+  tokens. Only 1,867 / 2,561 tokens are directly attributable to removing dormant completion. The remaining change
+  comes from stochastic controller payloads, one fewer round in the first rerun, and omission of the second enabled
+  run's unresolved-file selection call.
+- Controller conclusion: the disabled default is mechanically stable, but retrieval quality remains variable. The
+  first rerun retained a coherent watch/build/signature chain; the second spent a conditional fourth round without
+  any coverage gain and selected unrelated `importTracker.ts` material while losing `builderState.ts`. This does not
+  justify re-enabling dormant completion.
