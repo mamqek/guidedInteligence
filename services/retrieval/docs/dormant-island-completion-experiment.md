@@ -170,3 +170,39 @@ This is not a claim of final-evidence improvement. One TypeScript run gained a c
 gained only navigation, and final selection omitted every dormant completion. Keep the strict existing gates and
 caps unchanged. Further expansion, broader sibling matching, or deterministic promotion is not justified by these
 runs.
+
+### Disabled comparison and runtime flag
+
+`WorkspaceRetrievalConfig.dormant_island_completion_enabled` now controls only the handoff of initial-owner dormant
+snippets into the controller's completion stage. It defaults to `true`. The CodeRepoQA runner exposes
+`--dormant-island-completion` / `--no-dormant-island-completion`, accepts the same setting from a run configuration,
+and records the effective value in run metadata and the retrieval trace. Disabling it does not change Qdrant,
+CodeGraph resolution, initial owner comparison, ordinary deferred recovery, controller scheduling, or final evidence
+selection.
+
+Two actual TypeScript acceptance runs used `--no-dormant-island-completion`, kept final evidence selection enabled,
+and skipped only explanation generation:
+
+- `run-20260826T073825Z`: the initial owner comparison produced 164 dormant snippets, but all three controller-round
+  evaluations recorded zero eligible completion candidates. The run made no completion LLM call, ended
+  `partial/false`, selected 12 evidence items across five files, retained two implementation-Oracle files
+  (`builder.ts` and `watchMode.ts`), and used 94,839 retrieval tokens.
+- `run-20260826T074349Z`: the initial owner comparison produced 154 dormant snippets, but all three controller-round
+  evaluations again recorded zero eligible completion candidates. The run made no completion LLM call, ended
+  `partial/false`, selected 12 evidence items across six files, retained two implementation-Oracle files
+  (`builder.ts` and `builderState.ts`), and used 102,205 retrieval tokens.
+
+The enabled pair retained three implementation-Oracle files in each run and spent 4,550 / 1,362 tokens in the
+completion stage. The disabled pair retained two in each run and spent zero completion-stage tokens. The missing
+third file was not consistent: disabled run `073825Z` omitted `builderState.ts`, while `074349Z` omitted
+`watchMode.ts`. Controller actions and upstream LLM selections also differed substantially across all four runs, so
+the total-token and exact-file differences cannot be attributed solely to the flag. The directly causal effect is
+limited to withholding the dormant pool, eliminating its paired qualification calls, and preventing its promoted
+owners from influencing later rounds.
+
+Two additional disabled attempts, `run-20260826T073633Z` and `run-20260826T074217Z`, failed the
+unchanged initial-owner global-selection validator before the completion boundary and are excluded.
+
+The default remains enabled. The ablation does not establish sufficiency improvement, but it provides no reason to
+reverse the best-effort retention decision: disabling saved 1,362–4,550 direct stage tokens while both measured runs
+lost one implementation-Oracle endpoint relative to the enabled pair.
