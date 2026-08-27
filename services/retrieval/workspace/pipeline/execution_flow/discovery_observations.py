@@ -61,6 +61,8 @@ class DiscoveryObservation:
     # Initial admission can keep one representative per file while retaining a
     # stronger structural alternative for a bounded later rescue.
     admission_reason: str = ""
+    # Comparison-only source; original Qdrant views remain unchanged provenance.
+    comparison_source_views: tuple[RetrievedSourceView, ...] = ()
 
     @property
     def obligation_ids(self) -> tuple[str, ...]:
@@ -98,6 +100,7 @@ class DiscoveryObservation:
         if not include_text:
             value.pop("observed_text", None)
             value.pop("source_views", None)
+            value.pop("comparison_source_views", None)
         value["obligation_ids"] = list(self.obligation_ids)
         value["best_rank"] = self.best_rank
         value["best_score"] = self.best_score

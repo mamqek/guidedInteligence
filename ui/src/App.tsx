@@ -2059,8 +2059,8 @@ function WorkspaceIndexPanel({
         )}
         <div className="settingsGrid twoColumn">
           <label className="fieldLabel">
-            Max tokens
-            <input type="number" min={1} value={generation.max_tokens || 4000} onChange={(event) => updateGeneration({ max_tokens: Number(event.target.value) || 4000 })} />
+            Completion token limit (optional)
+            <input type="number" min={1} placeholder="Provider default" value={generation.max_tokens ?? ""} onChange={(event) => updateGeneration({ max_tokens: event.target.value === "" ? null : Math.max(1, Number(event.target.value)) })} />
           </label>
           <label className="fieldLabel">
             Timeout seconds

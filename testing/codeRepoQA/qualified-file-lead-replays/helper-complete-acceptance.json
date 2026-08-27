@@ -1,0 +1,3934 @@
+[
+  {
+    "run_id": "run-20260827T123853Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 3,
+    "oracle_positions": {
+      "src/compiler/builder.ts": 3,
+      "src/compiler/builderState.ts": 2,
+      "src/testRunner/unittests/tsbuild/watchMode.ts": 5
+    },
+    "final_items": 13,
+    "final_files": 6,
+    "retrieval_tokens": 107658,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1610,
+        "completion_tokens": 200,
+        "total_tokens": 1810
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 20709,
+        "completion_tokens": 1177,
+        "total_tokens": 21886
+      },
+      "evidence_qualification": {
+        "calls": 4,
+        "prompt_tokens": 24851,
+        "completion_tokens": 8853,
+        "total_tokens": 33704
+      },
+      "retrieval_coverage": {
+        "calls": 4,
+        "prompt_tokens": 28468,
+        "completion_tokens": 4639,
+        "total_tokens": 33107
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 1,
+        "prompt_tokens": 13207,
+        "completion_tokens": 3944,
+        "total_tokens": 17151
+      }
+    },
+    "leads": [
+      {
+        "discovery_line": 474,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 541,
+          "full_line_start": 495,
+          "language": "typescript",
+          "line_end": 541,
+          "line_start": 522,
+          "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 2,
+        "obligation_id": "explain_subject",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:30a8c58d8d1b02679033b37851233006"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 509,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 2,
+        "source_observation_id": "obs_f429d6d76ec512a2",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.getReferencedByPaths",
+        "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          449,
+          453
+        ],
+        "target_symbol": "getReferencedByPaths",
+        "actions": [
+          {
+            "trace_line": 484,
+            "round": 1,
+            "discovered_round": 0,
+            "id": "action_50d9cee4233b68a9",
+            "obligation_id": "explain_subject",
+            "pool": "verified_lead",
+            "purpose": "structural_child_handoff",
+            "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "scope_id": "island_e7fd230f28111d9d",
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "target": "BuilderState.getReferencedByPaths",
+            "target_line_end": 453,
+            "target_line_start": 449,
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_symbol": "getReferencedByPaths",
+            "type": "InspectVerifiedLead"
+          }
+        ],
+        "qualification": [
+          {
+            "trace_line": 508,
+            "round": 1,
+            "disposition": "promote",
+            "local_follow_up": "Inspect callers of getReferencedByPaths to see how each returned dependent path is queued after invalidation.",
+            "missing_information": [
+              "The caller that uses these returned paths to invalidate, queue, rebuild, or semantically check dependent projects.",
+              "The source that populates referencedMap and relates it to project-reference boundaries."
+            ],
+            "observation_id": "obs_03047c7d6afe13aa",
+            "reason": "This helper computes reverse dependencies by returning every file path whose referencesInFile set contains the supplied referenced file path. That is a concrete project/file invalidation lookup used to identify dependents.",
+            "support_level": "direct_evidence",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "visible_support": [
+              "getReferencedByPaths iterates state.referencedMap entries.",
+              "It returns the file paths whose reference sets contain referencedFilePath."
+            ]
+          },
+          {
+            "trace_line": 928,
+            "round": 2,
+            "disposition": "promote",
+            "local_follow_up": "Retrieve the caller that invokes `getReferencedByPaths` during watch invalidation and the code that builds `state.referencedMap`.",
+            "missing_information": [
+              "The caller that populates `referencedMap` and the code that invokes this lookup during project-reference watch invalidation are not shown.",
+              "Wildcard re-export handling and the consuming project's semantic checking are not shown."
+            ],
+            "observation_id": "obs_03047c7d6afe13aa",
+            "reason": "The function visibly maps a referenced file path to files that reference it, establishing the reverse-dependency lookup used for propagating changes to dependents.",
+            "support_level": "direct_evidence",
+            "supported_obligation_ids": [
+              "explain_subject"
+            ],
+            "visible_support": [
+              "`getReferencedByPaths` iterates `state.referencedMap` entries.",
+              "It returns each `filePath` whose `referencesInFile` set contains the supplied `referencedFilePath`."
+            ]
+          }
+        ],
+        "final_ranks": [
+          9
+        ]
+      },
+      {
+        "discovery_line": 474,
+        "source_handle": {
+          "adapter": "codegraph_owner_disclosure",
+          "full_line_end": 720,
+          "full_line_start": 215,
+          "language": "typescript",
+          "line_end": 720,
+          "line_start": 215,
+          "node_id": "function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/watchPublic.ts",
+          "symbol": "createWatchProgram"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_state_changes",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/resolutioncache.ts",
+          "function:c64ea9220f111372e4b932683827ce1a"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls resolutionCache.resolveModuleNames at src/compiler/watchPublic.ts:314; inspect target for unresolved explain_state_changes; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 314,
+        "source_call_path": "src/compiler/watchPublic.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_70ab956630713908",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "resolutionCache.resolveModuleNames",
+        "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+        "target_path": "src/compiler/resolutionCache.ts",
+        "target_range": [
+          408,
+          416
+        ],
+        "target_symbol": "createResolutionCache::resolveModuleNames",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 474,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 386,
+          "full_line_start": 333,
+          "language": "typescript",
+          "line_end": 386,
+          "line_start": 357,
+          "node_id": "function:70d91fa7b61cda64a11e60ff45579147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "getNextAffectedFile"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_ordered_mechanism",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:9c49488338feaf01b940967a1e0c6195"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.updateExportedFilesMapFromCache at src/compiler/builder.ts:356; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 356,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_5ef93d462c7cc276",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.updateExportedFilesMapFromCache",
+        "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          383,
+          395
+        ],
+        "target_symbol": "updateExportedFilesMapFromCache",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      }
+    ],
+    "followups": [
+      {
+        "discovery_line": 523,
+        "source_handle": {
+          "adapter": "codegraph_owner_disclosure",
+          "full_line_end": 720,
+          "full_line_start": 215,
+          "language": "typescript",
+          "line_end": 720,
+          "line_start": 215,
+          "node_id": "function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/watchPublic.ts",
+          "symbol": "createWatchProgram"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_state_changes",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/resolutioncache.ts",
+          "function:c64ea9220f111372e4b932683827ce1a"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls resolutionCache.resolveModuleNames at src/compiler/watchPublic.ts:314; inspect target for unresolved explain_state_changes; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 314,
+        "source_call_path": "src/compiler/watchPublic.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_70ab956630713908",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "resolutionCache.resolveModuleNames",
+        "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+        "target_path": "src/compiler/resolutionCache.ts",
+        "target_range": [
+          408,
+          416
+        ],
+        "target_symbol": "createResolutionCache::resolveModuleNames",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 523,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 386,
+          "full_line_start": 333,
+          "language": "typescript",
+          "line_end": 386,
+          "line_start": 357,
+          "node_id": "function:70d91fa7b61cda64a11e60ff45579147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "getNextAffectedFile"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_ordered_mechanism",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:9c49488338feaf01b940967a1e0c6195"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.updateExportedFilesMapFromCache at src/compiler/builder.ts:356; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 356,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_5ef93d462c7cc276",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.updateExportedFilesMapFromCache",
+        "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          383,
+          395
+        ],
+        "target_symbol": "updateExportedFilesMapFromCache",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 523,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 213,
+          "full_line_start": 211,
+          "language": "typescript",
+          "line_end": 213,
+          "line_start": 211,
+          "node_id": "function:f8f74b82be3be3d78554c778c2c74e0d",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "createSolutionBuilderWithWatch"
+        },
+        "discovered_round": 1,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_why",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          1,
+          10000,
+          "src/compiler/tsbuildpublic.ts",
+          "function:79007c855ed19ba8360c64ca7e1afe62"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect createSolutionBuilderWorker for the watch callback or scheduling event that starts rebuilding after a file change.",
+        "request_text": "Inspect createSolutionBuilderWorker for the watch callback or scheduling event that starts rebuilding after a file change.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_61bf08951027b2a2",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "createSolutionBuilderWorker",
+        "target_node_id": "function:79007c855ed19ba8360c64ca7e1afe62",
+        "target_path": "src/compiler/tsbuildPublic.ts",
+        "target_range": [
+          1900,
+          1925
+        ],
+        "target_symbol": "createSolutionBuilderWorker",
+        "actions": [
+          {
+            "trace_line": 913,
+            "round": 2,
+            "discovered_round": 1,
+            "id": "action_754b449b1019cad0",
+            "obligation_id": "explain_why",
+            "pool": "verified_lead",
+            "purpose": "verified_source_lead",
+            "reason": "Inspect createSolutionBuilderWorker for the watch callback or scheduling event that starts rebuilding after a file change.",
+            "scope_id": "island_37f85c785716a890",
+            "source_observation_id": "obs_61bf08951027b2a2",
+            "target": "createSolutionBuilderWorker",
+            "target_line_end": 1925,
+            "target_line_start": 1900,
+            "target_node_id": "function:79007c855ed19ba8360c64ca7e1afe62",
+            "target_path": "src/compiler/tsbuildPublic.ts",
+            "target_symbol": "createSolutionBuilderWorker",
+            "type": "InspectVerifiedLead"
+          }
+        ],
+        "qualification": [
+          {
+            "trace_line": 928,
+            "round": 2,
+            "disposition": "promote",
+            "local_follow_up": "Retrieve the watch event handler that calls `invalidateProject` and the implementations of `buildNextInvalidatedProject` and `getNextInvalidatedProject`.",
+            "missing_information": [
+              "The source does not show what file-watch event calls `invalidateProject`, how reload levels alter cached programs, or how a changed upstream signature marks the consuming project.",
+              "The implementation of `getNextInvalidatedProject`, `buildNextInvalidatedProject`, and semantic diagnostics is not visible here."
+            ],
+            "observation_id": "obs_d2903f753c155cb6",
+            "reason": "The worker visibly creates solution-builder state with an explicit watch flag and exposes the invalidation and next-invalidated-project operations, establishing the central watch/build orchestration boundary.",
+            "support_level": "direct_evidence",
+            "supported_obligation_ids": [
+              "explain_trigger",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "visible_support": [
+              "`createSolutionBuilderWorker` passes `watch` and watch-host options into `createSolutionBuilderState`.",
+              "The returned builder exposes `getNextInvalidatedProject`, which performs initial setup and queries invalidated projects.",
+              "It exposes `invalidateProject(configFilePath, reloadLevel)` and `buildNextInvalidatedProject()` operations.",
+              "The same worker supports ordinary builds and reference-only builds."
+            ]
+          }
+        ],
+        "final_ranks": [
+          11
+        ]
+      },
+      {
+        "discovery_line": 523,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 197,
+          "full_line_start": 192,
+          "language": "typescript",
+          "line_end": 197,
+          "line_start": 192,
+          "node_id": "function:852d58b4a3fc1b7ccfd12f7c681b33ec",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "createSolutionBuilderWithWatchHost"
+        },
+        "discovered_round": 1,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_why",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          1,
+          10000,
+          "src/compiler/watch.ts",
+          "function:9a5bb6ff98add6529b3f9becebba7007"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+        "request_text": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_2fc2cd9b3b831a88",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "createWatchHost",
+        "target_node_id": "function:9a5bb6ff98add6529b3f9becebba7007",
+        "target_path": "src/compiler/watch.ts",
+        "target_range": [
+          237,
+          246
+        ],
+        "target_symbol": "createWatchHost",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 523,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 419,
+          "full_line_start": 413,
+          "language": "typescript",
+          "line_end": 419,
+          "line_start": 413,
+          "node_id": "function:2b766b8b2bb848361e64d2a63836e71e",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+          "symbol": "verifyTscWatch"
+        },
+        "discovered_round": 1,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_why",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          1,
+          10000,
+          "src/testrunner/unittests/tscwatch/helpers.ts",
+          "function:c27a17aff15752299b0a5eaa1f27fd46"
+        ],
+        "qualified_target": false,
+        "reason": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+        "request_text": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_f81305018e14309d",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "tscWatchCompile",
+        "target_node_id": "function:c27a17aff15752299b0a5eaa1f27fd46",
+        "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+        "target_range": [
+          300,
+          328
+        ],
+        "target_symbol": "tscWatchCompile",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 934,
+        "source_handle": {
+          "adapter": "codegraph_owner_disclosure",
+          "full_line_end": 720,
+          "full_line_start": 215,
+          "language": "typescript",
+          "line_end": 720,
+          "line_start": 215,
+          "node_id": "function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/watchPublic.ts",
+          "symbol": "createWatchProgram"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_state_changes",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/resolutioncache.ts",
+          "function:c64ea9220f111372e4b932683827ce1a"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls resolutionCache.resolveModuleNames at src/compiler/watchPublic.ts:314; inspect target for unresolved explain_state_changes; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 314,
+        "source_call_path": "src/compiler/watchPublic.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_70ab956630713908",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "resolutionCache.resolveModuleNames",
+        "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+        "target_path": "src/compiler/resolutionCache.ts",
+        "target_range": [
+          408,
+          416
+        ],
+        "target_symbol": "createResolutionCache::resolveModuleNames",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 934,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 386,
+          "full_line_start": 333,
+          "language": "typescript",
+          "line_end": 386,
+          "line_start": 357,
+          "node_id": "function:70d91fa7b61cda64a11e60ff45579147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "getNextAffectedFile"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_ordered_mechanism",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:9c49488338feaf01b940967a1e0c6195"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.updateExportedFilesMapFromCache at src/compiler/builder.ts:356; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 356,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_5ef93d462c7cc276",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.updateExportedFilesMapFromCache",
+        "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          383,
+          395
+        ],
+        "target_symbol": "updateExportedFilesMapFromCache",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 934,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 197,
+          "full_line_start": 192,
+          "language": "typescript",
+          "line_end": 197,
+          "line_start": 192,
+          "node_id": "function:852d58b4a3fc1b7ccfd12f7c681b33ec",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "createSolutionBuilderWithWatchHost"
+        },
+        "discovered_round": 1,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_why",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          1,
+          10000,
+          "src/compiler/watch.ts",
+          "function:9a5bb6ff98add6529b3f9becebba7007"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+        "request_text": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_2fc2cd9b3b831a88",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "createWatchHost",
+        "target_node_id": "function:9a5bb6ff98add6529b3f9becebba7007",
+        "target_path": "src/compiler/watch.ts",
+        "target_range": [
+          237,
+          246
+        ],
+        "target_symbol": "createWatchHost",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 934,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 419,
+          "full_line_start": 413,
+          "language": "typescript",
+          "line_end": 419,
+          "line_start": 413,
+          "node_id": "function:2b766b8b2bb848361e64d2a63836e71e",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+          "symbol": "verifyTscWatch"
+        },
+        "discovered_round": 1,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_why",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          1,
+          10000,
+          "src/testrunner/unittests/tscwatch/helpers.ts",
+          "function:c27a17aff15752299b0a5eaa1f27fd46"
+        ],
+        "qualified_target": false,
+        "reason": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+        "request_text": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_f81305018e14309d",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "tscWatchCompile",
+        "target_node_id": "function:c27a17aff15752299b0a5eaa1f27fd46",
+        "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+        "target_range": [
+          300,
+          328
+        ],
+        "target_symbol": "tscWatchCompile",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 934,
+        "source_handle": {
+          "adapter": "owner_continuation",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1208,
+          "line_start": 1185,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_trigger",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          2,
+          2,
+          "src/compiler/tsbuildpublic.ts",
+          "function:883d2bb657e6c4a5ef94f90002dcd4fd"
+        ],
+        "qualified_target": false,
+        "reason": "Retrieve the omitted continuation of `getNextInvalidatedProject`, especially the status computation and `createBuildOrUpdateInvalidedProject` path.",
+        "request_text": "Retrieve the omitted continuation of `getNextInvalidatedProject`, especially the status computation and `createBuildOrUpdateInvalidedProject` path. No direct evidence shows how the watch command detects the edited interface in the referenced project and schedules or invalidates the dependent project. The evidence provides separate invalidation, export-traversal, affected-file, and project-queue operations, but does not establish their complete ordered path for this scenario or the required direct-import versus non-watch contrast. No direct evidence establishes why the wildcard-re-export/project-reference watch path remains quiet, why restarting the compiler does not fix it, or why direct-import and non-watch paths report the error.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_dec5815897dd1f84",
+        "source_rank": 2,
+        "structural_child": false,
+        "target": "createBuildOrUpdateInvalidedProject",
+        "target_node_id": "function:883d2bb657e6c4a5ef94f90002dcd4fd",
+        "target_path": "src/compiler/tsbuildPublic.ts",
+        "target_range": [
+          701,
+          1115
+        ],
+        "target_symbol": "createBuildOrUpdateInvalidedProject",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 1385,
+        "source_handle": {
+          "adapter": "codegraph_owner_disclosure",
+          "full_line_end": 720,
+          "full_line_start": 215,
+          "language": "typescript",
+          "line_end": 720,
+          "line_start": 215,
+          "node_id": "function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/watchPublic.ts",
+          "symbol": "createWatchProgram"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_state_changes",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/resolutioncache.ts",
+          "function:c64ea9220f111372e4b932683827ce1a"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls resolutionCache.resolveModuleNames at src/compiler/watchPublic.ts:314; inspect target for unresolved explain_state_changes; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 314,
+        "source_call_path": "src/compiler/watchPublic.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_70ab956630713908",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "resolutionCache.resolveModuleNames",
+        "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+        "target_path": "src/compiler/resolutionCache.ts",
+        "target_range": [
+          408,
+          416
+        ],
+        "target_symbol": "createResolutionCache::resolveModuleNames",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 1385,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 386,
+          "full_line_start": 333,
+          "language": "typescript",
+          "line_end": 386,
+          "line_start": 357,
+          "node_id": "function:70d91fa7b61cda64a11e60ff45579147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "getNextAffectedFile"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_ordered_mechanism",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:9c49488338feaf01b940967a1e0c6195"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.updateExportedFilesMapFromCache at src/compiler/builder.ts:356; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 356,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_5ef93d462c7cc276",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.updateExportedFilesMapFromCache",
+        "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          383,
+          395
+        ],
+        "target_symbol": "updateExportedFilesMapFromCache",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 1385,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 197,
+          "full_line_start": 192,
+          "language": "typescript",
+          "line_end": 197,
+          "line_start": 192,
+          "node_id": "function:852d58b4a3fc1b7ccfd12f7c681b33ec",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "createSolutionBuilderWithWatchHost"
+        },
+        "discovered_round": 1,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_why",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          1,
+          10000,
+          "src/compiler/watch.ts",
+          "function:9a5bb6ff98add6529b3f9becebba7007"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+        "request_text": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_2fc2cd9b3b831a88",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "createWatchHost",
+        "target_node_id": "function:9a5bb6ff98add6529b3f9becebba7007",
+        "target_path": "src/compiler/watch.ts",
+        "target_range": [
+          237,
+          246
+        ],
+        "target_symbol": "createWatchHost",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 1385,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 419,
+          "full_line_start": 413,
+          "language": "typescript",
+          "line_end": 419,
+          "line_start": 413,
+          "node_id": "function:2b766b8b2bb848361e64d2a63836e71e",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+          "symbol": "verifyTscWatch"
+        },
+        "discovered_round": 1,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_why",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          1,
+          10000,
+          "src/testrunner/unittests/tscwatch/helpers.ts",
+          "function:c27a17aff15752299b0a5eaa1f27fd46"
+        ],
+        "qualified_target": false,
+        "reason": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+        "request_text": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_f81305018e14309d",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "tscWatchCompile",
+        "target_node_id": "function:c27a17aff15752299b0a5eaa1f27fd46",
+        "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+        "target_range": [
+          300,
+          328
+        ],
+        "target_symbol": "tscWatchCompile",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 1385,
+        "source_handle": {
+          "adapter": "owner_continuation",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1208,
+          "line_start": 1185,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_trigger",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          2,
+          2,
+          "src/compiler/tsbuildpublic.ts",
+          "function:883d2bb657e6c4a5ef94f90002dcd4fd"
+        ],
+        "qualified_target": false,
+        "reason": "Retrieve the omitted continuation of `getNextInvalidatedProject`, especially the status computation and `createBuildOrUpdateInvalidedProject` path.",
+        "request_text": "Retrieve the omitted continuation of `getNextInvalidatedProject`, especially the status computation and `createBuildOrUpdateInvalidedProject` path. No direct evidence shows how the watch command detects the edited interface in the referenced project and schedules or invalidates the dependent project. The evidence provides separate invalidation, export-traversal, affected-file, and project-queue operations, but does not establish their complete ordered path for this scenario or the required direct-import versus non-watch contrast. No direct evidence establishes why the wildcard-re-export/project-reference watch path remains quiet, why restarting the compiler does not fix it, or why direct-import and non-watch paths report the error.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_dec5815897dd1f84",
+        "source_rank": 2,
+        "structural_child": false,
+        "target": "createBuildOrUpdateInvalidedProject",
+        "target_node_id": "function:883d2bb657e6c4a5ef94f90002dcd4fd",
+        "target_path": "src/compiler/tsbuildPublic.ts",
+        "target_range": [
+          701,
+          1115
+        ],
+        "target_symbol": "createBuildOrUpdateInvalidedProject",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      }
+    ],
+    "scheduling": [
+      {
+        "trace_line": 483,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 2,
+            "obligation_id": "explain_subject",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:30a8c58d8d1b02679033b37851233006"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 509,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.getReferencedByPaths",
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              449,
+              453
+            ],
+            "target_symbol": "getReferencedByPaths"
+          },
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_ordered_mechanism",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:9c49488338feaf01b940967a1e0c6195"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.updateExportedFilesMapFromCache at src/compiler/builder.ts:356; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 356,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.updateExportedFilesMapFromCache",
+            "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              383,
+              395
+            ],
+            "target_symbol": "updateExportedFilesMapFromCache"
+          },
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_state_changes",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/resolutioncache.ts",
+              "function:c64ea9220f111372e4b932683827ce1a"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls resolutionCache.resolveModuleNames at src/compiler/watchPublic.ts:314; inspect target for unresolved explain_state_changes; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 314,
+            "source_call_path": "src/compiler/watchPublic.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "resolutionCache.resolveModuleNames",
+            "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+            "target_path": "src/compiler/resolutionCache.ts",
+            "target_range": [
+              408,
+              416
+            ],
+            "target_symbol": "createResolutionCache::resolveModuleNames"
+          }
+        ],
+        "round": 1,
+        "selected_node_ids": [
+          "function:30a8c58d8d1b02679033b37851233006"
+        ],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:30a8c58d8d1b02679033b37851233006",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 911,
+        "blocked_reason": "",
+        "executed_count": 1,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 1,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_why",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              1,
+              10000,
+              "src/compiler/tsbuildpublic.ts",
+              "function:79007c855ed19ba8360c64ca7e1afe62"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect createSolutionBuilderWorker for the watch callback or scheduling event that starts rebuilding after a file change.",
+            "request_text": "Inspect createSolutionBuilderWorker for the watch callback or scheduling event that starts rebuilding after a file change.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_61bf08951027b2a2",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "createSolutionBuilderWorker",
+            "target_node_id": "function:79007c855ed19ba8360c64ca7e1afe62",
+            "target_path": "src/compiler/tsbuildPublic.ts",
+            "target_range": [
+              1900,
+              1925
+            ],
+            "target_symbol": "createSolutionBuilderWorker"
+          },
+          {
+            "discovered_round": 1,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_why",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              1,
+              10000,
+              "src/compiler/watch.ts",
+              "function:9a5bb6ff98add6529b3f9becebba7007"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+            "request_text": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_2fc2cd9b3b831a88",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "createWatchHost",
+            "target_node_id": "function:9a5bb6ff98add6529b3f9becebba7007",
+            "target_path": "src/compiler/watch.ts",
+            "target_range": [
+              237,
+              246
+            ],
+            "target_symbol": "createWatchHost"
+          },
+          {
+            "discovered_round": 1,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_why",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              1,
+              10000,
+              "src/testrunner/unittests/tscwatch/helpers.ts",
+              "function:c27a17aff15752299b0a5eaa1f27fd46"
+            ],
+            "qualified_target": false,
+            "reason": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+            "request_text": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_f81305018e14309d",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "tscWatchCompile",
+            "target_node_id": "function:c27a17aff15752299b0a5eaa1f27fd46",
+            "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "target_range": [
+              300,
+              328
+            ],
+            "target_symbol": "tscWatchCompile"
+          },
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_ordered_mechanism",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:9c49488338feaf01b940967a1e0c6195"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.updateExportedFilesMapFromCache at src/compiler/builder.ts:356; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 356,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.updateExportedFilesMapFromCache",
+            "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              383,
+              395
+            ],
+            "target_symbol": "updateExportedFilesMapFromCache"
+          },
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_state_changes",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/resolutioncache.ts",
+              "function:c64ea9220f111372e4b932683827ce1a"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls resolutionCache.resolveModuleNames at src/compiler/watchPublic.ts:314; inspect target for unresolved explain_state_changes; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 314,
+            "source_call_path": "src/compiler/watchPublic.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "resolutionCache.resolveModuleNames",
+            "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+            "target_path": "src/compiler/resolutionCache.ts",
+            "target_range": [
+              408,
+              416
+            ],
+            "target_symbol": "createResolutionCache::resolveModuleNames"
+          }
+        ],
+        "round": 2,
+        "selected_node_ids": [
+          "function:79007c855ed19ba8360c64ca7e1afe62"
+        ],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:9c49488338feaf01b940967a1e0c6195",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 1346,
+        "blocked_reason": "execution_cap_reached",
+        "executed_count": 2,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 1,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_why",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              1,
+              10000,
+              "src/compiler/watch.ts",
+              "function:9a5bb6ff98add6529b3f9becebba7007"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+            "request_text": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_2fc2cd9b3b831a88",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "createWatchHost",
+            "target_node_id": "function:9a5bb6ff98add6529b3f9becebba7007",
+            "target_path": "src/compiler/watch.ts",
+            "target_range": [
+              237,
+              246
+            ],
+            "target_symbol": "createWatchHost"
+          },
+          {
+            "discovered_round": 1,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_why",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              1,
+              10000,
+              "src/testrunner/unittests/tscwatch/helpers.ts",
+              "function:c27a17aff15752299b0a5eaa1f27fd46"
+            ],
+            "qualified_target": false,
+            "reason": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+            "request_text": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_f81305018e14309d",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "tscWatchCompile",
+            "target_node_id": "function:c27a17aff15752299b0a5eaa1f27fd46",
+            "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "target_range": [
+              300,
+              328
+            ],
+            "target_symbol": "tscWatchCompile"
+          },
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_trigger",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              2,
+              2,
+              "src/compiler/tsbuildpublic.ts",
+              "function:883d2bb657e6c4a5ef94f90002dcd4fd"
+            ],
+            "qualified_target": false,
+            "reason": "Retrieve the omitted continuation of `getNextInvalidatedProject`, especially the status computation and `createBuildOrUpdateInvalidedProject` path.",
+            "request_text": "Retrieve the omitted continuation of `getNextInvalidatedProject`, especially the status computation and `createBuildOrUpdateInvalidedProject` path. No direct evidence shows how the watch command detects the edited interface in the referenced project and schedules or invalidates the dependent project. The evidence provides separate invalidation, export-traversal, affected-file, and project-queue operations, but does not establish their complete ordered path for this scenario or the required direct-import versus non-watch contrast. No direct evidence establishes why the wildcard-re-export/project-reference watch path remains quiet, why restarting the compiler does not fix it, or why direct-import and non-watch paths report the error.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_dec5815897dd1f84",
+            "source_rank": 2,
+            "structural_child": false,
+            "target": "createBuildOrUpdateInvalidedProject",
+            "target_node_id": "function:883d2bb657e6c4a5ef94f90002dcd4fd",
+            "target_path": "src/compiler/tsbuildPublic.ts",
+            "target_range": [
+              701,
+              1115
+            ],
+            "target_symbol": "createBuildOrUpdateInvalidedProject"
+          },
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_ordered_mechanism",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:9c49488338feaf01b940967a1e0c6195"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.updateExportedFilesMapFromCache at src/compiler/builder.ts:356; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 356,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.updateExportedFilesMapFromCache",
+            "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              383,
+              395
+            ],
+            "target_symbol": "updateExportedFilesMapFromCache"
+          },
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_state_changes",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/resolutioncache.ts",
+              "function:c64ea9220f111372e4b932683827ce1a"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls resolutionCache.resolveModuleNames at src/compiler/watchPublic.ts:314; inspect target for unresolved explain_state_changes; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 314,
+            "source_call_path": "src/compiler/watchPublic.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "resolutionCache.resolveModuleNames",
+            "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+            "target_path": "src/compiler/resolutionCache.ts",
+            "target_range": [
+              408,
+              416
+            ],
+            "target_symbol": "createResolutionCache::resolveModuleNames"
+          }
+        ],
+        "round": 3,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:9c49488338feaf01b940967a1e0c6195",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      }
+    ],
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__microsoft_typescript_35468__a27de1ce",
+        "document_count": 83401,
+        "indexed_points": 83401,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "discovery_audits": [
+      {
+        "trace_line": 474,
+        "audit": [
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 508,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.set"
+          },
+          {
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 2,
+            "reason": "qualified_visible_cross_file_call",
+            "request_text": "",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 509,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "accepted",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.getReferencedByPaths",
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_previously_canonical": false
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 240,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_path": "src/compiler/watchPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "host.useCaseSensitiveFileNames"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 241,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_path": "src/compiler/watchPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "host.getCurrentDirectory"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 251,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_path": "src/compiler/watchPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "host.onCachedDirectoryStructureHostCreate"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 264,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_path": "src/compiler/watchPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "host.getNewLine"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 265,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_path": "src/compiler/watchPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "Debug.assert"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 0,
+            "source_line": 313,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_path": "src/compiler/watchPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "host.resolveModuleNames"
+          },
+          {
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "reason": "qualified_visible_cross_file_call",
+            "request_text": "",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 314,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_path": "src/compiler/watchPublic.ts",
+            "status": "accepted",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "resolutionCache.resolveModuleNames",
+            "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+            "target_path": "src/compiler/resolutionCache.ts",
+            "target_previously_canonical": false
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 341,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenAffectedFiles.has"
+          },
+          {
+            "reason": "target_qualified_pending_or_executed",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 354,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.updateSignaturesFromCache",
+            "target_node_id": "function:59a7c4446de36a26d1df58af0cf48578",
+            "target_path": "src/compiler/builderState.ts"
+          },
+          {
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "reason": "qualified_visible_cross_file_call",
+            "request_text": "",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 356,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "accepted",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.updateExportedFilesMapFromCache",
+            "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+            "target_path": "src/compiler/builderState.ts",
+            "target_previously_canonical": false
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 295,
+            "source_observation_id": "obs_df63afc04bc933c2",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "signatureCache.forEach"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 153,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.getCompilerOptions"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 156,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.getConfigFileParsingDiagnostics"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 158,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.getSyntacticDiagnostics"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 163,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.getOptionsDiagnostics"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 166,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.getGlobalDiagnostics"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 169,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.getSemanticDiagnostics"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 177,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.emit"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 182,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "diagnostics.forEach"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 184,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.getCurrentDirectory"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 273,
+            "source_observation_id": "obs_fc92f7a292255e31",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getSourceFileByPath"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 2,
+            "obligation_id": "explain_subject",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:30a8c58d8d1b02679033b37851233006"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 509,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.getReferencedByPaths",
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              449,
+              453
+            ],
+            "target_symbol": "getReferencedByPaths"
+          },
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_state_changes",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/resolutioncache.ts",
+              "function:c64ea9220f111372e4b932683827ce1a"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls resolutionCache.resolveModuleNames at src/compiler/watchPublic.ts:314; inspect target for unresolved explain_state_changes; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 314,
+            "source_call_path": "src/compiler/watchPublic.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "resolutionCache.resolveModuleNames",
+            "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+            "target_path": "src/compiler/resolutionCache.ts",
+            "target_range": [
+              408,
+              416
+            ],
+            "target_symbol": "createResolutionCache::resolveModuleNames"
+          },
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_ordered_mechanism",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:9c49488338feaf01b940967a1e0c6195"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.updateExportedFilesMapFromCache at src/compiler/builder.ts:356; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 356,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.updateExportedFilesMapFromCache",
+            "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              383,
+              395
+            ],
+            "target_symbol": "updateExportedFilesMapFromCache"
+          }
+        ],
+        "new_lead_count": 3,
+        "round": 0,
+        "tool_calls": 20
+      },
+      {
+        "trace_line": 563,
+        "audit": [
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 508,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.set"
+          },
+          {
+            "reason": "target_qualified_pending_or_executed",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 509,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.getReferencedByPaths",
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 511,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "queue.pop"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 512,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.has"
+          },
+          {
+            "reason": "high_source_file_call_repetition",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 23,
+            "source_line": 516,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "Debug.assertDefined"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 517,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "queue.push"
+          },
+          {
+            "known_incoming_calls": 114,
+            "reason": "high_static_call_indegree",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 12,
+            "source_line": 523,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "Debug.assert",
+            "target_node_id": "function:879b655071b8f7a2881435fdba5b32e9",
+            "target_path": "src/compiler/debug.ts"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 529,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "exportedModules.has"
+          },
+          {
+            "known_incoming_calls": 114,
+            "reason": "high_static_call_indegree",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 12,
+            "source_line": 565,
+            "source_observation_id": "obs_69dd45b9a4cc4bbe",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "Debug.assert",
+            "target_node_id": "function:879b655071b8f7a2881435fdba5b32e9",
+            "target_path": "src/compiler/debug.ts"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 570,
+            "source_observation_id": "obs_69dd45b9a4cc4bbe",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "exportedModules.has"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 587,
+            "source_observation_id": "obs_69dd45b9a4cc4bbe",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "referencesInFile.has"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 588,
+            "source_observation_id": "obs_69dd45b9a4cc4bbe",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "seenFileAndExportsOfFile.has"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 451,
+            "source_observation_id": "obs_03047c7d6afe13aa",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "referencesInFile.has"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 1,
+        "tool_calls": 12
+      },
+      {
+        "trace_line": 977,
+        "audit": [
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 451,
+            "source_observation_id": "obs_03047c7d6afe13aa",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject"
+            ],
+            "target": "referencesInFile.has"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 533,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getCompilerOptions"
+          },
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 544,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.set"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 547,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "queue.pop"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 548,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.has"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 549,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getSourceFileByPath"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 552,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "queue.push"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 559,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.values"
+          },
+          {
+            "known_incoming_calls": 27,
+            "reason": "high_static_call_indegree",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 122,
+            "source_observation_id": "obs_aa30be69cb62721b",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism"
+            ],
+            "target": "program.getTypeChecker",
+            "target_node_id": "function:95c5b6f9380ab3778bfa362049f30655",
+            "target_path": "src/compiler/program.ts"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 158,
+            "source_observation_id": "obs_aa30be69cb62721b",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism"
+            ],
+            "target": "checker.getSymbolAtLocation"
+          },
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 190,
+            "source_observation_id": "obs_aa30be69cb62721b",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism"
+            ],
+            "target": "referencedFiles.set"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 2,
+        "tool_calls": 13
+      },
+      {
+        "trace_line": 1389,
+        "audit": [],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 3,
+        "tool_calls": 0
+      }
+    ],
+    "controller": [
+      {
+        "trace_line": 1760,
+        "candidate_ids": [
+          "node:function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "node:function:1a791a3dd52deae978d3d12704243750",
+          "node:function:200b27b361a344e4e112e12f1b151456",
+          "node:function:2b766b8b2bb848361e64d2a63836e71e",
+          "node:function:30a8c58d8d1b02679033b37851233006",
+          "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "node:function:430c7545c8f79e184f3d819202b395df",
+          "node:function:440f39428a6d506792cce2efd459f338",
+          "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+          "node:function:59a7c4446de36a26d1df58af0cf48578",
+          "node:function:6f34d29664876814447fb255bb945838",
+          "node:function:70d91fa7b61cda64a11e60ff45579147",
+          "node:function:79007c855ed19ba8360c64ca7e1afe62",
+          "node:function:7ddd85cc73d784339da4386e1d9d5584",
+          "node:function:852d58b4a3fc1b7ccfd12f7c681b33ec",
+          "node:function:89cf000fa9c0f95a285089d0f262bbca",
+          "node:function:92d9413de992d6c7b2e164ee96a49c14",
+          "node:function:9e4209e679583a4639e64a8a980cf3a4",
+          "node:function:a33338c6c9363ff02277bfc18363b3ab",
+          "node:function:ba8a11ff344d7128e7738a8783fb4c37",
+          "node:function:f8f74b82be3be3d78554c778c2c74e0d",
+          "node:interface:2eb09f516739c7fd3d03f6123f8bf4e6"
+        ],
+        "pending_verified_leads": [
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_state_changes",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/resolutioncache.ts",
+              "function:c64ea9220f111372e4b932683827ce1a"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls resolutionCache.resolveModuleNames at src/compiler/watchPublic.ts:314; inspect target for unresolved explain_state_changes; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 314,
+            "source_call_path": "src/compiler/watchPublic.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_70ab956630713908",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "resolutionCache.resolveModuleNames",
+            "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+            "target_path": "src/compiler/resolutionCache.ts",
+            "target_range": [
+              408,
+              416
+            ],
+            "target_symbol": "createResolutionCache::resolveModuleNames"
+          },
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_ordered_mechanism",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:9c49488338feaf01b940967a1e0c6195"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.updateExportedFilesMapFromCache at src/compiler/builder.ts:356; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 356,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.updateExportedFilesMapFromCache",
+            "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              383,
+              395
+            ],
+            "target_symbol": "updateExportedFilesMapFromCache"
+          },
+          {
+            "discovered_round": 1,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_why",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              1,
+              10000,
+              "src/compiler/watch.ts",
+              "function:9a5bb6ff98add6529b3f9becebba7007"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+            "request_text": "Inspect createWatchHost for the file-change callback passed to the solution builder.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_2fc2cd9b3b831a88",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "createWatchHost",
+            "target_node_id": "function:9a5bb6ff98add6529b3f9becebba7007",
+            "target_path": "src/compiler/watch.ts",
+            "target_range": [
+              237,
+              246
+            ],
+            "target_symbol": "createWatchHost"
+          },
+          {
+            "discovered_round": 1,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_why",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              1,
+              10000,
+              "src/testrunner/unittests/tscwatch/helpers.ts",
+              "function:c27a17aff15752299b0a5eaa1f27fd46"
+            ],
+            "qualified_target": false,
+            "reason": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+            "request_text": "Retrieve the tscWatchCompile scenario that edits the interface and asserts diagnostics for the consuming project.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_f81305018e14309d",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "tscWatchCompile",
+            "target_node_id": "function:c27a17aff15752299b0a5eaa1f27fd46",
+            "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "target_range": [
+              300,
+              328
+            ],
+            "target_symbol": "tscWatchCompile"
+          },
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_trigger",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              2,
+              2,
+              "src/compiler/tsbuildpublic.ts",
+              "function:883d2bb657e6c4a5ef94f90002dcd4fd"
+            ],
+            "qualified_target": false,
+            "reason": "Retrieve the omitted continuation of `getNextInvalidatedProject`, especially the status computation and `createBuildOrUpdateInvalidedProject` path.",
+            "request_text": "Retrieve the omitted continuation of `getNextInvalidatedProject`, especially the status computation and `createBuildOrUpdateInvalidedProject` path. No direct evidence shows how the watch command detects the edited interface in the referenced project and schedules or invalidates the dependent project. The evidence provides separate invalidation, export-traversal, affected-file, and project-queue operations, but does not establish their complete ordered path for this scenario or the required direct-import versus non-watch contrast. No direct evidence establishes why the wildcard-re-export/project-reference watch path remains quiet, why restarting the compiler does not fix it, or why direct-import and non-watch paths report the error.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_dec5815897dd1f84",
+            "source_rank": 2,
+            "structural_child": false,
+            "target": "createBuildOrUpdateInvalidedProject",
+            "target_node_id": "function:883d2bb657e6c4a5ef94f90002dcd4fd",
+            "target_path": "src/compiler/tsbuildPublic.ts",
+            "target_range": [
+              701,
+              1115
+            ],
+            "target_symbol": "createBuildOrUpdateInvalidedProject"
+          }
+        ],
+        "rounds": 3,
+        "stop_reason": "three_round_budget_complete",
+        "tool_calls": 539,
+        "verified_lead_block_reason": "execution_cap_reached",
+        "verified_lead_execution_cap": 2,
+        "verified_lead_execution_count": 2
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "createWatchProgram::synchronizeProgram",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 2,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "getReferencedFiles",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 3,
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 4,
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachFileAndExportsOfFile",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 5,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "getFilesAffectedBy",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 6,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateSignaturesFromCache",
+        "obligation_id": "explain_state_changes"
+      },
+      {
+        "rank": 7,
+        "path": "src/compiler/builder.ts",
+        "symbol": "getNextAffectedFile",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 8,
+        "path": "src/compiler/builder.ts",
+        "symbol": "createBuilderProgram::getSemanticDiagnostics",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 9,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "getReferencedByPaths",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 10,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "queueReferencingProjects",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 11,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "createSolutionBuilderWorker",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 12,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyProjectChanges",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 13,
+        "path": "src/compiler/watch.ts",
+        "symbol": "emitFilesAndReportErrors",
+        "obligation_id": "explain_subject"
+      }
+    ]
+  },
+  {
+    "run_id": "run-20260827T124548Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 2,
+    "oracle_positions": {
+      "src/compiler/builder.ts": 2,
+      "src/testRunner/unittests/tsbuild/watchMode.ts": 4
+    },
+    "final_items": 9,
+    "final_files": 5,
+    "retrieval_tokens": 88298,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1646,
+        "completion_tokens": 154,
+        "total_tokens": 1800
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 21615,
+        "completion_tokens": 1204,
+        "total_tokens": 22819
+      },
+      "evidence_qualification": {
+        "calls": 4,
+        "prompt_tokens": 24301,
+        "completion_tokens": 8892,
+        "total_tokens": 33193
+      },
+      "retrieval_coverage": {
+        "calls": 4,
+        "prompt_tokens": 15083,
+        "completion_tokens": 4109,
+        "total_tokens": 19192
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 1,
+        "prompt_tokens": 7796,
+        "completion_tokens": 3498,
+        "total_tokens": 11294
+      }
+    },
+    "leads": [
+      {
+        "discovery_line": 453,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 200,
+          "full_line_start": 143,
+          "language": "typescript",
+          "line_end": 200,
+          "line_start": 200,
+          "node_id": "function:7ddd85cc73d784339da4386e1d9d5584",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/watch.ts",
+          "symbol": "emitFilesAndReportErrors"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_resulting_effect",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/program.ts",
+          "function:a653f3257761812fcb0d437caf73b1cc"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls program.getSyntacticDiagnostics at src/compiler/watch.ts:158; inspect target for unresolved explain_resulting_effect; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 158,
+        "source_call_path": "src/compiler/watch.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_ad3c3da59fa1d1a1",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "program.getSyntacticDiagnostics",
+        "target_node_id": "function:a653f3257761812fcb0d437caf73b1cc",
+        "target_path": "src/compiler/program.ts",
+        "target_range": [
+          1628,
+          1630
+        ],
+        "target_symbol": "createProgram::getSyntacticDiagnostics",
+        "actions": [
+          {
+            "trace_line": 463,
+            "round": 1,
+            "discovered_round": 0,
+            "id": "action_5a5c81b10bf713b5",
+            "obligation_id": "explain_resulting_effect",
+            "pool": "verified_lead",
+            "purpose": "structural_child_handoff",
+            "reason": "Qualified source calls program.getSyntacticDiagnostics at src/compiler/watch.ts:158; inspect target for unresolved explain_resulting_effect; no semantic support inherited.",
+            "scope_id": "island_ede5c97e8bfe9c0a",
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "target": "program.getSyntacticDiagnostics",
+            "target_line_end": 1630,
+            "target_line_start": 1628,
+            "target_node_id": "function:a653f3257761812fcb0d437caf73b1cc",
+            "target_path": "src/compiler/program.ts",
+            "target_symbol": "createProgram::getSyntacticDiagnostics",
+            "type": "InspectVerifiedLead"
+          }
+        ],
+        "qualification": [
+          {
+            "trace_line": 493,
+            "round": 1,
+            "disposition": "reject",
+            "local_follow_up": "",
+            "missing_information": [
+              "Any semantic-diagnostic behavior.",
+              "Any project-reference, watch, module-resolution, or wildcard re-export behavior."
+            ],
+            "observation_id": "obs_a7b03b7bff70684a",
+            "reason": "This only delegates syntactic diagnostics to a generic helper. The issue concerns semantic propagation of an interface change through project references and wildcard re-exports, so the excerpt provides no relevant evidence for the requested mechanism or outcome.",
+            "support_level": "insufficient",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "getSyntacticDiagnostics calls getDiagnosticsHelper with getSyntacticDiagnosticsForFile."
+            ]
+          }
+        ],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 533,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 541,
+          "full_line_start": 495,
+          "language": "typescript",
+          "line_end": 541,
+          "line_start": 522,
+          "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+        },
+        "discovered_round": 1,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 2,
+        "obligation_id": "explain_subject",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          1,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:30a8c58d8d1b02679033b37851233006"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 509,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 2,
+        "source_observation_id": "obs_f429d6d76ec512a2",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.getReferencedByPaths",
+        "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          449,
+          453
+        ],
+        "target_symbol": "getReferencedByPaths",
+        "actions": [
+          {
+            "trace_line": 897,
+            "round": 2,
+            "discovered_round": 1,
+            "id": "action_50d9cee4233b68a9",
+            "obligation_id": "explain_subject",
+            "pool": "verified_lead",
+            "purpose": "structural_child_handoff",
+            "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "scope_id": "island_c20c097675b67448",
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "target": "BuilderState.getReferencedByPaths",
+            "target_line_end": 453,
+            "target_line_start": 449,
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_symbol": "getReferencedByPaths",
+            "type": "InspectVerifiedLead"
+          }
+        ],
+        "qualification": [
+          {
+            "trace_line": 915,
+            "round": 2,
+            "disposition": "promote",
+            "local_follow_up": "Where is getReferencedByPaths called when a changed source file is converted into an affected-file set?",
+            "missing_information": [
+              "Where referencedMap is populated and updated.",
+              "The caller that uses these paths to schedule affected files in watch mode.",
+              "The behavior for wildcard re-exports and downstream semantic checking."
+            ],
+            "observation_id": "obs_03047c7d6afe13aa",
+            "reason": "This implementation directly shows reverse dependency tracking: it scans referencedMap and returns file paths whose recorded references contain the changed referencedFilePath. It is relevant to project-reference/module dependency invalidation, but does not itself show watch callbacks or wildcard re-export handling.",
+            "support_level": "direct_evidence",
+            "supported_obligation_ids": [
+              "explain_subject"
+            ],
+            "visible_support": [
+              "state.referencedMap stores reference sets keyed by file path.",
+              "getReferencedByPaths returns paths whose reference set contains referencedFilePath."
+            ]
+          },
+          {
+            "trace_line": 1342,
+            "round": 3,
+            "disposition": "promote",
+            "local_follow_up": "Inspect the code that populates state.referencedMap for imports and re-exports.",
+            "missing_information": [
+              "Where referencedMap entries are created or updated.",
+              "Whether wildcard re-exports add the expected dependency edge.",
+              "How the returned paths reach downstream watch-build reconstruction and diagnostics."
+            ],
+            "observation_id": "obs_03047c7d6afe13aa",
+            "reason": "This helper concretely exposes the reverse dependency lookup used by the module-emit invalidation path, making it a relevant graph owner, but it does not show how project references or wildcard re-exports are recorded in that graph.",
+            "support_level": "navigation_only",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "The helper scans state.referencedMap entries.",
+              "It returns file paths whose reference set contains the supplied referenced file path."
+            ]
+          }
+        ],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 958,
+        "source_handle": {
+          "adapter": "owner_continuation",
+          "full_line_end": 386,
+          "full_line_start": 333,
+          "language": "typescript",
+          "line_end": 377,
+          "line_start": 360,
+          "node_id": "function:70d91fa7b61cda64a11e60ff45579147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "getNextAffectedFile"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_ordered_mechanism",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          0,
+          0,
+          0,
+          2,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:430c7545c8f79e184f3d819202b395df"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.getFilesAffectedBy at src/compiler/builder.ts:381; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+        "request_text": "What does BuilderState.getFilesAffectedBy do for a changed file reached through a wildcard re-export?",
+        "source_call_line": 381,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_5ef93d462c7cc276",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.getFilesAffectedBy",
+        "target_node_id": "function:430c7545c8f79e184f3d819202b395df",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          267,
+          288
+        ],
+        "target_symbol": "getFilesAffectedBy",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      }
+    ],
+    "followups": [
+      {
+        "discovery_line": 1351,
+        "source_handle": {
+          "adapter": "owner_continuation",
+          "full_line_end": 386,
+          "full_line_start": 333,
+          "language": "typescript",
+          "line_end": 377,
+          "line_start": 360,
+          "node_id": "function:70d91fa7b61cda64a11e60ff45579147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "getNextAffectedFile"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_ordered_mechanism",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          0,
+          0,
+          0,
+          2,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:430c7545c8f79e184f3d819202b395df"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.getFilesAffectedBy at src/compiler/builder.ts:381; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+        "request_text": "What does BuilderState.getFilesAffectedBy do for a changed file reached through a wildcard re-export?",
+        "source_call_line": 381,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_5ef93d462c7cc276",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.getFilesAffectedBy",
+        "target_node_id": "function:430c7545c8f79e184f3d819202b395df",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          267,
+          288
+        ],
+        "target_symbol": "getFilesAffectedBy",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 1351,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 560,
+          "full_line_start": 528,
+          "language": "typescript",
+          "line_end": 560,
+          "line_start": 528,
+          "node_id": "function:527911fba78843cb1e07cd2dcdee2f0e",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builderState.ts",
+          "symbol": "getFilesAffectedByUpdatedShapeWhenModuleEmit"
+        },
+        "discovered_round": 3,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_subject",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          3,
+          2,
+          "src/compiler/builderstate.ts",
+          "function:fc5e0c1d952a60d32b4da99e9f988257"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect updateShapeSignature and the code that populates referencedMap for re-exporting files.",
+        "request_text": "Inspect updateShapeSignature and the code that populates referencedMap for re-exporting files.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_c2421716b29c47c9",
+        "source_rank": 2,
+        "structural_child": false,
+        "target": "updateShapeSignature",
+        "target_node_id": "function:fc5e0c1d952a60d32b4da99e9f988257",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          304,
+          354
+        ],
+        "target_symbol": "updateShapeSignature",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      }
+    ],
+    "scheduling": [
+      {
+        "trace_line": 462,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_resulting_effect",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/program.ts",
+              "function:a653f3257761812fcb0d437caf73b1cc"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls program.getSyntacticDiagnostics at src/compiler/watch.ts:158; inspect target for unresolved explain_resulting_effect; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 158,
+            "source_call_path": "src/compiler/watch.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "program.getSyntacticDiagnostics",
+            "target_node_id": "function:a653f3257761812fcb0d437caf73b1cc",
+            "target_path": "src/compiler/program.ts",
+            "target_range": [
+              1628,
+              1630
+            ],
+            "target_symbol": "createProgram::getSyntacticDiagnostics"
+          }
+        ],
+        "round": 1,
+        "selected_node_ids": [
+          "function:a653f3257761812fcb0d437caf73b1cc"
+        ],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:a653f3257761812fcb0d437caf73b1cc",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 896,
+        "blocked_reason": "",
+        "executed_count": 1,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 1,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 2,
+            "obligation_id": "explain_subject",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              1,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:30a8c58d8d1b02679033b37851233006"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 509,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.getReferencedByPaths",
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              449,
+              453
+            ],
+            "target_symbol": "getReferencedByPaths"
+          }
+        ],
+        "round": 2,
+        "selected_node_ids": [
+          "function:30a8c58d8d1b02679033b37851233006"
+        ],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:30a8c58d8d1b02679033b37851233006",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 1324,
+        "blocked_reason": "execution_cap_reached",
+        "executed_count": 2,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_ordered_mechanism",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              0,
+              0,
+              0,
+              2,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:430c7545c8f79e184f3d819202b395df"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.getFilesAffectedBy at src/compiler/builder.ts:381; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "request_text": "What does BuilderState.getFilesAffectedBy do for a changed file reached through a wildcard re-export?",
+            "source_call_line": 381,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.getFilesAffectedBy",
+            "target_node_id": "function:430c7545c8f79e184f3d819202b395df",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              267,
+              288
+            ],
+            "target_symbol": "getFilesAffectedBy"
+          }
+        ],
+        "round": 3,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:430c7545c8f79e184f3d819202b395df",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      }
+    ],
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__microsoft_typescript_35468__a27de1ce",
+        "document_count": 83401,
+        "indexed_points": 83401,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "discovery_audits": [
+      {
+        "trace_line": 453,
+        "audit": [
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 153,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.getCompilerOptions"
+          },
+          {
+            "match_count": 2,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 156,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.getConfigFileParsingDiagnostics"
+          },
+          {
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "reason": "qualified_visible_cross_file_call",
+            "request_text": "",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 158,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_path": "src/compiler/watch.ts",
+            "status": "accepted",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "program.getSyntacticDiagnostics",
+            "target_node_id": "function:a653f3257761812fcb0d437caf73b1cc",
+            "target_path": "src/compiler/program.ts",
+            "target_previously_canonical": false
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 1759,
+            "source_observation_id": "obs_96587518d7cf8a6a",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger"
+            ],
+            "target": "invalidatedProject.done"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_resulting_effect",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/program.ts",
+              "function:a653f3257761812fcb0d437caf73b1cc"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls program.getSyntacticDiagnostics at src/compiler/watch.ts:158; inspect target for unresolved explain_resulting_effect; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 158,
+            "source_call_path": "src/compiler/watch.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_ad3c3da59fa1d1a1",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "program.getSyntacticDiagnostics",
+            "target_node_id": "function:a653f3257761812fcb0d437caf73b1cc",
+            "target_path": "src/compiler/program.ts",
+            "target_range": [
+              1628,
+              1630
+            ],
+            "target_symbol": "createProgram::getSyntacticDiagnostics"
+          }
+        ],
+        "new_lead_count": 1,
+        "round": 0,
+        "tool_calls": 9
+      },
+      {
+        "trace_line": 533,
+        "audit": [
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 508,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.set"
+          },
+          {
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 2,
+            "reason": "qualified_visible_cross_file_call",
+            "request_text": "",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 509,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "accepted",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.getReferencedByPaths",
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_previously_canonical": false
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 1824,
+            "source_observation_id": "obs_3902f7bea8551306",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger",
+              "explain_ordered_mechanism"
+            ],
+            "target": "state.watchDirectory"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 1830,
+            "source_observation_id": "obs_3902f7bea8551306",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger",
+              "explain_ordered_mechanism"
+            ],
+            "target": "state.writeLog"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [
+          {
+            "discovered_round": 1,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 2,
+            "obligation_id": "explain_subject",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              1,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:30a8c58d8d1b02679033b37851233006"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 509,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.getReferencedByPaths",
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              449,
+              453
+            ],
+            "target_symbol": "getReferencedByPaths"
+          }
+        ],
+        "new_lead_count": 1,
+        "round": 1,
+        "tool_calls": 7
+      },
+      {
+        "trace_line": 958,
+        "audit": [
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 341,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "seenAffectedFiles.has"
+          },
+          {
+            "reason": "target_qualified_pending_or_executed",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 354,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "BuilderState.updateSignaturesFromCache",
+            "target_node_id": "function:59a7c4446de36a26d1df58af0cf48578",
+            "target_path": "src/compiler/builderState.ts"
+          },
+          {
+            "reason": "target_qualified_pending_or_executed",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 356,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "BuilderState.updateExportedFilesMapFromCache",
+            "target_node_id": "function:9c49488338feaf01b940967a1e0c6195",
+            "target_path": "src/compiler/builderState.ts"
+          },
+          {
+            "reason": "high_source_file_call_repetition",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 23,
+            "source_line": 369,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "Debug.assertDefined"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 370,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "program.getCompilerOptions"
+          },
+          {
+            "known_incoming_calls": 114,
+            "reason": "high_static_call_indegree",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 12,
+            "source_line": 372,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "Debug.assert",
+            "target_node_id": "function:879b655071b8f7a2881435fdba5b32e9",
+            "target_path": "src/compiler/debug.ts"
+          },
+          {
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": 0,
+            "reason": "qualified_visible_cross_file_call",
+            "request_text": "What does BuilderState.getFilesAffectedBy do for a changed file reached through a wildcard re-export?",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 381,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "accepted",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "BuilderState.getFilesAffectedBy",
+            "target_node_id": "function:430c7545c8f79e184f3d819202b395df",
+            "target_path": "src/compiler/builderState.ts",
+            "target_previously_canonical": false
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 451,
+            "source_observation_id": "obs_03047c7d6afe13aa",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject"
+            ],
+            "target": "referencesInFile.has"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_ordered_mechanism",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              0,
+              0,
+              0,
+              2,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:430c7545c8f79e184f3d819202b395df"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.getFilesAffectedBy at src/compiler/builder.ts:381; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "request_text": "What does BuilderState.getFilesAffectedBy do for a changed file reached through a wildcard re-export?",
+            "source_call_line": 381,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.getFilesAffectedBy",
+            "target_node_id": "function:430c7545c8f79e184f3d819202b395df",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              267,
+              288
+            ],
+            "target_symbol": "getFilesAffectedBy"
+          }
+        ],
+        "new_lead_count": 1,
+        "round": 2,
+        "tool_calls": 10
+      },
+      {
+        "trace_line": 1358,
+        "audit": [],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 3,
+        "tool_calls": 1
+      }
+    ],
+    "controller": [
+      {
+        "trace_line": 1723,
+        "candidate_ids": [
+          "node:function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "node:function:092736ca1aef5b921566164b72e35598",
+          "node:function:200b27b361a344e4e112e12f1b151456",
+          "node:function:23d7e6bcf1fb33ad1d95f9f2fc2b2190",
+          "node:function:28879e77e4a346a94f41755b7ccd9c8f",
+          "node:function:30a8c58d8d1b02679033b37851233006",
+          "node:function:3196e566885d332462cbdb90495baa8a",
+          "node:function:3c1156af1e9cd23c85b5c105a0bb1dcd",
+          "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "node:function:440f39428a6d506792cce2efd459f338",
+          "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+          "node:function:59a7c4446de36a26d1df58af0cf48578",
+          "node:function:65665f4b84d4e5aba2a622258554cda6",
+          "node:function:70d91fa7b61cda64a11e60ff45579147",
+          "node:function:7ddd85cc73d784339da4386e1d9d5584",
+          "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+          "node:function:9c49488338feaf01b940967a1e0c6195",
+          "node:function:9e4209e679583a4639e64a8a980cf3a4",
+          "node:function:ba8a11ff344d7128e7738a8783fb4c37",
+          "node:function:e9b4dcb84c194c87104f73e0e9ee18eb",
+          "node:function:fe1cbbc0b38bb778a51ef5fee351f2cc",
+          "node:interface:2eb09f516739c7fd3d03f6123f8bf4e6",
+          "range:src/testRunner/unittests/tsserver/projectReferences.ts:1182:1221"
+        ],
+        "pending_verified_leads": [
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_ordered_mechanism",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              0,
+              0,
+              0,
+              2,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:430c7545c8f79e184f3d819202b395df"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.getFilesAffectedBy at src/compiler/builder.ts:381; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "request_text": "What does BuilderState.getFilesAffectedBy do for a changed file reached through a wildcard re-export?",
+            "source_call_line": 381,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.getFilesAffectedBy",
+            "target_node_id": "function:430c7545c8f79e184f3d819202b395df",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              267,
+              288
+            ],
+            "target_symbol": "getFilesAffectedBy"
+          },
+          {
+            "discovered_round": 3,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_subject",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              3,
+              2,
+              "src/compiler/builderstate.ts",
+              "function:fc5e0c1d952a60d32b4da99e9f988257"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect updateShapeSignature and the code that populates referencedMap for re-exporting files.",
+            "request_text": "Inspect updateShapeSignature and the code that populates referencedMap for re-exporting files.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_rank": 2,
+            "structural_child": false,
+            "target": "updateShapeSignature",
+            "target_node_id": "function:fc5e0c1d952a60d32b4da99e9f988257",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              304,
+              354
+            ],
+            "target_symbol": "updateShapeSignature"
+          }
+        ],
+        "rounds": 3,
+        "stop_reason": "three_round_budget_complete",
+        "tool_calls": 527,
+        "verified_lead_block_reason": "execution_cap_reached",
+        "verified_lead_execution_cap": 2,
+        "verified_lead_execution_count": 2
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "watchWildCardDirectories",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 2,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "invalidateProjectAndScheduleBuilds",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 3,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "buildNextInvalidatedProject",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 4,
+        "path": "src/compiler/builder.ts",
+        "symbol": "getNextAffectedFile",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 5,
+        "path": "src/compiler/builder.ts",
+        "symbol": "createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 6,
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 7,
+        "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+        "symbol": "",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 8,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyTransitiveReferences",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 9,
+        "path": "src/compiler/watch.ts",
+        "symbol": "emitFilesAndReportErrors",
+        "obligation_id": "explain_subject"
+      }
+    ]
+  }
+]

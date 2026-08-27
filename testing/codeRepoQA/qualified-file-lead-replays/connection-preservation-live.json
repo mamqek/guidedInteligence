@@ -1,0 +1,2148 @@
+[
+  {
+    "run_id": "run-20260827T142925Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 3,
+    "final_items": 14,
+    "final_files": 5,
+    "retrieval_tokens": 113718,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1623,
+        "completion_tokens": 144,
+        "total_tokens": 1767
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 25248,
+        "completion_tokens": 1431,
+        "total_tokens": 26679
+      },
+      "evidence_qualification": {
+        "calls": 4,
+        "prompt_tokens": 24949,
+        "completion_tokens": 7886,
+        "total_tokens": 32835
+      },
+      "retrieval_coverage": {
+        "calls": 4,
+        "prompt_tokens": 28004,
+        "completion_tokens": 5593,
+        "total_tokens": 33597
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 1,
+        "prompt_tokens": 14971,
+        "completion_tokens": 3869,
+        "total_tokens": 18840
+      }
+    },
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__microsoft_typescript_35468__a27de1ce",
+        "document_count": 83401,
+        "indexed_points": 83401,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "src/server/project.ts",
+        "symbol": "Project::updateGraphWorker",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 2,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "watchWildCardDirectories",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 3,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "invalidateProjectAndScheduleBuilds",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 4,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "getNextInvalidatedProject",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 5,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "createBuildOrUpdateInvalidedProject",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 6,
+        "path": "src/compiler/builder.ts",
+        "symbol": "createBuilderProgram::getSemanticDiagnostics",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 7,
+        "path": "src/compiler/builder.ts",
+        "symbol": "createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 8,
+        "path": "src/compiler/builder.ts",
+        "symbol": "getNextAffectedFile",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 9,
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 10,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateShapeSignature",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 11,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "queueReferencingProjects",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 12,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "introduceError",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 13,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyTransitiveReferences",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 14,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyIncrementalErrors",
+        "obligation_id": "explain_subject"
+      }
+    ],
+    "completed_result_exists": true,
+    "final_llm_responses": [
+      {
+        "trace_line": 1895,
+        "usage": {
+          "completion_tokens": 3869,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 667,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 14971,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 14968,
+            "cached_tokens": 0
+          },
+          "total_tokens": 18840
+        },
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "content_chars": 12600
+          }
+        ]
+      }
+    ],
+    "initial": {
+      "trace_line": 53,
+      "canonical_line": 52,
+      "comparison_line": 58,
+      "admission_limit": "ranked_complete_file_groups_append_crossing_then_stop",
+      "admitted_file_count": 11,
+      "participating_candidate_count": 209,
+      "comparison_total_input_chars": 71248,
+      "admitted_paths": [
+        "src/compiler/tsbuildPublic.ts",
+        "src/compiler/builderState.ts",
+        "src/server/session.ts",
+        "src/compiler/tsbuild.ts",
+        "src/compiler/watch.ts",
+        "src/compiler/builder.ts",
+        "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "src/testRunner/unittests/tsserver/projectReferences.ts",
+        "src/compiler/watchUtilities.ts",
+        "src/compiler/watchPublic.ts",
+        "src/server/editorServices.ts"
+      ],
+      "comparison_preferred_input_chars": 60000,
+      "comparison_input_char_budget": 100000,
+      "stopping_reason": "preferred_input_target_crossed",
+      "crossing": {
+        "candidate_count": 209,
+        "crossed_budget": true,
+        "decision": "admitted",
+        "marginal_chars": 13865,
+        "maximum_overshoot_chars": 0,
+        "path": "src/server/editorServices.ts",
+        "preferred_overshoot_chars": 11248,
+        "previous_input_chars": 57383,
+        "total_input_chars": 71248
+      },
+      "crossing_snippets": [
+        {
+          "id": "obs_a228bc5dd8eb4a06",
+          "adapter": "codegraph_node",
+          "full_line_end": 1128,
+          "full_line_start": 1084,
+          "language": "typescript",
+          "line_end": 1128,
+          "line_start": 1106,
+          "node_id": "method:8d6be090993d0eb52dc754c9d62c4854",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::watchWildcardDirectory"
+        },
+        {
+          "id": "obs_cc0d9870ce8e39e9",
+          "adapter": "codegraph_node",
+          "full_line_end": 1078,
+          "full_line_start": 1055,
+          "language": "typescript",
+          "line_end": 1078,
+          "line_start": 1076,
+          "node_id": "method:7268c82cc085b20f15471741e242b2c3",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::handleDeletedFile"
+        },
+        {
+          "id": "obs_ada082b641087817",
+          "adapter": "codegraph_node",
+          "full_line_end": 1163,
+          "full_line_start": 1137,
+          "language": "typescript",
+          "line_end": 1145,
+          "line_start": 1137,
+          "node_id": "method:3fb4e1117e9f060ae8f721598b0a8cd2",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::onConfigChangedForConfiguredProject"
+        },
+        {
+          "id": "obs_2025d80037898616",
+          "adapter": "codegraph_node",
+          "full_line_end": 1181,
+          "full_line_start": 1170,
+          "language": "typescript",
+          "line_end": 1181,
+          "line_start": 1170,
+          "node_id": "method:345be5dfc1fea352110d924183f84c65",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::onConfigFileChangeForOpenScriptInfo"
+        },
+        {
+          "id": "obs_55806b5e3787a5ac",
+          "adapter": "codegraph_node",
+          "full_line_end": 380,
+          "full_line_start": 357,
+          "language": "typescript",
+          "line_end": 380,
+          "line_start": 357,
+          "node_id": "interface:49fc13aeef717cd62849b201ad934c2d",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ConfigFileExistenceInfo"
+        },
+        {
+          "id": "obs_f7526dae3e819fb1",
+          "adapter": "codegraph_node",
+          "full_line_end": 1134,
+          "full_line_start": 1132,
+          "language": "typescript",
+          "line_end": 1134,
+          "line_start": 1132,
+          "node_id": "method:067545588d9f29e8cb2d1a54aade580b",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::getConfigFileExistenceInfo"
+        },
+        {
+          "id": "obs_55f0ccda461bd3c9",
+          "adapter": "codegraph_node",
+          "full_line_end": 1225,
+          "full_line_start": 1183,
+          "language": "typescript",
+          "line_end": 1205,
+          "line_start": 1183,
+          "node_id": "method:c42b929f8d1e320bb9b33f709c0b5692",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::removeProject"
+        },
+        {
+          "id": "obs_6b03c66381f5ac24",
+          "adapter": "codegraph_node",
+          "full_line_end": 1356,
+          "full_line_start": 1284,
+          "language": "typescript",
+          "line_end": 1355,
+          "line_start": 1316,
+          "node_id": "method:2cb2dc3ab7367bcf5d68a6835afffa17",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::closeOpenFile"
+        },
+        {
+          "id": "obs_93916b240ca3eb4a",
+          "adapter": "codegraph_node",
+          "full_line_end": 1398,
+          "full_line_start": 1367,
+          "language": "typescript",
+          "line_end": 1398,
+          "line_start": 1376,
+          "node_id": "method:28af5c477f42ef9db59838e640925169",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::configFileExists"
+        },
+        {
+          "id": "obs_18cfc6ad7b85b74c",
+          "adapter": "codegraph_node",
+          "full_line_end": 1421,
+          "full_line_start": 1400,
+          "language": "typescript",
+          "line_end": 1415,
+          "line_start": 1400,
+          "node_id": "method:8af5440dae586c6a763d3b8c3299cdf0",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::setConfigFileExistenceByNewConfiguredProject"
+        },
+        {
+          "id": "obs_0f0be3774e18b53a",
+          "adapter": "codegraph_node",
+          "full_line_end": 2004,
+          "full_line_start": 1933,
+          "language": "typescript",
+          "line_end": 2001,
+          "line_start": 1962,
+          "node_id": "method:91f6235038b42928dd6f5357a0e2c41e",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::updateNonInferredProjectFiles"
+        },
+        {
+          "id": "obs_7606d1128ec7e1ba",
+          "adapter": "codegraph_node",
+          "full_line_end": 2028,
+          "full_line_start": 2021,
+          "language": "typescript",
+          "line_end": 2028,
+          "line_start": 2022,
+          "node_id": "method:e646a4f0a6a0a25fd11e755010e355a1",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::reloadFileNamesOfConfiguredProject"
+        },
+        {
+          "id": "obs_a23095f231904da1",
+          "adapter": "codegraph_node",
+          "full_line_end": 2680,
+          "full_line_start": 2648,
+          "language": "typescript",
+          "line_end": 2680,
+          "line_start": 2677,
+          "node_id": "method:c5730f2950ff56d1951a29a179edcfb8",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::reloadConfiguredProjectForFiles"
+        },
+        {
+          "id": "obs_a40abfb48ac3e453",
+          "adapter": "codegraph_node",
+          "full_line_end": 2709,
+          "full_line_start": 2685,
+          "language": "typescript",
+          "line_end": 2709,
+          "line_start": 2685,
+          "node_id": "method:3a1f131da32f727bc34e0ec202345d31",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::removeRootOfInferredProjectIfNowPartOfOtherProject"
+        },
+        {
+          "id": "obs_181702603a452f66",
+          "adapter": "codegraph_node",
+          "full_line_end": 2015,
+          "full_line_start": 2006,
+          "language": "typescript",
+          "line_end": 2015,
+          "line_start": 2006,
+          "node_id": "method:7a3d1470742a1c6be5a05d47aeef4106",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::updateRootAndOptionsOfNonInferredProject"
+        },
+        {
+          "id": "obs_32e3786ca731a3c4",
+          "adapter": "codegraph_node",
+          "full_line_end": 2048,
+          "full_line_start": 2034,
+          "language": "typescript",
+          "line_end": 2048,
+          "line_start": 2034,
+          "node_id": "method:726bc32a4eba38a670dfd13982ecae29",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::reloadConfiguredProject"
+        },
+        {
+          "id": "obs_1264089c6cb39ea2",
+          "adapter": "codegraph_node",
+          "full_line_end": 2061,
+          "full_line_start": 2050,
+          "language": "typescript",
+          "line_end": 2061,
+          "line_start": 2050,
+          "node_id": "method:077b239360bb462f3dc2f31780190788",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::sendConfigFileDiagEvent"
+        },
+        {
+          "id": "obs_4eb716df4de654d6",
+          "adapter": "codegraph_node",
+          "full_line_end": 2096,
+          "full_line_start": 2063,
+          "language": "typescript",
+          "line_end": 2091,
+          "line_start": 2063,
+          "node_id": "method:42daa264dafbfedfc086f624f05fcd48",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::getOrCreateInferredProjectForProjectRootPathIfEnabled"
+        },
+        {
+          "id": "obs_fd0fe12152a65dc6",
+          "adapter": "codegraph_node",
+          "full_line_end": 2856,
+          "full_line_start": 2808,
+          "language": "typescript",
+          "line_end": 2850,
+          "line_start": 2811,
+          "node_id": "method:4eacecbd52e6cdd664062827c13a8fb4",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::assignProjectToOpenedScriptInfo"
+        },
+        {
+          "id": "obs_b9c97ddd7f89f4a0",
+          "adapter": "codegraph_node",
+          "full_line_end": 3013,
+          "full_line_start": 2960,
+          "language": "typescript",
+          "line_end": 3000,
+          "line_start": 2961,
+          "node_id": "method:6911da4e61d40459356377766df3ef3f",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::removeOrphanConfiguredProjects"
+        },
+        {
+          "id": "obs_003b40d813000d01",
+          "adapter": "codegraph_node",
+          "full_line_end": 3472,
+          "full_line_start": 3354,
+          "language": "typescript",
+          "line_end": 3434,
+          "line_start": 3395,
+          "node_id": "method:8dbdd5fb72315816e8ee8d0b0f0f7152",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::openExternalProject"
+        },
+        {
+          "id": "obs_18ad7a2948123780",
+          "adapter": "codegraph_node",
+          "full_line_end": 761,
+          "full_line_start": 745,
+          "language": "typescript",
+          "line_end": 761,
+          "line_start": 746,
+          "node_id": "method:a0caf6a28b0a1b5f2ef1fb39889dd46a",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::updateTypingsForProject"
+        },
+        {
+          "id": "obs_f022ee5da303e835",
+          "adapter": "codegraph_node",
+          "full_line_end": 779,
+          "full_line_start": 763,
+          "language": "typescript",
+          "line_end": 779,
+          "line_start": 763,
+          "node_id": "method:b39bf2546659333d185f8fead1f0a7e7",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::delayEnsureProjectForOpenFiles"
+        },
+        {
+          "id": "obs_084ca2b4dbee898b",
+          "adapter": "codegraph_node",
+          "full_line_end": 790,
+          "full_line_start": 781,
+          "language": "typescript",
+          "line_end": 785,
+          "line_start": 781,
+          "node_id": "method:faef3242cd32133173879a939cd33721",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::delayUpdateProjectGraph"
+        },
+        {
+          "id": "obs_c56666e78fcc4188",
+          "adapter": "codegraph_node",
+          "full_line_end": 1267,
+          "full_line_start": 1228,
+          "language": "typescript",
+          "line_end": 1265,
+          "line_start": 1228,
+          "node_id": "method:50798e65503ee90ccd02eb71acfeb92b",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::assignOrphanScriptInfoToInferredProject"
+        },
+        {
+          "id": "obs_dba177cb7a4ebedc",
+          "adapter": "codegraph_node",
+          "full_line_end": 1428,
+          "full_line_start": 1426,
+          "language": "typescript",
+          "line_end": 1428,
+          "line_start": 1426,
+          "node_id": "method:89647e4c3c98fcff086ca56da8b7eb94",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::configFileExistenceImpactsRootOfInferredProject"
+        },
+        {
+          "id": "obs_2d151f9e3f0051c4",
+          "adapter": "codegraph_node",
+          "full_line_end": 1447,
+          "full_line_start": 1430,
+          "language": "typescript",
+          "line_end": 1445,
+          "line_start": 1430,
+          "node_id": "method:cb4401f475d7bfd4053e60e58a5e3e58",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::setConfigFileExistenceInfoByClosedConfiguredProject"
+        },
+        {
+          "id": "obs_1acb6c2f70cae722",
+          "adapter": "codegraph_node",
+          "full_line_end": 2389,
+          "full_line_start": 2352,
+          "language": "typescript",
+          "line_end": 2389,
+          "line_start": 2377,
+          "node_id": "method:740e138f7bbfa4bdf0c88c51387eb453",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::getOrCreateScriptInfoWorker"
+        },
+        {
+          "id": "obs_8802493127e04743",
+          "adapter": "codegraph_node",
+          "full_line_end": 2397,
+          "full_line_start": 2394,
+          "language": "typescript",
+          "line_end": 2397,
+          "line_start": 2394,
+          "node_id": "method:4c6aa0688ae2c0805bdcb0dc9a604179",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::getScriptInfoForNormalizedPath"
+        },
+        {
+          "id": "obs_d0c64e76fcb5fac0",
+          "adapter": "codegraph_node",
+          "full_line_end": 2401,
+          "full_line_start": 2399,
+          "language": "typescript",
+          "line_end": 2401,
+          "line_start": 2399,
+          "node_id": "method:2e2ad3a4d497d3b06269ceb1b2a9e785",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::getScriptInfoForPath"
+        },
+        {
+          "id": "obs_aba3383bded6a014",
+          "adapter": "codegraph_node",
+          "full_line_end": 2482,
+          "full_line_start": 2404,
+          "language": "typescript",
+          "line_end": 2416,
+          "line_start": 2404,
+          "node_id": "method:c0c769cfd9c6a9d2e047863029046a90",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::getDocumentPositionMapper"
+        },
+        {
+          "id": "obs_28f4b5ded118e159",
+          "adapter": "codegraph_node",
+          "full_line_end": 2889,
+          "full_line_start": 2858,
+          "language": "typescript",
+          "line_end": 2889,
+          "line_start": 2871,
+          "node_id": "method:e25eff3ddd279deeffdf2f7cc4ba01c0",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::createAncestorProjects"
+        },
+        {
+          "id": "obs_ffd14a041f358ccd",
+          "adapter": "codegraph_node",
+          "full_line_end": 2911,
+          "full_line_start": 2892,
+          "language": "typescript",
+          "line_end": 2910,
+          "line_start": 2892,
+          "node_id": "method:68d4c1467214da0b5dfaa7411816a61c",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::loadAncestorProjectTree"
+        },
+        {
+          "id": "obs_aab4ccd3505f177d",
+          "adapter": "codegraph_node",
+          "full_line_end": 1046,
+          "full_line_start": 1042,
+          "language": "typescript",
+          "line_end": 1046,
+          "line_start": 1046,
+          "node_id": "method:9924d9f39b12ca4576c2b3d9ae8147db",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::delayUpdateSourceInfoProjects"
+        },
+        {
+          "id": "obs_806b6df49ff14d20",
+          "adapter": "codegraph_node",
+          "full_line_end": 1053,
+          "full_line_start": 1048,
+          "language": "typescript",
+          "line_end": 1053,
+          "line_start": 1048,
+          "node_id": "method:a5f1a62d27675c52744c2a3818d7696f",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::delayUpdateProjectsOfScriptInfoPath"
+        },
+        {
+          "id": "obs_cda41890cec4943f",
+          "adapter": "codegraph_node",
+          "full_line_end": 2117,
+          "full_line_start": 2098,
+          "language": "typescript",
+          "line_end": 2117,
+          "line_start": 2098,
+          "node_id": "method:284f69f2ce09afacadbd9bc01fa06d49",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::getOrCreateSingleInferredProjectIfEnabled"
+        },
+        {
+          "id": "obs_55b346a431ea7837",
+          "adapter": "codegraph_node",
+          "full_line_end": 2132,
+          "full_line_start": 2119,
+          "language": "typescript",
+          "line_end": 2121,
+          "line_start": 2119,
+          "node_id": "method:757f789feff8dbd58566d026cfbe2948",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::getOrCreateSingleInferredWithoutProjectRoot"
+        }
+      ],
+      "crossing_selected": [],
+      "comparison_selected_groups": {
+        "[\"src/compiler/builder.ts\",\"*\"]": [
+          "obs_f429d6d76ec512a2",
+          "obs_5ef93d462c7cc276",
+          "obs_8f1c2f99a859013f",
+          "obs_320d23b5d27ef2c6",
+          "obs_94daaeea1555a66f"
+        ],
+        "[\"src/compiler/builderstate.ts\",\"*\"]": [
+          "obs_4d85bb7aba967f36",
+          "obs_2b58b117f794b8d5",
+          "obs_c2421716b29c47c9"
+        ],
+        "[\"src/compiler/tsbuildpublic.ts\",\"*\"]": [
+          "obs_0b2b8394df6b0d7e",
+          "obs_3902f7bea8551306",
+          "obs_3614e2da85b0d45d",
+          "obs_dec5815897dd1f84"
+        ],
+        "[\"src/compiler/watchpublic.ts\",\"*\"]": [
+          "obs_70ab956630713908",
+          "obs_fd3fcd0b2e510cb0",
+          "obs_a0fd420eb9cfaa13"
+        ],
+        "[\"src/compiler/watchutilities.ts\",\"*\"]": [
+          "obs_68f9613a4b0af75f"
+        ],
+        "[\"src/server/session.ts\",\"*\"]": [
+          "obs_31991ea1e7b2799e",
+          "obs_c5761959ff769c4f"
+        ],
+        "[\"src/testrunner/unittests/tsbuild/watchmode.ts\",\"*\"]": [
+          "obs_158e2d5a3ab67ecb",
+          "obs_542f6ec5c50e9373",
+          "obs_5c69863ba51eee0c"
+        ]
+      },
+      "crossing_dormant": [
+        {
+          "line_end": 1128,
+          "line_start": 1106,
+          "node_id": "method:8d6be090993d0eb52dc754c9d62c4854",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_a228bc5dd8eb4a06",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 2,
+            "obligations": 4,
+            "query_views": 6,
+            "raw_chunks": 3
+          },
+          "symbol": "ProjectService::watchWildcardDirectory"
+        },
+        {
+          "line_end": 1078,
+          "line_start": 1076,
+          "node_id": "method:7268c82cc085b20f15471741e242b2c3",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_cc0d9870ce8e39e9",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 2,
+            "obligations": 4,
+            "query_views": 5,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::handleDeletedFile"
+        },
+        {
+          "line_end": 1145,
+          "line_start": 1137,
+          "node_id": "method:3fb4e1117e9f060ae8f721598b0a8cd2",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_ada082b641087817",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 2,
+            "obligations": 4,
+            "query_views": 5,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::onConfigChangedForConfiguredProject"
+        },
+        {
+          "line_end": 1181,
+          "line_start": 1170,
+          "node_id": "method:345be5dfc1fea352110d924183f84c65",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_2025d80037898616",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 2,
+            "obligations": 4,
+            "query_views": 5,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::onConfigFileChangeForOpenScriptInfo"
+        },
+        {
+          "line_end": 380,
+          "line_start": 357,
+          "node_id": "interface:49fc13aeef717cd62849b201ad934c2d",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_55806b5e3787a5ac",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 4,
+            "query_views": 4,
+            "raw_chunks": 1
+          },
+          "symbol": "ConfigFileExistenceInfo"
+        },
+        {
+          "line_end": 1134,
+          "line_start": 1132,
+          "node_id": "method:067545588d9f29e8cb2d1a54aade580b",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_f7526dae3e819fb1",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 4,
+            "query_views": 4,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::getConfigFileExistenceInfo"
+        },
+        {
+          "line_end": 1205,
+          "line_start": 1183,
+          "node_id": "method:c42b929f8d1e320bb9b33f709c0b5692",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_55f0ccda461bd3c9",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 4,
+            "query_views": 4,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::removeProject"
+        },
+        {
+          "line_end": 1355,
+          "line_start": 1316,
+          "node_id": "method:2cb2dc3ab7367bcf5d68a6835afffa17",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_6b03c66381f5ac24",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 4,
+            "query_views": 4,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::closeOpenFile"
+        },
+        {
+          "line_end": 1398,
+          "line_start": 1376,
+          "node_id": "method:28af5c477f42ef9db59838e640925169",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_93916b240ca3eb4a",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 4,
+            "query_views": 4,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::configFileExists"
+        },
+        {
+          "line_end": 1415,
+          "line_start": 1400,
+          "node_id": "method:8af5440dae586c6a763d3b8c3299cdf0",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_18cfc6ad7b85b74c",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 4,
+            "query_views": 4,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::setConfigFileExistenceByNewConfiguredProject"
+        },
+        {
+          "line_end": 2001,
+          "line_start": 1962,
+          "node_id": "method:91f6235038b42928dd6f5357a0e2c41e",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_0f0be3774e18b53a",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 4,
+            "query_views": 4,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::updateNonInferredProjectFiles"
+        },
+        {
+          "line_end": 2028,
+          "line_start": 2022,
+          "node_id": "method:e646a4f0a6a0a25fd11e755010e355a1",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_7606d1128ec7e1ba",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 4,
+            "query_views": 4,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::reloadFileNamesOfConfiguredProject"
+        },
+        {
+          "line_end": 2680,
+          "line_start": 2677,
+          "node_id": "method:c5730f2950ff56d1951a29a179edcfb8",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_a23095f231904da1",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 4,
+            "query_views": 4,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::reloadConfiguredProjectForFiles"
+        },
+        {
+          "line_end": 2709,
+          "line_start": 2685,
+          "node_id": "method:3a1f131da32f727bc34e0ec202345d31",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_a40abfb48ac3e453",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 4,
+            "query_views": 4,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::removeRootOfInferredProjectIfNowPartOfOtherProject"
+        },
+        {
+          "line_end": 2015,
+          "line_start": 2006,
+          "node_id": "method:7a3d1470742a1c6be5a05d47aeef4106",
+          "obligation_ids": [
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "observation_id": "obs_181702603a452f66",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 3,
+            "query_views": 3,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::updateRootAndOptionsOfNonInferredProject"
+        },
+        {
+          "line_end": 2048,
+          "line_start": 2034,
+          "node_id": "method:726bc32a4eba38a670dfd13982ecae29",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism"
+          ],
+          "observation_id": "obs_32e3786ca731a3c4",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 3,
+            "query_views": 3,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::reloadConfiguredProject"
+        },
+        {
+          "line_end": 2061,
+          "line_start": 2050,
+          "node_id": "method:077b239360bb462f3dc2f31780190788",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger",
+            "explain_ordered_mechanism"
+          ],
+          "observation_id": "obs_1264089c6cb39ea2",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 3,
+            "query_views": 3,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::sendConfigFileDiagEvent"
+        },
+        {
+          "line_end": 2091,
+          "line_start": 2063,
+          "node_id": "method:42daa264dafbfedfc086f624f05fcd48",
+          "obligation_ids": [
+            "explain_trigger",
+            "explain_why"
+          ],
+          "observation_id": "obs_4eb716df4de654d6",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 2,
+            "query_views": 2,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::getOrCreateInferredProjectForProjectRootPathIfEnabled"
+        },
+        {
+          "line_end": 2850,
+          "line_start": 2811,
+          "node_id": "method:4eacecbd52e6cdd664062827c13a8fb4",
+          "obligation_ids": [
+            "explain_trigger",
+            "explain_ordered_mechanism"
+          ],
+          "observation_id": "obs_fd0fe12152a65dc6",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 2,
+            "query_views": 2,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::assignProjectToOpenedScriptInfo"
+        },
+        {
+          "line_end": 3000,
+          "line_start": 2961,
+          "node_id": "method:6911da4e61d40459356377766df3ef3f",
+          "obligation_ids": [
+            "explain_subject",
+            "explain_trigger"
+          ],
+          "observation_id": "obs_b9c97ddd7f89f4a0",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 2,
+            "query_views": 2,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::removeOrphanConfiguredProjects"
+        },
+        {
+          "line_end": 3434,
+          "line_start": 3395,
+          "node_id": "method:8dbdd5fb72315816e8ee8d0b0f0f7152",
+          "obligation_ids": [
+            "explain_trigger",
+            "explain_ordered_mechanism"
+          ],
+          "observation_id": "obs_003b40d813000d01",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 2,
+            "query_views": 2,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::openExternalProject"
+        },
+        {
+          "line_end": 761,
+          "line_start": 746,
+          "node_id": "method:a0caf6a28b0a1b5f2ef1fb39889dd46a",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_18ad7a2948123780",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::updateTypingsForProject"
+        },
+        {
+          "line_end": 779,
+          "line_start": 763,
+          "node_id": "method:b39bf2546659333d185f8fead1f0a7e7",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_f022ee5da303e835",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::delayEnsureProjectForOpenFiles"
+        },
+        {
+          "line_end": 785,
+          "line_start": 781,
+          "node_id": "method:faef3242cd32133173879a939cd33721",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_084ca2b4dbee898b",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::delayUpdateProjectGraph"
+        },
+        {
+          "line_end": 1265,
+          "line_start": 1228,
+          "node_id": "method:50798e65503ee90ccd02eb71acfeb92b",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_c56666e78fcc4188",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::assignOrphanScriptInfoToInferredProject"
+        },
+        {
+          "line_end": 1428,
+          "line_start": 1426,
+          "node_id": "method:89647e4c3c98fcff086ca56da8b7eb94",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_dba177cb7a4ebedc",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::configFileExistenceImpactsRootOfInferredProject"
+        },
+        {
+          "line_end": 1445,
+          "line_start": 1430,
+          "node_id": "method:cb4401f475d7bfd4053e60e58a5e3e58",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_2d151f9e3f0051c4",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::setConfigFileExistenceInfoByClosedConfiguredProject"
+        },
+        {
+          "line_end": 2389,
+          "line_start": 2377,
+          "node_id": "method:740e138f7bbfa4bdf0c88c51387eb453",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_1acb6c2f70cae722",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::getOrCreateScriptInfoWorker"
+        },
+        {
+          "line_end": 2397,
+          "line_start": 2394,
+          "node_id": "method:4c6aa0688ae2c0805bdcb0dc9a604179",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_8802493127e04743",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::getScriptInfoForNormalizedPath"
+        },
+        {
+          "line_end": 2401,
+          "line_start": 2399,
+          "node_id": "method:2e2ad3a4d497d3b06269ceb1b2a9e785",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_d0c64e76fcb5fac0",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::getScriptInfoForPath"
+        },
+        {
+          "line_end": 2416,
+          "line_start": 2404,
+          "node_id": "method:c0c769cfd9c6a9d2e047863029046a90",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_aba3383bded6a014",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::getDocumentPositionMapper"
+        },
+        {
+          "line_end": 2889,
+          "line_start": 2871,
+          "node_id": "method:e25eff3ddd279deeffdf2f7cc4ba01c0",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_28f4b5ded118e159",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 2
+          },
+          "symbol": "ProjectService::createAncestorProjects"
+        },
+        {
+          "line_end": 2910,
+          "line_start": 2892,
+          "node_id": "method:68d4c1467214da0b5dfaa7411816a61c",
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "observation_id": "obs_ffd14a041f358ccd",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::loadAncestorProjectTree"
+        },
+        {
+          "line_end": 1046,
+          "line_start": 1046,
+          "node_id": "method:9924d9f39b12ca4576c2b3d9ae8147db",
+          "obligation_ids": [
+            "explain_ordered_mechanism"
+          ],
+          "observation_id": "obs_aab4ccd3505f177d",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::delayUpdateSourceInfoProjects"
+        },
+        {
+          "line_end": 1053,
+          "line_start": 1048,
+          "node_id": "method:a5f1a62d27675c52744c2a3818d7696f",
+          "obligation_ids": [
+            "explain_ordered_mechanism"
+          ],
+          "observation_id": "obs_806b6df49ff14d20",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::delayUpdateProjectsOfScriptInfoPath"
+        },
+        {
+          "line_end": 2117,
+          "line_start": 2098,
+          "node_id": "method:284f69f2ce09afacadbd9bc01fa06d49",
+          "obligation_ids": [
+            "explain_why"
+          ],
+          "observation_id": "obs_cda41890cec4943f",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::getOrCreateSingleInferredProjectIfEnabled"
+        },
+        {
+          "line_end": 2121,
+          "line_start": 2119,
+          "node_id": "method:757f789feff8dbd58566d026cfbe2948",
+          "obligation_ids": [
+            "explain_why"
+          ],
+          "observation_id": "obs_55b346a431ea7837",
+          "path": "src/server/editorServices.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": "ProjectService::getOrCreateSingleInferredWithoutProjectRoot"
+        }
+      ]
+    },
+    "final_admission": {
+      "trace_line": 1891,
+      "budget_line": 1893,
+      "budget": {
+        "candidate_count": 13,
+        "candidate_paths": [
+          "src/compiler/builder.ts",
+          "src/compiler/builderState.ts",
+          "src/compiler/tsbuildPublic.ts",
+          "src/compiler/watchPublic.ts",
+          "src/server/project.ts"
+        ],
+        "candidate_payload_chars": 43903,
+        "connection_count": 8,
+        "connection_payload_chars": 2295,
+        "file_trace_payload_chars": 2,
+        "flow_count": 11,
+        "flow_payload_chars": 1874,
+        "input_char_budget": 50000,
+        "overlap_payload_chars": 371,
+        "serialized_payload_chars": 51075
+      },
+      "selected_flow_count": 11,
+      "crossing_flows": [
+        {
+          "added_candidate_chars": 3341,
+          "added_chars": 3611,
+          "added_connection_chars": 0,
+          "added_flow_chars": 270,
+          "budget_overshoot_chars": 3148,
+          "candidate_ids": [
+            "node:function:440f39428a6d506792cce2efd459f338",
+            "node:function:65665f4b84d4e5aba2a622258554cda6",
+            "node:function:70d91fa7b61cda64a11e60ff45579147",
+            "node:function:fc5e0c1d952a60d32b4da99e9f988257"
+          ],
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_5",
+              "score": 164.55,
+              "shared_candidate_ids": [
+                "node:function:65665f4b84d4e5aba2a622258554cda6",
+                "node:function:70d91fa7b61cda64a11e60ff45579147",
+                "node:function:fc5e0c1d952a60d32b4da99e9f988257"
+              ]
+            }
+          ],
+          "connected_to_selected_candidate": true,
+          "connected_to_selected_file": false,
+          "crossed_budget": true,
+          "decision": "selected",
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "flow_id": "mechanism_flow_11",
+          "matched_mechanism_terms": [
+            "affect",
+            "compiler",
+            "diagnostic"
+          ],
+          "new_qualified_connecting_candidate_ids": [
+            "node:function:440f39428a6d506792cce2efd459f338"
+          ],
+          "new_responsibility_keys": [],
+          "new_substantive_candidate_ids": [
+            "node:function:440f39428a6d506792cce2efd459f338"
+          ],
+          "new_transition_count": 1,
+          "previous_used_chars": 44537,
+          "protected_handoff_terms": [],
+          "root_candidate_id": "node:function:440f39428a6d506792cce2efd459f338",
+          "root_hypothesis_score": 23.5,
+          "root_path": "src/compiler/builder.ts",
+          "score": 100.8833,
+          "used_chars": 48148,
+          "new_snippets": [
+            {
+              "base_score": 0.5,
+              "candidate_id": "node:function:440f39428a6d506792cce2efd459f338",
+              "causal_roles": [
+                "controller",
+                "observer",
+                "state_owner"
+              ],
+              "covered_concepts": [],
+              "direct_obligation_ids": [
+                "explain_ordered_mechanism"
+              ],
+              "facts": {
+                "anchor_decision_code": "",
+                "anchor_reliability_tier": 0,
+                "callable_defaults": [],
+                "full_range": [
+                  1061,
+                  1085
+                ],
+                "localization_adapter": "codegraph_owner_disclosure",
+                "primary_anchor": [
+                  1061,
+                  1085
+                ],
+                "read_fields": [
+                  "getState",
+                  "assertDefined",
+                  "program",
+                  "outFile",
+                  "out",
+                  "assert",
+                  "semanticDiagnosticsPerFile"
+                ],
+                "returned_names": [
+                  "them",
+                  "Debug",
+                  "getSemanticDiagnosticsOfFile",
+                  "diagnostics"
+                ],
+                "semantic_discoveries": [
+                  {
+                    "matched_terms": [
+                      "a",
+                      "and",
+                      "are",
+                      "file",
+                      "files",
+                      "for",
+                      "from",
+                      "in",
+                      "is",
+                      "it",
+                      "no",
+                      "not",
+                      "of",
+                      "the",
+                      "this",
+                      "through",
+                      "to",
+                      "when"
+                    ],
+                    "obligation_id": "explain_ordered_mechanism",
+                    "rank": 2,
+                    "score": 0.5
+                  },
+                  {
+                    "matched_terms": [
+                      "a",
+                      "and",
+                      "are",
+                      "file",
+                      "files",
+                      "for",
+                      "from",
+                      "in",
+                      "is",
+                      "it",
+                      "no",
+                      "not",
+                      "of",
+                      "the",
+                      "this",
+                      "through",
+                      "to",
+                      "when"
+                    ],
+                    "obligation_id": "explain_ordered_mechanism",
+                    "rank": 2,
+                    "score": 0.5
+                  }
+                ],
+                "visible_calls": [
+                  "createBuilderProgram",
+                  "getSemanticDiagnostics",
+                  "assertSourceFileOkWithoutNextAffectedCall",
+                  "getSemanticDiagnosticsOfFile",
+                  "while",
+                  "getSemanticDiagnosticsOfNextAffectedFile",
+                  "for",
+                  "addRange"
+                ],
+                "written_fields": []
+              },
+              "inherited_obligation_ids": [],
+              "line_end": 1085,
+              "line_start": 1061,
+              "matched_request_terms": [
+                "compiler",
+                "diagnostic"
+              ],
+              "missing_concepts": [],
+              "node_id": "function:440f39428a6d506792cce2efd459f338",
+              "node_score": 15.5,
+              "obligation_ids": [
+                "explain_ordered_mechanism"
+              ],
+              "origin": "qualified_direct_evidence",
+              "outgoing_transition_count": 2,
+              "path": "src/compiler/builder.ts",
+              "provenance_origins": [
+                "qualified_direct_evidence",
+                "within_file_search"
+              ],
+              "qualified_call_neighbor_ids": [
+                "node:function:65665f4b84d4e5aba2a622258554cda6",
+                "node:function:b3ac8c3f944de8c8502aa146e7538955"
+              ],
+              "relationship_types": [],
+              "score": 0.5,
+              "selected_for_final_request": true,
+              "source_paths": [],
+              "symbol": "createBuilderProgram::getSemanticDiagnostics"
+            }
+          ]
+        }
+      ],
+      "budget_policy": "append_crossing_unit_then_stop",
+      "used_chars": 50443,
+      "input_char_budget": 45000,
+      "budget_overshoot_chars": 5443,
+      "eligible_connection_count": 8,
+      "selected_connection_count": 8,
+      "budget_excluded_connection_count": 0,
+      "stopped_flow_count": 13,
+      "llm_request": {
+        "trace_line": 1894,
+        "message_chars": 56836,
+        "schema_chars": 3036
+      }
+    },
+    "policy_assertions_passed": true
+  },
+  {
+    "run_id": "run-20260827T142935Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 3,
+    "final_items": 12,
+    "final_files": 7,
+    "retrieval_tokens": 97572,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1697,
+        "completion_tokens": 174,
+        "total_tokens": 1871
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 21468,
+        "completion_tokens": 1369,
+        "total_tokens": 22837
+      },
+      "evidence_qualification": {
+        "calls": 4,
+        "prompt_tokens": 25108,
+        "completion_tokens": 9166,
+        "total_tokens": 34274
+      },
+      "retrieval_coverage": {
+        "calls": 4,
+        "prompt_tokens": 19453,
+        "completion_tokens": 4289,
+        "total_tokens": 23742
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 1,
+        "prompt_tokens": 11248,
+        "completion_tokens": 3600,
+        "total_tokens": 14848
+      }
+    },
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__microsoft_typescript_35468__a27de1ce",
+        "document_count": 83401,
+        "indexed_points": 83401,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "createWatchProgram::onSourceFileChange",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 2,
+        "path": "src/compiler/builder.ts",
+        "symbol": "createBuilderProgram::getSemanticDiagnostics",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 3,
+        "path": "src/compiler/builder.ts",
+        "symbol": "getNextAffectedFile",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 4,
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 5,
+        "path": "src/compiler/builder.ts",
+        "symbol": "isChangedSignagure",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 6,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateShapeSignature",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 7,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "getFilesAffectedBy",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 8,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateExportedFilesMapFromCache",
+        "obligation_id": "explain_state_changes"
+      },
+      {
+        "rank": 9,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "invalidateProjectAndScheduleBuilds",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 10,
+        "path": "src/compiler/sys.ts",
+        "symbol": "getNodeSystem::fsWatch::watchPresentFileSystemEntry",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 11,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyTransitiveReferences",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 12,
+        "path": "src/compiler/watch.ts",
+        "symbol": "emitFilesAndReportErrors",
+        "obligation_id": "explain_subject"
+      }
+    ],
+    "completed_result_exists": true,
+    "final_llm_responses": [
+      {
+        "trace_line": 1838,
+        "usage": {
+          "completion_tokens": 3600,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 886,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 11248,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 9676,
+            "cached_tokens": 1569
+          },
+          "total_tokens": 14848
+        },
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "content_chars": 11076
+          }
+        ]
+      }
+    ],
+    "initial": {
+      "trace_line": 53,
+      "canonical_line": 52,
+      "comparison_line": 58,
+      "admission_limit": "ranked_complete_file_groups_append_crossing_then_stop",
+      "admitted_file_count": 14,
+      "participating_candidate_count": 172,
+      "comparison_total_input_chars": 60478,
+      "admitted_paths": [
+        "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "src/compiler/watchPublic.ts",
+        "src/compiler/builderState.ts",
+        "src/compiler/tsbuildPublic.ts",
+        "src/compiler/builder.ts",
+        "src/compiler/watch.ts",
+        "src/server/editorServices.ts",
+        "src/compiler/diagnosticMessages.json",
+        "src/testRunner/unittests/tsserver/session.ts",
+        "src/compiler/sys.ts",
+        "src/compiler/commandLineParser.ts",
+        "src/compiler/types.ts",
+        "tests/cases/fourslash/externalModuleRefernceResolutionOrderInImportDeclaration.ts",
+        "src/testRunner/unittests/tsserver/resolutionCache.ts"
+      ],
+      "comparison_preferred_input_chars": 60000,
+      "comparison_input_char_budget": 100000,
+      "stopping_reason": "preferred_input_target_crossed",
+      "crossing": {
+        "candidate_count": 172,
+        "crossed_budget": true,
+        "decision": "admitted",
+        "marginal_chars": 1130,
+        "maximum_overshoot_chars": 0,
+        "path": "src/testRunner/unittests/tsserver/resolutionCache.ts",
+        "preferred_overshoot_chars": 478,
+        "previous_input_chars": 59348,
+        "total_input_chars": 60478
+      },
+      "crossing_snippets": [
+        {
+          "id": "obs_2bab7e034a8b150b",
+          "adapter": "indexed_chunk",
+          "full_line_end": 131,
+          "full_line_start": 92,
+          "language": "",
+          "line_end": 131,
+          "line_start": 92,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/resolutionCache.ts",
+          "symbol": ""
+        },
+        {
+          "id": "obs_62cb1dc44561d33d",
+          "adapter": "indexed_chunk",
+          "full_line_end": 341,
+          "full_line_start": 302,
+          "language": "",
+          "line_end": 341,
+          "line_start": 302,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/resolutionCache.ts",
+          "symbol": ""
+        },
+        {
+          "id": "obs_47800e57fde13f7a",
+          "adapter": "indexed_chunk",
+          "full_line_end": 371,
+          "full_line_start": 332,
+          "language": "",
+          "line_end": 371,
+          "line_start": 332,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/resolutionCache.ts",
+          "symbol": ""
+        },
+        {
+          "id": "obs_2510af2a558e0b45",
+          "adapter": "indexed_chunk",
+          "full_line_end": 401,
+          "full_line_start": 362,
+          "language": "",
+          "line_end": 401,
+          "line_start": 362,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/resolutionCache.ts",
+          "symbol": ""
+        }
+      ],
+      "crossing_selected": [
+        {
+          "id": "obs_2bab7e034a8b150b",
+          "adapter": "indexed_chunk",
+          "full_line_end": 131,
+          "full_line_start": 92,
+          "language": "",
+          "line_end": 131,
+          "line_start": 92,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/resolutionCache.ts",
+          "symbol": ""
+        }
+      ],
+      "comparison_selected_groups": {
+        "[\"src/compiler/builder.ts\",\"*\"]": [
+          "obs_f429d6d76ec512a2",
+          "obs_5ef93d462c7cc276",
+          "obs_838eb9432657ceff",
+          "obs_94daaeea1555a66f"
+        ],
+        "[\"src/compiler/builderstate.ts\",\"*\"]": [
+          "obs_4d85bb7aba967f36",
+          "obs_2b58b117f794b8d5",
+          "obs_303f2048ac073f82"
+        ],
+        "[\"src/compiler/sys.ts\",\"*\"]": [
+          "obs_fa0cbb909e457918"
+        ],
+        "[\"src/compiler/tsbuildpublic.ts\",\"*\"]": [
+          "obs_0b2b8394df6b0d7e",
+          "obs_dec5815897dd1f84"
+        ],
+        "[\"src/compiler/watch.ts\",\"*\"]": [
+          "obs_ad3c3da59fa1d1a1"
+        ],
+        "[\"src/compiler/watchpublic.ts\",\"*\"]": [
+          "obs_70ab956630713908",
+          "obs_fd3fcd0b2e510cb0"
+        ],
+        "[\"src/testrunner/unittests/tsbuild/watchmode.ts\",\"*\"]": [
+          "obs_158e2d5a3ab67ecb",
+          "obs_d6a1a15f81e64eec"
+        ],
+        "[\"src/testrunner/unittests/tsserver/resolutioncache.ts\",\"*\"]": [
+          "obs_2bab7e034a8b150b"
+        ]
+      },
+      "crossing_dormant": [
+        {
+          "line_end": 341,
+          "line_start": 302,
+          "node_id": "",
+          "obligation_ids": [
+            "explain_state_changes"
+          ],
+          "observation_id": "obs_62cb1dc44561d33d",
+          "path": "src/testRunner/unittests/tsserver/resolutionCache.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": ""
+        },
+        {
+          "line_end": 371,
+          "line_start": 332,
+          "node_id": "",
+          "obligation_ids": [
+            "explain_state_changes"
+          ],
+          "observation_id": "obs_47800e57fde13f7a",
+          "path": "src/testRunner/unittests/tsserver/resolutionCache.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": ""
+        },
+        {
+          "line_end": 401,
+          "line_start": 362,
+          "node_id": "",
+          "obligation_ids": [
+            "explain_state_changes"
+          ],
+          "observation_id": "obs_2510af2a558e0b45",
+          "path": "src/testRunner/unittests/tsserver/resolutionCache.ts",
+          "support": {
+            "channels": 1,
+            "obligations": 1,
+            "query_views": 1,
+            "raw_chunks": 1
+          },
+          "symbol": ""
+        }
+      ]
+    },
+    "final_admission": {
+      "trace_line": 1834,
+      "budget_line": 1836,
+      "budget": {
+        "candidate_count": 11,
+        "candidate_paths": [
+          "src/compiler/builder.ts",
+          "src/compiler/builderState.ts",
+          "src/compiler/tsbuildPublic.ts",
+          "src/compiler/watchPublic.ts"
+        ],
+        "candidate_payload_chars": 30280,
+        "connection_count": 9,
+        "connection_payload_chars": 2575,
+        "file_trace_payload_chars": 2,
+        "flow_count": 10,
+        "flow_payload_chars": 1653,
+        "input_char_budget": 50000,
+        "overlap_payload_chars": 2,
+        "serialized_payload_chars": 37224
+      },
+      "selected_flow_count": 10,
+      "crossing_flows": [],
+      "budget_policy": "append_crossing_unit_then_stop",
+      "used_chars": 37067,
+      "input_char_budget": 45000,
+      "budget_overshoot_chars": 0,
+      "eligible_connection_count": 9,
+      "selected_connection_count": 9,
+      "budget_excluded_connection_count": 0,
+      "stopped_flow_count": 0,
+      "llm_request": {
+        "trace_line": 1837,
+        "message_chars": 42985,
+        "schema_chars": 3036
+      }
+    },
+    "policy_assertions_passed": true
+  }
+]

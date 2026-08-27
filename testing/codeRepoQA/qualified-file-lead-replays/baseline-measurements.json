@@ -1,0 +1,347 @@
+[
+  {
+    "run_id": "run-20260827T023945Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 3,
+    "oracle_positions": {
+      "src/compiler/builder.ts": 2,
+      "src/compiler/builderState.ts": 4,
+      "src/testRunner/unittests/tsbuild/watchMode.ts": 6
+    },
+    "final_items": 12,
+    "final_files": 7,
+    "retrieval_tokens": 102546,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1669,
+        "completion_tokens": 124,
+        "total_tokens": 1793
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 21123,
+        "completion_tokens": 2420,
+        "total_tokens": 23543
+      },
+      "evidence_qualification": {
+        "calls": 4,
+        "prompt_tokens": 19485,
+        "completion_tokens": 6449,
+        "total_tokens": 25934
+      },
+      "retrieval_coverage": {
+        "calls": 4,
+        "prompt_tokens": 29929,
+        "completion_tokens": 5121,
+        "total_tokens": 35050
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 1,
+        "prompt_tokens": 12966,
+        "completion_tokens": 3260,
+        "total_tokens": 16226
+      }
+    },
+    "leads": [],
+    "discovery_audits": [],
+    "controller": [
+      {
+        "trace_line": 1386,
+        "candidate_ids": [
+          "node:function:1fd31f3e5ee9721e856ea094f8e2eb0b",
+          "node:function:200b27b361a344e4e112e12f1b151456",
+          "node:function:22275eb9c7dad8941c987ff65eb937dc",
+          "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "node:function:440f39428a6d506792cce2efd459f338",
+          "node:function:5126cbe8d8c43acb9f72edf0f6627954",
+          "node:function:59a7c4446de36a26d1df58af0cf48578",
+          "node:function:68b87ef75d2dbfb56b352061dbb863fd",
+          "node:function:6d81ef611a19579e32acbac079426641",
+          "node:function:7ddd85cc73d784339da4386e1d9d5584",
+          "node:function:8fc43f284ae12d6cfaca97425b47216a",
+          "node:function:92d9413de992d6c7b2e164ee96a49c14",
+          "node:function:96e2a62ad6523adaeb127bd071073868",
+          "node:function:9e4209e679583a4639e64a8a980cf3a4",
+          "node:function:a33338c6c9363ff02277bfc18363b3ab",
+          "node:function:aa8e976ec79373362a496da34cfa6e94",
+          "node:function:c177f4ee6ba700e57e49fe4ef1d11c74",
+          "node:function:cce974608658f81914b01c2d1da2b219",
+          "node:interface:8e6411f819b3496f7cc20fbe5f868000",
+          "range:src/testRunner/unittests/tsbuild/watchMode.ts:339:349",
+          "range:src/testRunner/unittests/tsbuild/watchMode.ts:534:542"
+        ],
+        "pending_verified_leads": [],
+        "rounds": 3,
+        "stop_reason": "three_round_budget_complete",
+        "tool_calls": 419,
+        "verified_lead_block_reason": "",
+        "verified_lead_execution_cap": 2,
+        "verified_lead_execution_count": 0
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "createWatchProgram",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 2,
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 3,
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachFileAndExportsOfFile",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 4,
+        "path": "src/compiler/builder.ts",
+        "symbol": "createBuilderProgram::getSemanticDiagnostics",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 5,
+        "path": "src/compiler/builder.ts",
+        "symbol": "getBinderAndCheckerDiagnosticsOfFile",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 6,
+        "path": "src/compiler/program.ts",
+        "symbol": "createProgram::tryReuseStructureFromOldProgram",
+        "obligation_id": "explain_state_changes"
+      },
+      {
+        "rank": 7,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateExportedModules",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 8,
+        "path": "src/compiler/watch.ts",
+        "symbol": "emitFilesAndReportErrors",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 9,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyTransitiveReferences::verifyScenario",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 10,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateSignaturesFromCache",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 11,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyProjectChanges",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 12,
+        "path": "src/compiler/sys.ts",
+        "symbol": "getNodeSystem::fsWatch::watchPresentFileSystemEntry",
+        "obligation_id": "explain_subject"
+      }
+    ]
+  },
+  {
+    "run_id": "run-20260827T024536Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 4,
+    "oracle_positions": {
+      "src/compiler/builder.ts": 3,
+      "src/compiler/builderState.ts": 6,
+      "src/testRunner/unittests/tsbuild/watchMode.ts": 1,
+      "src/testRunner/unittests/tscWatch/helpers.ts": 7
+    },
+    "final_items": 12,
+    "final_files": 7,
+    "retrieval_tokens": 146101,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1656,
+        "completion_tokens": 126,
+        "total_tokens": 1782
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 21286,
+        "completion_tokens": 1747,
+        "total_tokens": 23033
+      },
+      "evidence_qualification": {
+        "calls": 5,
+        "prompt_tokens": 32092,
+        "completion_tokens": 11299,
+        "total_tokens": 43391
+      },
+      "retrieval_coverage": {
+        "calls": 5,
+        "prompt_tokens": 33483,
+        "completion_tokens": 6630,
+        "total_tokens": 40113
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 2,
+        "prompt_tokens": 26636,
+        "completion_tokens": 7800,
+        "total_tokens": 34436
+      },
+      "unresolved_file_evidence_selection": {
+        "calls": 1,
+        "prompt_tokens": 3103,
+        "completion_tokens": 243,
+        "total_tokens": 3346
+      }
+    },
+    "leads": [],
+    "discovery_audits": [],
+    "controller": [
+      {
+        "trace_line": 1924,
+        "candidate_ids": [
+          "node:function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "node:function:1a791a3dd52deae978d3d12704243750",
+          "node:function:200b27b361a344e4e112e12f1b151456",
+          "node:function:2b766b8b2bb848361e64d2a63836e71e",
+          "node:function:2fbbc2966bd86b8a95bb14f255ca0098",
+          "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "node:function:440f39428a6d506792cce2efd459f338",
+          "node:function:5126cbe8d8c43acb9f72edf0f6627954",
+          "node:function:6727993f3c4d58c681f69943adc9a01a",
+          "node:function:68b87ef75d2dbfb56b352061dbb863fd",
+          "node:function:6deb76080968aee7e111cb13b53a3f6b",
+          "node:function:79007c855ed19ba8360c64ca7e1afe62",
+          "node:function:852d58b4a3fc1b7ccfd12f7c681b33ec",
+          "node:function:8b158e65ab263ccff665db11fd22abaf",
+          "node:function:92d9413de992d6c7b2e164ee96a49c14",
+          "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+          "node:function:9a5bb6ff98add6529b3f9becebba7007",
+          "node:function:9e4209e679583a4639e64a8a980cf3a4",
+          "node:function:a8349d2e6767485cbf45f52fccce3861",
+          "node:function:ba8a11ff344d7128e7738a8783fb4c37",
+          "node:function:c27a17aff15752299b0a5eaa1f27fd46",
+          "node:function:e9b4dcb84c194c87104f73e0e9ee18eb",
+          "node:function:e9f56cfaef09c1800fac3a921259683b",
+          "node:function:f8f74b82be3be3d78554c778c2c74e0d",
+          "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+          "node:interface:2a276421c71d2702cd938d0a2291c20e",
+          "node:interface:2eb09f516739c7fd3d03f6123f8bf4e6",
+          "range:src/testRunner/unittests/tsbuild/watchMode.ts:534:542",
+          "range:src/testRunner/unittests/tsbuild/watchMode.ts:688:716"
+        ],
+        "pending_verified_leads": [
+          {
+            "discovered_round": 4,
+            "obligation_id": "explain_resulting_effect",
+            "reason": "Retrieve the scenario input and runWatchBaseline assertion for the change to the interface source.",
+            "source_observation_id": "obs_341272b8b14b6433",
+            "structural_child": false,
+            "target": "runWatchBaseline",
+            "target_node_id": "function:8d4af30cb306a38106b2c09bf5bf5d1f",
+            "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "target_range": [
+              334,
+              363
+            ],
+            "target_symbol": "runWatchBaseline"
+          }
+        ],
+        "rounds": 4,
+        "stop_reason": "controller_round_limit_reached",
+        "tool_calls": 590,
+        "verified_lead_block_reason": "execution_cap_reached",
+        "verified_lead_execution_cap": 2,
+        "verified_lead_execution_count": 2
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyTransitiveReferences",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 2,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "createSolutionAndWatchModeOfProject",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 3,
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "createWatchProgram",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 4,
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "createWatchProgram::createNewProgram",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 5,
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 6,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "buildNextInvalidatedProject",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 7,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "getNextInvalidatedProject",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 8,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 9,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "queueReferencingProjects",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 10,
+        "path": "src/compiler/watch.ts",
+        "symbol": "performIncrementalCompilation",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 11,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateExportedModules",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 12,
+        "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+        "symbol": null,
+        "obligation_id": null
+      }
+    ]
+  }
+]

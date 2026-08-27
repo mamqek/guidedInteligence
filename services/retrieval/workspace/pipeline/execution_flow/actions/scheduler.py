@@ -130,13 +130,20 @@ def schedule_round_actions(
         refined_paths=refined_paths,
         attempted_effects=attempted_effects,
     )
+    novel_verified = []
+    for action in verified_lead_actions:
+        suppression = action_suppression_reason(action, completed_effects=tuple(attempted_effects))
+        if suppression is not None:
+            suppression_records.append(suppression)
+        else:
+            novel_verified.append(action)
     return ScheduledRoundActions(
         normal=normal,
         deferred_file_rescue=deferred,
         owner_maturation=maturation,
         maturation_children=maturation_children,
         test_maturation=test_maturation,
-        verified_lead=tuple(verified_lead_actions),
+        verified_lead=tuple(novel_verified[:1]),
         suppressed=tuple(suppression_records),
     )
 

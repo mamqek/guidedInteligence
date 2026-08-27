@@ -1,0 +1,91 @@
+[
+  {
+    "run_id": "run-20260827T070351Z",
+    "queue_comparisons": [
+      {
+        "trace_line": 492,
+        "round_completed": 1,
+        "executed_count": 1,
+        "old_first": "resolutionCache.resolveModuleNames",
+        "new_first": "getSemanticDiagnosticsOfNextAffectedFile",
+        "queue": [
+          {
+            "source_observation_id": "obs_70ab956630713908",
+            "obligation_id": "explain_subject",
+            "target": "resolutionCache.resolveModuleNames",
+            "target_node_id": "function:c64ea9220f111372e4b932683827ce1a",
+            "target_path": "src/compiler/resolutionCache.ts",
+            "target_range": [
+              408,
+              416
+            ],
+            "target_symbol": "createResolutionCache::resolveModuleNames",
+            "reason": "Qualified source calls resolutionCache.resolveModuleNames at src/compiler/watchPublic.ts:314; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "discovered_round": 0,
+            "structural_child": true,
+            "origin": "qualified_structural_file_lead",
+            "source_call_path": "",
+            "source_call_line": 0,
+            "known_incoming_calls": null,
+            "source_file_literal_calls": null,
+            "inspection_basis": "incidental_visible_call",
+            "request_text": "",
+            "source_rank": 4,
+            "qualified_target": true,
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              4,
+              "src/compiler/resolutioncache.ts",
+              "function:c64ea9220f111372e4b932683827ce1a"
+            ]
+          },
+          {
+            "source_observation_id": "obs_2732a1d0edba5221",
+            "obligation_id": "explain_ordered_mechanism",
+            "target": "getSemanticDiagnosticsOfNextAffectedFile",
+            "target_node_id": "function:65665f4b84d4e5aba2a622258554cda6",
+            "target_path": "src/compiler/builder.ts",
+            "target_range": [
+              1017,
+              1051
+            ],
+            "target_symbol": "createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile",
+            "reason": "Retrieve the implementation of getSemanticDiagnosticsOfNextAffectedFile and the invalidated-project creation path that supplies this interface.",
+            "discovered_round": 1,
+            "structural_child": false,
+            "origin": "qualification_followup",
+            "source_call_path": "",
+            "source_call_line": 0,
+            "known_incoming_calls": null,
+            "source_file_literal_calls": null,
+            "inspection_basis": "qualification_followup",
+            "request_text": "Retrieve the implementation of getSemanticDiagnosticsOfNextAffectedFile and the invalidated-project creation path that supplies this interface.",
+            "source_rank": 1,
+            "qualified_target": false,
+            "priority_key": [
+              0,
+              1,
+              1,
+              1,
+              1,
+              "src/compiler/builder.ts",
+              "function:65665f4b84d4e5aba2a622258554cda6"
+            ]
+          }
+        ]
+      },
+      {
+        "trace_line": 881,
+        "skipped": "source rank not recorded; no inferred tie-breaker"
+      },
+      {
+        "trace_line": 1311,
+        "skipped": "source rank not recorded; no inferred tie-breaker"
+      }
+    ],
+    "note": "Same recorded queue replay only, before later discoveries/suppression. Not a full-run quality prediction."
+  }
+]

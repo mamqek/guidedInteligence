@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-import hashlib
-import re
 from typing import Any, Callable, Mapping, Sequence
 
 from services.intent.models import EvidenceObligation
@@ -21,6 +19,7 @@ from services.retrieval.workspace.pipeline.execution_flow.evidence_islands impor
 )
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import (
     QualificationDecision,
+    QualificationReuseCache,
     qualify_cards,
 )
 from services.retrieval.workspace.pipeline.execution_flow.dormant_island_completion import (
@@ -60,24 +59,11 @@ from services.retrieval.workspace.pipeline.execution_flow.structural_components 
 from services.retrieval.workspace.tools import ToolRequest
 
 
-MAX_VERIFIED_LEAD_EXECUTIONS = 2
-
-
-@dataclass(frozen=True)
-class VerifiedLead:
-    source_observation_id: str
-    obligation_id: str
-    target: str
-    target_node_id: str
-    target_path: str
-    target_line_start: int
-    target_line_end: int
-    target_symbol: str
-    reason: str
-    discovered_round: int
-    source_rank: int
-    qualified_target: bool
-    structural_child: bool = False
+from services.retrieval.workspace.pipeline.execution_flow.verified_leads import (
+    MAX_VERIFIED_LEAD_EXECUTIONS, VerifiedLead, _discover_verified_leads,
+    _verified_lead_to_dict, _select_verified_lead_actions, discover_qualified_file_leads,
+    retain_verified_lead, verified_lead_priority,
+)
 
 
 @dataclass(frozen=True)
@@ -97,275 +83,6 @@ class ControllerResult:
     file_traces: tuple[dict[str, object], ...]
 
 
-def _discover_verified_leads(
-    *,
-    round_index: int,
-    changed_observation_ids: Sequence[str],
-    observations: Mapping[str, DiscoveryObservation],
-    decisions: Mapping[str, QualificationDecision],
-    cards: Mapping[str, DisclosureCard],
-    coverage: Sequence[ObligationCoverage],
-    pending_node_ids: set[str],
-    executed_node_ids: set[str],
-    exact_symbol_tool: Any,
-    trace: Any | None,
-    maturation_observation_ids: set[str] | None = None,
-) -> tuple[tuple[VerifiedLead, ...], list[dict[str, Any]], int]:
-    """Validate newly disclosed, literal call targets before granting a reserved action."""
-    coverage_by_id = {item.obligation_id: item for item in coverage}
-    accepted: list[VerifiedLead] = []
-    audit: list[dict[str, Any]] = []
-    tool_calls = 0
-    seen_targets: set[tuple[str, str]] = set()
-    matured_ids = maturation_observation_ids or set()
-    for observation_id in dict.fromkeys(changed_observation_ids):
-        observation = observations.get(observation_id)
-        decision = decisions.get(observation_id)
-        card = cards.get(observation_id)
-        base = {
-            "observation_id": observation_id,
-            "round": round_index,
-            "follow_up": decision.local_follow_up if decision is not None else "",
-        }
-        if observation is None or decision is None or card is None:
-            audit.append({**base, "status": "rejected", "reason": "missing_observation_decision_or_card"})
-            continue
-        is_matured = observation_id in matured_ids
-        if decision.disposition != "promote" or (
-            decision.support_level != "navigation_only" and not is_matured
-        ):
-            continue
-        unresolved = [
-            value
-            for value in observation.obligation_ids
-            if coverage_by_id.get(value) is not None
-            and coverage_by_id[value].status not in {"covered", "external"}
-        ]
-        if not unresolved:
-            audit.append({**base, "status": "rejected", "reason": "no_compatible_unresolved_obligation"})
-            continue
-        target_context = decision.local_follow_up
-        if is_matured:
-            target_context = " ".join((
-                target_context,
-                *(coverage_by_id[value].missing_claim for value in unresolved),
-            ))
-        targets = _followup_called_targets(target_context, card.source_text)
-        if not targets:
-            audit.append({
-                **base,
-                "status": "rejected",
-                "reason": "no_source_called_target_named_in_followup_or_unresolved_claim",
-                "maturation_source": is_matured,
-            })
-            continue
-        target = targets[0]
-        target_key = (observation_id, target.casefold())
-        if target_key in seen_targets:
-            continue
-        seen_targets.add(target_key)
-        leaf = _target_leaf(target)
-        request = ToolRequest(
-            tool_name="structural_find_exact_symbol",
-            arguments={"query": leaf, "limit": 8},
-            reason=f"Validate visible direct follow-up target {target} before reserving retrieval work.",
-        )
-        response = exact_symbol_tool.run(request)
-        if trace is not None:
-            trace.record_tool(request, response, round_index=round_index)
-        tool_calls += 1
-        if response.status != "ok":
-            raise RuntimeError("required_tool_failed: structural_find_exact_symbol")
-        nodes = _matching_target_nodes(target, response.payload.get("nodes", ()))
-        if len(nodes) != 1:
-            audit.append({
-                **base,
-                "target": target,
-                "status": "rejected",
-                "reason": "target_not_resolved" if not nodes else "target_resolution_ambiguous",
-                "match_count": len(nodes),
-            })
-            continue
-        node = nodes[0]
-        node_id = str(node.get("id") or "")
-        target_path = str(node.get("path") or "")
-        structural_child = bool(
-            is_matured
-            and target_path
-            and target_path.casefold() != observation.handle.path.casefold()
-        )
-        if is_matured and not structural_child and decision.support_level != "navigation_only":
-            audit.append({
-                **base,
-                "target": target,
-                "target_node_id": node_id,
-                "status": "rejected",
-                "reason": "maturation_direct_target_not_cross_file",
-            })
-            continue
-        if not node_id or node_id in pending_node_ids or node_id in executed_node_ids:
-            audit.append({
-                **base,
-                "target": target,
-                "target_node_id": node_id,
-                "status": "rejected",
-                "reason": "target_already_pending_or_executed",
-            })
-            continue
-        if any(item.handle.node_id == node_id for item in observations.values()):
-            audit.append({
-                **base,
-                "target": target,
-                "target_node_id": node_id,
-                "status": "rejected",
-                "reason": "target_already_observed",
-            })
-            continue
-        lead = VerifiedLead(
-            source_observation_id=observation_id,
-            obligation_id=unresolved[0],
-            target=target,
-            target_node_id=node_id,
-            target_path=target_path,
-            target_line_start=max(1, int(node.get("line_start") or 1)),
-            target_line_end=max(1, int(node.get("line_end") or node.get("line_start") or 1)),
-            target_symbol=str(node.get("qualified_name") or node.get("name") or leaf),
-            reason=decision.local_follow_up,
-            discovered_round=round_index,
-            source_rank=observation.best_rank,
-            qualified_target=("." in target or "::" in target),
-            structural_child=structural_child,
-        )
-        accepted.append(lead)
-        pending_node_ids.add(node_id)
-        audit.append({**base, **_verified_lead_to_dict(lead), "status": "accepted", "reason": "visible_call_resolved"})
-    return tuple(accepted), audit, tool_calls
-
-
-def _literal_followup_targets(value: str) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(
-        match.group(1).strip()
-        for match in re.finditer(r"`([^`]+)`", value or "")
-        if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*(?:(?:::|\.)[A-Za-z_$][A-Za-z0-9_$]*)*", match.group(1).strip())
-    ))
-
-
-def _followup_called_targets(follow_up: str, source: str) -> tuple[str, ...]:
-    """Find follow-up identifiers that are also literal calls in the disclosed source.
-
-    Backticks are presentation, not semantics: an LLM may emit either
-    ``Inspect `Series._binop``` or ``Inspect Series._binop`` for the same lead.
-    """
-    visible_calls = tuple(dict.fromkeys(
-        match.group(1)
-        for match in re.finditer(
-            r"(?:\bself\.|\bthis\.|\b[A-Za-z_$][A-Za-z0-9_$]*\.)?([A-Za-z_$][A-Za-z0-9_$]*)\s*\(",
-            source or "",
-        )
-    ))
-    candidates: list[str] = []
-    for literal in _literal_followup_targets(follow_up):
-        if _target_leaf(literal) in visible_calls:
-            candidates.append(literal)
-    for leaf in visible_calls:
-        qualified = re.search(
-            rf"\b([A-Za-z_$][A-Za-z0-9_$]*(?:(?:::|\.){re.escape(leaf)}))\b",
-            follow_up or "",
-        )
-        if qualified:
-            candidates.append(qualified.group(1))
-        elif re.search(rf"(?<![A-Za-z0-9_$]){re.escape(leaf)}(?![A-Za-z0-9_$])", follow_up or ""):
-            candidates.append(leaf)
-    return tuple(dict.fromkeys(candidates))
-
-
-def _target_leaf(target: str) -> str:
-    return re.split(r"::|\.", target)[-1]
-
-
-def _source_visibly_calls(source: str, target: str) -> bool:
-    leaf = _target_leaf(target)
-    return bool(re.search(rf"\b{re.escape(leaf)}\s*\(", source or ""))
-
-
-def _matching_target_nodes(target: str, values: Sequence[Any]) -> list[dict[str, Any]]:
-    leaf = _target_leaf(target).casefold()
-    normalized_target = target.replace("::", ".").casefold()
-    qualified = "." in normalized_target
-    matches: dict[str, dict[str, Any]] = {}
-    for value in values:
-        if not isinstance(value, Mapping):
-            continue
-        name = str(value.get("name") or "").casefold()
-        qualified_name = str(value.get("qualified_name") or value.get("name") or "").replace("::", ".").casefold()
-        if name != leaf and qualified_name.split(".")[-1] != leaf:
-            continue
-        if qualified and not (qualified_name == normalized_target or qualified_name.endswith(f".{normalized_target}")):
-            continue
-        node_id = str(value.get("id") or "")
-        if node_id and value.get("path"):
-            matches[node_id] = dict(value)
-    return list(matches.values())
-
-
-def _verified_lead_to_dict(lead: VerifiedLead) -> dict[str, Any]:
-    return {
-        "source_observation_id": lead.source_observation_id,
-        "obligation_id": lead.obligation_id,
-        "target": lead.target,
-        "target_node_id": lead.target_node_id,
-        "target_path": lead.target_path,
-        "target_range": [lead.target_line_start, lead.target_line_end],
-        "target_symbol": lead.target_symbol,
-        "reason": lead.reason,
-        "discovered_round": lead.discovered_round,
-        "structural_child": lead.structural_child,
-    }
-
-
-def _select_verified_lead_actions(
-    leads: Sequence[VerifiedLead],
-    *,
-    executed_count: int,
-    observation_to_island: Mapping[str, str],
-) -> tuple[InspectVerifiedLead, ...]:
-    if not leads or executed_count >= MAX_VERIFIED_LEAD_EXECUTIONS:
-        return ()
-    lead = min(
-        leads,
-        key=lambda item: (
-            0 if item.structural_child else 1,
-            0 if item.qualified_target else 1,
-            item.discovered_round,
-            item.source_rank,
-            item.target_path.casefold(),
-            item.target_node_id,
-        ),
-    )
-    digest = hashlib.sha1(
-        f"{lead.source_observation_id}\0{lead.target_node_id}".encode("utf-8")
-    ).hexdigest()[:16]
-    return (
-        InspectVerifiedLead(
-            id=f"action_{digest}",
-            obligation_id=lead.obligation_id,
-            source_observation_id=lead.source_observation_id,
-            target=lead.target,
-            target_node_id=lead.target_node_id,
-            target_path=lead.target_path,
-            target_line_start=lead.target_line_start,
-            target_line_end=lead.target_line_end,
-            target_symbol=lead.target_symbol,
-            reason=lead.reason,
-            discovered_round=lead.discovered_round,
-            scope_id=observation_to_island.get(lead.source_observation_id, ""),
-            purpose=(
-                ActionPurpose.STRUCTURAL_CHILD_HANDOFF
-                if lead.structural_child
-                else ActionPurpose.VERIFIED_SOURCE_LEAD
-            ),
-        ),
-    )
 
 
 def run_retrieval_controller(
@@ -393,6 +110,7 @@ def run_retrieval_controller(
     }
     cards: dict[str, DisclosureCard] = {}
     decisions: dict[str, QualificationDecision] = {}
+    qualification_cache = QualificationReuseCache()
     candidates: dict[str, Any] = {}
     all_edges: list[dict[str, Any]] = []
     file_trace_seeds: list[FileTraceSeed] = []
@@ -426,6 +144,7 @@ def run_retrieval_controller(
             max_input_chars=ctx.config.max_qualification_input_chars,
             trace=ctx.trace,
             round_index=round_index,
+            reuse_cache=qualification_cache,
         )
         rendered_cards = qualification.cards or disclosure.cards
         for card in rendered_cards:
@@ -489,6 +208,27 @@ def run_retrieval_controller(
     verified_lead_executions = 0
     seen_raw_source_ids: set[str] = set()
 
+    def discover_qualified_leads(changed_ids: Sequence[str], round_index: int) -> bool:
+        nonlocal tool_calls
+        leads, audit, calls = discover_qualified_file_leads(
+            round_index=round_index, changed_observation_ids=changed_ids,
+            observations=observations, decisions=decisions, cards=cards, coverage=coverage.coverage,
+            pending_node_ids=set(pending_verified_leads), executed_node_ids=executed_verified_lead_node_ids,
+            structural_tools=structural_tools, workspace_root=ctx.config.workspace_root, trace=ctx.trace,
+            pending_leads=pending_verified_leads,
+        )
+        tool_calls += calls
+        for lead in leads:
+            retain_verified_lead(pending_verified_leads, lead)
+        ctx.trace.record("qualified_structural_file_leads_evaluated", {
+            "round": round_index, "audit": audit, "new_lead_count": len(leads),
+            "leads": [_verified_lead_to_dict(lead) for lead in leads], "tool_calls": calls,
+            "execution_cap": MAX_VERIFIED_LEAD_EXECUTIONS,
+        })
+        return bool(leads)
+
+    discover_qualified_leads(tuple(item.id for item in initial_observations), 0)
+
     for round_index in range(1, ctx.config.max_exploration_rounds + 1):
         if stop_reason:
             break
@@ -529,6 +269,7 @@ def run_retrieval_controller(
             tuple(pending_verified_leads.values()),
             executed_count=verified_lead_executions,
             observation_to_island=islands.observation_to_island,
+            limit=len(pending_verified_leads),
         )
         schedule = schedule_round_actions(
             catalogue.actions,
@@ -550,7 +291,25 @@ def run_retrieval_controller(
         maturation_selected = schedule.owner_maturation
         maturation_children = schedule.maturation_children
         test_maturation_selected = schedule.test_maturation
+        suppressed_ids = {item["action_id"] for item in schedule.suppressed}
+        ctx.trace.record("verified_lead_scheduling", {
+            "round": round_index, "executed_count": verified_lead_executions,
+            "execution_cap": MAX_VERIFIED_LEAD_EXECUTIONS,
+            "policy": "explicit_source_grounded_request_before_incidental_call",
+            "ranked_pending": [_verified_lead_to_dict(lead) for lead in
+                               sorted(pending_verified_leads.values(), key=verified_lead_priority)],
+            "selected_node_ids": [action.target_node_id for action in schedule.verified_lead],
+            "suppressed_actions": [item for item in schedule.suppressed
+                                   if item["action_id"] in {action.id for action in verified_lead_selected}],
+            "blocked_reason": "execution_cap_reached" if verified_lead_executions >= MAX_VERIFIED_LEAD_EXECUTIONS else "",
+        })
+        for action in verified_lead_selected:
+            if action.id in suppressed_ids:
+                pending_verified_leads.pop(action.target_node_id, None)
+        verified_lead_selected = schedule.verified_lead
         selected = schedule.selected
+        if schedule.suppressed:
+            ctx.trace.record("controller_actions_suppressed", {"round": round_index, "actions": list(schedule.suppressed)})
         if not selected:
             stop_reason = "no_executable_action"
             break
@@ -860,7 +619,8 @@ def run_retrieval_controller(
             decisions=decisions,
             cards=cards,
             coverage=coverage.coverage,
-            pending_node_ids=set(pending_verified_leads),
+            pending_node_ids={key for key, lead in pending_verified_leads.items()
+                              if lead.inspection_basis != "incidental_visible_call"},
             executed_node_ids=executed_verified_lead_node_ids,
             exact_symbol_tool=structural_tools["structural_find_exact_symbol"],
             trace=ctx.trace,
@@ -868,7 +628,7 @@ def run_retrieval_controller(
         )
         tool_calls += lead_tool_calls
         for lead in discovered_leads:
-            pending_verified_leads.setdefault(lead.target_node_id, lead)
+            retain_verified_lead(pending_verified_leads, lead)
         ctx.trace.record(
             "verified_leads_evaluated",
             {
@@ -882,6 +642,7 @@ def run_retrieval_controller(
         )
         coverage = _evaluate(ctx, user_request, obligations, candidates, candidate_payload, round_index=round_index)
         _add_usage(coverage_usage, coverage.usage)
+        qualified_lead_gain = discover_qualified_leads(tuple(item.id for item in changed), round_index)
         previous_islands = islands
         islands = _build_islands(
             ctx, observations, decisions, cards, coverage.coverage, structural_tools,
@@ -899,7 +660,7 @@ def run_retrieval_controller(
             _status_rank(current_coverage.get(key, "missing")) > _status_rank(value)
             for key, value in previous_coverage.items()
         )
-        lead_gain = bool(discovered_leads) and verified_lead_executions < MAX_VERIFIED_LEAD_EXECUTIONS
+        lead_gain = (bool(discovered_leads) or qualified_lead_gain) and verified_lead_executions < MAX_VERIFIED_LEAD_EXECUTIONS
         if round_index == 3:
             allow_exact_followup_round = (
                 any(_has_specific_exact_anchors(action) for action in selected)

@@ -16,7 +16,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -268,7 +268,7 @@ class RuntimeState:
             endpoint_url=config.endpoint_url,
             api_key=config.api_key,
             temperature=config.temperature,
-            max_tokens=min(config.max_tokens, 64),
+            max_tokens=min(config.max_tokens, 64) if config.max_tokens is not None else 64,
             timeout_seconds=min(config.timeout_seconds, 15),
             planner_strategy=config.planner_strategy,
             continuity_enabled=False,
@@ -1397,11 +1397,12 @@ class RuntimeState:
                 model=str(generation.get("codex_model") or _retrieval_settings(self.config).get("codex_model") or ""),
                 timeout_seconds=int(generation.get("timeout_seconds") or 120),
             )
-        return self._api_llm_config(
+        config = self._api_llm_config(
             model_override=str(generation.get("api_model") or ""),
-            max_tokens_override=int(generation.get("max_tokens") or 4000),
             timeout_override=int(generation.get("timeout_seconds") or 120),
         )
+        return replace(config, max_tokens=(int(generation["max_tokens"])
+                                          if generation.get("max_tokens") is not None else None))
 
     def _workspace_retrieval_config(
         self,
@@ -1683,7 +1684,7 @@ class RuntimeState:
                 "provider": "api",
                 "api_model": "gpt-5.6-luna",
                 "codex_model": "gpt-5.4-mini",
-                "max_tokens": 4000,
+                "max_tokens": None,
                 "timeout_seconds": 120,
             },
             "experiments": {
@@ -2320,11 +2321,10 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
         generation["provider"] = "api"
     generation["api_model"] = str(generation.get("api_model") or "").strip()
     generation["codex_model"] = str(generation.get("codex_model") or retrieval["codex_model"]).strip() or retrieval["codex_model"]
-    try:
-        generation_max_tokens = int(generation.get("max_tokens") or 4000)
-    except (TypeError, ValueError):
-        generation_max_tokens = 4000
-    generation["max_tokens"] = max(1, generation_max_tokens)
+    if generation.get("max_tokens") is not None:
+        generation["max_tokens"] = max(1, int(generation["max_tokens"]))
+    else:
+        generation["max_tokens"] = None
     try:
         generation_timeout_seconds = int(generation.get("timeout_seconds") or 120)
     except (TypeError, ValueError):

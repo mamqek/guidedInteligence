@@ -1,0 +1,2381 @@
+[
+  {
+    "run_id": "run-20260827T214625Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 2,
+    "oracle_positions": {
+      "src/compiler/builderState.ts": 2,
+      "src/testRunner/unittests/tsbuild/watchMode.ts": 3
+    },
+    "final_items": 8,
+    "final_files": 5,
+    "retrieval_tokens": 86236,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1611,
+        "completion_tokens": 120,
+        "total_tokens": 1731
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 25707,
+        "completion_tokens": 608,
+        "total_tokens": 26315
+      },
+      "evidence_qualification": {
+        "calls": 4,
+        "prompt_tokens": 20116,
+        "completion_tokens": 7621,
+        "total_tokens": 27737
+      },
+      "retrieval_coverage": {
+        "calls": 4,
+        "prompt_tokens": 16848,
+        "completion_tokens": 3026,
+        "total_tokens": 19874
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 1,
+        "prompt_tokens": 8396,
+        "completion_tokens": 2183,
+        "total_tokens": 10579
+      }
+    },
+    "leads": [],
+    "followups": [
+      {
+        "discovery_line": 379,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 2095,
+          "full_line_start": 2091,
+          "language": "typescript",
+          "line_end": 2095,
+          "line_start": 2091,
+          "node_id": "function:ec955042935134e0ecefb5e770a894f6",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "verboseReportProjectStatus"
+        },
+        "discovered_round": 1,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_subject",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          1,
+          1,
+          "src/compiler/tsbuildpublic.ts",
+          "function:cebafc0c340026cb8865defb8d29ba06"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect reportUpToDateStatus and its callers to determine which watch statuses are emitted after a referenced-project change.",
+        "request_text": "Inspect reportUpToDateStatus and its callers to determine which watch statuses are emitted after a referenced-project change.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_b3c8b015cc525bb0",
+        "source_rank": 1,
+        "structural_child": false,
+        "target": "reportUpToDateStatus",
+        "target_node_id": "function:cebafc0c340026cb8865defb8d29ba06",
+        "target_path": "src/compiler/tsbuildPublic.ts",
+        "target_range": [
+          1996,
+          2086
+        ],
+        "target_symbol": "reportUpToDateStatus",
+        "actions": [
+          {
+            "trace_line": 594,
+            "round": 2,
+            "discovered_round": 1,
+            "id": "action_e2bfa8daf508bf74",
+            "obligation_id": "explain_subject",
+            "pool": "verified_lead",
+            "purpose": "verified_source_lead",
+            "reason": "Inspect reportUpToDateStatus and its callers to determine which watch statuses are emitted after a referenced-project change.",
+            "scope_id": "island_ef9b28e5dd1a7225",
+            "source_observation_id": "obs_b3c8b015cc525bb0",
+            "target": "reportUpToDateStatus",
+            "target_line_end": 2086,
+            "target_line_start": 1996,
+            "target_node_id": "function:cebafc0c340026cb8865defb8d29ba06",
+            "target_path": "src/compiler/tsbuildPublic.ts",
+            "target_symbol": "reportUpToDateStatus",
+            "type": "InspectVerifiedLead"
+          }
+        ],
+        "qualification": [
+          {
+            "trace_line": 616,
+            "round": 2,
+            "disposition": "promote",
+            "local_follow_up": "Inspect the caller that computes UpToDateStatus and its dependency or declaration-signature comparisons.",
+            "missing_information": [
+              "The code that computes these statuses and decides whether the downstream project is invalidated or rebuilt after an interface change."
+            ],
+            "observation_id": "obs_c48775c5262a9b58",
+            "reason": "The implementation maps incremental solution-builder status types to explicit messages for stale inputs, changed dependency outputs, upstream projects, and up-to-date declaration files. It is a relevant diagnostic owner for determining how dependency invalidation is represented, but the excerpt does not show how those statuses are computed for a wildcard re-export.",
+            "support_level": "navigation_only",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "OutOfDateWithSelf reports an older output than a newer input.",
+              "OutOfDateWithUpstream reports a newer upstream project.",
+              "OutOfDateWithPrepend reports that a dependency output changed.",
+              "UpToDateWithUpstreamTypes reports that dependency .d.ts files are up to date.",
+              "UpstreamOutOfDate and UpstreamBlocked report dependency state."
+            ]
+          },
+          {
+            "trace_line": 877,
+            "round": 3,
+            "disposition": "promote",
+            "local_follow_up": "Retrieve the status computation or build loop that dispatches OutOfDateWithPrepend and UpToDateWithUpstreamTypes for referenced projects.",
+            "missing_information": [
+              "The code that produces these statuses for the changed Session declaration.",
+              "The code that decides whether the main project is rebuilt and type-checked.",
+              "The reason the wildcard-re-export path differs from the direct session.ts import path."
+            ],
+            "observation_id": "obs_c48775c5262a9b58",
+            "reason": "The status-reporting code identifies concrete dependency-related status outcomes and diagnostics, including a project being out of date because a dependency changed or is out of date, and being up to date with dependency declaration files. This is useful for following the status-to-report handoff, but reporting alone does not establish the underlying propagation or the observed quiet watch result.",
+            "support_level": "navigation_only",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "The OutOfDateWithPrepend case reports that a dependency's output has changed.",
+              "The UpToDateWithUpstreamTypes case reports that the project is up to date with dependency .d.ts files.",
+              "The UpstreamOutOfDate and UpstreamBlocked cases report dependency status and errors."
+            ]
+          }
+        ],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 628,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 213,
+          "full_line_start": 211,
+          "language": "typescript",
+          "line_end": 213,
+          "line_start": 211,
+          "node_id": "function:f8f74b82be3be3d78554c778c2c74e0d",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "createSolutionBuilderWithWatch"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_subject",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          2,
+          10000,
+          "src/compiler/tsbuildpublic.ts",
+          "function:79007c855ed19ba8360c64ca7e1afe62"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect createSolutionBuilderWorker for watch setup and incremental project scheduling.",
+        "request_text": "Inspect createSolutionBuilderWorker for watch setup and incremental project scheduling.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_61bf08951027b2a2",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "createSolutionBuilderWorker",
+        "target_node_id": "function:79007c855ed19ba8360c64ca7e1afe62",
+        "target_path": "src/compiler/tsbuildPublic.ts",
+        "target_range": [
+          1900,
+          1925
+        ],
+        "target_symbol": "createSolutionBuilderWorker",
+        "actions": [
+          {
+            "trace_line": 853,
+            "round": 3,
+            "discovered_round": 2,
+            "id": "action_754b449b1019cad0",
+            "obligation_id": "explain_subject",
+            "pool": "verified_lead",
+            "purpose": "verified_source_lead",
+            "reason": "Inspect createSolutionBuilderWorker for watch setup and incremental project scheduling.",
+            "scope_id": "island_03c6729945d2a762",
+            "source_observation_id": "obs_61bf08951027b2a2",
+            "target": "createSolutionBuilderWorker",
+            "target_line_end": 1925,
+            "target_line_start": 1900,
+            "target_node_id": "function:79007c855ed19ba8360c64ca7e1afe62",
+            "target_path": "src/compiler/tsbuildPublic.ts",
+            "target_symbol": "createSolutionBuilderWorker",
+            "type": "InspectVerifiedLead"
+          }
+        ],
+        "qualification": [
+          {
+            "trace_line": 877,
+            "round": 3,
+            "disposition": "promote",
+            "local_follow_up": "Retrieve invalidateProject and buildNextInvalidatedProject to trace the reload level into the next referenced-project build.",
+            "missing_information": [
+              "The implementation of setupInitialBuild, getNextInvalidatedProject, invalidateProject, and buildNextInvalidatedProject.",
+              "How project references and wildcard re-exports affect build order or invalidation.",
+              "How semantic diagnostics are requested for main/index.ts after the pure project changes."
+            ],
+            "observation_id": "obs_d2903f753c155cb6",
+            "reason": "The solution-builder factory visibly exposes the relevant lifecycle operations: initial invalidated-project retrieval, build order, up-to-date status, explicit project invalidation, next invalidated-project building, and watch shutdown. This is a concrete entry point for tracing the issue, but the factory itself does not show the watcher callback, dependency graph traversal, or diagnostic emission.",
+            "support_level": "navigation_only",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "The worker creates solution-builder state with a watch flag and host.",
+              "It exposes getNextInvalidatedProject, which calls setupInitialBuild and getNextInvalidatedProject.",
+              "It exposes getUpToDateStatusOfProject and invalidateProject with a reload level.",
+              "It exposes buildNextInvalidatedProject and build/buildReferences."
+            ]
+          }
+        ],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 628,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 197,
+          "full_line_start": 192,
+          "language": "typescript",
+          "line_end": 197,
+          "line_start": 192,
+          "node_id": "function:852d58b4a3fc1b7ccfd12f7c681b33ec",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "createSolutionBuilderWithWatchHost"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_subject",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          2,
+          10000,
+          "src/compiler/watch.ts",
+          "function:9a5bb6ff98add6529b3f9becebba7007"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect createWatchHost for the file-change callback and scheduling path.",
+        "request_text": "Inspect createWatchHost for the file-change callback and scheduling path.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_2fc2cd9b3b831a88",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "createWatchHost",
+        "target_node_id": "function:9a5bb6ff98add6529b3f9becebba7007",
+        "target_path": "src/compiler/watch.ts",
+        "target_range": [
+          237,
+          246
+        ],
+        "target_symbol": "createWatchHost",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 628,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 419,
+          "full_line_start": 413,
+          "language": "typescript",
+          "line_end": 419,
+          "line_start": 413,
+          "node_id": "function:2b766b8b2bb848361e64d2a63836e71e",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+          "symbol": "verifyTscWatch"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_subject",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          2,
+          10000,
+          "src/testrunner/unittests/tscwatch/helpers.ts",
+          "function:c27a17aff15752299b0a5eaa1f27fd46"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect tscWatchCompile for the scenario's watched file changes and expected diagnostics.",
+        "request_text": "Inspect tscWatchCompile for the scenario's watched file changes and expected diagnostics.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_f81305018e14309d",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "tscWatchCompile",
+        "target_node_id": "function:c27a17aff15752299b0a5eaa1f27fd46",
+        "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+        "target_range": [
+          300,
+          328
+        ],
+        "target_symbol": "tscWatchCompile",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 886,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 197,
+          "full_line_start": 192,
+          "language": "typescript",
+          "line_end": 197,
+          "line_start": 192,
+          "node_id": "function:852d58b4a3fc1b7ccfd12f7c681b33ec",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "createSolutionBuilderWithWatchHost"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_subject",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          2,
+          10000,
+          "src/compiler/watch.ts",
+          "function:9a5bb6ff98add6529b3f9becebba7007"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect createWatchHost for the file-change callback and scheduling path.",
+        "request_text": "Inspect createWatchHost for the file-change callback and scheduling path.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_2fc2cd9b3b831a88",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "createWatchHost",
+        "target_node_id": "function:9a5bb6ff98add6529b3f9becebba7007",
+        "target_path": "src/compiler/watch.ts",
+        "target_range": [
+          237,
+          246
+        ],
+        "target_symbol": "createWatchHost",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 886,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 419,
+          "full_line_start": 413,
+          "language": "typescript",
+          "line_end": 419,
+          "line_start": 413,
+          "node_id": "function:2b766b8b2bb848361e64d2a63836e71e",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+          "symbol": "verifyTscWatch"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_subject",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          2,
+          10000,
+          "src/testrunner/unittests/tscwatch/helpers.ts",
+          "function:c27a17aff15752299b0a5eaa1f27fd46"
+        ],
+        "qualified_target": false,
+        "reason": "Inspect tscWatchCompile for the scenario's watched file changes and expected diagnostics.",
+        "request_text": "Inspect tscWatchCompile for the scenario's watched file changes and expected diagnostics.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_f81305018e14309d",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "tscWatchCompile",
+        "target_node_id": "function:c27a17aff15752299b0a5eaa1f27fd46",
+        "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+        "target_range": [
+          300,
+          328
+        ],
+        "target_symbol": "tscWatchCompile",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      }
+    ],
+    "scheduling": [
+      {
+        "trace_line": 331,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 1,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 593,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 1,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_subject",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              1,
+              1,
+              "src/compiler/tsbuildpublic.ts",
+              "function:cebafc0c340026cb8865defb8d29ba06"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect reportUpToDateStatus and its callers to determine which watch statuses are emitted after a referenced-project change.",
+            "request_text": "Inspect reportUpToDateStatus and its callers to determine which watch statuses are emitted after a referenced-project change.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_b3c8b015cc525bb0",
+            "source_rank": 1,
+            "structural_child": false,
+            "target": "reportUpToDateStatus",
+            "target_node_id": "function:cebafc0c340026cb8865defb8d29ba06",
+            "target_path": "src/compiler/tsbuildPublic.ts",
+            "target_range": [
+              1996,
+              2086
+            ],
+            "target_symbol": "reportUpToDateStatus"
+          }
+        ],
+        "round": 2,
+        "selected_node_ids": [
+          "function:cebafc0c340026cb8865defb8d29ba06"
+        ],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:cebafc0c340026cb8865defb8d29ba06",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 851,
+        "blocked_reason": "",
+        "executed_count": 1,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_subject",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              2,
+              10000,
+              "src/compiler/tsbuildpublic.ts",
+              "function:79007c855ed19ba8360c64ca7e1afe62"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect createSolutionBuilderWorker for watch setup and incremental project scheduling.",
+            "request_text": "Inspect createSolutionBuilderWorker for watch setup and incremental project scheduling.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_61bf08951027b2a2",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "createSolutionBuilderWorker",
+            "target_node_id": "function:79007c855ed19ba8360c64ca7e1afe62",
+            "target_path": "src/compiler/tsbuildPublic.ts",
+            "target_range": [
+              1900,
+              1925
+            ],
+            "target_symbol": "createSolutionBuilderWorker"
+          },
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_subject",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              2,
+              10000,
+              "src/compiler/watch.ts",
+              "function:9a5bb6ff98add6529b3f9becebba7007"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect createWatchHost for the file-change callback and scheduling path.",
+            "request_text": "Inspect createWatchHost for the file-change callback and scheduling path.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_2fc2cd9b3b831a88",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "createWatchHost",
+            "target_node_id": "function:9a5bb6ff98add6529b3f9becebba7007",
+            "target_path": "src/compiler/watch.ts",
+            "target_range": [
+              237,
+              246
+            ],
+            "target_symbol": "createWatchHost"
+          },
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_subject",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              2,
+              10000,
+              "src/testrunner/unittests/tscwatch/helpers.ts",
+              "function:c27a17aff15752299b0a5eaa1f27fd46"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect tscWatchCompile for the scenario's watched file changes and expected diagnostics.",
+            "request_text": "Inspect tscWatchCompile for the scenario's watched file changes and expected diagnostics.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_f81305018e14309d",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "tscWatchCompile",
+            "target_node_id": "function:c27a17aff15752299b0a5eaa1f27fd46",
+            "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "target_range": [
+              300,
+              328
+            ],
+            "target_symbol": "tscWatchCompile"
+          }
+        ],
+        "round": 3,
+        "selected_node_ids": [
+          "function:79007c855ed19ba8360c64ca7e1afe62"
+        ],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:79007c855ed19ba8360c64ca7e1afe62",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      }
+    ],
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__microsoft_typescript_35468__a27de1ce",
+        "document_count": 83401,
+        "indexed_points": 83401,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "discovery_audits": [
+      {
+        "trace_line": 322,
+        "audit": [
+          {
+            "reason": "high_source_file_call_repetition",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 18,
+            "source_line": 505,
+            "source_observation_id": "obs_542f6ec5c50e9373",
+            "source_path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger"
+            ],
+            "target": "sys.writeFile"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 6,
+            "source_line": 640,
+            "source_observation_id": "obs_687ae8deca4fd81d",
+            "source_path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger"
+            ],
+            "target": "host.checkTimeoutQueueLengthAndRun"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 533,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getCompilerOptions"
+          },
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 544,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.set"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 547,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "queue.pop"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 548,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.has"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 549,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getSourceFileByPath"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 552,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "queue.push"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 559,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.values"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 401,
+            "source_observation_id": "obs_66e01670a8dbf2bf",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getCompilerOptions"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 416,
+            "source_observation_id": "obs_66e01670a8dbf2bf",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "queue.pop"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 417,
+            "source_observation_id": "obs_66e01670a8dbf2bf",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "seenMap.has"
+          },
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 418,
+            "source_observation_id": "obs_66e01670a8dbf2bf",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "seenMap.set"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 421,
+            "source_observation_id": "obs_66e01670a8dbf2bf",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "references.keys"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 422,
+            "source_observation_id": "obs_66e01670a8dbf2bf",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "iterator.next"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 423,
+            "source_observation_id": "obs_66e01670a8dbf2bf",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "queue.push"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 429,
+            "source_observation_id": "obs_66e01670a8dbf2bf",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "seenMap.keys"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 430,
+            "source_observation_id": "obs_66e01670a8dbf2bf",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getSourceFileByPath"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 0,
+        "tool_calls": 13
+      },
+      {
+        "trace_line": 386,
+        "audit": [
+          {
+            "reason": "high_source_file_call_repetition",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 18,
+            "source_line": 505,
+            "source_observation_id": "obs_542f6ec5c50e9373",
+            "source_path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger"
+            ],
+            "target": "sys.writeFile"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 1,
+        "tool_calls": 1
+      },
+      {
+        "trace_line": 632,
+        "audit": [
+          {
+            "reason": "source_not_resolved_callable",
+            "round": 2,
+            "source_observation_id": "obs_ea66bce638f61508",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger"
+            ]
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 2,
+        "tool_calls": 0
+      },
+      {
+        "trace_line": 908,
+        "audit": [
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 1824,
+            "source_observation_id": "obs_3902f7bea8551306",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger",
+              "explain_state_changes"
+            ],
+            "target": "state.watchDirectory"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 1830,
+            "source_observation_id": "obs_3902f7bea8551306",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger",
+              "explain_state_changes"
+            ],
+            "target": "state.writeLog"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_line": 1335,
+            "source_observation_id": "obs_3be6a1f37cdd966c",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "host.fileExists"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_line": 1342,
+            "source_observation_id": "obs_3be6a1f37cdd966c",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "host.getModifiedTime"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_line": 1357,
+            "source_observation_id": "obs_3be6a1f37cdd966c",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "host.useCaseSensitiveFileNames"
+          },
+          {
+            "known_incoming_calls": 114,
+            "reason": "high_static_call_indegree",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 11,
+            "source_line": 1455,
+            "source_observation_id": "obs_3be6a1f37cdd966c",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "Debug.assert",
+            "target_node_id": "function:879b655071b8f7a2881435fdba5b32e9",
+            "target_path": "src/compiler/debug.ts"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_line": 1493,
+            "source_observation_id": "obs_3be6a1f37cdd966c",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "state.readFileWithCache"
+          },
+          {
+            "reason": "source_not_resolved_callable",
+            "round": 3,
+            "source_observation_id": "obs_dd99513a546b5aa6",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger"
+            ]
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 3,
+        "tool_calls": 6
+      }
+    ],
+    "controller": [
+      {
+        "trace_line": 1147,
+        "candidate_ids": [
+          "node:function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "node:function:2b766b8b2bb848361e64d2a63836e71e",
+          "node:function:3196e566885d332462cbdb90495baa8a",
+          "node:function:395f1b222c9df0f1988f56d0f190f1e2",
+          "node:function:44a488a71f31d39078dc5e79af4d3dea",
+          "node:function:5126cbe8d8c43acb9f72edf0f6627954",
+          "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+          "node:function:68b87ef75d2dbfb56b352061dbb863fd",
+          "node:function:79007c855ed19ba8360c64ca7e1afe62",
+          "node:function:852d58b4a3fc1b7ccfd12f7c681b33ec",
+          "node:function:ba8a11ff344d7128e7738a8783fb4c37",
+          "node:function:cce974608658f81914b01c2d1da2b219",
+          "node:function:cebafc0c340026cb8865defb8d29ba06",
+          "node:function:ec955042935134e0ecefb5e770a894f6",
+          "node:function:ef40e5e46ed777c2a8fea7b68e2c67e8",
+          "node:function:f8f74b82be3be3d78554c778c2c74e0d",
+          "node:function:fe1cbbc0b38bb778a51ef5fee351f2cc",
+          "node:interface:2eb09f516739c7fd3d03f6123f8bf4e6",
+          "node:interface:9f1598839c04c76de1141353ca269a3f",
+          "node:method:92eeb1c7588f22cba0095bc4aca39690",
+          "range:src/testRunner/unittests/tsbuild/watchMode.ts:1187:1213",
+          "range:src/testRunner/unittests/tsbuild/watchMode.ts:339:349"
+        ],
+        "pending_verified_leads": [
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_subject",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              2,
+              10000,
+              "src/compiler/watch.ts",
+              "function:9a5bb6ff98add6529b3f9becebba7007"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect createWatchHost for the file-change callback and scheduling path.",
+            "request_text": "Inspect createWatchHost for the file-change callback and scheduling path.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_2fc2cd9b3b831a88",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "createWatchHost",
+            "target_node_id": "function:9a5bb6ff98add6529b3f9becebba7007",
+            "target_path": "src/compiler/watch.ts",
+            "target_range": [
+              237,
+              246
+            ],
+            "target_symbol": "createWatchHost"
+          },
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_subject",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              2,
+              10000,
+              "src/testrunner/unittests/tscwatch/helpers.ts",
+              "function:c27a17aff15752299b0a5eaa1f27fd46"
+            ],
+            "qualified_target": false,
+            "reason": "Inspect tscWatchCompile for the scenario's watched file changes and expected diagnostics.",
+            "request_text": "Inspect tscWatchCompile for the scenario's watched file changes and expected diagnostics.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_f81305018e14309d",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "tscWatchCompile",
+            "target_node_id": "function:c27a17aff15752299b0a5eaa1f27fd46",
+            "target_path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "target_range": [
+              300,
+              328
+            ],
+            "target_symbol": "tscWatchCompile"
+          }
+        ],
+        "rounds": 3,
+        "stop_reason": "three_round_budget_complete",
+        "tool_calls": 325,
+        "verified_lead_block_reason": "execution_cap_reached",
+        "verified_lead_execution_cap": 2,
+        "verified_lead_execution_count": 2
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "watchWildCardDirectories",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 2,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "getFilesAffectedByUpdatedShapeWhenModuleEmit",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 3,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyTransitiveReferences::verifyScenario",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 4,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyScenario",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 5,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "getFilesAffectedByUpdatedShapeWhenNonModuleEmit",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 6,
+        "path": "src/server/session.ts",
+        "symbol": "isLocationProjectReferenceRedirect",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 7,
+        "path": "src/server/session.ts",
+        "symbol": "Session::updateErrorCheck",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 8,
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "WatchHost",
+        "obligation_id": "explain_subject"
+      }
+    ],
+    "reuse_hits": [
+      {
+        "trace_line": 360,
+        "decision": {
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the caller of introduceError to identify the edited file and expected incremental diagnostics.",
+          "missing_information": [
+            "Which file is edited in the reported Session scenario.",
+            "How wildcard re-exports and project references affect the resulting rebuild and diagnostics."
+          ],
+          "observation_id": "obs_542f6ec5c50e9373",
+          "reason": "The test helper visibly models a file edit by writing the changed file and immediately invoking incrementalBuild, directly establishing the test's file-change rebuild trigger.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger"
+          ],
+          "visible_support": [
+            "introduceError writes fileWithError.path and fileWithError.content.",
+            "The helper then calls incrementalBuild(sys)."
+          ]
+        },
+        "fingerprint": "b3cb1c09796068392c86bcaba58d50706d03ee571a0e7d7e7b01926479c73f7b",
+        "observation_id": "obs_542f6ec5c50e9373",
+        "previous_round": 0,
+        "reason": "unchanged_direct_proof",
+        "retained_source_chars": 266,
+        "reused": true,
+        "round": 1,
+        "source_chars": 266,
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 508,
+          "full_line_start": 504,
+          "language": "typescript",
+          "line_end": 508,
+          "line_start": 504,
+          "node_id": "function:68b87ef75d2dbfb56b352061dbb863fd",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "introduceError"
+        },
+        "history": [
+          {
+            "trace_line": 84,
+            "round": 0,
+            "reused": false,
+            "disposition": "promote",
+            "local_follow_up": "Retrieve the caller of introduceError to identify the edited file and expected incremental diagnostics.",
+            "missing_information": [
+              "Which file is edited in the reported Session scenario.",
+              "How wildcard re-exports and project references affect the resulting rebuild and diagnostics."
+            ],
+            "observation_id": "obs_542f6ec5c50e9373",
+            "reason": "The test helper visibly models a file edit by writing the changed file and immediately invoking incrementalBuild, directly establishing the test's file-change rebuild trigger.",
+            "support_level": "direct_evidence",
+            "supported_obligation_ids": [
+              "explain_trigger"
+            ],
+            "visible_support": [
+              "introduceError writes fileWithError.path and fileWithError.content.",
+              "The helper then calls incrementalBuild(sys)."
+            ]
+          },
+          {
+            "trace_line": 360,
+            "reused": true,
+            "round": 1,
+            "disposition": "promote",
+            "local_follow_up": "Retrieve the caller of introduceError to identify the edited file and expected incremental diagnostics.",
+            "missing_information": [
+              "Which file is edited in the reported Session scenario.",
+              "How wildcard re-exports and project references affect the resulting rebuild and diagnostics."
+            ],
+            "observation_id": "obs_542f6ec5c50e9373",
+            "reason": "The test helper visibly models a file edit by writing the changed file and immediately invoking incrementalBuild, directly establishing the test's file-change rebuild trigger.",
+            "support_level": "direct_evidence",
+            "supported_obligation_ids": [
+              "explain_trigger"
+            ],
+            "visible_support": [
+              "introduceError writes fileWithError.path and fileWithError.content.",
+              "The helper then calls incrementalBuild(sys)."
+            ]
+          }
+        ],
+        "last_source": {
+          "trace_line": 82,
+          "source_text": "                    function introduceError(sys: WatchedSystem) {\n                        sys.writeFile(fileWithError.path, fileWithError.content);\n                        incrementalBuild(sys);\n                        return \"Introduce error\";\n                    }"
+        },
+        "final_ranks": []
+      }
+    ],
+    "changed_semantic_inputs": [
+      {
+        "trace_line": 364,
+        "decision": null,
+        "fingerprint": "016030212d632760850fcc8586426d04b4ba83d7b871404924b529fb6288f55c",
+        "observation_id": "obs_17c15c98e1cbe24f",
+        "previous_round": null,
+        "reason": "no_reusable_direct_proof",
+        "retained_source_chars": 882,
+        "reused": false,
+        "round": 1,
+        "source_chars": 882
+      },
+      {
+        "trace_line": 610,
+        "decision": null,
+        "fingerprint": "5db788af2e3b086c3d758b0f37b5f28666f3c3883a22a98ef83d0a82753bc64e",
+        "observation_id": "obs_ea66bce638f61508",
+        "previous_round": null,
+        "reason": "no_reusable_direct_proof",
+        "retained_source_chars": 901,
+        "reused": false,
+        "round": 2,
+        "source_chars": 901
+      },
+      {
+        "trace_line": 872,
+        "decision": null,
+        "fingerprint": "5a9f2f43e78269b3426066a4980c4f952e9b1c87d232e0bd8b371e15dcd08c49",
+        "observation_id": "obs_c48775c5262a9b58",
+        "previous_round": null,
+        "reason": "no_reusable_direct_proof",
+        "retained_source_chars": 2583,
+        "reused": false,
+        "round": 3,
+        "source_chars": 2583
+      }
+    ],
+    "requests": [
+      {
+        "trace_line": 11,
+        "stage": "connected_source_context",
+        "round": null,
+        "capped": false
+      },
+      {
+        "trace_line": 57,
+        "stage": "initial_owner_comparison",
+        "round": null,
+        "capped": false
+      },
+      {
+        "trace_line": 82,
+        "stage": "evidence_qualification",
+        "round": 0,
+        "capped": false,
+        "ids": [
+          "obs_17c15c98e1cbe24f",
+          "obs_8f48634fec925df7",
+          "obs_542f6ec5c50e9373",
+          "obs_158e2d5a3ab67ecb",
+          "obs_08e16e7bffcc6df3",
+          "obs_687ae8deca4fd81d",
+          "obs_eb3e2222b132aa2d",
+          "obs_2b58b117f794b8d5",
+          "obs_c2421716b29c47c9",
+          "obs_66e01670a8dbf2bf"
+        ]
+      },
+      {
+        "trace_line": 86,
+        "stage": "retrieval_coverage",
+        "round": 0,
+        "capped": false
+      },
+      {
+        "trace_line": 368,
+        "stage": "evidence_qualification",
+        "round": 1,
+        "capped": false,
+        "ids": [
+          "obs_d2ee33fc289cfbe5",
+          "obs_ea66bce638f61508",
+          "obs_b3c8b015cc525bb0",
+          "obs_17c15c98e1cbe24f",
+          "obs_0b809b82d32a4d10",
+          "obs_ff5ccc7092bc2722"
+        ]
+      },
+      {
+        "trace_line": 380,
+        "stage": "retrieval_coverage",
+        "round": 1,
+        "capped": false
+      },
+      {
+        "trace_line": 614,
+        "stage": "evidence_qualification",
+        "round": 2,
+        "capped": false,
+        "ids": [
+          "obs_68a5e396a13bca10",
+          "obs_61bf08951027b2a2",
+          "obs_2fc2cd9b3b831a88",
+          "obs_f81305018e14309d",
+          "obs_ea66bce638f61508",
+          "obs_c48775c5262a9b58"
+        ]
+      },
+      {
+        "trace_line": 629,
+        "stage": "retrieval_coverage",
+        "round": 2,
+        "capped": false
+      },
+      {
+        "trace_line": 875,
+        "stage": "evidence_qualification",
+        "round": 3,
+        "capped": false,
+        "ids": [
+          "obs_3902f7bea8551306",
+          "obs_2732a1d0edba5221",
+          "obs_3be6a1f37cdd966c",
+          "obs_dd99513a546b5aa6",
+          "obs_c48775c5262a9b58",
+          "obs_d2903f753c155cb6"
+        ]
+      },
+      {
+        "trace_line": 887,
+        "stage": "retrieval_coverage",
+        "round": 3,
+        "capped": false
+      },
+      {
+        "trace_line": 1153,
+        "stage": "obligation_evidence_consolidation",
+        "round": null,
+        "capped": false
+      }
+    ],
+    "responses": [
+      {
+        "trace_line": 12,
+        "stage": "connected_source_context",
+        "round": null,
+        "usage": {
+          "completion_tokens": 120,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 53,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 1611,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 1608,
+            "cached_tokens": 0
+          },
+          "total_tokens": 1731
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 58,
+        "stage": "initial_owner_comparison",
+        "round": null,
+        "usage": {
+          "completion_tokens": 608,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 512,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 25707,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 25704,
+            "cached_tokens": 0
+          },
+          "total_tokens": 26315
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 83,
+        "stage": "evidence_qualification",
+        "round": 0,
+        "usage": {
+          "completion_tokens": 2840,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 1024,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 6640,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 6637,
+            "cached_tokens": 0
+          },
+          "total_tokens": 9480
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 87,
+        "stage": "retrieval_coverage",
+        "round": 0,
+        "usage": {
+          "completion_tokens": 796,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 272,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 3664,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 3661,
+            "cached_tokens": 0
+          },
+          "total_tokens": 4460
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 369,
+        "stage": "evidence_qualification",
+        "round": 1,
+        "usage": {
+          "completion_tokens": 1538,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 473,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 3822,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 3819,
+            "cached_tokens": 0
+          },
+          "total_tokens": 5360
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 381,
+        "stage": "retrieval_coverage",
+        "round": 1,
+        "usage": {
+          "completion_tokens": 607,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 108,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 3664,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 0,
+            "cached_tokens": 3661
+          },
+          "total_tokens": 4271
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 615,
+        "stage": "evidence_qualification",
+        "round": 2,
+        "usage": {
+          "completion_tokens": 1433,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 512,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 4240,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 4237,
+            "cached_tokens": 0
+          },
+          "total_tokens": 5673
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 630,
+        "stage": "retrieval_coverage",
+        "round": 2,
+        "usage": {
+          "completion_tokens": 876,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 249,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 4013,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 4010,
+            "cached_tokens": 0
+          },
+          "total_tokens": 4889
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 876,
+        "stage": "evidence_qualification",
+        "round": 3,
+        "usage": {
+          "completion_tokens": 1810,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 392,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 5414,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 5411,
+            "cached_tokens": 0
+          },
+          "total_tokens": 7224
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 888,
+        "stage": "retrieval_coverage",
+        "round": 3,
+        "usage": {
+          "completion_tokens": 747,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 118,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 5507,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 5504,
+            "cached_tokens": 0
+          },
+          "total_tokens": 6254
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 1154,
+        "stage": "obligation_evidence_consolidation",
+        "round": null,
+        "usage": {
+          "completion_tokens": 2183,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 512,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 8396,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 6824,
+            "cached_tokens": 1569
+          },
+          "total_tokens": 10579
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "qualification_history": {
+      "obs_17c15c98e1cbe24f": [
+        {
+          "trace_line": 84,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the caller that uses isLocationProjectReferenceRedirect during project or diagnostic updates.",
+          "missing_information": [
+            "How this redirect is used during watch-mode rebuilding.",
+            "Whether the redirect invalidates the main project after the Session interface changes."
+          ],
+          "observation_id": "obs_17c15c98e1cbe24f",
+          "reason": "The helper directly documents a project-reference redirect case in which a project root is attached to a referenced project's source file while the program contains its .d.ts redirect instead. This is relevant to project-reference resolution, but it does not establish the wildcard re-export propagation or downstream error result.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The program may include a referenced project's .d.ts redirect instead of the actual .ts source file.",
+            "The helper detects when the resolved source path differs from the source and project paths."
+          ]
+        },
+        {
+          "trace_line": 370,
+          "round": 1,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Find callers of isLocationProjectReferenceRedirect and inspect how the detected declaration redirect affects project or language-service resolution.",
+          "missing_information": [
+            "No builder or watch code calls this function.",
+            "No wildcard re-export, interface signature change, downstream invalidation, or main-project type error is visible."
+          ],
+          "observation_id": "obs_17c15c98e1cbe24f",
+          "reason": "The server implementation explicitly documents and detects when a project contains a redirect to a referenced project's declaration file rather than the original TypeScript source. This is a concrete project-reference redirection handoff, but it does not establish watch rebuild or wildcard re-export invalidation.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The code obtains the project's language-service program and source file for a location.",
+            "The comments state that a project may include a referenced project's .d.ts redirect instead of the actual .ts file.",
+            "The return condition detects a source whose resolved path differs from its path and from the project's normalized location path."
+          ]
+        }
+      ],
+      "obs_8f48634fec925df7": [
+        {
+          "trace_line": 84,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the caller that adds project-reference or changed files to updateErrorCheck's pending check list.",
+          "missing_information": [
+            "What schedules updateErrorCheck for the main project.",
+            "Whether a project-reference output change causes main/index.ts to enter the pending check list."
+          ],
+          "observation_id": "obs_8f48634fec925df7",
+          "reason": "The method shows that a pending file check updates a dirty project before checking file membership and then performs syntactic, semantic, and suggestion checks. It is relevant to downstream diagnostics, but it does not show project-reference or wildcard-re-export invalidation.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "updateProjectIfDirty(project) is called before checking whether the file belongs to the project.",
+            "The method schedules syntacticCheck and semanticCheck for the pending file.",
+            "Diagnostic processing is abandoned if changeSeq changes."
+          ]
+        }
+      ],
+      "obs_542f6ec5c50e9373": [
+        {
+          "trace_line": 84,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the caller of introduceError to identify the edited file and expected incremental diagnostics.",
+          "missing_information": [
+            "Which file is edited in the reported Session scenario.",
+            "How wildcard re-exports and project references affect the resulting rebuild and diagnostics."
+          ],
+          "observation_id": "obs_542f6ec5c50e9373",
+          "reason": "The test helper visibly models a file edit by writing the changed file and immediately invoking incrementalBuild, directly establishing the test's file-change rebuild trigger.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger"
+          ],
+          "visible_support": [
+            "introduceError writes fileWithError.path and fileWithError.content.",
+            "The helper then calls incrementalBuild(sys)."
+          ]
+        },
+        {
+          "trace_line": 360,
+          "reused": true,
+          "round": 1,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the caller of introduceError to identify the edited file and expected incremental diagnostics.",
+          "missing_information": [
+            "Which file is edited in the reported Session scenario.",
+            "How wildcard re-exports and project references affect the resulting rebuild and diagnostics."
+          ],
+          "observation_id": "obs_542f6ec5c50e9373",
+          "reason": "The test helper visibly models a file edit by writing the changed file and immediately invoking incrementalBuild, directly establishing the test's file-change rebuild trigger.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger"
+          ],
+          "visible_support": [
+            "introduceError writes fileWithError.path and fileWithError.content.",
+            "The helper then calls incrementalBuild(sys)."
+          ]
+        }
+      ],
+      "obs_158e2d5a3ab67ecb": [
+        {
+          "trace_line": 84,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the omitted verifyTransitiveReferences scenarios that edit a referenced source or declaration shape.",
+          "missing_information": [
+            "The omitted scenarios involving source-file shape changes or wildcard re-exports.",
+            "The exact dependency and watch-state result for the main and pure projects in the reported case."
+          ],
+          "observation_id": "obs_158e2d5a3ab67ecb",
+          "reason": "The transitive-reference test visibly checks a project-reference edit against expected program files, watched files, watched directories, and dependency lists. The excerpt is truncated and does not establish the specific interface and wildcard-re-export path.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "A scenario deletes a referenced project's tsconfig file as its edit.",
+            "The scenario verifies expected edit errors, program files, watched files, watched directories, and dependencies.",
+            "The scenario can revert the edit and checks the watch state again."
+          ]
+        }
+      ],
+      "obs_08e16e7bffcc6df3": [
+        {
+          "trace_line": 84,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the module-emission caller that selects between this function and getFilesAffectedByUpdatedShapeWhenModuleEmit.",
+          "missing_information": [
+            "The module-emission path used by the pure and main projects.",
+            "How a wildcard re-export appears in the affected-file or referenced-by state."
+          ],
+          "observation_id": "obs_08e16e7bffcc6df3",
+          "reason": "This builder function identifies the non-module shape-change policy: without single-file output, all non-library files are affected; with --out or --outFile, the changed file alone is returned because the whole project is re-emitted. It is relevant to incremental invalidation, but the reported path is module-based and the function does not address re-exports.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The non-module path returns all files excluding the default library file.",
+            "For --out or --outFile, it returns the source file with the updated shape because the project is re-emitted."
+          ]
+        }
+      ],
+      "obs_687ae8deca4fd81d": [
+        {
+          "trace_line": 84,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the verifyScenario callers supplying the edit and expectedProgramFilesAfterEdit for the relevant re-export case.",
+          "missing_information": [
+            "The concrete edit and expected files for the Session interface and wildcard re-export.",
+            "Whether the expected incremental error list is empty or contains the main-project type error."
+          ],
+          "observation_id": "obs_687ae8deca4fd81d",
+          "reason": "The test scenario directly establishes the watch-mode edit sequence: apply an edit, run the timeout queue, check incremental output errors, and inspect the resulting program files. It supports the general watch trigger and post-edit verification flow, though not the specific wildcard case.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger"
+          ],
+          "visible_support": [
+            "The scenario creates a solution and watch mode.",
+            "It applies edit(host, solutionBuilder).",
+            "It runs one timeout and calls checkOutputErrorsIncremental and checkProgramActualFiles."
+          ]
+        }
+      ],
+      "obs_eb3e2222b132aa2d": [
+        {
+          "trace_line": 84,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the VerifyScenario object for the Session or wildcard-re-export edit, including its expectedEditErrors and dependencies.",
+          "missing_information": [
+            "The specific source edit and expected values for the wildcard re-export scenario.",
+            "The implementation reason why the downstream Session error might be absent."
+          ],
+          "observation_id": "obs_eb3e2222b132aa2d",
+          "reason": "The transitive-reference watch test visibly applies an edit, runs the watch queue, checks incremental errors, and verifies program files, watched files, directories, and dependency state. This establishes the watch/project-reference reaction pattern, but not the reported Session-specific result.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger"
+          ],
+          "visible_support": [
+            "The tsc-watch scenario applies edit(host, solutionBuilder).",
+            "It runs the timeout queue and checks expected incremental edit errors.",
+            "It verifies program files, watched files, recursive watched directories, and dependencies.",
+            "A revert causes another queued watch update and checks that errors clear."
+          ]
+        }
+      ],
+      "obs_2b58b117f794b8d5": [
+        {
+          "trace_line": 84,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the caller of updateExportedModules that uses the cached exported-module map to update signatures or affected files.",
+          "missing_information": [
+            "The caller that consults exportedModulesMapCache during signature or dependency comparison.",
+            "Whether a wildcard re-export causes the main project to be invalidated."
+          ],
+          "observation_id": "obs_2b58b117f794b8d5",
+          "reason": "The function visibly builds and caches a map of modules exported through declaration emit by resolving imported module symbols to referenced files. This is a concrete re-export-related state structure, but the excerpt does not show how the cache affects invalidation or rebuilding.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "When declaration-emit export information is absent, the cache stores false.",
+            "Otherwise, each exported declaration-emit symbol is converted to a referenced file and added to the exported-modules map.",
+            "The resulting map is cached by source-file path."
+          ]
+        }
+      ],
+      "obs_c2421716b29c47c9": [
+        {
+          "trace_line": 84,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the caller that constructs referencedBy state and invokes this function after declaration or interface changes.",
+          "missing_information": [
+            "How project-reference boundaries and declaration outputs participate in this referenced-by graph.",
+            "Whether the wildcard re-export is represented in this graph for the reported projects."
+          ],
+          "observation_id": "obs_c2421716b29c47c9",
+          "reason": "This function directly establishes incremental shape propagation through reverse references: it starts from the changed source, walks referenced-by paths, updates each dependent shape signature, recursively queues dependents whose shape changed, and returns the files requiring emit.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "The function obtains reverse dependents with getReferencedByPaths.",
+            "It calls updateShapeSignature for each dependent source file.",
+            "Dependents are recursively queued when their shape signature changes.",
+            "The collected source files are returned as files needing emit."
+          ]
+        }
+      ],
+      "obs_66e01670a8dbf2bf": [
+        {
+          "trace_line": 84,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the code that populates referencedMap for imported or re-exported modules and project-reference outputs.",
+          "missing_information": [
+            "How the referencedMap is populated for a wildcard re-export and project-reference declaration output.",
+            "The specific dependency set for pure/index.ts, session.ts, and main/index.ts."
+          ],
+          "observation_id": "obs_66e01670a8dbf2bf",
+          "reason": "The function directly shows dependency tracking over the builder's referencedMap: it handles global and single-output cases specially, otherwise traverses the dependency graph transitively and returns the corresponding source files.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "With --out or --outFile, all source files are treated as dependencies.",
+            "Without a referencedMap or for global-scope files, all source files are dependencies.",
+            "Otherwise, the function traverses referencedMap transitively from the source file and returns the discovered files."
+          ]
+        }
+      ],
+      "obs_d2ee33fc289cfbe5": [
+        {
+          "trace_line": 370,
+          "round": 1,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the remainder of this test scenario, especially its project files, change sequence, and watch assertions.",
+          "missing_information": [
+            "The remainder of the test is needed to determine whether it exercises wildcard re-exports, interface changes, or the reported main/pure project structure.",
+            "The actual watch assertions and downstream type error are outside the visible excerpt."
+          ],
+          "observation_id": "obs_d2ee33fc289cfbe5",
+          "reason": "The test source defines a scenario where a referenced-project change introduces an error in a downstream project and then fixes it, making it a relevant watch/project-reference test location. The visible excerpt stops before the test's files, changes, and assertions are shown.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "A test suite describes the scenario \"when referenced project change introduces error in the down stream project and then fixes it\".",
+            "The test constructs a referenced subproject library file."
+          ]
+        }
+      ],
+      "obs_ea66bce638f61508": [
+        {
+          "trace_line": 370,
+          "round": 1,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the setup and assertions for the \"updates with bad reference\" watch test, including the referenced and downstream project files.",
+          "missing_information": [
+            "No Session interface, pure/index.ts wildcard re-export, main project use, or expected type error is visible.",
+            "The surrounding setup is required to identify the exact file-change and dependency relationship tested."
+          ],
+          "observation_id": "obs_ea66bce638f61508",
+          "reason": "The test visibly exercises a watched solution build and runs a queued build after changing a file in a referenced project. It is relevant to incremental watch behavior, but the excerpt concerns an import from '../animals' and does not establish the wildcard-re-export Session failure.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The test invokes verifyTscWatch with command-line arguments [\"-b\", \"-w\", \"-verbose\"].",
+            "The simulated system rewrites a referenced project file and runs one queued timeout to build the core project.",
+            "The test checks that no additional timeout remains after the build."
+          ]
+        },
+        {
+          "trace_line": 616,
+          "round": 2,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect the surrounding test setup for the referenced projects and the assertion attached to the returned change description.",
+          "missing_information": [
+            "Whether this scenario involves the Session interface, a wildcard re-export, or propagation into a downstream main project."
+          ],
+          "observation_id": "obs_ea66bce638f61508",
+          "reason": "The test visibly exercises build-watch mode with -b and -w, changes a file containing a wildcard import, runs the queued timeout, and verifies that the core project is built. This directly establishes a file-change event that initiates incremental rebuilding in a project-reference watch test.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger"
+          ],
+          "visible_support": [
+            "The scenario uses commandLineArgs [\"-b\", \"-w\", \"-verbose\"].",
+            "The changed file contains an import using `import * as A from '../animals'`.",
+            "The change writes the file and then calls checkTimeoutQueueLengthAndRun(1), with the comment `// build core`.",
+            "The test checks that no additional timeout remains afterward."
+          ]
+        }
+      ],
+      "obs_b3c8b015cc525bb0": [
+        {
+          "trace_line": 370,
+          "round": 1,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect reportUpToDateStatus and its callers to determine which watch statuses are emitted after a referenced-project change.",
+          "missing_information": [
+            "The implementation of reportUpToDateStatus is not visible.",
+            "No file-change handling, dependency invalidation, wildcard re-export tracking, or type-checking behavior is shown."
+          ],
+          "observation_id": "obs_b3c8b015cc525bb0",
+          "reason": "This implementation conditionally delegates verbose project-status reporting to reportUpToDateStatus. That is a concrete handoff relevant to interpreting watch-mode output, but it does not show how project invalidation or downstream type checking occurs.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "verboseReportProjectStatus calls reportUpToDateStatus only when state.options.verbose is true.",
+            "The method receives a SolutionBuilderState, configuration filename, and UpToDateStatus."
+          ]
+        }
+      ],
+      "obs_0b809b82d32a4d10": [
+        {
+          "trace_line": 370,
+          "round": 1,
+          "reused": false,
+          "disposition": "reject",
+          "local_follow_up": "",
+          "missing_information": [
+            "No compilation, watch, project-reference dependency, re-export, or interface-type checking behavior is shown."
+          ],
+          "observation_id": "obs_0b809b82d32a4d10",
+          "reason": "This method handles language-service definition lookup and maps definition locations for a server protocol response. Although it belongs to Session, the visible code does not concern the Session interface type, project-reference rebuilding, wildcard re-exports, or downstream type checking.",
+          "support_level": "insufficient",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The method calls project.getLanguageService().getDefinitionAndBoundSpan.",
+            "It maps definition locations and returns a protocol definition result."
+          ]
+        }
+      ],
+      "obs_ff5ccc7092bc2722": [
+        {
+          "trace_line": 370,
+          "round": 1,
+          "reused": false,
+          "disposition": "reject",
+          "local_follow_up": "",
+          "missing_information": [
+            "No caller, watch-mode event, project-reference dependency update, declaration/signature comparison, or type-checking result is visible."
+          ],
+          "observation_id": "obs_ff5ccc7092bc2722",
+          "reason": "This method emits a requested file through a project's language service or skips emission. The visible code is a server emit API and does not show incremental builder state, watch invalidation, wildcard re-export handling, or checking the downstream use of Session.",
+          "support_level": "insufficient",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The method obtains a file and project from a request.",
+            "It conditionally calls project.getLanguageService().getEmitOutput(file), otherwise returning skipped emission."
+          ]
+        }
+      ],
+      "obs_68a5e396a13bca10": [
+        {
+          "trace_line": 616,
+          "round": 2,
+          "reused": false,
+          "disposition": "defer",
+          "local_follow_up": "What caller constructs buildQueue after a watched file change?",
+          "missing_information": [
+            "The caller and queue-construction logic that determines which projects are rebuilt after a source change."
+          ],
+          "observation_id": "obs_68a5e396a13bca10",
+          "reason": "The function only reports the projects currently in the build queue when verbose mode is enabled. It does not show how the queue is populated or how wildcard re-exports affect rebuilding.",
+          "support_level": "insufficient",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "Verbose mode causes a status message listing the projects in buildQueue."
+          ]
+        }
+      ],
+      "obs_61bf08951027b2a2": [
+        {
+          "trace_line": 616,
+          "round": 2,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect createSolutionBuilderWorker for watch setup and incremental project scheduling.",
+          "missing_information": [
+            "How the worker tracks file changes, project references, and dependency output or declaration changes."
+          ],
+          "observation_id": "obs_61bf08951027b2a2",
+          "reason": "This is the watch-mode entry point and visibly delegates to createSolutionBuilderWorker with watch set to true, making that worker the concrete implementation needed for further tracing.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "createSolutionBuilderWithWatch calls createSolutionBuilderWorker with /*watch*/ true."
+          ]
+        }
+      ],
+      "obs_2fc2cd9b3b831a88": [
+        {
+          "trace_line": 616,
+          "round": 2,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect createWatchHost for the file-change callback and scheduling path.",
+          "missing_information": [
+            "How createWatchHost reports file changes and how those changes reach incremental project rebuilding."
+          ],
+          "observation_id": "obs_2fc2cd9b3b831a88",
+          "reason": "This function constructs the solution-builder watch host by combining the solution-builder host with a watch host, identifying the concrete watch-system handoff relevant to file-change handling.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "createSolutionBuilderWithWatchHost calls createSolutionBuilderHostBase and createWatchHost, then copies the watch-host properties onto the host."
+          ]
+        }
+      ],
+      "obs_f81305018e14309d": [
+        {
+          "trace_line": 616,
+          "round": 2,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect tscWatchCompile for the scenario's watched file changes and expected diagnostics.",
+          "missing_information": [
+            "The scenario setup, file changes, and assertions performed by tscWatchCompile."
+          ],
+          "observation_id": "obs_f81305018e14309d",
+          "reason": "The helper visibly delegates each configured scenario to tscWatchCompile, identifying the test harness entry point where watch behavior and assertions are implemented.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "verifyTscWatch creates nested test descriptions and calls tscWatchCompile with the supplied input."
+          ]
+        }
+      ],
+      "obs_c48775c5262a9b58": [
+        {
+          "trace_line": 616,
+          "round": 2,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect the caller that computes UpToDateStatus and its dependency or declaration-signature comparisons.",
+          "missing_information": [
+            "The code that computes these statuses and decides whether the downstream project is invalidated or rebuilt after an interface change."
+          ],
+          "observation_id": "obs_c48775c5262a9b58",
+          "reason": "The implementation maps incremental solution-builder status types to explicit messages for stale inputs, changed dependency outputs, upstream projects, and up-to-date declaration files. It is a relevant diagnostic owner for determining how dependency invalidation is represented, but the excerpt does not show how those statuses are computed for a wildcard re-export.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "OutOfDateWithSelf reports an older output than a newer input.",
+            "OutOfDateWithUpstream reports a newer upstream project.",
+            "OutOfDateWithPrepend reports that a dependency output changed.",
+            "UpToDateWithUpstreamTypes reports that dependency .d.ts files are up to date.",
+            "UpstreamOutOfDate and UpstreamBlocked report dependency state."
+          ]
+        },
+        {
+          "trace_line": 877,
+          "round": 3,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the status computation or build loop that dispatches OutOfDateWithPrepend and UpToDateWithUpstreamTypes for referenced projects.",
+          "missing_information": [
+            "The code that produces these statuses for the changed Session declaration.",
+            "The code that decides whether the main project is rebuilt and type-checked.",
+            "The reason the wildcard-re-export path differs from the direct session.ts import path."
+          ],
+          "observation_id": "obs_c48775c5262a9b58",
+          "reason": "The status-reporting code identifies concrete dependency-related status outcomes and diagnostics, including a project being out of date because a dependency changed or is out of date, and being up to date with dependency declaration files. This is useful for following the status-to-report handoff, but reporting alone does not establish the underlying propagation or the observed quiet watch result.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The OutOfDateWithPrepend case reports that a dependency's output has changed.",
+            "The UpToDateWithUpstreamTypes case reports that the project is up to date with dependency .d.ts files.",
+            "The UpstreamOutOfDate and UpstreamBlocked cases report dependency status and errors."
+          ]
+        }
+      ],
+      "obs_3902f7bea8551306": [
+        {
+          "trace_line": 877,
+          "round": 3,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve invalidateProjectAndScheduleBuilds and its caller path for the resolved project.",
+          "missing_information": [
+            "The implementation of invalidateProjectAndScheduleBuilds and the subsequent dependency/project build propagation.",
+            "How a changed declaration reached through a wildcard re-export affects the downstream project's module or signature state."
+          ],
+          "observation_id": "obs_3902f7bea8551306",
+          "reason": "The watch implementation visibly registers wildcard-directory watchers and, for supported non-output file changes, calls invalidateProjectAndScheduleBuilds with Partial reload level. This directly establishes a file-change trigger and an invalidation/scheduling state transition, though it does not by itself prove the specific project-reference re-export path.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "watchWildCardDirectories returns unless watch mode is active.",
+            "The directory callback filters unsupported extensions and output files.",
+            "For an accepted change, the callback calls invalidateProjectAndScheduleBuilds(state, resolvedPath, ConfigFileProgramReloadLevel.Partial)."
+          ]
+        }
+      ],
+      "obs_2732a1d0edba5221": [
+        {
+          "trace_line": 877,
+          "round": 3,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the code that constructs BuildInvalidedProject after invalidateProject and advances getSemanticDiagnosticsOfNextAffectedFile.",
+          "missing_information": [
+            "The implementation that creates or invalidates BuildInvalidedProject.",
+            "The code that determines affected projects and invokes semantic diagnostics after an upstream declaration change.",
+            "Any wildcard re-export or Session-specific module-resolution behavior."
+          ],
+          "observation_id": "obs_2732a1d0edba5221",
+          "reason": "The interface identifies the builder-program and affected-file APIs used after a project is invalidated, including semantic diagnostics, dependency queries, and next-affected-file processing. It is a concrete handoff to the incremental builder implementation, but it does not show when these APIs are invoked or what state changes in this issue.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "BuildInvalidedProject exposes getBuilderProgram and getProgram.",
+            "It exposes getAllDependencies, getSemanticDiagnostics, and getSemanticDiagnosticsOfNextAffectedFile.",
+            "The comments state that build-system emit updates project status and that direct underlying-builder emit can leave status unreflected."
+          ]
+        }
+      ],
+      "obs_3be6a1f37cdd966c": [
+        {
+          "trace_line": 877,
+          "round": 3,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the code that computes newestDeclarationFileContentChangedTime and consumes pseudoUpToDate during the next invalidated-project build.",
+          "missing_information": [
+            "How declaration content changes are computed and persisted.",
+            "How pseudoUpToDate or OutOfDateWithUpstream is converted into invalidation, emit, and downstream semantic checking.",
+            "Whether the wildcard re-export is represented in the dependency/signature data used here."
+          ],
+          "observation_id": "obs_3be6a1f37cdd966c",
+          "reason": "The up-to-date calculation visibly examines referenced projects and distinguishes upstream out-of-date, changed declaration content, and output-age conditions. This establishes relevant incremental dependency state, including a pseudo-up-to-date path when declaration content changed, but the excerpt does not show the earlier logic that detects the changed declaration or the later rebuild scheduling.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "A referenced project's Unbuildable or UpstreamBlocked status causes the current project to become UpstreamBlocked.",
+            "A referenced project whose status is not UpToDate causes UpstreamOutOfDate.",
+            "The code compares the upstream newest input time with the current project's oldest output time.",
+            "A newestDeclarationFileContentChangedTime can set pseudoUpToDate and identify the upstream changed project.",
+            "Otherwise, an upstream output newer than the current output produces OutOfDateWithUpstream."
+          ]
+        }
+      ],
+      "obs_dd99513a546b5aa6": [
+        {
+          "trace_line": 877,
+          "round": 3,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the concrete WatchHost callback that handles a watched source-file change and schedules the solution-builder build.",
+          "missing_information": [
+            "Which concrete watcher registers src/pure/session.ts in this scenario.",
+            "How a watcher callback invalidates the pure and main projects.",
+            "How the changed interface is propagated through the wildcard re-export and diagnosed downstream."
+          ],
+          "observation_id": "obs_dd99513a546b5aa6",
+          "reason": "The watch-host contract directly establishes the file and directory watch mechanisms used by watch mode, including watching source/config-related paths and scheduling delayed compilation after changes. It supports the general watch-trigger portion of the issue, but not the specific wildcard re-export propagation or missing diagnostic result.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger"
+          ],
+          "visible_support": [
+            "watchFile is documented as watching source files, missing files needed to update the program, or config files.",
+            "watchDirectory is documented as watching resolved-module failed lookups, config-file wildcard specs, and type roots.",
+            "setTimeout can provide delayed compilation so multiple changes are compiled together, and clearTimeout resets delayed compilation."
+          ]
+        }
+      ],
+      "obs_d2903f753c155cb6": [
+        {
+          "trace_line": 877,
+          "round": 3,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve invalidateProject and buildNextInvalidatedProject to trace the reload level into the next referenced-project build.",
+          "missing_information": [
+            "The implementation of setupInitialBuild, getNextInvalidatedProject, invalidateProject, and buildNextInvalidatedProject.",
+            "How project references and wildcard re-exports affect build order or invalidation.",
+            "How semantic diagnostics are requested for main/index.ts after the pure project changes."
+          ],
+          "observation_id": "obs_d2903f753c155cb6",
+          "reason": "The solution-builder factory visibly exposes the relevant lifecycle operations: initial invalidated-project retrieval, build order, up-to-date status, explicit project invalidation, next invalidated-project building, and watch shutdown. This is a concrete entry point for tracing the issue, but the factory itself does not show the watcher callback, dependency graph traversal, or diagnostic emission.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The worker creates solution-builder state with a watch flag and host.",
+            "It exposes getNextInvalidatedProject, which calls setupInitialBuild and getNextInvalidatedProject.",
+            "It exposes getUpToDateStatusOfProject and invalidateProject with a reload level.",
+            "It exposes buildNextInvalidatedProject and build/buildReferences."
+          ]
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "run_id": "run-20260827T115315Z",
+    "coverage_status": null,
+    "sufficient": null,
+    "implementation_oracles": null,
+    "oracle_positions": null,
+    "final_items": 0,
+    "final_files": 0,
+    "retrieval_tokens": 24671,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1138,
+        "completion_tokens": 115,
+        "total_tokens": 1253
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 21883,
+        "completion_tokens": 1535,
+        "total_tokens": 23418
+      }
+    },
+    "leads": [],
+    "followups": [],
+    "scheduling": [],
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__vuejs_vue_242__c145e037",
+        "document_count": 1114,
+        "indexed_points": 1114,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "discovery_audits": [],
+    "controller": [],
+    "final": []
+  }
+]

@@ -46,7 +46,7 @@
     "provider": "api",
     "api_model": "gpt-5.6-luna",
     "codex_model": "gpt-5.4-mini",
-    "max_tokens": 4000,
+    "max_tokens": null,
     "timeout_seconds": 120
   },
   "experiments": {

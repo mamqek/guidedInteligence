@@ -2,12 +2,66 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import json
+import shutil
+import subprocess
 from pathlib import Path
 
 from services.retrieval.workspace.source_ast import SourceAstRouter
 
 
 class SourceAstRouterTests(unittest.TestCase):
+    def test_python_ast_owner_validates_identity_and_calls_lambda_body(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / 'owners.py').write_text('exports.parse = lambda value: Tools.clean(value, lambda: hidden())\ndef next_owner():\n    sibling()\n', encoding='utf-8')
+            router = SourceAstRouter(root, codegraph_bridge=_FailBridge())
+            owner = router.resolve_source_owners('owners.py', 1, 1)['owners'][0]
+            result = router.source_owner_calls(owner)
+            self.assertEqual(result['source_kind'], 'assigned_function')
+            self.assertEqual([call['name'] for call in result['calls']], ['clean'])
+            for change in ({'name': 'wrong', 'qualified_name': 'wrong'}, {'line_end': 2}, {'id': owner['id'] + '0'}, {'path': '../outside.py'}):
+                self.assertEqual(router.source_owner_calls({**owner, **change})['status'], 'failed')
+            ordinary = router.resolve_source_owners('owners.py', 2, 3)['owners'][0]
+            self.assertEqual([call['name'] for call in router.source_owner_calls(ordinary)['calls']], ['sibling'])
+
+    def test_javascript_ast_owner_calls_without_graph_and_rejects_spoofed_handles(self) -> None:
+        node = shutil.which('node')
+        if not node:
+            self.skipTest('Node is unavailable')
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / 'repo'
+            root.mkdir()
+            (Path(temp_dir) / 'outside.js').write_text('exports.parse = () => External.secret();', encoding='utf-8')
+            (root / 'owners.js').write_text(
+                'exports.parse = function(value) {\n  const nested = () => Hidden.call();\n  Tools.clean(value);\n};\n'
+                'exports.next = () => Other.run();\nconst notCallable = 1;\n', encoding='utf-8')
+            module = (Path(__file__).resolve().parents[1] / 'services/retrieval/codegraph/source_ast.mjs').as_uri()
+            script = '''
+import {resolveSourceOwners, sourceOwnerCalls} from MODULE;
+const root = process.argv[1];
+const owners = resolveSourceOwners(root, {path:'owners.js', line_start:1, line_end:6}).owners;
+const owner = owners[0];
+const changed = [{line_end:5}, {name:'wrong', qualified_name:'wrong'}, {id:owner.id+'0'}, {path:'../outside.js'}];
+console.log(JSON.stringify({owners, calls:owners.map(o=>sourceOwnerCalls(null,root,o)),
+ invalid:changed.map(c=>sourceOwnerCalls(null,root,{...owner,...c})),
+ noncallable:sourceOwnerCalls(null,root,{id:'source_owner:owners.js:6:6',path:'owners.js',line_start:6,line_end:6,name:'notCallable'})}));
+'''.replace('MODULE', json.dumps(module))
+            completed = subprocess.run([node, '--input-type=module', '-e', script, str(root)], capture_output=True, text=True, check=True)
+            result = json.loads(completed.stdout)
+            self.assertEqual([[call['name'] for call in row['calls']] for row in result['calls']], [['clean'], ['run']])
+            self.assertTrue(all(row['source_kind'] == 'assigned_function' for row in result['calls']))
+            self.assertTrue(all(row['status'] == 'failed' for row in result['invalid']))
+            self.assertEqual(result['invalid'][3]['reason'], 'source_owner_outside_workspace')
+            self.assertEqual(result['noncallable']['status'], 'failed')
+
+    def test_typescript_ast_handle_is_passed_to_adapter_not_graph_id_lookup(self) -> None:
+        bridge = _RecordingBridge({'status': 'ok', 'calls': [], 'source_kind': 'assigned_function'})
+        router = SourceAstRouter(Path.cwd(), codegraph_bridge=bridge)
+        owner = {'id':'source_owner:owners.js:1:3', 'path':'owners.js', 'name':'exports.parse', 'line_start':1, 'line_end':3}
+        router.source_owner_calls(owner)
+        self.assertEqual(bridge.requests, [('source_owner_calls', {'source_node': owner})])
+
     def test_python_owner_calls_use_python_adapter_and_skip_nested_owners(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

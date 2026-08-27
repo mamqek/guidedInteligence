@@ -1,5 +1,89 @@
 # Retrieval Experiment Open Questions
 
+## POS-1 / IOC-2 — Positive proof retention and pre-comparison body visibility
+
+- 2026-08-28 follow-up: [group contract and focused cards](group-contract-and-focused-owner-cards.md).
+  Group-keyed schema passes two real fixed-input calls and both actual runs; retained as a contract correction.
+  Focused source windows pass two comparisons but still admit six saved-input files. Actual 225224Z / 225234Z:
+  3/2 Oracle files, partial/false, 101,440/101,088 tokens. Provisional, not quality-accepted; FPK-1 still loses
+  builderState before comparison in the second run. File-summary navigation is analysis only.
+
+- Record: [positive proof / body / island experiments](positive-proof-owner-body-island-experiments.md).
+- P: positive-only reuse and verified-crop source retention are provisional after 213229Z / 213541Z (3/2 Oracle
+  files). No natural crop event and no live incremental quality benefit over the previous cache demonstrated.
+- A targeted body repair: two isolated real calls fail the existing owner/group validation boundary (IOC-1).
+  Not activated; do not repair model IDs deterministically.
+- B consistent cards: two valid isolated calls and actual 214614Z / 214625Z, 2/2 Oracles. Useful formerly bodyless
+  snippets reach final evidence, but enlarged cards narrow file admission. Same-input replay 17→6 files; maps to
+  FPK-1. Provisional for user review, not quality-accepted. No further automatic tuning or budget increases.
+- Island-aware final admission is analysis only. Four TypeScript and two each Pandas/Vue audits support inspecting
+  whole-island preservation, but direct-count/majority gates exclude useful evidence and island count does not bound
+  input size. This must be a separate experiment, not a silent extension of body disclosure.
+
+## QFL-1 — Qualified call leads: semantic priority and final-flow survival
+
+- Experiment: [`qualified-structural-file-lead-experiment.md`](qualified-structural-file-lead-experiment.md).
+- Status: first integration reverted on 2026-08-27; restored explicit-request-before-incidental-call follow-up is
+  best-effort retained after two complete TypeScript and one each Pandas/Vue run. Same-queue ordering is verified
+  on saved inputs; no live queue winner differed. Maps to VL-1/VL-2 and ISL-1; final-flow filtering is unchanged.
+- Repeatable intermediate result: a visible qualified caller recovered `getReferencedByPaths` as direct evidence in
+  both actual TypeScript runs. Final flow admission discarded it as adding no new causal responsibility in both.
+- Competing leads: the new structural-child priority consumed both reserved executions while explicit qualification
+  follow-ups remained pending. One other lead was rejected as irrelevant; another led to direct cache evidence that
+  reached, but was not selected by, final consolidation.
+- Next boundary: call-level semantic priority and preservation of necessary read-only connecting owners. Do not fix
+  this by raising action caps, globally boosting target files, or automatically converting every call into evidence.
+- Follow-up finding: saved queues verify the new ordering, but a live run spends both slots before explicit requests
+  arrive. Separately investigate timing of exploratory capacity use; do not confuse this with same-queue priority.
+- Cross-language boundary: the source_owner source-kind/call-inspection incompatibility is now corrected separately;
+  see [`ast-owner-recovery-compatibility.md`](ast-owner-recovery-compatibility.md). Validated AST callables can seed
+  inspection without fabricated persistent nodes. Live Vue inspection reaches existing target-uniqueness and lookup
+  budget boundaries, with no new recovery executions. Another live run never passes the direct-evidence gate.
+  Target-side AST-only/alias resolution remains open; do not broaden eligibility and timing as part of adapter repair.
+  Pandas's missing owner is already deferred by early file admission, a separate unchanged boundary.
+- Detailed run IDs, trace lines, costs, and rollback artifact are in the decision note and retrieval changelog.
+- Subsequent final-flow experiment: a narrow direct-evidence call-connection exception is provisionally retained;
+  see [`helper-flow-and-file-packing-experiments.md`](helper-flow-and-file-packing-experiments.md). Saved pools recover
+  the connecting helper; one live final LLM selects it. Another live run reclassifies all builderState snippets as
+  navigation-only without obligation IDs, so they vanish between raw final pool and obligation-state flow input.
+  That earlier qualification/mapping boundary is separate from the causal-role filter and remains unresolved.
+  Follow-up: run-local semantic qualification reuse is provisionally retained after isolated and live checks; see
+  [`qualification-reuse-and-completion-budget-experiment.md`](qualification-reuse-and-completion-budget-experiment.md).
+  Recorded identical-body downgrades are suppressed, but initial incorrect judgments and changed-source
+  requalification remain separate issues. No qualification-support rule or body-disclosure change is included.
+  Final pair 153030Z / 153303Z has 3/1 Oracle overlaps, so combined quality is not accepted. Weak-run builderState
+  helpers reach final input but are unselected; its cached direct watchMode test falls after the final budget crossing.
+  Reuse does not guarantee final survival, and indirect controller/candidate effects remain unisolated.
+
+## FPK-1 — Complete-file packing versus useful owner visibility
+
+- Experiment: [`helper-flow-and-file-packing-experiments.md`](helper-flow-and-file-packing-experiments.md).
+- The former prefix rule stopped before an oversized file. Skip-and-continue was provisionally retained after two
+  completed Pandas runs, then explicitly rejected by the user on 2026-08-27. It is replaced by an append-crossing
+  ranked prefix: include the complete crossing file, then stop (no smaller-file backfill). Final-flow admission is
+  tested separately with the same stopping semantics. See
+  [`append-crossing-input-budget-experiment.md`](append-crossing-input-budget-experiment.md).
+- Append-crossing follow-up: deterministic boundaries pass, but two final calls (and retries) exhaust the unchanged
+  completion allowance, and a replacement fails owner/group validation (IOC-1). No final-quality comparison exists.
+  Crossing server-file snippets all remain dormant. Final crossing flows reach the LLM, but the later explicit
+  connection list receives no room once flow accounting is over budget. Keep provisional for user review; investigate
+  flow/connection admission units and final-output reliability separately, without silently enlarging limits.
+- User-directed correction: stripping connections was an implementation error, not an intended tradeoff. Eligible
+  metadata now accompanies the unchanged admitted flow/candidate prefix without a second budget gate. Two exact
+  saved-input replays recover all 12 connections in each input. Fresh runs 142925Z / 142935Z finish partial/false with
+  3/3 implementation Oracles and preserve 8/8 and 9/9 eligible connections. The first naturally crosses the flow
+  threshold. Correction retained; output caps and owner-source visibility are unchanged. See the correction section
+  in the append-crossing decision note. This does not prove the prior LLM failures were caused by missing metadata.
+  Completion-limit follow-up: the optional-output-budget experiment removes the explicit generation cap, not input
+  budgets. Both real saved failed-input replays return valid selections; one requires 4,574 completion tokens.
+  Full-run validation and costs are in the qualification-reuse/completion-budget decision note above.
+- Same-input replay proves newly admitted series.py in one live run, but _binop's owner-comparison view contains
+  only its signature and the LLM leaves it dormant. Another live run still cannot fit series.py and adds plotting.py.
+  Distinguish a packing improvement from source-visibility or owner-selection improvement. Both runs later recover
+  _binop through independent new-island search; one retains it, the other downgrades it to navigation_only with no
+  obligations and loses it before flow selection. Do not raise limits or invent a relevance guarantee from unused
+  capacity. Final quality/tokens are recorded in the experiment note.
+
 ## QOS-1 — Qualification-scoped obligation support in final-flow admission
 
 - Experiment: [`../qualification-obligation-scope-experiment.md`](../qualification-obligation-scope-experiment.md).
@@ -126,6 +210,18 @@ map it to an entry here before treating it as a new regression or inventing anot
 ## IOC-1 — Initial owner comparison scale and support independence
 
 - Experiment: compact initial owner comparison plus complete structural range resolution.
+- Current budget follow-up: FPK-1 now provisionally includes the complete crossing file before stopping; 60K/100K
+  are thresholds rather than strict pre-add ceilings. Replacement run 20260827T132218Z returned two watchMode owners
+  under the wrong group (response line 57), correctly rejected by membership validation. No final result exists;
+  request/schema reliability remains separate from mechanical admission verification.
+  Recurred in uncapped-output/reuse run `run-20260827T153020Z`: response line 57 assigns `o145` to
+  `g12` instead of `g13`; fails before qualification, with 25,314 tokens and no final result.
+- Latest bounded follow-up: the [ten-owner semantic/diversity shortlist](owner-comparison-shortlist-experiment.md)
+  was rejected and reverted on 2026-08-27. Corrected actual runs `run-20260827T033557Z` / `run-20260827T034005Z`
+  reduced comparison candidates and tokens but retained 2/3 implementation Oracles versus the unchanged baseline's
+  3/4. Omitted owners were recoverable, sometimes only in later rounds; recovered navigation-only test helpers did
+  not complete the issue chain. No deterministic within-file shortlist is enabled. Detailed measurements and the
+  reproducible patch remain in the decision note and changelog.
 - Status: the single-canonical-pool rewrite, grouped owner-selection contract, and 60K quality-prefix admission are
   mechanically accepted through pre-qualification on the TypeScript case; cross-repository, controller,
   final-evidence, and overall token/quality acceptance remain open.
@@ -136,8 +232,8 @@ map it to an entry here before treating it as a new regression or inventing anot
   - complete owner source is disclosed only after owner comparison selects it;
   - each owner records distinct owner-aligned raw views, obligations, and channels rather than exposing recurrence
     alone;
-  - file admission retains one retrieval-ranked file prefix under a preferred 60,000-character request target, with
-    100,000 as a hard ceiling and no binary obligation reservation or later-file backfill;
+  - file admission retains one retrieval-ranked prefix, provisionally including the crossing group at the 60,000 /
+    100,000 thresholds (FPK-1), with no binary obligation reservation or later-file backfill;
   - the LLM performs the only global 24-owner selection using grouped primary/additional owners. There is no numeric
     per-file cap; runtime validates global count, group membership, and exhaustive selected/deferred/dormant states.
 - Measured evidence:
@@ -204,7 +300,8 @@ map it to an entry here before treating it as a new regression or inventing anot
 ## VL-1 — Verified-lead cap and final-round continuation
 
 - Experiment: verified direct-lead continuation.
-- Status: open; the ordinary two-lead path is implemented and observed, but the overflow boundary is untested.
+- Status: open; the ordinary two-lead path is implemented. Cap exhaustion and pending-lead competition were observed
+  in the subsequently reverted QFL-1 experiment; the benefit of executing those remaining leads is still untested.
 - Implemented behavior:
   - a newly validated direct call counts as `verified_lead_gain`, so `no_evidence_gain` cannot stop before its
     next scheduling opportunity;

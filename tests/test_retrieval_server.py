@@ -60,6 +60,14 @@ def configure_test_api_llm(state: RuntimeState) -> None:
 
 
 class RetrievalServerStateTests(unittest.TestCase):
+    def test_generation_completion_budget_preserves_null_and_explicit_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = RuntimeState(Path(temp_dir))
+            with patch.object(state, "_api_llm_config", return_value=RunLLMConfig(max_tokens=800)):
+                self.assertIsNone(state._generation_llm_config().max_tokens)
+                state.config["generation"]["max_tokens"] = 12000
+                self.assertEqual(state._generation_llm_config().max_tokens, 12000)
+
     def test_response_generation_timeout_detector_reads_response_metadata_error(self) -> None:
         self.assertTrue(
             _response_generation_timed_out(
@@ -907,6 +915,7 @@ class RetrievalServerStateTests(unittest.TestCase):
             self.assertNotIn("intent", state.get_config())
             self.assertFalse(state.get_config()["experiments"]["intent_sufficiency_enabled"])
             self.assertEqual(state.get_config()["generation"]["api_model"], "gpt-5.6-luna")
+            self.assertIsNone(state.get_config()["generation"]["max_tokens"])
             self.assertTrue(state.get_config()["experiments"]["codex_evidence_organizer_enabled"])
             self.assertTrue(state.get_config()["experiments"]["codex_candidate_order_neutralization_enabled"])
             self.assertFalse(state.get_config()["experiments"]["multi_intent_stage_order_neutralization_enabled"])

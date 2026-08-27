@@ -1,0 +1,245 @@
+[
+  {
+    "run_id": "run-20260827T104726Z",
+    "trace_line": 62,
+    "baseline_ref": "c6a40a60d83b5e8fec78b27f95646cd1a225ea7c",
+    "baseline_reproduced": true,
+    "old": {
+      "admitted_groups": [
+        [
+          "doc/sphinxext/numpydoc/comment_eater.py",
+          "*"
+        ],
+        [
+          "pandas/tools/rplot.py",
+          "*"
+        ],
+        [
+          "pandas/core/ops.py",
+          "*"
+        ],
+        [
+          "pandas/tests/test_index.py",
+          "*"
+        ]
+      ],
+      "admitted_paths": [
+        "doc/sphinxext/numpydoc/comment_eater.py",
+        "pandas/tools/rplot.py",
+        "pandas/core/ops.py",
+        "pandas/tests/test_index.py"
+      ],
+      "excluded_paths": [
+        "pandas/tests/test_series.py",
+        "doc/source/conf.py",
+        "pandas/io/tests/test_stata.py",
+        "pandas/sparse/series.py",
+        "pandas/tests/test_generic.py",
+        "pandas/computation/eval.py",
+        "pandas/computation/tests/test_eval.py",
+        "pandas/core/series.py",
+        "pandas/tests/test_indexing.py",
+        "vb_suite/source/conf.py",
+        "pandas/tests/test_frame.py",
+        "pandas/tests/test_groupby.py",
+        "pandas/core/generic.py",
+        "pandas/core/panel.py",
+        "pandas/core/groupby.py",
+        "vb_suite/binary_ops.py",
+        "pandas/computation/ops.py",
+        "vb_suite/series_methods.py",
+        "pandas/core/frame.py",
+        "pandas/tests/test_expressions.py",
+        "pandas/core/index.py",
+        "pandas/tseries/tests/test_base.py",
+        "pandas/tools/tests/test_merge.py",
+        "pandas/tseries/tests/test_timeseries.py",
+        "vb_suite/join_merge.py",
+        "pandas/src/parser/tokenizer.c",
+        "pandas/stats/tests/test_moments.py",
+        "pandas/tests/test_tseries.py",
+        "pandas/tseries/tests/test_period.py",
+        "pandas/tests/test_panel.py",
+        "pandas/tests/test_testing.py",
+        "pandas/core/indexing.py",
+        "pandas/tseries/base.py",
+        "pandas/core/base.py",
+        "vb_suite/eval.py",
+        "pandas/tseries/tests/test_plotting.py",
+        "pandas/tools/merge.py",
+        "vb_suite/reindex.py",
+        "pandas/core/config.py",
+        "pandas/io/data.py",
+        "pandas/core/strings.py",
+        "pandas/tools/pivot.py",
+        "pandas/src/parse_helper.h",
+        "pandas/io/packers.py",
+        "pandas/io/tests/test_json/test_ujson.py",
+        "pandas/stats/moments.py",
+        "pandas/io/tests/test_pytables.py",
+        "pandas/tests/test_categorical.py",
+        "pandas/tools/plotting.py"
+      ],
+      "total_input_chars": 20356,
+      "candidate_count": 52,
+      "stopping_reason": "preferred_input_target",
+      "stopped_at_path": "pandas/tests/test_series.py",
+      "path_decisions": [
+        {
+          "path": "doc/sphinxext/numpydoc/comment_eater.py",
+          "decision": "admitted",
+          "total_input_chars": 6027,
+          "marginal_chars": 6027,
+          "candidate_count": 2
+        },
+        {
+          "path": "pandas/tools/rplot.py",
+          "decision": "admitted",
+          "total_input_chars": 6373,
+          "marginal_chars": 346,
+          "candidate_count": 3
+        },
+        {
+          "path": "pandas/core/ops.py",
+          "decision": "admitted",
+          "total_input_chars": 14882,
+          "marginal_chars": 8509,
+          "candidate_count": 34
+        },
+        {
+          "path": "pandas/tests/test_index.py",
+          "decision": "admitted",
+          "total_input_chars": 20356,
+          "marginal_chars": 5474,
+          "candidate_count": 52
+        },
+        {
+          "path": "pandas/tests/test_series.py",
+          "decision": "stopped_preferred_input_target",
+          "tentative_total_input_chars": 68020,
+          "marginal_chars": 47664
+        }
+      ]
+    },
+    "new": {
+      "admitted_groups": [
+        [
+          "doc/sphinxext/numpydoc/comment_eater.py",
+          "*"
+        ],
+        [
+          "pandas/tools/rplot.py",
+          "*"
+        ],
+        [
+          "pandas/core/ops.py",
+          "*"
+        ],
+        [
+          "pandas/tests/test_index.py",
+          "*"
+        ]
+      ],
+      "admitted_paths": [
+        "doc/sphinxext/numpydoc/comment_eater.py",
+        "pandas/tools/rplot.py",
+        "pandas/core/ops.py",
+        "pandas/tests/test_index.py"
+      ],
+      "excluded_paths": [
+        "pandas/tests/test_series.py",
+        "doc/source/conf.py",
+        "pandas/io/tests/test_stata.py",
+        "pandas/sparse/series.py",
+        "pandas/tests/test_generic.py",
+        "pandas/computation/eval.py",
+        "pandas/computation/tests/test_eval.py",
+        "pandas/core/series.py",
+        "pandas/tests/test_indexing.py",
+        "vb_suite/source/conf.py",
+        "pandas/tests/test_frame.py",
+        "pandas/tests/test_groupby.py",
+        "pandas/core/generic.py",
+        "pandas/core/panel.py",
+        "pandas/core/groupby.py",
+        "vb_suite/binary_ops.py",
+        "pandas/computation/ops.py",
+        "vb_suite/series_methods.py",
+        "pandas/core/frame.py",
+        "pandas/tests/test_expressions.py",
+        "pandas/core/index.py",
+        "pandas/tseries/tests/test_base.py",
+        "pandas/tools/tests/test_merge.py",
+        "pandas/tseries/tests/test_timeseries.py",
+        "vb_suite/join_merge.py",
+        "pandas/src/parser/tokenizer.c",
+        "pandas/stats/tests/test_moments.py",
+        "pandas/tests/test_tseries.py",
+        "pandas/tseries/tests/test_period.py",
+        "pandas/tests/test_panel.py",
+        "pandas/tests/test_testing.py",
+        "pandas/core/indexing.py",
+        "pandas/tseries/base.py",
+        "pandas/core/base.py",
+        "vb_suite/eval.py",
+        "pandas/tseries/tests/test_plotting.py",
+        "pandas/tools/merge.py",
+        "vb_suite/reindex.py",
+        "pandas/core/config.py",
+        "pandas/io/data.py",
+        "pandas/core/strings.py",
+        "pandas/tools/pivot.py",
+        "pandas/src/parse_helper.h",
+        "pandas/io/packers.py",
+        "pandas/io/tests/test_json/test_ujson.py",
+        "pandas/stats/moments.py",
+        "pandas/io/tests/test_pytables.py",
+        "pandas/tests/test_categorical.py",
+        "pandas/tools/plotting.py"
+      ],
+      "total_input_chars": 20356,
+      "candidate_count": 52,
+      "stopping_reason": "preferred_input_target",
+      "stopped_at_path": "pandas/tests/test_series.py",
+      "path_decisions": [
+        {
+          "path": "doc/sphinxext/numpydoc/comment_eater.py",
+          "decision": "admitted",
+          "total_input_chars": 6027,
+          "marginal_chars": 6027,
+          "candidate_count": 2
+        },
+        {
+          "path": "pandas/tools/rplot.py",
+          "decision": "admitted",
+          "total_input_chars": 6373,
+          "marginal_chars": 346,
+          "candidate_count": 3
+        },
+        {
+          "path": "pandas/core/ops.py",
+          "decision": "admitted",
+          "total_input_chars": 14882,
+          "marginal_chars": 8509,
+          "candidate_count": 34
+        },
+        {
+          "path": "pandas/tests/test_index.py",
+          "decision": "admitted",
+          "total_input_chars": 20356,
+          "marginal_chars": 5474,
+          "candidate_count": 52
+        },
+        {
+          "path": "pandas/tests/test_series.py",
+          "decision": "stopped_preferred_input_target",
+          "tentative_total_input_chars": 68020,
+          "marginal_chars": 47664
+        }
+      ]
+    },
+    "added_paths": [],
+    "removed_paths": [],
+    "note": "Saved-input deterministic packing, not a prediction of LLM choices."
+  }
+]

@@ -657,7 +657,7 @@ class RunLLMConfig:
     endpoint_url: str = ""
     api_key: str = ""
     temperature: float = 0.0
-    max_tokens: int = 800
+    max_tokens: int | None = 800
     timeout_seconds: int = 30
     planner_strategy: str = "issue_repo_sketch_v1"
     continuity_enabled: bool = False

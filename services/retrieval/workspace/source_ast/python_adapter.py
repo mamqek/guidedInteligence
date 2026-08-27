@@ -8,6 +8,26 @@ from typing import Any, Mapping
 PYTHON_EXTENSIONS = frozenset({".py", ".pyi"})
 
 
+def owner_source_layouts(workspace_root: Path, relative_path: str) -> dict[str, Any]:
+    """Whole-file declaration/body boundaries; no semantic relevance decisions."""
+    try:
+        tree = ast.parse((workspace_root / relative_path).read_text(encoding="utf8"))
+    except (OSError, SyntaxError, UnicodeError) as exc:
+        return {"status": "failed", "reason": f"python_ast_parse_failed:{exc}", "owners": []}
+    owners = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        statements = list(node.body)
+        if statements and isinstance(statements[0], ast.Expr) and isinstance(statements[0].value, ast.Constant) and isinstance(statements[0].value.value, str):
+            statements = statements[1:]
+        first = node.body[0].lineno if node.body else node.end_lineno
+        owners.append({"line_start": node.lineno, "line_end": node.end_lineno,
+                       "signature_end": max(node.lineno, first-1),
+                       "body_ranges": [[s.lineno, s.end_lineno] for s in statements]})
+    return {"status": "ok", "adapter": "python_stdlib_ast", "owners": owners}
+
+
 def resolve_source_owners(
     workspace_root: Path,
     relative_path: str,
@@ -86,9 +106,14 @@ def source_owner_calls(workspace_root: Path, source_node: Mapping[str, Any]) -> 
         return {**result, "status": "failed", "reason": "python_owner_not_found"}
     calls: list[dict[str, Any]] = []
     visitor = _OwnerCallVisitor(owner, calls)
-    for statement in getattr(owner, "body", ()):
-        visitor.visit(statement)
-    return {**result, "status": "ok", "calls": calls}
+    if isinstance(owner, (ast.Assign, ast.AnnAssign)) and isinstance(owner.value, ast.Lambda):
+        visitor.visit(owner.value.body)
+    else:
+        for statement in getattr(owner, "body", ()):
+            visitor.visit(statement)
+    return {**result, "status": "ok", "source_kind": source_node.get("kind", "function"),
+            "source_identity_kind": "ast_source_owner" if str(source_node.get("id", "")).startswith("source_owner:") else "graph_node",
+            "calls": calls}
 
 
 def _find_owner(tree: ast.AST, source_node: Mapping[str, Any]) -> ast.AST | None:
@@ -98,8 +123,10 @@ def _find_owner(tree: ast.AST, source_node: Mapping[str, Any]) -> ast.AST | None
     candidates = [
         node
         for node in ast.walk(tree)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and node.name == expected_name
+        if (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == expected_name)
+        or (isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(node.value, ast.Lambda)
+            and len(node.targets if isinstance(node, ast.Assign) else [node.target]) == 1
+            and _assignment_name(node.targets[0] if isinstance(node, ast.Assign) else node.target) == expected_name)
     ]
     if not candidates:
         return None

@@ -4,7 +4,7 @@ from contextlib import redirect_stderr
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from services.llm.json_completion import complete_json, reset_runtime_state
+from services.llm.json_completion import complete_json, reset_runtime_state, _request_payload
 
 
 def _config() -> SimpleNamespace:
@@ -27,6 +27,19 @@ def _response(content: str) -> dict[str, object]:
 class JsonCompletionRetryTests(unittest.TestCase):
     def setUp(self) -> None:
         reset_runtime_state()
+
+    def test_optional_completion_budget_preserves_schema_and_explicit_caps(self) -> None:
+        schema = {"type": "json_schema", "json_schema": {"name": "unchanged"}}
+        for model, parameter in (("gpt-5.6-luna", "max_completion_tokens"), ("gpt-test", "max_tokens")):
+            config = _config()
+            config.model = model
+            config.max_tokens = None
+            payload = _request_payload(config, (), response_format=schema)
+            self.assertNotIn("max_tokens", payload)
+            self.assertNotIn("max_completion_tokens", payload)
+            self.assertEqual(payload["response_format"], schema)
+            config.max_tokens = 64
+            self.assertEqual(_request_payload(config, ())[parameter], 64)
 
     def test_invalid_json_warns_and_retries_same_request_once(self) -> None:
         events: list[tuple[str, dict[str, object]]] = []
