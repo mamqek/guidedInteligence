@@ -2,20 +2,20 @@
 
 - Configuration: `codex` / `gpt-5.6-luna` / `efficient`
 - Campaign target: 35 cases × 4 valid runs = 140
-- Completed valid runs: 0
+- Completed valid runs: 26
 - Active testcase: `none`
-- Stop reason: `none`
+- Stop reason: `stopped_after_3_consecutive_failures`
 - Historical Luna runs are references only and are not included in the four-run campaign average.
 
 | Testcase | Status | Campaign run IDs | Failed attempts | Historical Luna reference | Remaining |
 |---|---|---|---|---|---:|
-| `microsoft-TypeScript-10020` | pending |  |  | run-20260815T005105Z | 4 |
-| `microsoft-TypeScript-10041` | pending |  |  | run-20260815T010234Z | 4 |
-| `microsoft-TypeScript-10473` | pending |  |  | run-20260815T005839Z | 4 |
-| `microsoft-TypeScript-16278` | pending |  |  | run-20260815T005500Z | 4 |
-| `microsoft-TypeScript-19074` | pending |  |  | run-20260815T010953Z | 4 |
-| `microsoft-TypeScript-24625` | pending |  |  |  | 4 |
-| `microsoft-TypeScript-2953` | pending |  |  |  | 4 |
+| `microsoft-TypeScript-10020` | complete | run-20260826T142635Z<br>run-20260826T142734Z<br>run-20260826T142823Z<br>run-20260826T142919Z |  | run-20260815T005105Z | 0 |
+| `microsoft-TypeScript-10041` | complete | run-20260826T143004Z<br>run-20260826T143101Z<br>run-20260826T143153Z<br>run-20260826T143250Z |  | run-20260815T010234Z | 0 |
+| `microsoft-TypeScript-10473` | complete | run-20260826T143350Z<br>run-20260826T143442Z<br>run-20260826T143533Z<br>run-20260826T143627Z |  | run-20260815T005839Z | 0 |
+| `microsoft-TypeScript-16278` | complete | run-20260826T143724Z<br>run-20260826T143828Z<br>run-20260826T143922Z<br>run-20260826T144016Z |  | run-20260815T005500Z | 0 |
+| `microsoft-TypeScript-19074` | complete | run-20260826T144120Z<br>run-20260826T144218Z<br>run-20260826T144309Z<br>run-20260826T144352Z |  | run-20260815T010953Z | 0 |
+| `microsoft-TypeScript-24625` | complete | run-20260826T144441Z<br>run-20260826T144537Z<br>run-20260826T144634Z<br>run-20260826T144724Z |  |  | 0 |
+| `microsoft-TypeScript-2953` | pending | run-20260826T144827Z<br>run-20260826T144936Z | run-20260826T145039Z: missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json<br>run-20260826T145104Z: missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json<br>run-20260826T145134Z: missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json |  | 2 |
 | `microsoft-TypeScript-35468` | pending |  |  |  | 4 |
 | `microsoft-TypeScript-45713` | pending |  |  |  | 4 |
 | `microsoft-TypeScript-46770` | pending |  |  |  | 4 |
