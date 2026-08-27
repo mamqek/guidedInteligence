@@ -24,4 +24,17 @@ Question words are not intent labels by themselves. Keep conversation relation, 
 
 Extract error text, literals, identifiers, and concise conceptual search terms. For code examples, preserve literal repository-facing type/API names and member names as separate identifiers (for example, `Series` and `add`), rather than replacing them only with local variables such as `s1` and `s2`. Do not invent names that are absent from the prompt. Paths and symbols will be normalized against the prompt after this call, so do not reinterpret paths or turn natural-language phrases into symbols.
 
+Keep conceptual search terms distinct from exact reproduction entities and observable outcomes:
+
+- Begin with the request's explicitly declared search terms and stable relational concepts stated in its title or
+  requested comparison.
+- Prefer multiword mechanism or state concepts such as a dependency transition, cached signature, project
+  invalidation, or method-registration path.
+- Do not emit path basenames, reproduction variable names, versions, commands, error text, or source identifiers as
+  conceptual terms; those belong to their typed anchor categories.
+- Do not emit generic single words such as a type category, file role, subsystem noun, or outcome word when the word
+  can mean many unrelated things across a repository. Retain the narrower relational phrase instead.
+- Add only a small secondary tail of inferred mechanism concepts after the stable request-grounded core. Do not
+  concatenate every noun from the reproduction into the query vocabulary.
+
 Return only the JSON required by the supplied schema.

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "campaign": "2026-08-26-codex-luna-four-runs",
   "created_at": "2026-08-26T14:26:23.423606+00:00",
-  "updated_at": "2026-08-26T14:26:23.423606+00:00",
+  "updated_at": "2026-08-26T14:51:59.590353+00:00",
   "retrieval_mode": "codex",
   "codex_model": "gpt-5.6-luna",
   "codex_prompt_profile": "efficient",
@@ -10,59 +10,218 @@
   "target_valid_runs_per_case": 4,
   "historical_runs_are_reference_only": true,
   "active_case": "",
-  "stop_reason": "",
+  "stop_reason": "stopped_after_3_consecutive_failures",
   "cases": {
     "microsoft-TypeScript-10020": {
-      "status": "pending",
+      "status": "complete",
       "historical_luna_runs": [
         "run-20260815T005105Z"
       ],
-      "campaign_runs": [],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260826T142635Z",
+          "started_at": "2026-08-26T14:26:35.071256+00:00",
+          "completed_at": "2026-08-26T14:27:33.484263+00:00"
+        },
+        {
+          "run_id": "run-20260826T142734Z",
+          "started_at": "2026-08-26T14:27:33.484263+00:00",
+          "completed_at": "2026-08-26T14:28:22.860462+00:00"
+        },
+        {
+          "run_id": "run-20260826T142823Z",
+          "started_at": "2026-08-26T14:28:22.860462+00:00",
+          "completed_at": "2026-08-26T14:29:18.379928+00:00"
+        },
+        {
+          "run_id": "run-20260826T142919Z",
+          "started_at": "2026-08-26T14:29:18.379928+00:00",
+          "completed_at": "2026-08-26T14:30:03.494641+00:00"
+        }
+      ],
       "failed_attempts": []
     },
     "microsoft-TypeScript-10041": {
-      "status": "pending",
+      "status": "complete",
       "historical_luna_runs": [
         "run-20260815T010234Z"
       ],
-      "campaign_runs": [],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260826T143004Z",
+          "started_at": "2026-08-26T14:30:03.494641+00:00",
+          "completed_at": "2026-08-26T14:31:00.159140+00:00"
+        },
+        {
+          "run_id": "run-20260826T143101Z",
+          "started_at": "2026-08-26T14:31:00.161200+00:00",
+          "completed_at": "2026-08-26T14:31:52.896002+00:00"
+        },
+        {
+          "run_id": "run-20260826T143153Z",
+          "started_at": "2026-08-26T14:31:52.896002+00:00",
+          "completed_at": "2026-08-26T14:32:49.313880+00:00"
+        },
+        {
+          "run_id": "run-20260826T143250Z",
+          "started_at": "2026-08-26T14:32:49.313880+00:00",
+          "completed_at": "2026-08-26T14:33:49.707435+00:00"
+        }
+      ],
       "failed_attempts": []
     },
     "microsoft-TypeScript-10473": {
-      "status": "pending",
+      "status": "complete",
       "historical_luna_runs": [
         "run-20260815T005839Z"
       ],
-      "campaign_runs": [],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260826T143350Z",
+          "started_at": "2026-08-26T14:33:49.717799+00:00",
+          "completed_at": "2026-08-26T14:34:41.277842+00:00"
+        },
+        {
+          "run_id": "run-20260826T143442Z",
+          "started_at": "2026-08-26T14:34:41.288185+00:00",
+          "completed_at": "2026-08-26T14:35:32.304545+00:00"
+        },
+        {
+          "run_id": "run-20260826T143533Z",
+          "started_at": "2026-08-26T14:35:32.304545+00:00",
+          "completed_at": "2026-08-26T14:36:27.028400+00:00"
+        },
+        {
+          "run_id": "run-20260826T143627Z",
+          "started_at": "2026-08-26T14:36:27.028955+00:00",
+          "completed_at": "2026-08-26T14:37:23.230477+00:00"
+        }
+      ],
       "failed_attempts": []
     },
     "microsoft-TypeScript-16278": {
-      "status": "pending",
+      "status": "complete",
       "historical_luna_runs": [
         "run-20260815T005500Z"
       ],
-      "campaign_runs": [],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260826T143724Z",
+          "started_at": "2026-08-26T14:37:23.232590+00:00",
+          "completed_at": "2026-08-26T14:38:27.130325+00:00"
+        },
+        {
+          "run_id": "run-20260826T143828Z",
+          "started_at": "2026-08-26T14:38:27.132352+00:00",
+          "completed_at": "2026-08-26T14:39:21.409487+00:00"
+        },
+        {
+          "run_id": "run-20260826T143922Z",
+          "started_at": "2026-08-26T14:39:21.412696+00:00",
+          "completed_at": "2026-08-26T14:40:15.856448+00:00"
+        },
+        {
+          "run_id": "run-20260826T144016Z",
+          "started_at": "2026-08-26T14:40:15.860180+00:00",
+          "completed_at": "2026-08-26T14:41:19.705569+00:00"
+        }
+      ],
       "failed_attempts": []
     },
     "microsoft-TypeScript-19074": {
-      "status": "pending",
+      "status": "complete",
       "historical_luna_runs": [
         "run-20260815T010953Z"
       ],
-      "campaign_runs": [],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260826T144120Z",
+          "started_at": "2026-08-26T14:41:19.715783+00:00",
+          "completed_at": "2026-08-26T14:42:18.052964+00:00"
+        },
+        {
+          "run_id": "run-20260826T144218Z",
+          "started_at": "2026-08-26T14:42:18.052964+00:00",
+          "completed_at": "2026-08-26T14:43:08.548959+00:00"
+        },
+        {
+          "run_id": "run-20260826T144309Z",
+          "started_at": "2026-08-26T14:43:08.559064+00:00",
+          "completed_at": "2026-08-26T14:43:51.731545+00:00"
+        },
+        {
+          "run_id": "run-20260826T144352Z",
+          "started_at": "2026-08-26T14:43:51.731545+00:00",
+          "completed_at": "2026-08-26T14:44:40.582597+00:00"
+        }
+      ],
       "failed_attempts": []
     },
     "microsoft-TypeScript-24625": {
-      "status": "pending",
+      "status": "complete",
       "historical_luna_runs": [],
-      "campaign_runs": [],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260826T144441Z",
+          "started_at": "2026-08-26T14:44:40.585315+00:00",
+          "completed_at": "2026-08-26T14:45:36.674561+00:00"
+        },
+        {
+          "run_id": "run-20260826T144537Z",
+          "started_at": "2026-08-26T14:45:36.680251+00:00",
+          "completed_at": "2026-08-26T14:46:33.955029+00:00"
+        },
+        {
+          "run_id": "run-20260826T144634Z",
+          "started_at": "2026-08-26T14:46:33.955029+00:00",
+          "completed_at": "2026-08-26T14:47:23.435123+00:00"
+        },
+        {
+          "run_id": "run-20260826T144724Z",
+          "started_at": "2026-08-26T14:47:23.435123+00:00",
+          "completed_at": "2026-08-26T14:48:26.129286+00:00"
+        }
+      ],
       "failed_attempts": []
     },
     "microsoft-TypeScript-2953": {
       "status": "pending",
       "historical_luna_runs": [],
-      "campaign_runs": [],
-      "failed_attempts": []
+      "campaign_runs": [
+        {
+          "run_id": "run-20260826T144827Z",
+          "started_at": "2026-08-26T14:48:26.139381+00:00",
+          "completed_at": "2026-08-26T14:49:35.902524+00:00"
+        },
+        {
+          "run_id": "run-20260826T144936Z",
+          "started_at": "2026-08-26T14:49:35.902524+00:00",
+          "completed_at": "2026-08-26T14:50:39.043403+00:00"
+        }
+      ],
+      "failed_attempts": [
+        {
+          "run_id": "run-20260826T145039Z",
+          "started_at": "2026-08-26T14:50:39.044939+00:00",
+          "completed_at": "2026-08-26T14:51:03.794373+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        },
+        {
+          "run_id": "run-20260826T145104Z",
+          "started_at": "2026-08-26T14:51:03.800024+00:00",
+          "completed_at": "2026-08-26T14:51:33.280335+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        },
+        {
+          "run_id": "run-20260826T145134Z",
+          "started_at": "2026-08-26T14:51:33.280335+00:00",
+          "completed_at": "2026-08-26T14:51:59.590353+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        }
+      ]
     },
     "microsoft-TypeScript-35468": {
       "status": "pending",

@@ -4636,3 +4636,38 @@ Verification:
   present upstream in either run, so natural final-flow removal remains unexercised.
 - Decision: best-effort retained. See
   [`qualification-obligation-scope-experiment.md`](qualification-obligation-scope-experiment.md).
+
+# 2026-08-27 — Conceptual request-query stabilization
+
+- Scope: `classify_intent` only for TypeScript 35468. Qdrant, CodeGraph, qualification, controller rounds, final
+  selection, and explanation generation were deliberately not run.
+- Changed the request-analysis contract to distinguish stable request-grounded relational concepts from reproduction
+  entities, observable outcomes, typed anchors, and a bounded secondary mechanism tail.
+- Repetitions `concept-attempt-1-run-1.json` and `concept-attempt-1-run-2.json` shared the ordered core `project
+  references`, `reexports`, `wildcard re-exports`, `watch mode`, and `dependency invalidation`. The first added only
+  `referenced-project rebuild state`; the second added no further term.
+- Neither repetition emitted the previous free-standing reproduction basenames or generic `type`, `interface`,
+  `project`, or `error` terms. Exact anchors and the direct-import/non-watch/watch contrasts remained intact.
+- Decision: prompt-only attempt 1 retained; the remaining four allowed attempts were unnecessary. This focused result
+  does not claim downstream retrieval improvement. See
+  [`decisions/request-analysis-concept-stability-experiment.md`](decisions/request-analysis-concept-stability-experiment.md).
+
+## Actual-pipeline follow-up
+
+- Invalid `run-20260827T023849Z` failed before retrieval because the invoking shell selected Node without
+  `node:sqlite`; it is excluded. The two counted runs used the bundled compatible Node runtime.
+- `run-20260827T023945Z`: `partial/false`, 12 final evidence items, three implementation-Oracles, 102,546 retrieval
+  tokens, three controller rounds, and seven executed controller actions.
+- `run-20260827T024536Z`: `partial/false`, 12 final evidence items, four implementation-Oracles, 146,101 retrieval
+  tokens, four controller rounds, and fourteen executed controller actions. One malformed structured response was
+  retried by the existing LLM retry path.
+- The stabilized initial-query behavior repeated exactly at the principal mechanism targets: `watchMode.ts` dense
+  rank 1 for trigger, `builder.ts` rank 2 for ordered mechanism, and `builderState.ts` rank 1 for state changes in
+  both runs. Their global file ranks were 1/10/3 and 1/9/3.
+- The shared conceptual core remained `project references`, `reexports`, `wildcard re-exports`, and `watch mode`.
+  Secondary mechanism phrases remained semantically aligned but not identical.
+- Consolidation in the second run jointly supported subject, trigger, ordered mechanism, and state changes; resulting
+  effect and why stayed partial because the selected source did not prove the complete three-way diagnostic contrast
+  or final causal link. The first run jointly supported only state changes and left why unresolved.
+- Decision remains retained. The experiment improved its intended initial-query boundary and both runs exceeded the
+  preceding pair's one/two implementation-Oracle retention, but full sufficiency and downstream cost remain unstable.
