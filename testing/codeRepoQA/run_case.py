@@ -870,7 +870,7 @@ def _load_project_llm_config(run_config: Mapping[str, Any]) -> RunLLMConfig:
         return RunLLMConfig(
             api_style="codex_cli",
             model=str(run_config.get("generation_codex_model") or generation.get("codex_model") or run_config.get("codex_model") or "gpt-5.4-mini").strip(),
-            max_tokens=int(generation.get("max_tokens") or 800),
+            max_tokens=int(generation["max_tokens"]) if generation.get("max_tokens") is not None else None,
             timeout_seconds=int(generation.get("timeout_seconds") or codex.get("timeout_seconds") or 30),
             codex_command=tuple(resolve_codex_command(tuple(str(part) for part in command if str(part).strip()))),
             codex_ignore_user_config=bool(codex.get("ignore_user_config", run_config.get("codex_ignore_user_config", True))),
@@ -888,7 +888,7 @@ def _load_project_llm_config(run_config: Mapping[str, Any]) -> RunLLMConfig:
         endpoint_url=endpoint_url,
         api_key=api_key,
         temperature=float(api_llm.get("temperature") if api_llm.get("temperature") is not None else 0.0),
-        max_tokens=int(generation.get("max_tokens") or api_llm.get("max_tokens") or 800),
+        max_tokens=int(generation["max_tokens"]) if generation.get("max_tokens") is not None else None,
         timeout_seconds=int(generation.get("timeout_seconds") or api_llm.get("timeout_seconds") or 30),
         continuity_enabled=False,
     )

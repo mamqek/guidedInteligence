@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import json
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -41,6 +42,58 @@ class QualificationDecision:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+class QualificationReuseCache:
+    """Run-local validated judgments, independent of retrieval recurrence and batch aliases."""
+
+    def __init__(self) -> None:
+        self.entries: dict[tuple[str, str], tuple[QualificationDecision, int]] = {}
+        self.proofs: dict[tuple[str, str], tuple[QualificationDecision, int, DisclosureCard]] = {}
+
+    @classmethod
+    def proof_context(cls, payload: Mapping[str, Any], observation: Mapping[str, Any], *,
+                      card: DisclosureCard, prompt_text: str, model_context: Mapping[str, Any]) -> str:
+        # Ignore presentation only. Full backing and stable owner location still participate.
+        item = dict(observation)
+        for field in ("mode", "source_text", "truncation_reason"):
+            item.pop(field, None)
+        return cls.fingerprint(payload, {**item, "backing_source": card.complete_source_text},
+                               prompt_text=prompt_text, model_context=model_context)
+
+    @staticmethod
+    def is_crop_of(card: DisclosureCard, proof: DisclosureCard) -> bool:
+        if not card.complete_source_text or card.complete_source_text != proof.complete_source_text:
+            return False
+        # Omission markers do not constitute new source. Preserve line order, including duplicates.
+        lines = [line for line in card.source_text.splitlines()
+                 if line.strip() and "complete source lines omitted" not in line]
+        original = iter(proof.source_text.splitlines())
+        return bool(lines) and all(any(line == old for old in original) for line in lines)
+
+    @staticmethod
+    def fingerprint(payload: Mapping[str, Any], observation: Mapping[str, Any], *,
+                    prompt_text: str, model_context: Mapping[str, Any]) -> str:
+        # Resolve shared aliases; a different batch position is not a semantic change.
+        item = dict(observation)
+        context = payload["file_contexts"][item.pop("file_context_id")]
+        owner = context["relevant_owners"][item.pop("owner_context_id")]
+        item.pop("observation_id", None)
+        navigation = item.pop("navigation_context", {})
+        handle = dict(item.get("source_handle", {}))
+        if item.get("mode") == "full" and handle.get("full_line_start") and handle.get("full_line_end"):
+            # The hit window may move on rediscovery; full-body identity/location
+            # is already defined by full bounds, owner context and exact text.
+            handle.pop("line_start", None)
+            handle.pop("line_end", None)
+            item["source_handle"] = handle
+        semantic = {
+            "request": payload["request"], "obligations": payload["obligations"],
+            "path": context["path"], "owner": owner, "source": item,
+            "artifact_role": navigation.get("artifact_role", "other"),
+            "prompt": prompt_text, "model_context": dict(model_context),
+        }
+        return hashlib.sha256(json.dumps(semantic, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -108,6 +161,7 @@ def qualify_cards(
     obligations: Sequence[Any] = (),
     trace: Any | None = None,
     round_index: int = 0,
+    reuse_cache: QualificationReuseCache | None = None,
 ) -> QualificationBatch:
     if not cards:
         return QualificationBatch(decisions=(), usage={}, serialized_chars=0)
@@ -121,12 +175,14 @@ def qualify_cards(
         prompt_text=prompt_text,
         trace=trace,
         round_index=round_index,
+        reuse_cache=reuse_cache,
     )
 
 
 def _qualify_card_batch(
     *, llm_config: Any, user_request: str, cards: Sequence[DisclosureCard], max_input_chars: int,
     obligations: Sequence[Any], prompt_text: str, trace: Any | None, round_index: int,
+    reuse_cache: QualificationReuseCache | None = None,
 ) -> QualificationBatch:
     ids = tuple(card.observation_id for card in cards)
     response_format = _response_format(ids)
@@ -134,6 +190,59 @@ def _qualify_card_batch(
         user_request, cards, obligations=obligations, max_input_chars=max_input_chars,
         prompt_text=prompt_text, response_format=response_format,
     )
+    all_cards = bounded_cards
+    reused: dict[str, QualificationDecision] = {}
+    fingerprints: dict[str, str] = {}
+    proof_keys: dict[str, str] = {}
+    # Hidden continuity messages can change semantic context outside this stage.
+    if reuse_cache is not None and not getattr(llm_config, "continuity_enabled", False):
+        model_context = {key: getattr(llm_config, key, None) for key in
+                         ("api_style", "model", "endpoint_url", "temperature")}
+        cards_by_id = {card.observation_id: card for card in all_cards}
+        for item in payload["observations"]:
+            observation_id = item["observation_id"]
+            card = cards_by_id[observation_id]
+            fingerprint = reuse_cache.fingerprint(
+                payload, {**item, "backing_source": card.complete_source_text},
+                prompt_text=prompt_text, model_context=model_context,
+            )
+            fingerprints[observation_id] = fingerprint
+            entry = reuse_cache.entries.get((observation_id, fingerprint))
+            proof_key = reuse_cache.proof_context(payload, item, card=card,
+                                                 prompt_text=prompt_text, model_context=model_context)
+            proof_keys[observation_id] = proof_key
+            proof = reuse_cache.proofs.get((observation_id, proof_key))
+            reason = "unchanged_direct_proof" if entry is not None else "no_reusable_direct_proof"
+            if entry is None and proof is not None and reuse_cache.is_crop_of(card, proof[2]):
+                entry = (proof[0], proof[1])
+                cards_by_id[observation_id] = replace(proof[2], provenance_summary=card.provenance_summary)
+                reason = "retained_prior_direct_source_over_crop"
+            if entry is not None:
+                reused[observation_id] = entry[0]
+            if trace is not None:
+                trace.record("qualification_reuse_evaluated", {
+                    "round": round_index, "observation_id": observation_id,
+                    "fingerprint": fingerprint, "reused": entry is not None,
+                    "source_chars": len(item["source_text"]),
+                    "retained_source_chars": len(cards_by_id[observation_id].source_text),
+                    "previous_round": entry[1] if entry is not None else None,
+                    "decision": entry[0].to_dict() if entry is not None else None,
+                    "reason": reason,
+                })
+        all_cards = tuple(cards_by_id[card.observation_id] for card in all_cards)
+        bounded_cards = tuple(card for card in all_cards if card.observation_id not in reused)
+        ids = tuple(card.observation_id for card in bounded_cards)
+        response_format = _response_format(ids)
+        # Do not redistribute freed source capacity: retain the exact fitted source.
+        payload = _payload(user_request, bounded_cards, obligations=obligations)
+        budget["total_input_chars"] = _total_input_chars(prompt_text, response_format, payload)
+        budget["fixed_input_chars"] = _total_input_chars(
+            prompt_text, response_format,
+            _payload(user_request, bounded_cards, obligations=obligations, blank_source=True),
+        )
+    if not bounded_cards:
+        return QualificationBatch(tuple(reused[card.observation_id] for card in all_cards),
+                                  {}, 0, all_cards, 0, budget["source_capacity"])
     serialized = json.dumps(payload, sort_keys=True)
     usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
@@ -214,12 +323,22 @@ def _qualify_card_batch(
         for card in bounded_cards
     }
     decisions = _validate_decisions(response, ids, allowed_obligations)
+    if reuse_cache is not None:
+        for decision in decisions:
+            fingerprint = fingerprints.get(decision.observation_id)
+            if fingerprint is not None and decision.support_level == "direct_evidence":
+                reuse_cache.entries[(decision.observation_id, fingerprint)] = (decision, round_index)
+                card = next(card for card in all_cards if card.observation_id == decision.observation_id)
+                reuse_cache.proofs[(decision.observation_id, proof_keys[decision.observation_id])] = (
+                    decision, round_index, card,
+                )
     if trace is not None:
         trace.record(
             "qualification_decisions_created",
             {"round": round_index, "decisions": [item.to_dict() for item in decisions], "usage": dict(usage)},
         )
-    return QualificationBatch(decisions, usage, len(serialized), bounded_cards,
+    combined = {**reused, **{item.observation_id: item for item in decisions}}
+    return QualificationBatch(tuple(combined[card.observation_id] for card in all_cards), usage, len(serialized), all_cards,
                               budget["total_input_chars"], budget["source_capacity"])
 
 

@@ -58,6 +58,7 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _path_qualifications,
     _candidate_support_graph,
     _select_mechanism_flows,
+    _qualified_connecting_candidates,
     _qualified_reference_priority,
     _qualified_frontier_paths,
     _update_promotion_ledger,
@@ -729,6 +730,71 @@ class ObligationRetrievalTests(unittest.TestCase):
                 for item in ledger["flow_decisions"]
             )
         )
+
+    def test_qualified_connectors_require_semantic_and_call_proof(self) -> None:
+        caller = replace(_candidate("function:a", "src/worker.ts"), origin="qualified_direct_evidence")
+        helper = replace(_candidate("function:b", "src/readers.ts"), origin="qualified_direct_evidence")
+        candidates = {"a": caller, "b": helper}
+        edge = {"from_candidate_id": "a", "to_candidate_id": "b", "relationship": "calls",
+                "provenance": "exact_codegraph_edge"}
+        self.assertEqual(_qualified_connecting_candidates(candidates, {"a": {"state"}, "b": {"state"}}, [edge]),
+                         {"a": {"b"}, "b": {"a"}})
+        for altered in ({**edge, "relationship": "imports"}, {**edge, "provenance": "guessed"}):
+            self.assertEqual(_qualified_connecting_candidates(candidates, {"a": {"state"}, "b": {"state"}}, [altered]), {})
+        self.assertEqual(_qualified_connecting_candidates(candidates, {"a": {"state"}}, [edge]), {})
+        for altered in (replace(helper, origin="qualified_navigation_evidence"),
+                        replace(helper, path="src/utilities.ts"), replace(helper, node_id="")):
+            self.assertEqual(_qualified_connecting_candidates({"a": caller, "b": altered},
+                             {"a": {"state"}, "b": {"state"}}, [edge]), {})
+
+    def test_qualified_readers_survive_roles_and_crossing_flow_is_not_trimmed(self) -> None:
+        caller = replace(_candidate_with_text("function:createWork", "src/worker.ts",
+                         "function createWork() { return alpha() + beta() + gamma(); }"),
+                         symbol="createWork", origin="qualified_direct_evidence",
+                         provenance_origins=("qualified_direct_evidence",), obligation_ids=("state",), score=1)
+        readers = [replace(_candidate_with_text(f"function:{name}", f"src/{name}.ts",
+                          f"function {name}() {{ return store.entries; }}"), symbol=name,
+                          origin="qualified_direct_evidence", provenance_origins=("qualified_direct_evidence",),
+                          obligation_ids=("state",), score=0.2) for name in ("alpha", "beta", "gamma")]
+        states = (ObligationProgress(EvidenceObligation("state", "Explain work.", True), candidates=[caller, *readers]),)
+        edges = [{"kind": "calls", "source": {"id": caller.node_id}, "target": {"id": item.node_id}} for item in readers]
+        from unittest.mock import patch
+        with patch("services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval._qualified_connecting_candidates", return_value={}):
+            old = _select_mechanism_flows(states, expanded_edges=edges)
+        new = _select_mechanism_flows(states, expanded_edges=edges)
+        self.assertGreater(len(new[0]), len(old[0]))
+        self.assertEqual(len(new[0]), 4)
+        self.assertTrue(any(row.get("new_qualified_connecting_candidate_ids") for row in new[-1]["flow_decisions"]))
+        limited = _select_mechanism_flows(states, expanded_edges=edges, input_char_budget=old[-1]["used_chars"])
+        selected = [row for row in limited[-1]["flow_decisions"] if row["decision"] == "selected"]
+        crossing = [row for row in selected if row["crossed_budget"]]
+        self.assertEqual(len(crossing), 1)
+        self.assertEqual(selected[-1], crossing[0])
+        self.assertTrue(set(crossing[0]["candidate_ids"]).issubset(limited[0]))
+        self.assertGreater(limited[-1]["used_chars"], old[-1]["used_chars"])
+
+        # An exact threshold still permits the following eligible complete flow.
+        first_chars = selected[0]["used_chars"]
+        equal = _select_mechanism_flows(states, expanded_edges=edges, input_char_budget=first_chars)
+        equal_selected = [row for row in equal[-1]["flow_decisions"] if row["decision"] == "selected"]
+        self.assertEqual(len(equal_selected), 2)
+        self.assertEqual(equal_selected[-1]["previous_used_chars"], first_chars)
+        self.assertTrue(equal_selected[-1]["crossed_budget"])
+
+        first_crossing = _select_mechanism_flows(states, expanded_edges=edges, input_char_budget=first_chars-1)
+        self.assertEqual(len(first_crossing[3]), 1)
+        self.assertGreater(first_crossing[-1]["selected_connection_count"], 0)
+        self.assertEqual(first_crossing[-1]["selected_connection_count"],
+                         first_crossing[-1]["eligible_connection_count"])
+        self.assertEqual(first_crossing[-1]["budget_excluded_connection_count"], 0)
+        self.assertTrue(all(edge["from_candidate_id"] in first_crossing[0]
+                            and edge["to_candidate_id"] in first_crossing[0]
+                            for edge in first_crossing[4]))
+        self.assertTrue(any(row["decision"] == "rejected_after_input_budget_crossing"
+                            for row in first_crossing[-1]["flow_decisions"]))
+
+        already_over = _select_mechanism_flows(states, expanded_edges=edges, input_char_budget=0)
+        self.assertFalse(already_over[0])
 
     def test_consolidation_schema_has_one_global_evidence_budget(self) -> None:
         schema = _consolidation_response_format(("state", "why"), ("candidate:a", "candidate:b"))

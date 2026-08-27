@@ -1,0 +1,392 @@
+[
+  {
+    "run_id": "run-20260827T125119Z",
+    "trace_pool_line": 781,
+    "trace_ledger_line": 783,
+    "pool_candidates": 9,
+    "island_count": 3,
+    "total_direct": 3,
+    "top_two_direct": 3,
+    "top_two_source_chars": 14543,
+    "top_two_candidate_arrays_chars": 8639,
+    "more_than_three_direct_islands": 0,
+    "direct_majority_islands": 0,
+    "actual_final_input_chars": 11374,
+    "cost_scope": "Candidate arrays use the current final schema and source cap; excludes prompt/schema/flows/connections. Not an island-policy LLM input.",
+    "unmatched": [],
+    "islands": [
+      {
+        "island_id": "island_6f28abba9aaa2481",
+        "files": [
+          "pandas/core/common.py",
+          "pandas/core/ops.py",
+          "pandas/core/series.py"
+        ],
+        "promoted_observation_count": 6,
+        "final_pool_count": 6,
+        "direct": 3,
+        "navigation": 3,
+        "source_chars": 11831,
+        "capped_source_chars": 10871,
+        "candidate_array_chars": 8637,
+        "serializable_flow_candidates": 3,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:2fce42d3317e493dbf46ba8bbda25335",
+            "observation_id": "obs_c432c2bd222062ef",
+            "path": "pandas/core/ops.py",
+            "symbol": "_arith_method_SERIES::wrapper",
+            "support": "direct_evidence",
+            "source_chars": 2036,
+            "final_capped_source_chars": 2036,
+            "source_trace_line": 530,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:a75a77c90df8b729f40fd6a160ef26fb",
+            "observation_id": "obs_ee63b30316c8c9f1",
+            "path": "pandas/core/common.py",
+            "symbol": "_maybe_match_name",
+            "support": "direct_evidence",
+            "source_chars": 299,
+            "final_capped_source_chars": 299,
+            "source_trace_line": 361,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:method:531d43d800b19c81ace5a82f745d6111",
+            "observation_id": "obs_7fcee82d964fc060",
+            "path": "pandas/core/series.py",
+            "symbol": "Series::_binop",
+            "support": "direct_evidence",
+            "source_chars": 1700,
+            "final_capped_source_chars": 1700,
+            "source_trace_line": 205,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:ffbd72079e28ca8dadc21bc0bed2c907",
+            "observation_id": "obs_6c9c7e844d396af6",
+            "path": "pandas/core/ops.py",
+            "symbol": "add_flex_arithmetic_methods",
+            "support": "navigation_only",
+            "source_chars": 2036,
+            "final_capped_source_chars": 2036,
+            "source_trace_line": 361,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:f724de14c45fa0c73677bdf3450a6342",
+            "observation_id": "obs_c68025afcaa26d8f",
+            "path": "pandas/core/ops.py",
+            "symbol": "add_special_arithmetic_methods",
+            "support": "navigation_only",
+            "source_chars": 2791,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 361,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:00f6f2ac093bac0ef4ba5a68ac984e52",
+            "observation_id": "obs_622f21a8809d76db",
+            "path": "pandas/core/ops.py",
+            "symbol": "_create_methods",
+            "support": "navigation_only",
+            "source_chars": 2969,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 670,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_d6d4922d127fab8f",
+        "files": [
+          "pandas/core/ops.py"
+        ],
+        "promoted_observation_count": 2,
+        "final_pool_count": 2,
+        "direct": 0,
+        "navigation": 2,
+        "source_chars": 2712,
+        "capped_source_chars": 2712,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:4fe757b4f3248c68cbf855de4c9e26b3",
+            "observation_id": "obs_d7ec33839aed72bc",
+            "path": "pandas/core/ops.py",
+            "symbol": "_flex_method_SERIES",
+            "support": "navigation_only",
+            "source_chars": 1818,
+            "final_capped_source_chars": 1818,
+            "source_trace_line": 205,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:43c8ce71ae520317a75deed6366cfdd6",
+            "observation_id": "obs_249f594d65cb6355",
+            "path": "pandas/core/ops.py",
+            "symbol": "_flex_method_SERIES::flex_wrapper",
+            "support": "navigation_only",
+            "source_chars": 894,
+            "final_capped_source_chars": 894,
+            "source_trace_line": 205,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_62f3735d6bc24e8d",
+        "files": [
+          "pandas/tests/test_series.py"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 235,
+        "capped_source_chars": 235,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:method:6f9ff4cb798ad8eaade92d90ee5bb3f6",
+            "observation_id": "obs_083ad054840bed8f",
+            "path": "pandas/tests/test_series.py",
+            "symbol": "CheckNameIntegration::test_scalarop_preserve_name",
+            "support": "navigation_only",
+            "source_chars": 235,
+            "final_capped_source_chars": 235,
+            "source_trace_line": 670,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "run_id": "run-20260827T125129Z",
+    "trace_pool_line": 897,
+    "trace_ledger_line": 899,
+    "pool_candidates": 13,
+    "island_count": 2,
+    "total_direct": 1,
+    "top_two_direct": 1,
+    "top_two_source_chars": 15219,
+    "top_two_candidate_arrays_chars": 3005,
+    "more_than_three_direct_islands": 0,
+    "direct_majority_islands": 1,
+    "actual_final_input_chars": 5531,
+    "cost_scope": "Candidate arrays use the current final schema and source cap; excludes prompt/schema/flows/connections. Not an island-policy LLM input.",
+    "unmatched": [],
+    "islands": [
+      {
+        "island_id": "island_d2efc8f67038650b",
+        "files": [
+          "pandas/tests/test_series.py"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 1,
+        "navigation": 0,
+        "source_chars": 547,
+        "capped_source_chars": 547,
+        "candidate_array_chars": 3003,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:method:24a2215554f85f783df1db01bcf145ac",
+            "observation_id": "obs_9dfbb74673408833",
+            "path": "pandas/tests/test_series.py",
+            "symbol": "CheckNameIntegration::test_binop_maybe_preserve_name",
+            "support": "direct_evidence",
+            "source_chars": 547,
+            "final_capped_source_chars": 547,
+            "source_trace_line": 205,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_7dfc382dce9d5900",
+        "files": [
+          "pandas/core/common.py",
+          "pandas/core/generic.py",
+          "pandas/core/ops.py",
+          "pandas/core/series.py"
+        ],
+        "promoted_observation_count": 12,
+        "final_pool_count": 12,
+        "direct": 0,
+        "navigation": 12,
+        "source_chars": 14672,
+        "capped_source_chars": 14281,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:2fce42d3317e493dbf46ba8bbda25335",
+            "observation_id": "obs_c432c2bd222062ef",
+            "path": "pandas/core/ops.py",
+            "symbol": "_arith_method_SERIES::wrapper",
+            "support": "navigation_only",
+            "source_chars": 2036,
+            "final_capped_source_chars": 2036,
+            "source_trace_line": 80,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:43c8ce71ae520317a75deed6366cfdd6",
+            "observation_id": "obs_249f594d65cb6355",
+            "path": "pandas/core/ops.py",
+            "symbol": "_flex_method_SERIES::flex_wrapper",
+            "support": "navigation_only",
+            "source_chars": 894,
+            "final_capped_source_chars": 894,
+            "source_trace_line": 380,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:4fe757b4f3248c68cbf855de4c9e26b3",
+            "observation_id": "obs_d7ec33839aed72bc",
+            "path": "pandas/core/ops.py",
+            "symbol": "_flex_method_SERIES",
+            "support": "navigation_only",
+            "source_chars": 1818,
+            "final_capped_source_chars": 1818,
+            "source_trace_line": 205,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:a75a77c90df8b729f40fd6a160ef26fb",
+            "observation_id": "obs_ee63b30316c8c9f1",
+            "path": "pandas/core/common.py",
+            "symbol": "_maybe_match_name",
+            "support": "navigation_only",
+            "source_chars": 299,
+            "final_capped_source_chars": 299,
+            "source_trace_line": 380,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:method:9cea3e53f5a7ec5f26ac5de20636659e",
+            "observation_id": "obs_f40dd4b64bf6d469",
+            "path": "pandas/core/generic.py",
+            "symbol": "NDFrame::__finalize__",
+            "support": "navigation_only",
+            "source_chars": 653,
+            "final_capped_source_chars": 653,
+            "source_trace_line": 765,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:method:531d43d800b19c81ace5a82f745d6111",
+            "observation_id": "obs_7fcee82d964fc060",
+            "path": "pandas/core/series.py",
+            "symbol": "Series::_binop",
+            "support": "navigation_only",
+            "source_chars": 1700,
+            "final_capped_source_chars": 1700,
+            "source_trace_line": 765,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:ffbd72079e28ca8dadc21bc0bed2c907",
+            "observation_id": "obs_6c9c7e844d396af6",
+            "path": "pandas/core/ops.py",
+            "symbol": "add_flex_arithmetic_methods",
+            "support": "navigation_only",
+            "source_chars": 2036,
+            "final_capped_source_chars": 2036,
+            "source_trace_line": 380,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:f724de14c45fa0c73677bdf3450a6342",
+            "observation_id": "obs_c68025afcaa26d8f",
+            "path": "pandas/core/ops.py",
+            "symbol": "add_special_arithmetic_methods",
+            "support": "navigation_only",
+            "source_chars": 2791,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 380,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:variable:2778a10b1a128a14a42c93156aa1435e",
+            "observation_id": "obs_69102d03fd499690",
+            "path": "pandas/core/ops.py",
+            "symbol": "series_flex_funcs",
+            "support": "navigation_only",
+            "source_chars": 175,
+            "final_capped_source_chars": 175,
+            "source_trace_line": 380,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:variable:47dd6b27ef703f8bc874db1d7cd978d4",
+            "observation_id": "obs_1fee2f9d2206c47b",
+            "path": "pandas/core/ops.py",
+            "symbol": "series_special_funcs",
+            "support": "navigation_only",
+            "source_chars": 236,
+            "final_capped_source_chars": 236,
+            "source_trace_line": 380,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:c839c044e5504936be646c4e99489bac",
+            "observation_id": "obs_07e7e0dc5d140921",
+            "path": "pandas/core/ops.py",
+            "symbol": "_bool_method_SERIES::wrapper",
+            "support": "navigation_only",
+            "source_chars": 1296,
+            "final_capped_source_chars": 1296,
+            "source_trace_line": 765,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:variable:76d42d6746347dd06e942f2c5f63fd7a",
+            "observation_id": "obs_332155158b9f2be8",
+            "path": "pandas/core/ops.py",
+            "symbol": "_op_descriptions",
+            "support": "navigation_only",
+            "source_chars": 738,
+            "final_capped_source_chars": 738,
+            "source_trace_line": 765,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      }
+    ]
+  }
+]

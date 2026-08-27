@@ -46,6 +46,37 @@ def _observation(identifier: str, symbol: str, start: int, text: str) -> Discove
 
 
 class InitialOwnerComparisonTests(unittest.TestCase):
+    def test_group_keyed_schema_and_validation(self) -> None:
+        from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import (
+            _global_response_format, _validate_global_response, _payload,
+        )
+        expected = {"g1": ("o1", "o2"), "g2": ("o3",)}
+        props = _global_response_format(expected, max_selected=2)["json_schema"]["schema"]["properties"]["selections"]
+        self.assertEqual(props["required"], ["g1", "g2"])
+        self.assertFalse(props["additionalProperties"])
+        for gid, ids in expected.items():
+            schema = props["properties"][gid]["anyOf"][1]["properties"]
+            self.assertEqual(schema["primary_owner_id"]["enum"], list(ids))
+            self.assertEqual(schema["additional_owner_ids"]["items"]["enum"], list(ids))
+        primary = {"primary_owner_id": "o1", "additional_owner_ids": []}
+        self.assertEqual(_validate_global_response({"selections": {"g1": primary, "g2": None}},
+                         expected, max_selected=2), {"g1": ("o1",)})
+        invalid = [
+            {"g1": primary}, {"g1": primary, "g2": None, "g3": None},
+            {"g1": None, "g2": None},
+            {"g1": {**primary, "additional_owner_ids": ["o1"]}, "g2": None},
+            {"g1": {**primary, "additional_owner_ids": ["o3"]}, "g2": None},
+            {"g1": {**primary, "additional_owner_ids": [""]}, "g2": None},
+            {"g1": {**primary, "additional_owner_ids": ["o2"]},
+             "g2": {"primary_owner_id": "o3", "additional_owner_ids": []}},
+        ]
+        for value in invalid:
+            with self.subTest(value=value), self.assertRaises(RuntimeError):
+                _validate_global_response({"selections": value}, expected, max_selected=2)
+        item = _observation("a", "first", 1, "return first()")
+        payload = _payload({}, _candidate_groups((item,), ((item.handle.path, "*"),)))[0]
+        self.assertEqual(payload["groups"][0]["path"], item.handle.path)
+
     def test_global_selection_is_the_only_round_zero_limit(self) -> None:
         first = _observation("first", "first", 100, "function first() { return build(); }")
         second = _observation("second", "second", 200, "function second() { return update(); }")
@@ -66,10 +97,10 @@ class InitialOwnerComparisonTests(unittest.TestCase):
         with patch(
             "services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
             return_value={
-                "selections": [
-                    {"group_id": "g1", "primary_owner_id": "o1", "additional_owner_ids": []},
-                    {"group_id": "g2", "primary_owner_id": "o2", "additional_owner_ids": []},
-                ]
+                "selections": {
+                    "g1": {"primary_owner_id": "o1", "additional_owner_ids": []},
+                    "g2": {"primary_owner_id": "o2", "additional_owner_ids": []},
+                }
             },
         ):
             result = compare_initial_owners(
@@ -93,13 +124,12 @@ class InitialOwnerComparisonTests(unittest.TestCase):
         with patch(
             "services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
             return_value={
-                "selections": [
-                    {
-                        "group_id": "g1",
+                "selections": {
+                    "g1": {
                         "primary_owner_id": "o1",
                         "additional_owner_ids": ["o2", "o3"],
                     }
-                ]
+                }
             },
         ):
             result = compare_initial_owners(
@@ -133,9 +163,9 @@ class InitialOwnerComparisonTests(unittest.TestCase):
         with patch(
             "services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
             return_value={
-                "selections": [
-                    {"group_id": "g1", "primary_owner_id": "o2", "additional_owner_ids": []}
-                ]
+                "selections": {
+                    "g1": {"primary_owner_id": "o2", "additional_owner_ids": []}, "g2": None
+                }
             },
         ), self.assertRaisesRegex(RuntimeError, "initial_owner_comparison_invalid_global_selection"):
             compare_initial_owners(
@@ -166,7 +196,7 @@ class InitialOwnerComparisonTests(unittest.TestCase):
         self.assertEqual(admission.candidate_count, 2)
         self.assertGreater(admission.total_input_chars, 0)
 
-    def test_file_admission_stops_at_preferred_prefix_without_backfill(self) -> None:
+    def test_file_admission_keeps_crossing_group_and_stops_without_backfill(self) -> None:
         first = _observation("first", "first", 100, "function first() { return build(); }")
         second = _observation("second", "second", 200, "function second() { return update(); }")
         third = _observation("third", "third", 300, "function third() { return check(); }")
@@ -200,13 +230,50 @@ class InitialOwnerComparisonTests(unittest.TestCase):
             max_selected=24,
         )
 
-        self.assertEqual(admission.admitted_paths, ("pandas/core/series.py",))
+        self.assertEqual(admission.admitted_paths, ("pandas/core/series.py", "pandas/core/large.py"))
         self.assertEqual(
             admission.excluded_paths,
-            ("pandas/core/large.py", "pandas/core/small.py"),
+            ("pandas/core/small.py",),
         )
-        self.assertEqual(admission.stopping_reason, "preferred_input_target")
+        self.assertEqual(admission.stopping_reason, "preferred_input_target_crossed")
         self.assertEqual(admission.stopped_at_path, "pandas/core/large.py")
+        self.assertTrue(admission.path_decisions[1]["crossed_budget"])
+        self.assertEqual(admission.path_decisions[2]["decision"], "excluded_after_budget_crossing")
+        self.assertEqual(admission.total_input_chars, second_total)
+
+        # Equality is not overflow: the next complete group is still admitted.
+        equal = fit_initial_owner_comparison_admission(
+            obligation_descriptions={"ordered": "Explain the mechanism."},
+            observations=(first, second, third),
+            ranked_paths=("pandas/core/series.py", "pandas/core/large.py", "pandas/core/small.py"),
+            preferred_input_chars=second_total, max_input_chars=40_000,
+            max_files=24, max_selected=24)
+        self.assertEqual(len(equal.admitted_paths), 3)
+        self.assertEqual(equal.stopped_at_path, "pandas/core/small.py")
+
+    def test_first_group_may_cross_maximum_but_no_following_group_is_added(self) -> None:
+        small = _observation("small", "small", 10, "return read();")
+        large = [replace(_observation(str(i), str(i), 100+i*60, "x"*80),
+                         handle=replace(small.handle, path="large.py", node_id=f"function:{i}", line_start=i*60+1)) for i in range(15)]
+        kwargs = dict(obligation_descriptions={"ordered": "Explain work."}, max_selected=24, max_files=24,
+                      preferred_input_chars=100_000, max_input_chars=100_000)
+        measured = fit_initial_owner_comparison_admission(observations=[small], ranked_paths=[small.handle.path], **kwargs)
+        kwargs['max_input_chars'] = measured.total_input_chars
+        result = fit_initial_owner_comparison_admission(observations=[*large, small], ranked_paths=['large.py', small.handle.path], **kwargs)
+        self.assertEqual(result.admitted_paths, ('large.py',))
+        self.assertEqual(result.path_decisions[0]['decision'], 'admitted')
+        self.assertGreater(result.total_input_chars, measured.total_input_chars)
+        self.assertEqual(result.excluded_paths, (small.handle.path,))
+        self.assertEqual(result.stopping_reason, 'maximum_input_threshold_crossed')
+
+    def test_file_cap_still_applies(self) -> None:
+        first = _observation('first', 'first', 10, 'return read();')
+        second = replace(first, id='second', handle=replace(first.handle, path='second.py'))
+        result = fit_initial_owner_comparison_admission(obligation_descriptions={'ordered': 'Explain.'},
+            observations=[first,second], ranked_paths=[first.handle.path,second.handle.path],
+            preferred_input_chars=100_000, max_input_chars=100_000, max_files=1, max_selected=24)
+        self.assertEqual(result.admitted_paths, (first.handle.path,))
+        self.assertEqual(result.path_decisions[1]['decision'], 'excluded_file_limit')
 
     def test_file_admission_allows_first_file_above_preferred_but_below_hard_ceiling(self) -> None:
         value = _observation("first", "first", 100, "function first() { return build(); }")
@@ -222,7 +289,7 @@ class InitialOwnerComparisonTests(unittest.TestCase):
         )
 
         self.assertEqual(admission.admitted_paths, ("pandas/core/series.py",))
-        self.assertEqual(admission.stopping_reason, "ranking_exhausted")
+        self.assertEqual(admission.stopping_reason, "preferred_input_target_crossed")
 
     def test_resolves_sibling_methods_and_keeps_class_as_outer_context(self) -> None:
         nodes = (
@@ -406,18 +473,30 @@ class InitialOwnerComparisonTests(unittest.TestCase):
         self.assertEqual(result.dormant, ())
         self.assertEqual(result.auto_selected_group_count, 1)
 
-    def test_fails_explicitly_when_compact_comparison_exceeds_budget(self) -> None:
+    def test_comparison_allows_one_crossing_group(self) -> None:
+        value = _observation("binop", "_binop", 300, "def _binop(): pass")
+        with patch("services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
+                   return_value={"selections": {"g1": {"primary_owner_id": "o1",
+                                                 "additional_owner_ids": []}}}) as completion:
+            compare_initial_owners(llm_config=object(), obligation_descriptions={"ordered": "obligation"},
+                observations=(value,), admitted_groups=((value.handle.path, "*"),),
+                max_input_chars=10, max_selected=24)
+        completion.assert_called_once()
+
+    def test_fails_when_another_group_follows_already_over_budget_prefix(self) -> None:
         values = (
             _observation("reduce", "_reduce", 100, "def _reduce(): pass"),
-            _observation("binop", "_binop", 300, "def _binop(): pass"),
+            replace(_observation("binop", "_binop", 300, "def _binop(): pass"),
+                    handle=replace(_observation("binop", "_binop", 300, "").handle, path="other.py")),
         )
         with self.assertRaisesRegex(RuntimeError, "initial_owner_comparison_input_budget_exceeded"):
             compare_initial_owners(
                 llm_config=object(),
                 obligation_descriptions={"ordered": "obligation"},
                 observations=values,
-                admitted_groups=(("pandas/core/series.py", "ordered"),),
+                admitted_groups=(("pandas/core/series.py", "ordered"), ("other.py", "ordered")),
                 max_input_chars=10,
+                max_selected=24,
             )
 
 

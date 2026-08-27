@@ -2561,6 +2561,38 @@ def _mechanism_edge_weight(connection: Mapping[str, str]) -> float:
     return 1.0
 
 
+def _qualified_connecting_candidates(
+    candidates: Mapping[str, GroundedCandidate],
+    direct_support: Mapping[str, set[str]],
+    connections: Sequence[Mapping[str, str]],
+) -> dict[str, set[str]]:
+    """Call-connected direct evidence may add value without a mutation/name role.
+
+    This grants only eligibility at the causal-role filter, never semantic support,
+    a score bonus, a budget exemption, or final evidence selection.
+    """
+    qualified = {
+        key for key, candidate in candidates.items()
+        if candidate.node_id and candidate.origin == "qualified_direct_evidence"
+        and direct_support.get(key)
+        and "generic_utility" not in _mechanism_candidate_roles(candidate)
+    }
+    neighbors: dict[str, set[str]] = {}
+    for connection in connections:
+        if connection.get("relationship") not in {"calls", "qualified_call"}:
+            continue
+        if connection.get("provenance") not in {
+            "exact_codegraph_edge",
+            "source_inferred_same_file_call", "source_inferred_qualified_owner_call",
+        }:
+            continue
+        source, target = connection["from_candidate_id"], connection["to_candidate_id"]
+        if source != target and source in qualified and target in qualified:
+            neighbors.setdefault(source, set()).add(target)
+            neighbors.setdefault(target, set()).add(source)
+    return neighbors
+
+
 def _select_mechanism_flows(
     states: Sequence[ObligationProgress],
     *,
@@ -2645,6 +2677,7 @@ def _select_mechanism_flows(
             }
         )
     connections = list(strongest_connection_by_endpoints.values())
+    qualified_connectors = _qualified_connecting_candidates(candidates, direct_support, connections)
     adjacency: dict[str, list[tuple[str, dict[str, str]]]] = {
         candidate_id: [] for candidate_id in candidates
     }
@@ -2983,6 +3016,19 @@ def _select_mechanism_flows(
         return candidate_connected, file_connected
 
     while remaining:
+        if input_char_budget is not None and used_chars > input_char_budget:
+            # Keep the complete flow that crossed the threshold. No later
+            # flow may backfill the request, even if it would be smaller.
+            for flow in remaining:
+                flow_decisions.append({
+                    "root_candidate_id": flow["root_candidate_id"],
+                    "candidate_ids": list(flow["candidate_ids"]),
+                    "decision": "rejected_after_input_budget_crossing",
+                    "used_chars": used_chars,
+                    "input_char_budget": input_char_budget,
+                })
+            unselected.extend(remaining)
+            break
         # Re-rank after every selection. A root that can extend the mechanism
         # already retained is more useful than a disconnected root with a
         # slightly stronger standalone score. This is a positive connectivity
@@ -3063,12 +3109,18 @@ def _select_mechanism_flows(
             & {"state_owner", "domain_owner", "controller"}
             and "generic_utility" not in roles_by_candidate[candidate_id]
         ]
+        present_ids = selected_candidates | set(flow["candidate_ids"])
+        new_qualified_connecting_ids = [
+            candidate_id for candidate_id in new_ids
+            if qualified_connectors.get(candidate_id, set()) & present_ids
+        ]
         if (
             selected_flows
             and new_ids
             and not new_responsibility_keys
             and not protected_handoff_terms
             and not new_substantive_ids
+            and not new_qualified_connecting_ids
         ):
             flow_decisions.append(
                 {
@@ -3090,23 +3142,6 @@ def _select_mechanism_flows(
         )
         added_connection_chars = 0
         added_chars = added_candidate_chars + added_flow_chars
-        if input_char_budget is not None and used_chars + added_chars > input_char_budget:
-            flow_decisions.append(
-                {
-                    "root_candidate_id": flow["root_candidate_id"],
-                    "candidate_ids": list(flow["candidate_ids"]),
-                    "score": flow["score"],
-                    "root_path": root_path,
-                    "root_hypothesis_score": round(root_hypothesis_score(flow), 4),
-                    "decision": "rejected_input_char_budget",
-                    "added_chars": added_chars,
-                    "used_chars": used_chars,
-                    "input_char_budget": input_char_budget,
-                    "compared_with": overlapping_selected_flows,
-                }
-            )
-            unselected.append(flow)
-            continue
         selected_flows.append(
             {
                 "flow_id": next_flow_id,
@@ -3132,6 +3167,7 @@ def _select_mechanism_flows(
                 "direct_obligation_ids": list(flow["direct_obligation_ids"]),
                 "new_responsibility_keys": sorted(new_responsibility_keys),
                 "new_substantive_candidate_ids": new_substantive_ids,
+                "new_qualified_connecting_candidate_ids": new_qualified_connecting_ids,
                 "protected_handoff_terms": sorted(protected_handoff_terms),
                 "new_transition_count": len(new_connections),
                 "added_chars": added_chars,
@@ -3139,6 +3175,10 @@ def _select_mechanism_flows(
                 "added_flow_chars": added_flow_chars,
                 "added_connection_chars": added_connection_chars,
                 "used_chars": used_chars,
+                "previous_used_chars": used_chars - added_chars,
+                "crossed_budget": input_char_budget is not None and used_chars > input_char_budget,
+                "budget_overshoot_chars": (max(0, used_chars - input_char_budget)
+                                           if input_char_budget is not None else 0),
                 "compared_with": overlapping_selected_flows,
             }
         )
@@ -3164,8 +3204,9 @@ def _select_mechanism_flows(
     selected_connection_items: list[dict[str, str]] = []
     for connection in eligible_connection_items:
         connection_chars = len(json.dumps(connection, sort_keys=True)) + 2
-        if input_char_budget is not None and used_chars + connection_chars > input_char_budget:
-            continue
+        # These are metadata for already-admitted evidence, not another
+        # candidate admission pass. Retaining the crossing flow must not
+        # strip its relationships (or those of earlier retained flows).
         selected_connection_items.append(connection)
         used_chars += connection_chars
     request_flows = [
@@ -3188,6 +3229,7 @@ def _select_mechanism_flows(
                     "outgoing_transition_count": len(adjacency.get(candidate_id, ())),
                     "matched_request_terms": sorted(terms_by_candidate[candidate_id] & request_terms),
                     "causal_roles": sorted(roles_by_candidate[candidate_id]),
+                    "qualified_call_neighbor_ids": sorted(qualified_connectors.get(candidate_id, ())),
                     "selected_for_final_request": candidate_id in selected_candidates,
                 }
                 for candidate_id, candidate in candidates.items()
@@ -3196,6 +3238,12 @@ def _select_mechanism_flows(
             "flow_decisions": flow_decisions,
             "input_char_budget": input_char_budget,
             "used_chars": used_chars,
+            "budget_policy": "append_crossing_unit_then_stop",
+            "budget_overshoot_chars": (max(0, used_chars - input_char_budget)
+                                       if input_char_budget is not None else 0),
+            "eligible_connection_count": len(eligible_connection_items),
+            "selected_connection_count": len(selected_connection_items),
+            "budget_excluded_connection_count": len(eligible_connection_items) - len(selected_connection_items),
             "unselected_flow_count": len(unselected),
             "source_inferred_connection_count": sum(
                 str(item.get("provenance") or "").startswith("source_inferred_")

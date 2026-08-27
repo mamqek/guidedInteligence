@@ -1,0 +1,446 @@
+[
+  {
+    "run_id": "run-20260827T115757Z",
+    "trace_pool_line": 131,
+    "trace_ledger_line": 133,
+    "pool_candidates": 6,
+    "island_count": 5,
+    "total_direct": 1,
+    "top_two_direct": 1,
+    "top_two_source_chars": 3161,
+    "top_two_candidate_arrays_chars": 2871,
+    "more_than_three_direct_islands": 0,
+    "direct_majority_islands": 1,
+    "actual_final_input_chars": 5458,
+    "cost_scope": "Candidate arrays use the current final schema and source cap; excludes prompt/schema/flows/connections. Not an island-policy LLM input.",
+    "unmatched": [],
+    "islands": [
+      {
+        "island_id": "island_122d7203873bdbb4",
+        "files": [
+          "src/directives/on.js"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 1,
+        "navigation": 0,
+        "source_chars": 856,
+        "capped_source_chars": 856,
+        "candidate_array_chars": 2869,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "range:src/directives/on.js:3:37",
+            "observation_id": "obs_45bfce3eaf11e209",
+            "path": "src/directives/on.js",
+            "symbol": "",
+            "support": "direct_evidence",
+            "source_chars": 856,
+            "final_capped_source_chars": 856,
+            "source_trace_line": 68,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_58dc637a834fd290",
+        "files": [
+          "src/directive.js"
+        ],
+        "promoted_observation_count": 2,
+        "final_pool_count": 2,
+        "direct": 0,
+        "navigation": 2,
+        "source_chars": 2305,
+        "capped_source_chars": 2305,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:a3be0a4cbe6065a566c0657382734ad0",
+            "observation_id": "obs_8c8c2810e681f5a2",
+            "path": "src/directive.js",
+            "symbol": "Directive",
+            "support": "navigation_only",
+            "source_chars": 1742,
+            "final_capped_source_chars": 1742,
+            "source_trace_line": 107,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:source_owner:src/directive.js:130:224",
+            "observation_id": "obs_487f583aa9132b43",
+            "path": "src/directive.js",
+            "symbol": "Directive.parse",
+            "support": "navigation_only",
+            "source_chars": 563,
+            "final_capped_source_chars": 563,
+            "source_trace_line": 107,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_dd572a67cc32eda6",
+        "files": [
+          "src/compiler.js"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 399,
+        "capped_source_chars": 399,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:source_owner:src/compiler.js:797:807",
+            "observation_id": "obs_5ce312b52219f118",
+            "path": "src/compiler.js",
+            "symbol": "CompilerProto.defineExp",
+            "support": "navigation_only",
+            "source_chars": 399,
+            "final_capped_source_chars": 399,
+            "source_trace_line": 68,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_ef797309f16ff049",
+        "files": [
+          "src/compiler.js"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 1948,
+        "capped_source_chars": 1948,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:source_owner:src/compiler.js:690:738",
+            "observation_id": "obs_e8493595b82850ca",
+            "path": "src/compiler.js",
+            "symbol": "CompilerProto.createBinding",
+            "support": "navigation_only",
+            "source_chars": 1948,
+            "final_capped_source_chars": 1948,
+            "source_trace_line": 68,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_f76a180603741af6",
+        "files": [
+          "src/compiler.js"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 1119,
+        "capped_source_chars": 1119,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:source_owner:src/compiler.js:490:577",
+            "observation_id": "obs_77c7929608bcee16",
+            "path": "src/compiler.js",
+            "symbol": "CompilerProto.compileElement",
+            "support": "navigation_only",
+            "source_chars": 1119,
+            "final_capped_source_chars": 1119,
+            "source_trace_line": 68,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "run_id": "run-20260827T115408Z",
+    "trace_pool_line": 440,
+    "trace_ledger_line": 442,
+    "pool_candidates": 11,
+    "island_count": 7,
+    "total_direct": 6,
+    "top_two_direct": 4,
+    "top_two_source_chars": 7686,
+    "top_two_candidate_arrays_chars": 11304,
+    "more_than_three_direct_islands": 0,
+    "direct_majority_islands": 3,
+    "actual_final_input_chars": 23192,
+    "cost_scope": "Candidate arrays use the current final schema and source cap; excludes prompt/schema/flows/connections. Not an island-policy LLM input.",
+    "unmatched": [],
+    "islands": [
+      {
+        "island_id": "island_ef797309f16ff049",
+        "files": [
+          "src/compiler.js"
+        ],
+        "promoted_observation_count": 4,
+        "final_pool_count": 4,
+        "direct": 3,
+        "navigation": 1,
+        "source_chars": 5753,
+        "capped_source_chars": 5753,
+        "candidate_array_chars": 9834,
+        "serializable_flow_candidates": 3,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:source_owner:src/compiler.js:690:738",
+            "observation_id": "obs_e8493595b82850ca",
+            "path": "src/compiler.js",
+            "symbol": "CompilerProto.createBinding",
+            "support": "direct_evidence",
+            "source_chars": 1948,
+            "final_capped_source_chars": 1948,
+            "source_trace_line": 155,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:source_owner:src/compiler.js:490:577",
+            "observation_id": "obs_77c7929608bcee16",
+            "path": "src/compiler.js",
+            "symbol": "CompilerProto.compileElement",
+            "support": "navigation_only",
+            "source_chars": 2068,
+            "final_capped_source_chars": 2068,
+            "source_trace_line": 386,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:source_owner:src/compiler.js:641:685",
+            "observation_id": "obs_d6c66d1a3e4cdc41",
+            "path": "src/compiler.js",
+            "symbol": "CompilerProto.bindDirective",
+            "support": "direct_evidence",
+            "source_chars": 1290,
+            "final_capped_source_chars": 1290,
+            "source_trace_line": 155,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:source_owner:src/compiler.js:623:636",
+            "observation_id": "obs_fc7a2d53cfed99a8",
+            "path": "src/compiler.js",
+            "symbol": "CompilerProto.parseDirective",
+            "support": "direct_evidence",
+            "source_chars": 447,
+            "final_capped_source_chars": 447,
+            "source_trace_line": 270,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_a2a62f09aff37416",
+        "files": [
+          "src/exp-parser.js"
+        ],
+        "promoted_observation_count": 2,
+        "final_pool_count": 2,
+        "direct": 1,
+        "navigation": 1,
+        "source_chars": 1933,
+        "capped_source_chars": 1933,
+        "candidate_array_chars": 1470,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:829aa3076fec80e1af3c0c37e1fb05c0",
+            "observation_id": "obs_12b3a8726b1d6c81",
+            "path": "src/exp-parser.js",
+            "symbol": "makeGetter",
+            "support": "direct_evidence",
+            "source_chars": 179,
+            "final_capped_source_chars": 179,
+            "source_trace_line": 386,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:source_owner:src/exp-parser.js:117:174",
+            "observation_id": "obs_902d0022bd36d4fe",
+            "path": "src/exp-parser.js",
+            "symbol": "exports.parse",
+            "support": "navigation_only",
+            "source_chars": 1754,
+            "final_capped_source_chars": 1754,
+            "source_trace_line": 386,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_122d7203873bdbb4",
+        "files": [
+          "src/directives/on.js"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 1,
+        "navigation": 0,
+        "source_chars": 856,
+        "capped_source_chars": 856,
+        "candidate_array_chars": 3358,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "range:src/directives/on.js:3:37",
+            "observation_id": "obs_45bfce3eaf11e209",
+            "path": "src/directives/on.js",
+            "symbol": "",
+            "support": "direct_evidence",
+            "source_chars": 856,
+            "final_capped_source_chars": 856,
+            "source_trace_line": 386,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_ed8ac8847cf13c76",
+        "files": [
+          "src/directive.js"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 1,
+        "navigation": 0,
+        "source_chars": 1742,
+        "capped_source_chars": 1742,
+        "candidate_array_chars": 5298,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:a3be0a4cbe6065a566c0657382734ad0",
+            "observation_id": "obs_8c8c2810e681f5a2",
+            "path": "src/directive.js",
+            "symbol": "Directive",
+            "support": "direct_evidence",
+            "source_chars": 1742,
+            "final_capped_source_chars": 1742,
+            "source_trace_line": 155,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_487359adcce960dd",
+        "files": [
+          "src/directive.js"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 1696,
+        "capped_source_chars": 1696,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:source_owner:src/directive.js:130:224",
+            "observation_id": "obs_487f583aa9132b43",
+            "path": "src/directive.js",
+            "symbol": "Directive.parse",
+            "support": "navigation_only",
+            "source_chars": 1696,
+            "final_capped_source_chars": 1696,
+            "source_trace_line": 68,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_49600377bd77edf0",
+        "files": [
+          "test/unit/specs/directives.js"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 1214,
+        "capped_source_chars": 1214,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "range:test/unit/specs/directives.js:411:450",
+            "observation_id": "obs_d9ceafbb038e8194",
+            "path": "test/unit/specs/directives.js",
+            "symbol": "",
+            "support": "navigation_only",
+            "source_chars": 1214,
+            "final_capped_source_chars": 1214,
+            "source_trace_line": 386,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_dd572a67cc32eda6",
+        "files": [
+          "src/compiler.js"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 399,
+        "capped_source_chars": 399,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:source_owner:src/compiler.js:797:807",
+            "observation_id": "obs_5ce312b52219f118",
+            "path": "src/compiler.js",
+            "symbol": "CompilerProto.defineExp",
+            "support": "navigation_only",
+            "source_chars": 399,
+            "final_capped_source_chars": 399,
+            "source_trace_line": 68,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      }
+    ]
+  }
+]

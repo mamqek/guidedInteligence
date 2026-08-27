@@ -1,5 +1,322 @@
 # Retrieval Changelog
 
+## 2026-08-28: Group-Keyed Comparison and Focused Owner Cards
+
+Record: [group contract / focused cards](decisions/group-contract-and-focused-owner-cards.md).
+G replaces globally permissive group/owner pairings with per-group nullable selection objects, group-local enums,
+explicit group paths, and strict runtime checks. Same 139-owner/eight-file payload passes twice (15/16 selected),
+21,895/22,036 tokens; input grows 63,119 -> 65,821 characters. No model-ID repair or validation bypass.
+
+F replaces whole-small-owner expansion with signature/focus/context windows: 16 source lines, eight focus lines,
+two surrounding lines each side, up to four signature lines, 1,024 rendered characters. Fixed-input same-schema
+cost falls 74,924 -> 69,982 but stays at six files/95 candidates. Two real focused calls pass (22/17 selected,
+20,338/20,679 tokens). Old compact admission under the new schema is 14 files rather than historical 17: schema
+overhead is separately accounted for. No rank, query, qualification, scheduler, final-budget or island change.
+
+Actual TypeScript run-20260827T225224Z / run-20260827T225234Z: partial/false, 3/2 implementation Oracle files,
+101,440/101,088 tokens. Both admit four files, compare 84/95 owners, select 14/21; index reused (83,401 points,
+rebuilt=false), dormant completion disabled, no explanation. invalidateProjectAndScheduleBuilds retains useful
+body and final ranks 2/4. Second-run builderState has six resolved canonical snippets but is excluded at initial
+file admission and never recovered. Full boundary audit: owner-source-replays/focused-acceptance.json.
+Live pair costs 202,528 vs prior B 188,395 (+7.5%), with different upstream inventories; not a causal cost estimate.
+G retained; F provisional, not quality-accepted. Source-focused rendering does not solve complete-file competition.
+
+Infrastructure attempts 225115Z / 225121Z fail before retrieval on ambient Node 20 (no node:sqlite); retry uses the
+already-installed CodeGraph Node 24.16 via process-local PATH. No package install or index rebuild. 134 focused tests
+pass. Four focused real calls + successful live pair: 287,476 measured stage/retrieval tokens. Summary-led file/claim
+memory is assessed in the decision note only; no architectural summary stage or final-selection removal implemented.
+
+## 2026-08-27: Positive Proof Retention, Owner Body Cards, and Island Audit — Mixed / Provisional
+
+Execution record: [positive-proof / owner-body / island experiments](decisions/positive-proof-owner-body-island-experiments.md).
+User authorized both qualification retention and owner-body alternatives; island-based final admission was audited,
+not implemented. No reindexing, explanation generation, model change, dormant-completion change or final-budget change.
+
+- Positive-only reuse protects unchanged direct judgments and retains the actual previously qualified source over
+  verified budget crops. New body/context still requires qualification; weak decisions are not frozen. Focused
+  tests pass. Actual 213229Z / 213541Z: partial/false, 3/2 Oracle files, 109,545 / 105,584 tokens. Helper ranks 9/8
+  cannot be credited specifically to positive-only reuse: the old cache also protected unchanged direct judgments.
+  No natural crop event; re-evaluating three unchanged weak judgments produced no direct promotion. Provisional.
+- Actual 213219Z failed at existing owner/group validation before qualification (24,548 tokens); recorded separately.
+- Targeted body repair and consistent cards use language-routed AST body boundaries, explicit signature/focus gaps
+  and exact rendered admission cost. A first offline renderer expanded into docstrings; corrected before paid calls.
+  Targeted A: two saved-input calls failed owner/group validation (44,251 tokens); not activated for full runs.
+- Consistent B: two valid saved-input calls (41,876 tokens). On identical TypeScript input, admission shrank 17→6
+  files as source views expanded. Actual 214614Z / 214625Z: partial/false, 2/2 Oracle files, 102,159 / 86,236 tokens.
+  In the first, previously bodyless setup/invalidation owners qualify direct and reach final ranks 2/4. But builder
+  and builderState were excluded early; builder was later recovered. In the second, builder's 18 canonical snippets
+  were excluded at admission despite 16 dense/13 sparse hits. Fewer tokens do not establish improvement.
+- P and B remain provisional for user review, not quality-accepted, per instruction not to revert questionable
+  outcomes before discussing them. A remains replay-only. Total measured paid verification: 514,199 tokens.
+- Island audit: top-two TypeScript islands contain 21/23, 10/11, 17/17 and 15/20 direct snippets across four saved
+  runs. Promising admission unit, but hard count gates fail: Pandas's useful _binop/operator/name island contains
+  exactly three direct and three navigation snippets and fails both proposed thresholds. Important isolated direct
+  snippets also exist. Candidate-array cost can exceed 45,000 before prompt/flow overhead. No final policy changed.
+- Detailed trace lines, all run IDs, literal payloads, positive/negative behavior and rollback decision boundaries are
+  in the linked execution note. The original handoff now points to that note as its current continuation status.
+
+## 2026-08-27: Qualification / Owner-Source Handoff — Documentation Only
+
+Prepared the [continuation plan](decisions/retrieval-handoff-qualification-and-owner-source-plan.md) without
+changing retrieval behavior or running experiments. It records the current dirty-worktree baseline, completed
+runs and failures, and two isolated future owner-body variants. It also distinguishes the current all-judgment
+reuse cache from the user's proposed protection of prior direct proof.
+
+Additional final-input audit of run-20260827T153303Z: all 16 admitted flow roots were direct evidence. The
+266-character watchMode introduceError snippet scored 21.7 at the root, versus 28.7 for the last admitted
+Project::onInvalidatedResolution root. That flow crossed 43,788 to 45,369 characters against the 45,000 flow
+threshold; introduceError was then excluded. A direct-first root rule alone would not repair this example.
+Evidence: trace 2308 (flow decisions), 2310 (budget), 2311 (literal final input). No new ranking rule was applied.
+
+## 2026-08-27: Qualification Reuse and Optional Completion Budget — Provisionally Retained
+
+User-authorized independent corrections: reuse an existing qualification for unchanged visible source and semantic
+context; remove the blanket 4,000-token generation cap without changing input/source budgets, prompts, scheduling,
+schema validation, timeout or retries. Workspace generation now uses null (API parameter omitted), with explicit
+numerical caps still supported. No owner-body disclosure change is included.
+
+- Reuse lives in the qualification stage, with one cache per controller run. It compares exact budget-fitted source,
+  owner/path/completeness context, request, obligations and prompt/model, ignoring recurrence and retrieval provenance.
+  Cached judgments are removed from the LLM batch without expanding other source cards. Both positive and negative
+  judgments are reused. Attempt 2 additionally ignores moved retrieval focus for identical full-body cards with the
+  same full bounds; attempt 1 had unnecessarily requalified a 1,910-character watchMode range for that reason.
+- Recorded helper-downgrade audit twice identifies three reusable judgments in run 124548Z, including the direct
+  getReferencedByPaths judgment. It also preserves two earlier weaker judgments: consistency is not selective
+  protection of positives. Two exact API replays of the failed final request from 131714Z return valid selections,
+  using 3,967 / 4,574 completion tokens. The second exceeds the old cap.
+- Attempt 1 actual runs 152348Z / 152358Z: partial/false, 3/4 Oracle files each, 102,630 / 107,688 tokens.
+  First run reuses getFilesAffectedBy, later final rank 8, and a navigation-only builder snippet. Second has no hits.
+- Final variant 153030Z: partial/false, 3/4 Oracle files, 14 items / six files, 108,312 tokens. Two reused judgments
+  omit 2,700 source characters from repeated qualification. Final response succeeds in 4,129 completion tokens.
+- Final variant 153303Z: partial/false, 1/4 Oracle files, 11 items / five files, 112,242 tokens. Four reused judgments
+  omit 3,266 source characters. Five qualification/coverage calls execute via the existing fourth-round extension.
+  builderState.ts was admitted: updateShapeSignature was navigation-only from its first qualification; two other
+  direct cache helpers reached the final LLM and were unselected. watchMode's cached direct introduceError survives
+  qualification but its final flow falls after the input-budget crossing. Neither loss is a cache downgrade; indirect
+  controller/selection interactions remain possible. No causal overall improvement is claimed.
+- Additional invocation 153020Z failed before qualification: comparison response 57 assigns o145 to g12 instead of
+  g13, correctly rejected by the unchanged validator (IOC-1). Cost 25,314; no final result. Replacement is recorded,
+  not substituted silently. All five actual invocations reuse existing indexes and skip explanations.
+- Final pair: 220,554 tokens versus baseline 211,290 (+4.4%), with Oracle overlap 3/1 versus 3/3. Not quality-accepted.
+  All actual verification costs 456,186 tokens; isolated final replays 36,655; combined 492,841.
+- 264 focused Python tests pass; UI build passes. UI type checking has the same 13 errors with the edited files
+  replaced in memory by their HEAD versions, so no unrelated type errors were repaired.
+
+Disposition: output-cap reliability fix retained; qualification reuse and the combined experiment remain provisional
+for user review, following the instruction not to silently revert questionable results. No body-preview repair or
+other heuristic tuning. Exact trace lines, per-stage costs, failed invocation and non-implemented body-disclosure
+options: [decision note](decisions/qualification-reuse-and-completion-budget-experiment.md).
+
+## 2026-08-27: Correct Crossing-Flow Connection Loss — Retained After Two Complete Runs
+
+User review correctly identified that retaining the crossing evidence unit must not strip its relationship metadata.
+Removed the later connection budget gate: all already-eligible connections between retained candidates accompany the
+unchanged admitted flow prefix. They remain counted in total serialized size. No new evidence units, ranking changes,
+graph eligibility changes, qualification rules or model-output-limit changes were introduced.
+
+- 203 focused regression tests pass. Two byte-identical saved-input replays preserve all recorded candidate IDs and
+  ordered flows, restoring 12/12 connections in each. Literal payloads: 48,180 → 51,671 and 47,971 → 51,421 characters.
+- run-20260827T142925Z: partial/false, 3 implementation Oracles, 14 items / 5 files, 113,718 retrieval tokens. Flow
+  accounting crosses 45,000 at 48,148; all eight eligible connections remain (ledger 1891), actual payload 51,075
+  (1893). Final response succeeds in 3,869 completion tokens, including 667 reasoning (1895). updateShapeSignature
+  reaches rank 10. Explicit metadata is no longer lost at the overflow boundary.
+- run-20260827T142935Z: partial/false, 3 implementation Oracles, 12 items / 7 files, 97,572 tokens. No flow overflow;
+  nine eligible connections retained, actual payload 37,224 (1836), valid response in 3,600 tokens / 886 reasoning
+  (1838). builderState owners updateShapeSignature/getFilesAffectedBy/updateExportedFilesMapFromCache reach ranks 6–8.
+- Existing indexes reused in both (line 9, rebuilt=false), explanation skipped, final selection enabled, no retries.
+  New verification total: 211,290 tokens. Changed upstream inputs prohibit attributing overall quality/cost differences
+  solely to the repair. Same-input replay proves preservation; live runs prove integration.
+
+Clarifications from the audit: the earlier helper downgrade used identical complete 331-character source in requests
+913/1340 of run 124548Z; the LLM changed direct → navigation/zero obligations, and the controller overwrote its earlier
+judgment before final-flow filtering. The earlier empty final outputs were caused operationally by a request-wide
+max_completion_tokens=4000 being consumed entirely by reasoning, not a per-evidence input-token limit. Why the model
+needed that reasoning budget is not observable from the trace; no claim that absent connections caused it is proven.
+The separate 4,000-character qualification-card source bound remains active; no source-minimum/preview fix was made.
+
+Detailed evidence and reproduction: [append-crossing-input-budget-experiment.md](decisions/append-crossing-input-budget-experiment.md),
+correction section; `testing/codeRepoQA/qualified-file-lead-replays/connection-preservation-live.json`.
+
+## 2026-08-27: User-Revised Append-Crossing Budgets — Mechanical Verification, Final Acceptance Incomplete
+
+User rejected skip-oversized-and-continue file packing. Replaced it with ranked complete-file admission that retains
+the crossing file, then excludes all later files. Final-flow admission now likewise keeps the crossing whole flow and
+stops; subsequent connection admission checks the already-used size, not prospective size. Qualified-helper eligibility,
+ranking, previews, qualification, prompts, model, rounds and index scope remain unchanged. Configured values remain
+60,000 / 100,000 initial and 50,000 final (45,000 flow allocation), now allowing one crossing unit.
+
+- Initial admission: 17 focused tests. Final flow admission: 78 focused tests. Combined suite: 203 tests twice.
+- Exact saved Pandas input replayed twice: original prefix 4 files / 52 snippets / 20,356 characters becomes 5 files /
+  209 snippets / 68,020 characters. The crossing file is test_series.py; series.py remains excluded. Not a quality claim.
+- run-20260827T131714Z: initial 11 files / 187 snippets / 65,497 characters (trace 53); crossing project.ts contributes
+  23 snippets, all dormant after comparison (58). Final crossing getNextInvalidatedProject flow moves 42,032 to 47,546
+  characters (1776); actual user payload 48,180 (1778). Final request and retry exhaust 4,000 completion tokens entirely
+  in reasoning and return empty content (1780/1783). Invalid; 126,329 retrieval tokens.
+- run-20260827T131856Z: initial 16 files / 188 snippets / 60,342 characters (53); crossing editorServices.ts contributes
+  14 snippets, all dormant (58). Final crossing startWatching/watchWildCardDirectories/invalidateProjectAndScheduleBuilds
+  flow moves 40,916 to 47,548 (1809); actual payload 47,971 (1811). Same final-output failure (1813/1816). Invalid;
+  125,218 tokens. Both final inputs lose all 12 eligible explicit connections because those are appended after flows.
+- Unchanged replacement run-20260827T132218Z: initial 16 files / 169 snippets / 60,051 characters; crossing react16.d.ts.
+  Owner comparison assigns watchMode owners o81/o86 to g7 instead of g6 (57); unchanged validator rejects. Invalid;
+  24,619 tokens. No qualification/final stages reached.
+- All three reuse existing indexes (line 9, rebuilt=false). No explanations. No valid coverage_status, sufficient or
+  Oracle result; do not interpret absent results as zero Oracles. Total recorded cost: 276,166 tokens, including failures.
+- Both failure classes occurred in prior runs. The larger inputs and loss of explicit connections warrant investigation,
+  but causality is not established by these different upstream inputs. No validator or completion cap was weakened.
+
+Decision: requested behavior retained provisionally for user review, not accepted as a quality improvement. No automatic
+rollback or indefinite retries. Detailed boundaries, comparison costs, failure evidence and next decisions:
+[`append-crossing-input-budget-experiment.md`](decisions/append-crossing-input-budget-experiment.md).
+Machine-readable trace audit: `testing/codeRepoQA/qualified-file-lead-replays/append-crossing-all-runs.json`.
+
+## 2026-08-27: Qualified Helper Flow Admission, Then Skip-Oversized File Packing — Both Provisional
+
+Executed consecutively, one variant each, under unchanged model/prompts/indexes/round settings. The user explicitly
+requested reporting questionable results before continuing rather than automatic reversion. Both remain provisional,
+not accepted as stable end-to-end improvements. Explanation generation skipped; final selection enabled throughout.
+
+- Step 1: final-flow admission permits semantically qualified, call-connected direct evidence without a new heuristic
+  causal-role label. Existing ranking, utility exclusion, budget and final LLM remain unchanged. Two saved TypeScript
+  pools replay exactly and now admit getReferencedByPaths, but displace other useful mechanisms under the same budget.
+  Complete TypeScript runs:
+  - run-20260827T123853Z: partial/false, 3 implementation Oracles, 13 items / 6 files, 107,658 tokens; helper passes the
+    new exception (1763) and the final LLM selects it at rank 9 (1770).
+  - run-20260827T124548Z: partial/false, 2 Oracles, 9 items / 5 files, 88,298 tokens; helper is direct in round 2 (915)
+    but navigation_only with no obligations in round 3 (1342), and is absent from flow input (1726). All final raw
+    builderState candidates have empty obligation IDs. This earlier qualification/mapping boundary is unchanged.
+  - Prior comparable runs 105127Z / 105613Z: 3 / 3 Oracles, 109,229 / 116,904 tokens. Total reductions alone are not
+    proof of improvement; final-stage costs are 17,151 / 11,294 versus 16,618 / 16,393 previously.
+  - Invalid/excluded: 123717Z, 121,627 recorded tokens, final response and retry used all 4,000 completion tokens on
+    reasoning and returned empty JSON; 124317Z, 24,326 tokens, upstream owner-comparison validator failure.
+- Step 2: oversized complete file groups are skipped, not a reason to stop all later admission. Preferred 60k/hard
+  100k ceilings unchanged. Saved Pandas input: 4 -> 17 files, 52 -> 194 snippets, 20,356 -> 59,808 characters.
+  Actual same-input replays verify:
+  - 125119Z: old/new 4/22 files, 48/191 candidates, 18,169/59,845 characters; series.py newly fits. _binop receives only
+    a signature preview and is left dormant. Later SearchNewIsland independently recovers its body (185), which
+    qualifies direct (207) and reaches final rank 2 (790).
+  - 125129Z: old/new 6/7 files, 177/180 candidates, 58,838/59,928 characters; only plotting.py is newly admitted.
+    series.py still does not fit (61,039 tentative). New-island search also recovers _binop (185), but requalification
+    later makes it navigation_only (767), leaving no obligation-state entry for final flow selection (899).
+  - Final results: partial/false in both; 1/0 implementation Oracles; 5/2 items, 4/2 files; 81,491/80,185 tokens versus
+    prior baseline 53,091. Comparison tokens 24,339/23,767 versus baseline 7,819; final tokens 7,004/4,502 versus 7,147.
+    The second run's old prefix already nearly filled 60k: its cost growth versus the historical run is not solely
+    caused by packing. No qualified-helper exception changed a Pandas final-flow decision in these two runs.
+- 202 focused regression tests pass. All measured runs reuse indexes. No additional limits, ranking weights,
+  qualification rules or preview policies were changed to improve these results. Exact boundaries, full ledger and
+  replay limitations: [`helper-flow-and-file-packing-experiments.md`](decisions/helper-flow-and-file-packing-experiments.md).
+
+## 2026-08-27: AST-Owned Callable Recovery Compatibility — Retained, No Final-Quality Gain Demonstrated
+
+- Fixed the recovery-only mismatch between `source_owner` identity and callable kind. JS/TS assignment functions
+  and Python definitions/lambda assignments now use exact identity/name/range validation in the language-routed
+  source-call adapter. Nested/sibling callable bodies are excluded; no persistent graph nodes are invented.
+  Early retrieval, qualification cards, 60k preferred comparison target, final-flow filter and action caps are unchanged.
+- 110 focused tests pass. Two actual saved-source Vue replays are identical: 9 structural requests, no LLM tokens,
+  zero eligible leads. checkPriorityDir/Directive.parse now reach call inspection; target/visibility checks still apply.
+- Complete Vue 242 runs, final selection enabled and explanation skipped:
+
+  | Run | Coverage / sufficient | Implementation Oracles | Final items / files | Retrieval tokens |
+  |---|---|---:|---:|---:|
+  | run-20260827T104818Z (prior baseline) | partial / false | 1 | 8 / 4 | 64,936 |
+  | run-20260827T115408Z | partial / false | 1 | 8 / 4 | 79,757 |
+  | run-20260827T115757Z | partial / false | 0 | 5 / 3 | 38,184 |
+
+- In 115408Z, real AST call inspection covers createBinding, bindDirective and parseDirective (trace 183/201/286,
+  12/9/4 calls). Existing unique-target resolution and shared lookup budget yield zero new leads/executions.
+  In 115757Z no resolved owner qualifies as direct evidence for discovery; both discovery batches make zero tool
+  calls (80/122). makeGetter was retrieved (38/43), resolved (54), admitted (56), then left dormant by owner comparison
+  (61), before the changed boundary. Its file did fit; comparison used 45,458 characters and exhausted the ranking.
+- Two upstream-invalid attempts are excluded, not hidden: 115315Z / 115536Z failed
+  initial_owner_comparison_invalid_global_selection, costing 24,671 / 23,220 tokens. No validator was relaxed.
+- Retain as a verified compatibility repair, not evidence of better final quality or lower cost. One complete live
+  run exercises it, the other fails to reach it; no new target recovery changed either final inventory. All runs
+  reuse existing indexes (rebuilt=false). Target-side AST/alias resolution and semantic eligibility remain open.
+- Detailed boundary audit, scope and decision:
+  [`ast-owner-recovery-compatibility.md`](decisions/ast-owner-recovery-compatibility.md).
+
+## 2026-08-27: Qualified Leads Reapplied With Explicit-Request Priority — Best-Effort Retained
+
+- Restored the separate verified-lead module, visible qualified-call discovery, and pre-slot novelty checks. Within
+  the unchanged one-per-round/two-per-run pool, source-grounded qualification/missing-information requests precede
+  incidental calls. Existing structural-child/name/rank tie-breakers remain within each tier. Pending incidental
+  targets can upgrade without duplication. Full queue, priority key, request text, winner, and suppression are traced.
+- 99 focused discovery/qualification/action-policy tests pass repeatedly. Two real saved-source AST/graph replays
+  agree (21 requests each, zero LLM tokens). Replaying old run 070351Z's queue at line 492 twice changes the winner
+  from resolutionCache.resolveModuleNames to the explicitly requested getSemanticDiagnosticsOfNextAffectedFile.
+  No live queue winner differs under the two orderings on identical inputs, so no live outcome is attributed to that
+  ordering change. Native model/prompts/index scope/caps/final filtering are unchanged; dormant completion is off.
+
+| Complete run | Case | Result | Implementation Oracles | Final items/files | Retrieval tokens |
+|---|---|---|---:|---:|---:|
+| run-20260827T105127Z | TypeScript | partial/false | 3 | 10/6 | 109,229 |
+| run-20260827T105613Z | TypeScript | partial/false | 3 | 10/5 | 116,904 |
+| run-20260827T104726Z | Pandas 10068 | partial/false | 0 | 3/2 | 53,091 |
+| run-20260827T104818Z | Vue 242 | partial/false | 1 | 8/4 | 64,936 |
+
+- TypeScript first: getReferencedByPaths recovers/directly qualifies, while isSourceFileDefaultLibrary consumes the
+  second slot and is correctly rejected. Explicit requests arrive later and hit the cap. TypeScript second: helper
+  again qualifies; a slot remains until round 4, when existing follow-up buildNextInvalidatedProject qualifies and
+  reaches final rank 6. Both helper bodies are subsequently excluded by unchanged final-flow admission. Later
+  removeResolutionsOfFile remains pending, not inspected. Useful recovery does not by itself repair downstream loss.
+- Pandas's _binop is in raw retrieval and resolved/canonical, but series.py fails early file admission (trace 62/69).
+  No verified lead is eligible; the new stage cannot be blamed for that upstream loss or credited with recovery.
+  Vue retains makeGetter but has no eligible leads: ambiguity and source_owner source-kind rejection prevent entry.
+- Excluded invalid TypeScript run 104715Z fails the existing qualification validator in round 2 (promoted snippet
+  lacks visible support), with no verified execution and 59,249 tokens. It was replaced unchanged, not hidden or
+  repaired with fallback. Complete runs total 344,160 tokens; including the failed attempt, 403,409.
+- All runs reuse semantic indexes (rebuilt=false) and skip explanation only. The first saved replay failed because
+  shell Node lacked node:sqlite; compatible bundled Node v24.16.0 resolved it. No dependency/index-policy change.
+- Retained as experimental: corrected ordering and repeatable useful owner discovery; no demonstrated final-quality
+  improvement. Remaining independent boundaries are exploratory-slot timing, final connecting-owner preservation,
+  and source_owner compatibility. Details, baseline/stage costs and exact trace lines:
+  [decision note](decisions/qualified-structural-file-lead-experiment.md),
+  `testing/codeRepoQA/qualified-file-lead-replays/priority-acceptance.json`.
+
+## 2026-08-27: Qualified Structural File Leads — Tested And Reverted
+
+- Scope: after ordinary qualification, derive exact visible cross-file call leads through the language-routed AST
+  and existing graph; reuse typed verified-lead inspection, run-local memoization, novelty suppression, and unchanged
+  one-per-round/two-per-run caps. No initial-retrieval, prompt, model, round-limit, index-policy, or final-selector changes.
+- Extracted verified-lead code into one module and passed 95 existing tests before behavior changes. First discovery
+  attempt twice recovered `BuilderState.getReferencedByPaths` but also admitted `Debug.assertDefined`: only six static
+  incoming calls were represented. Attempt 2 added a generic source-local repetition guard, measuring 23 literal calls
+  across 22 builder.ts lines. Two real AST/graph replays produced identical outcomes; 104 focused/regression tests passed.
+- Actual runs, with final selection enabled and explanation skipped:
+
+| Run | Result | Implementation Oracles | Final items/files | Retrieval tokens |
+|---|---|---:|---:|---:|
+| Baseline `run-20260827T023945Z` | partial/false | 3 | 12/7 | 102,546 |
+| Baseline `run-20260827T024536Z` | partial/false | 4 | 12/7 | 146,101 |
+| Variant `run-20260827T065917Z` | partial/false | 3 | 9/5 | 105,287 |
+| Variant `run-20260827T070351Z` | partial/false | 3 | 11/5 | 104,307 |
+
+- `run-20260827T065406Z` failed the unchanged owner-comparison validator: `o93` was selected outside group `g5`.
+  It consumed 24,358 retrieval tokens and never reached the changed stage; excluded from acceptance.
+- Intended intermediate behavior occurred twice: the caller's textual lead was already in Qdrant results, but its
+  exact callee was not an input controller snippet. The new action inspected `getReferencedByPaths`, which became
+  direct evidence. In both runs, final flow admission assigned it only `supporting` and removed every containing flow
+  as `rejected_no_new_causal_responsibility` (variant trace lines 1762 and 1662), before final LLM selection.
+- First run also inspected `getSyntacticDiagnostics`, correctly rejected as unrelated to the missing semantic error
+  (537). Second run inspected `resolveModuleNames` (845), qualified it navigation-only (866), and used its follow-up
+  to retrieve `resolveNamesWithLocalCache` (1267). That descendant became direct evidence and reached the final LLM
+  input, but was not selected; the response gives no individual reason. Its file trace failed source-island selection.
+- Both new runs used both reserved executions, leaving explicit qualification follow-ups including
+  `getSemanticDiagnosticsOfNextAffectedFile` and `createSolutionBuilderWorker` pending (1759/1659). The existing
+  structural-child priority favored the new leads. This is measured opportunity cost, not proof of counterfactual
+  final quality. Discovery used 56/45 structural requests including cache hits; controller totals were 540/506.
+- Variant stage tokens, respectively: initial comparison 21,268/21,125; qualification 31,009/32,865;
+  coverage 34,530/31,913; final consolidation 16,716/16,642; connected context 1,764/1,762. Both used three rounds.
+  Baseline 2's fourth round, final-selector retry, and file-trace selection prevent attributing its larger total to
+  the experimental difference. Completed variants total 209,594; including the failed attempt, 233,952 tokens.
+- Decision: reverted runtime implementation, extraction, and scheduler changes. Recovery was real but repeatedly
+  lost downstream; early broad call eligibility also displaced more explicitly requested work. No demonstrated
+  repeatable final benefit. Original 95 tests pass after rollback; the archived patch passes `git apply --check`.
+- See [`decisions/qualified-structural-file-lead-experiment.md`](decisions/qualified-structural-file-lead-experiment.md)
+  for full boundary evidence and [`decisions/artifacts/qualified-structural-file-lead-attempt-2.patch`](decisions/artifacts/qualified-structural-file-lead-attempt-2.patch)
+  for the reversible implementation. Replays and machine-readable summaries are under
+  `testing/codeRepoQA/qualified-file-lead-replays/`. Future work is QFL-1/VL-1: semantic lead priority and final-flow
+  treatment of qualified read-only connection owners, not a larger action cap.
+
 ## 2026-08-26: Dormant Island Completion Flag And Disabled Ablation
 
 - Added `dormant_island_completion_enabled` at the qualification-first/controller boundary. It defaults to enabled;
@@ -4671,3 +4988,38 @@ Verification:
   or final causal link. The first run jointly supported only state changes and left why unresolved.
 - Decision remains retained. The experiment improved its intended initial-query boundary and both runs exceeded the
   preceding pair's one/two implementation-Oracle retention, but full sufficiency and downstream cost remain unstable.
+
+## 2026-08-27 — Ten-owner comparison shortlist rejected
+
+- Experiment: [`decisions/owner-comparison-shortlist-experiment.md`](decisions/owner-comparison-shortlist-experiment.md).
+  A deterministic semantic/diversity shortlist ran after unchanged file admission, retained ten owners per admitted
+  file, and deferred omitted owners rather than classifying them as LLM-rejected dormant evidence. No payload-saving
+  file backfill, query change, controller-round change, or final-selection change was introduced.
+- Two real comparison replays reduced 168/173 owners to 127/110 and retained 13/14 and 20/21 previous semantic
+  selections. Comparison tokens fell from 23,543/23,033 to 17,939/15,919. Reconstructed compact payloads used synthetic
+  provenance from aggregate support counts, so this was focused feasibility evidence, not exact runtime replay.
+- Initial diagnostic runs `run-20260827T032635Z` and `run-20260827T033121Z` retained 3/2 implementation Oracles and
+  used 93,277/84,855 tokens. A missing `same_path_alternative` reason blocked the separate deferred same-file
+  search-seed route; ordinary deferred inspections still worked. That integration defect and an exact-anchor
+  hard-limit edge case were corrected before counted acceptance. One ranking variant was tried.
+- Corrected acceptance used existing indexes (`index_rebuilt=false`), GPT-5.6 Luna, dormant completion disabled,
+  final selection enabled, and explanation generation skipped:
+  - `run-20260827T033557Z`: 171 -> 114 compared owners across 17 files, 57 omissions, 15 selected owners,
+    43,492 complete comparison-input characters, 16,312 comparison tokens; `partial/false`, 11 final items,
+    2 implementation Oracles (`builder.ts`, `builderState.ts`), 102,103 retrieval tokens.
+  - `run-20260827T034005Z`: 166 -> 96 compared owners across 14 files, 70 omissions, 19 selected owners,
+    38,832 complete comparison-input characters, 15,125 comparison tokens; `partial/false`, 12 final items,
+    3 implementation Oracles (`builder.ts`, `builderState.ts`, `watchMode.ts`), 90,571 retrieval tokens.
+- Both lifecycle partitions were complete: `327 = 15 selected + 213 deferred + 99 dormant` and
+  `376 = 19 selected + 280 deferred + 77 dormant`. Every shortlist omission reached controller deferred auditing.
+- Specific effects: the first run's omitted `FileInfo` seeded a same-file search, and its omitted
+  `getNextInvalidatedProject` was recovered only in round 3 before final rank 2. The second run recovered omitted
+  `introduceError` and `verifyDependencies` through deferred inspections in rounds 2/3 and selected them at final ranks
+  10/12. Both test helpers remained navigation-only and lacked the scenario/assertions needed to complete the chain.
+- Decision: rejected and runtime reverted. The immediate unchanged baseline pair retained 3/4 Oracles and used
+  102,546/146,101 tokens. The smaller comparison is directly measured, but the entire total-token reduction is not
+  causal: the second baseline also had a fourth round and an LLM retry. Upstream inventories varied, and missing
+  watch evidence in the first corrected run was not directly cut by shortlisting; it survived comparison but
+  qualification saw the wrong scenario. Neither quality improvement nor stable non-regression was established.
+- All 100 focused tests passed with the corrected implementation; all 95 baseline tests passed after rollback.
+  The decision note links exact trace lines and a preserved implementation patch that passes `git apply --check`.

@@ -1,0 +1,1154 @@
+{
+  "run_id": "run-20260827T152358Z",
+  "judgments": 39,
+  "reuse_count": 1,
+  "rows": [
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_dec5815897dd1f84",
+      "fingerprint": "e704fb704a9c4264d44afdeafb4582ab0bb77ea79a084e74d348128e7e74ccb3",
+      "chars": 1195,
+      "path": "src/compiler/tsbuildPublic.ts",
+      "symbol": "getNextInvalidatedProject",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the continuation that consumes the pending project and invokes its build and project-reference scheduling logic.",
+        "missing_information": [
+          "The visible excerpt does not show how the invalidated project is rebuilt, how its result is propagated to referencing projects, or how diagnostics are checked."
+        ],
+        "observation_id": "obs_dec5815897dd1f84",
+        "reason": "The function visibly processes pending project reloads, reparses project configuration, and refreshes full-level config, wildcard-directory, and input-file watchers. The omitted continuation is needed to establish the complete rebuild and diagnostic path.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [
+          "explain_ordered_mechanism",
+          "explain_trigger"
+        ],
+        "visible_support": [
+          "A pending reload level is read from state.projectPendingBuild.",
+          "Full reloads call watchConfigFile, watchWildCardDirectories, and watchInputFiles after reparsing the project configuration."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_158e2d5a3ab67ecb",
+      "fingerprint": "66e3e38358562792c8e4863ac44852863ec38daaff6b25371898e56e36916428",
+      "chars": 1272,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": "verifyTransitiveReferences",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the remainder of verifyTransitiveReferences containing the project contents, change sequence, and assertions.",
+        "missing_information": [
+          "The actual project contents, re-export statements, file change, and assertions are outside the excerpt."
+        ],
+        "observation_id": "obs_158e2d5a3ab67ecb",
+        "reason": "This test helper visibly constructs a transitive three-project project-reference setup and selects the leaf project configuration to build, making it a concrete scenario owner. The excerpt does not show the wildcard re-export, interface edit, or expected diagnostic assertion.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "The helper creates aTs, bTs, and cTs project files and configurations.",
+          "It selects c/tsconfig.json or tsconfig.c.json as the configuration to build."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_4ba453749d37df14",
+      "fingerprint": "7bf1f215110ee10916dd103ea933f53cd12a33fc5a0b62768019875790b74cde",
+      "chars": 815,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": "createSolutionAndWatchModeOfProject",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "",
+        "missing_information": [
+          "This helper does not show the changed referenced source, wildcard re-export, rebuild callback, or consumer diagnostic result."
+        ],
+        "observation_id": "obs_4ba453749d37df14",
+        "reason": "The test setup visibly creates a composite solution and then starts a watch for a configuration file, establishing the relevant watch-mode project-reference test harness.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_subject"
+        ],
+        "visible_support": [
+          "createSolutionOfProject is called to build the composite project.",
+          "createWatchOfConfigFile starts watch mode for the supplied watch configuration.",
+          "Initial output errors are checked after watch creation."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_f429d6d76ec512a2",
+      "fingerprint": "daac649e8bca05754c1a29001e94cb55fc1bd794213614da6d7c63c407cbe272",
+      "chars": 1241,
+      "path": "src/compiler/builder.ts",
+      "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the remainder showing how referenced paths are converted into affected files and queued work.",
+        "missing_information": [
+          "The excerpt omits the continuation that handles non-isolated modules and shows how the traversed files are queued or diagnosed.",
+          "No wildcard re-export or specific Session path is visible."
+        ],
+        "observation_id": "obs_f429d6d76ec512a2",
+        "reason": "The implementation checks whether a changed file has a changed signature and, when applicable, follows BuilderState referenced-by paths to identify files affected by that signature change. This directly establishes part of the declaration-shape and dependency propagation mechanism.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_ordered_mechanism",
+          "explain_state_changes"
+        ],
+        "visible_support": [
+          "Processing requires exportedModulesMap and the affected file to be in changedFilesSet.",
+          "Processing stops when isChangedSignagure is false.",
+          "The isolated-modules branch obtains referenced-by paths with BuilderState.getReferencedByPaths and traverses them."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_6895da1c7227a970",
+      "fingerprint": "c63ed1a6b7c2935d5f44a5f2fc4ea56733cdecce6b1f11975dc81ae2242402cb",
+      "chars": 939,
+      "path": "src/compiler/tsbuildPublic.ts",
+      "symbol": "watchInputFiles",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "",
+        "missing_information": [
+          "The referenced-project queueing and subsequent consumer diagnostic pass are not shown here.",
+          "The excerpt does not distinguish this trigger from one-shot builds or direct imports."
+        ],
+        "observation_id": "obs_6895da1c7227a970",
+        "reason": "This watcher directly establishes the file-change trigger: each parsed input file receives a watcher whose callback invalidates the project and schedules builds.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_trigger",
+          "explain_ordered_mechanism"
+        ],
+        "visible_support": [
+          "watchInputFiles registers a source-file watcher for every parsed input path.",
+          "The watcher callback calls invalidateProjectAndScheduleBuilds with reload level None.",
+          "The callback uses the low polling interval and the parsed watch options."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_0b2b8394df6b0d7e",
+      "fingerprint": "7b8acc7428016e7936d4a52e3c8933fdd9ac6aa692ddd1f386d95a5102507403",
+      "chars": 321,
+      "path": "src/compiler/tsbuildPublic.ts",
+      "symbol": "invalidateProjectAndScheduleBuilds",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "",
+        "missing_information": [
+          "The actual invalidation state changes and the later build or diagnostic processing are outside this function."
+        ],
+        "observation_id": "obs_0b2b8394df6b0d7e",
+        "reason": "The function visibly marks that a file change was detected, invalidates the specified project, and schedules an invalidated-project build.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_trigger",
+          "explain_ordered_mechanism"
+        ],
+        "visible_support": [
+          "state.reportFileChangeDetected is set to true.",
+          "invalidateProject is called with the resolved path and reload level.",
+          "scheduleBuildInvalidatedProject is called afterward."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_5c69863ba51eee0c",
+      "fingerprint": "196f70257fae46153ab922d821f554714de27541ffa81a6baba002978722970a",
+      "chars": 1223,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": "verifyIncrementalErrors",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the assertions or test helper invoked by verifyTscWatch for the logic/core changes.",
+        "missing_information": [
+          "The visible code does not show which diagnostics are expected or whether the consumer project reports an error.",
+          "The project-reference and re-export contents are not visible."
+        ],
+        "observation_id": "obs_5c69863ba51eee0c",
+        "reason": "This test visibly exercises watch-mode incremental builds after changing files in referenced projects and checks the timeout queue after each build. It is relevant to incremental error reporting, but the excerpt does not show the assertions or the wildcard-re-export scenario.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "The test runs tsc with -b and -w.",
+          "It writes changed contents to logic and then core files.",
+          "Each change runs one queued build and verifies the timeout queue is empty afterward."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_ad3c3da59fa1d1a1",
+      "fingerprint": "814ea22d5f2a9eddcd7766f668f25f8e77539a20399b80a8be466d8f53f883d9",
+      "chars": 1204,
+      "path": "src/compiler/watch.ts",
+      "symbol": "emitFilesAndReportErrors",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the continuation showing the semantic-diagnostic collection and reporting calls.",
+        "missing_information": [
+          "The excerpt does not show watch scheduling, project-reference propagation, or why the consumer might receive no diagnostic."
+        ],
+        "observation_id": "obs_ad3c3da59fa1d1a1",
+        "reason": "The implementation establishes the diagnostic reporting stage: after parsing and syntactic diagnostics, it requests options and semantic diagnostics when no syntactic errors exist.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_resulting_effect"
+        ],
+        "visible_support": [
+          "Diagnostics begin with config-file parsing and syntactic diagnostics.",
+          "If no syntactic diagnostics were added, options diagnostics are requested and the function proceeds toward semantic error reporting.",
+          "The function is the emit-and-report-errors entry point."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_3738c8cae42c9bba",
+      "fingerprint": "95b85833542e8861ac93ea1356e5ba81d32f230aa392ec3711e91e2fed0e55b2",
+      "chars": 300,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": "changeFileWithoutError",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "reject",
+        "local_follow_up": "",
+        "missing_information": [
+          "No relevant consumer, referenced interface, re-export, or assertion is visible."
+        ],
+        "observation_id": "obs_3738c8cae42c9bba",
+        "reason": "The visible helper only renames myClass in a file and invokes a generic incremental build; it contains no project-reference, wildcard re-export, interface-shape, or diagnostic behavior tied to the issue.",
+        "support_level": "insufficient",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "The helper replaces myClass with myClass2 and calls incrementalBuild."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_5ef93d462c7cc276",
+      "fingerprint": "72a7bb0857584ea0c55c6894173c8c02c092d95b3c59166ed3e5090ca7a662b2",
+      "chars": 1279,
+      "path": "src/compiler/builder.ts",
+      "symbol": "getNextAffectedFile",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the code that builds state.affectedFiles from the changed file and its dependencies.",
+        "missing_information": [
+          "The excerpt does not show how affected files are initially populated or how project references and module exports determine the set.",
+          "No direct evidence connects the state transition to Session or wildcard re-exports."
+        ],
+        "observation_id": "obs_5ef93d462c7cc276",
+        "reason": "The affected-file iterator visibly removes cached semantic diagnostics handling for each unseen affected file, invokes DTS-shape-change handling, and later removes the changed file from the change set. This supports the incremental state transition, though not the specific wildcard path.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_state_changes"
+        ],
+        "visible_support": [
+          "Unseen affected files are passed to handleDtsMayChangeOfAffectedFile.",
+          "The code comment states that cached semantic diagnostics are removed for the next affected file.",
+          "After affected-file processing, the changed file is removed from changedFilesSet."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_4d85bb7aba967f36",
+      "fingerprint": "d013329e9686105db7ccd7408b6abf71631cf6ebc6ff9ef36bffe53756b6920c",
+      "chars": 1260,
+      "path": "src/compiler/builderState.ts",
+      "symbol": "updateShapeSignature",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the remainder showing how latestSignature is stored and how a changed signature updates affected-file state.",
+        "missing_information": [
+          "The visible excerpt does not show the non-declaration signature computation, cache writes, or how a changed signature invalidates consumers.",
+          "No wildcard re-export-specific state is visible."
+        ],
+        "observation_id": "obs_4d85bb7aba967f36",
+        "reason": "The implementation visibly caches and compares a source file's shape signature, with an early-return cache guard. This is direct evidence for the signature state used by incremental builds, although the excerpt omits the update and invalidation branches.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_state_changes"
+        ],
+        "visible_support": [
+          "hasCalledUpdateShapeSignature and cacheToUpdateSignature prevent repeat signature computation.",
+          "The previous signature is read from state.fileInfos.",
+          "Declaration-file shape is derived from sourceFile.version and compared with the previous signature."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_2b58b117f794b8d5",
+      "fingerprint": "6e12d376875a11d8b856ed708fbb1b01852b26f725185b40003acf2658139f52",
+      "chars": 999,
+      "path": "src/compiler/builderState.ts",
+      "symbol": "updateExportedModules",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the caller that invalidates or recomputes exportedModulesMapCache after a declaration shape change.",
+        "missing_information": [
+          "The excerpt does not show cache invalidation, wildcard syntax handling, or how consumers use this map after a source change."
+        ],
+        "observation_id": "obs_2b58b117f794b8d5",
+        "reason": "The function visibly rebuilds the exported-modules cache for a source file from declaration-emit symbols and records referenced module paths. This is relevant cached export state for re-export dependency tracking.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_state_changes"
+        ],
+        "visible_support": [
+          "When no declaration-emit export information exists, the cache records false.",
+          "For each exported symbol, the referenced file is obtained and added to a map when present.",
+          "The resulting map or false is stored in exportedModulesMapCache for sourceFile.path."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_c2421716b29c47c9",
+      "fingerprint": "a9339bc6360d85a2a4f07da6878451d6d292ce0e1ac6eb809c37f78621deac18",
+      "chars": 1268,
+      "path": "src/compiler/builderState.ts",
+      "symbol": "getFilesAffectedByUpdatedShapeWhenModuleEmit",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the continuation that traverses referenced-by files and returns the final affected-file list.",
+        "missing_information": [
+          "The continuation that traverses and returns the complete affected-file set is omitted.",
+          "No explicit wildcard re-export or diagnostic scheduling is visible."
+        ],
+        "observation_id": "obs_c2421716b29c47c9",
+        "reason": "The implementation visibly determines files affected by an updated shape, handles global-scope and isolated/output modes specially, and begins traversal through referenced-by paths. This establishes dependency-based propagation state.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_state_changes",
+          "explain_ordered_mechanism"
+        ],
+        "visible_support": [
+          "Global-scope changes affect all non-default-library files.",
+          "Isolated-module or out/outFile configurations return the changed source file directly.",
+          "The general path creates a seen-file map and starts from paths that reference the changed file."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_3614e2da85b0d45d",
+      "fingerprint": "0158d20820365a22c6c3300004756c6d3b9b37b33655055cada18621f567bde6",
+      "chars": 1288,
+      "path": "src/compiler/tsbuildPublic.ts",
+      "symbol": "queueReferencingProjects",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the continuation that marks the matching referencing project pending and selects its reload level.",
+        "missing_information": [
+          "The excerpt omits the condition that matches the rebuilt project and the exact pending-build reload level assigned to the consumer.",
+          "It does not show diagnostic checking after the consumer is queued."
+        ],
+        "observation_id": "obs_3614e2da85b0d45d",
+        "reason": "The function visibly controls project-reference propagation: it skips propagation on errors or non-composite projects, follows build order, examines project references, and resolves referenced project paths.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_ordered_mechanism",
+          "explain_state_changes"
+        ],
+        "visible_support": [
+          "Referencing projects are queued only when the build result has no errors.",
+          "Only composite projects are eligible for referencing-project propagation.",
+          "The function iterates later projects in build order and examines their projectReferences.",
+          "Each reference path is resolved before comparison or queueing in the omitted continuation."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_e814272abc6a511b",
+      "fingerprint": "f699f02eace74aca732d8b42a8fe23cb13eccb09224efdda2681626e77e45db8",
+      "chars": 1260,
+      "path": "src/compiler/builder.ts",
+      "symbol": "handleDtsMayChangeOf",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the remainder showing the result of updateShapeSignature and the affected-file propagation that follows it.",
+        "missing_information": [
+          "The excerpt does not show how a changed signature causes referencing files to be added or how project-reference consumers are scheduled.",
+          "No wildcard re-export is explicit."
+        ],
+        "observation_id": "obs_e814272abc6a511b",
+        "reason": "The function visibly clears semantic diagnostics for a path and, when the path is not already changed, updates its shape signature from the current program. This directly supports the DTS/signature state transition during affected-file processing.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_state_changes"
+        ],
+        "visible_support": [
+          "removeSemanticDiagnosticsOf is called before further handling.",
+          "For an unchanged path with a source file, BuilderState.updateShapeSignature is invoked.",
+          "The comments explicitly connect the signature update to correct declaration output and incremental build state."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 85,
+      "round": 0,
+      "observation_id": "obs_320d23b5d27ef2c6",
+      "fingerprint": "29e2d46bc88bb9e27d1eb0f6e4061322d7a97c0bcdeb92f36bc5d9246bddc1f2",
+      "chars": 1278,
+      "path": "src/compiler/builder.ts",
+      "symbol": "createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the remainder showing semantic diagnostics for an individual affected source file and its reporting caller.",
+        "missing_information": [
+          "The excerpt omits the per-source-file diagnostic branch and the caller that reports returned diagnostics.",
+          "It does not establish why the wildcard-re-export consumer is absent from the affected set."
+        ],
+        "observation_id": "obs_320d23b5d27ef2c6",
+        "reason": "The visible diagnostic iterator repeatedly obtains the next affected file, terminates when none remain, and returns semantic diagnostics for the whole program when appropriate. This establishes the final diagnostic-checking stage, though not the specific failure to report.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_resulting_effect",
+          "explain_ordered_mechanism"
+        ],
+        "visible_support": [
+          "getSemanticDiagnosticsOfNextAffectedFile calls getNextAffectedFile in a loop.",
+          "It returns undefined when no affected work remains.",
+          "For a whole-program affected result, it calls state.program.getSemanticDiagnostics and returns those diagnostics."
+        ]
+      },
+      "decision_line": 87
+    },
+    {
+      "request_line": 470,
+      "round": 1,
+      "observation_id": "obs_fe584ecc96bd4a46",
+      "fingerprint": "513145db94a3d18fafe71806ed540ade4ef0de6da74f53e50a11ce3f07c9b959",
+      "chars": 1727,
+      "path": "src/compiler/builder.ts",
+      "symbol": "createBuilderProgram::getSemanticDiagnostics",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve getSemanticDiagnosticsOfNextAffectedFile and its affected-file queue handling.",
+        "missing_information": [
+          "The excerpt does not show how the affected-file queue was populated from a project-reference change or wildcard re-export.",
+          "It does not show the specific consumer error or whether diagnostics are incorrectly omitted."
+        ],
+        "observation_id": "obs_fe584ecc96bd4a46",
+        "reason": "The builder's whole-program semantic-diagnostics path first processes all affected files, then collects semantic diagnostics for every source file. This directly establishes the diagnostic-checking stage after affected-file processing.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_ordered_mechanism"
+        ],
+        "visible_support": [
+          "getSemanticDiagnostics repeatedly calls getSemanticDiagnosticsOfNextAffectedFile until no affected file remains.",
+          "It then calls getSemanticDiagnosticsOfFile for every source file and returns the collected diagnostics."
+        ]
+      },
+      "decision_line": 472
+    },
+    {
+      "request_line": 470,
+      "round": 1,
+      "observation_id": "obs_f429d6d76ec512a2",
+      "fingerprint": "76989b24ab47d5ce442fa4982aa2491372f6a129236e9ae7a07110611982c242",
+      "chars": 2763,
+      "path": "src/compiler/builder.ts",
+      "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the callback used by forEachReferencingModulesOfExportOfAffectedFile and the code that updates currentAffectedFilesExportedModulesMap.",
+        "missing_information": [
+          "The excerpt does not identify a wildcard re-export or the main project's Session use specifically.",
+          "The callback implementation and subsequent diagnostic scheduling are not shown.",
+          "It does not establish the observed failure or explain why the consumer remains quiet."
+        ],
+        "observation_id": "obs_f429d6d76ec512a2",
+        "reason": "This implementation explicitly handles changed signatures and uses cached exported-module relationships to find files referencing exports of the affected file. It is direct evidence for export/dependency propagation and related cache state handling.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_ordered_mechanism",
+          "explain_state_changes"
+        ],
+        "visible_support": [
+          "The function returns unless the affected file is in changedFilesSet and has a changed signature.",
+          "It traverses referenced paths for isolated modules.",
+          "It consults currentAffectedFilesExportedModulesMap and exportedModulesMap to find files referencing paths from which the affected file is exported.",
+          "It invokes the supplied callback for those referencing files."
+        ]
+      },
+      "decision_line": 472
+    },
+    {
+      "request_line": 470,
+      "round": 1,
+      "observation_id": "obs_5ef93d462c7cc276",
+      "fingerprint": "f80ea3d1abedd036b49db682e359a236acca3baebd1c015469b1a6ac604b91da",
+      "chars": 3131,
+      "path": "src/compiler/builder.ts",
+      "symbol": "getNextAffectedFile",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve BuilderState.getFilesAffectedBy and handleDtsMayChangeOfAffectedFile for the affected-file processing details.",
+        "missing_information": [
+          "The source does not show how the changedFilesSet is populated by a file watcher.",
+          "It does not show project-reference invalidation or the wildcard re-export's concrete module-resolution path.",
+          "It does not show the consumer diagnostic result."
+        ],
+        "observation_id": "obs_5ef93d462c7cc276",
+        "reason": "The affected-file iterator shows the watch/incremental processing order: select a changed path, compute affected files, process each once, then commit signature and exported-file-map caches and continue with the next change.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_ordered_mechanism",
+          "explain_state_changes"
+        ],
+        "visible_support": [
+          "It calls handleDtsMayChangeOfAffectedFile before returning each unseen affected file.",
+          "After affected files are exhausted, it removes the changed path from changedFilesSet.",
+          "It commits signatures with updateSignaturesFromCache and exported-module data with updateExportedFilesMapFromCache.",
+          "For the next changed path, it calls BuilderState.getFilesAffectedBy and initializes affected-file tracking."
+        ]
+      },
+      "decision_line": 472
+    },
+    {
+      "request_line": 470,
+      "round": 1,
+      "observation_id": "obs_d1ccacdaddc9df40",
+      "fingerprint": "429e6eaf7d947fea7036617600903c34cb1181a16ad2be1887800a9748fe5c69",
+      "chars": 1910,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": null,
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the complete transitiveReferences scenario and its diagnostic assertions.",
+        "missing_information": [
+          "The excerpt does not show the interface change, wildcard re-export, consuming-project error, or expected diagnostic assertion."
+        ],
+        "observation_id": "obs_d1ccacdaddc9df40",
+        "reason": "The test excerpt is a concrete project-reference and transitive-reference watch/build scenario, including invalidating a project and calling buildNextInvalidatedProject, but it does not contain the requested wildcard re-export or diagnostic assertion.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "A test changes a project reference configuration and calls solutionBuilder.invalidateProject followed by buildNextInvalidatedProject.",
+          "The surrounding test suite has a section named on transitive references."
+        ]
+      },
+      "decision_line": 472
+    },
+    {
+      "request_line": 470,
+      "round": 1,
+      "observation_id": "obs_d2ee33fc289cfbe5",
+      "fingerprint": "4dd83cd052bd5f78c1fa224883b4a1eb967e93d420d4c303a2af6f28820600ce",
+      "chars": 474,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": null,
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the body of this downstream-error scenario, including its source edits and assertions.",
+        "missing_information": [
+          "The referenced and downstream source contents are truncated.",
+          "No wildcard re-export, interface-field change, watch actions, or diagnostic assertions are visible."
+        ],
+        "observation_id": "obs_d2ee33fc289cfbe5",
+        "reason": "The test heading identifies a downstream-project error caused by a referenced-project change and a subsequent fix, making it a concrete nearby test scenario for watch-mode propagation, but the excerpt contains no scenario body or assertions.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "The test suite describes the case 'when referenced project change introduces error in the down stream project and then fixes it'.",
+          "The scenario is implemented with a subproject library path."
+        ]
+      },
+      "decision_line": 472
+    },
+    {
+      "request_line": 470,
+      "round": 1,
+      "observation_id": "obs_542f6ec5c50e9373",
+      "fingerprint": "0d5c9a5df7935218ba8a6d3058365940369ee84c413f6f4ee6f1171978279436",
+      "chars": 266,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": "introduceError",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "defer",
+        "local_follow_up": "Retrieve the definition of fileWithError and the test assertions following introduceError.",
+        "missing_information": [
+          "The file being changed and its relationship to a referenced interface are not visible.",
+          "No wildcard re-export or downstream diagnostic assertion is shown."
+        ],
+        "observation_id": "obs_542f6ec5c50e9373",
+        "reason": "This helper writes a file and performs an incremental build, so it is a plausible local mechanism for introducing an error in a watch test, but it does not identify the referenced project, export path, or assertion.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "introduceError writes fileWithError.path with fileWithError.content.",
+          "It then calls incrementalBuild(sys)."
+        ]
+      },
+      "decision_line": 472
+    },
+    {
+      "request_line": 470,
+      "round": 1,
+      "observation_id": "obs_dec5815897dd1f84",
+      "fingerprint": "d9e42e38a317dc88b52d1deb09335787c5958515630f7fb6704e8a40e89f831f",
+      "chars": 2259,
+      "path": "src/compiler/tsbuildPublic.ts",
+      "symbol": "getNextInvalidatedProject",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the status computation and createBuildOrUpdateInvalidedProject caller chain.",
+        "missing_information": [
+          "The excerpt does not show the file-change watcher or the computation of these statuses.",
+          "It does not show module/export propagation, semantic diagnostics, or the specific wildcard re-export case.",
+          "It does not establish the observed missing-error result."
+        ],
+        "observation_id": "obs_dec5815897dd1f84",
+        "reason": "The solution-builder implementation directly shows how project status controls invalidated-project processing: up-to-date projects are skipped, upstream-type changes produce an output-stamp update project, and other statuses proceed to build or update the invalidated project.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_ordered_mechanism"
+        ],
+        "visible_support": [
+          "UpToDate projects are removed from projectPendingBuild and skipped.",
+          "UpToDateWithUpstreamTypes returns createUpdateOutputFileStampsProject.",
+          "UpstreamBlocked projects are reported and removed from the pending set.",
+          "Other statuses return createBuildOrUpdateInvalidedProject."
+        ]
+      },
+      "decision_line": 472
+    },
+    {
+      "request_line": 470,
+      "round": 1,
+      "observation_id": "obs_a7b03b7bff70684a",
+      "fingerprint": "63dcd1d936f6554afe0d531a6c70c5916124cfdacbcf2e15835c4c6055d73675",
+      "chars": 255,
+      "path": "src/compiler/program.ts",
+      "symbol": "createProgram::getSyntacticDiagnostics",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "reject",
+        "local_follow_up": "",
+        "missing_information": [
+          "No semantic-diagnostic logic, project-reference invalidation, module resolution, export propagation, or watch behavior is shown."
+        ],
+        "observation_id": "obs_a7b03b7bff70684a",
+        "reason": "This function only delegates syntactic diagnostics to a generic helper. The issue concerns propagation of an interface shape and reporting of a resulting semantic type error, neither of which is visible here.",
+        "support_level": "insufficient",
+        "supported_obligation_ids": [],
+        "visible_support": []
+      },
+      "decision_line": 472
+    },
+    {
+      "request_line": 825,
+      "round": 2,
+      "observation_id": "obs_b03aab7820e28471",
+      "fingerprint": "16a6f51621b4583b8701c38631b7e699b05c015fbd9ec9c47ad5f709dbb0f2c0",
+      "chars": 484,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": "getRootFile",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "defer",
+        "local_follow_up": "Retrieve the verifyTransitiveReferences scenario that calls getRootFile and checks diagnostics after a source edit.",
+        "missing_information": [
+          "The test scenario that invokes this helper and asserts the resulting watch rebuild or diagnostics."
+        ],
+        "observation_id": "obs_b03aab7820e28471",
+        "reason": "This test helper only constructs a project-root file and rewrites relative imports for a multi-folder fixture. It does not show watch-mode invalidation, wildcard re-export handling, or diagnostic propagation.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "getRootFile returns either the original file or a file whose path is moved into the project and whose relative imports are changed from \"./\" to \"../\"."
+        ]
+      },
+      "decision_line": 827
+    },
+    {
+      "request_line": 825,
+      "round": 2,
+      "observation_id": "obs_5bd3c24fc57a2f41",
+      "fingerprint": "656f81d9131a94fc92752d9b0bf6709327afca715bd429bebc37b0e8c4b5f843",
+      "chars": 895,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": "getTsConfigFile",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "defer",
+        "local_follow_up": "Retrieve the test scenario that consumes this generated tsconfig and verifies the edit response.",
+        "missing_information": [
+          "The test case using the transformed config and its assertions about file watching, rebuilding, or diagnostics."
+        ],
+        "observation_id": "obs_5bd3c24fc57a2f41",
+        "reason": "This helper prepares a transformed tsconfig for a multi-folder test fixture, including path mappings and project references, but it does not establish the compiler's watch-mode behavior or error propagation.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "getTsConfigFile rewrites the files array, path mappings, and references when constructing a multi-folder tsconfig."
+        ]
+      },
+      "decision_line": 827
+    },
+    {
+      "request_line": 825,
+      "round": 2,
+      "observation_id": "obs_ec08d263af194462",
+      "fingerprint": "2ce36c3b7d84ef8f5d781dd5ef8985fd9317e9d7f5c49826f7b873b204a7e6b8",
+      "chars": 178,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": "dtsFile",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "defer",
+        "local_follow_up": "Retrieve the caller that uses dtsFile when checking a referenced-project edit.",
+        "missing_information": [
+          "The caller showing whether this declaration path participates in reference invalidation or consumer diagnostics."
+        ],
+        "observation_id": "obs_ec08d263af194462",
+        "reason": "This helper only derives a declaration-file path by appending .d.ts. No relevant watch, project-reference, re-export, or diagnostic behavior is visible.",
+        "support_level": "insufficient",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "dtsFile maps an extensionless file name to a project-local .d.ts path."
+        ]
+      },
+      "decision_line": 827
+    },
+    {
+      "request_line": 825,
+      "round": 2,
+      "observation_id": "obs_2dfe69ded0e68c3d",
+      "fingerprint": "01ea4785e30a086cd4389181d1f2663a3067c5be5c3890a794afab6029a56419",
+      "chars": 189,
+      "path": "src/compiler/tsbuildPublic.ts",
+      "symbol": "isCircularBuildOrder",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "reject",
+        "local_follow_up": "",
+        "missing_information": [
+          "No relevant issue-specific behavior is visible in this observation."
+        ],
+        "observation_id": "obs_2dfe69ded0e68c3d",
+        "reason": "The visible function only tests whether a build order has the shape of a circular build order. It contains no evidence about wildcard re-exports, watch-mode edits, interface changes, or consumer errors.",
+        "support_level": "insufficient",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "isCircularBuildOrder returns true when the build order contains a nested buildOrder property."
+        ]
+      },
+      "decision_line": 827
+    },
+    {
+      "request_line": 825,
+      "round": 2,
+      "observation_id": "obs_c218d2b213f3fd4e",
+      "fingerprint": "7c511675683c6c92a12d1f0a9389443873fed0a135b0e17129637dfddc2fd6da",
+      "chars": 550,
+      "path": "src/compiler/core.ts",
+      "symbol": "arrayIsEqualTo",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "reject",
+        "local_follow_up": "",
+        "missing_information": [
+          "No issue-specific caller or state transition is visible."
+        ],
+        "observation_id": "obs_c218d2b213f3fd4e",
+        "reason": "This is a generic array equality utility. Its visible implementation does not connect to project-reference invalidation, watch scheduling, module exports, or diagnostics.",
+        "support_level": "insufficient",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "arrayIsEqualTo compares undefined-ness, lengths, and element pairs using an equality comparer."
+        ]
+      },
+      "decision_line": 827
+    },
+    {
+      "request_line": 825,
+      "round": 2,
+      "observation_id": "obs_ea4821ad7da0826c",
+      "fingerprint": "d8af3d19a3b29dc2f8de39ac9302ff20aa522fa359e3e526d62977a711c2a1a1",
+      "chars": 459,
+      "path": "src/compiler/tsbuildPublic.ts",
+      "symbol": "toResolvedConfigFilePath",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "defer",
+        "local_follow_up": "Retrieve the caller that reads or invalidates resolvedConfigFilePaths during watch-mode project updates.",
+        "missing_information": [
+          "The callers that invalidate or reuse resolvedConfigFilePaths during a watched project-reference rebuild."
+        ],
+        "observation_id": "obs_ea4821ad7da0826c",
+        "reason": "The function caches resolved configuration-file paths in SolutionBuilderState, which is potentially relevant to build state, but the visible code does not show watch-mode invalidation or whether this cache is refreshed after the interface edit.",
+        "support_level": "insufficient",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "toResolvedConfigFilePath reads resolvedConfigFilePaths, computes a path when absent, and stores the result in that cache."
+        ]
+      },
+      "decision_line": 827
+    },
+    {
+      "request_line": 825,
+      "round": 2,
+      "observation_id": "obs_158e2d5a3ab67ecb",
+      "fingerprint": "6118fe720c6113f24b5e3a1447225906aa5883aea34c32b966ad0f49c011d522",
+      "chars": 3672,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": "verifyTransitiveReferences",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the omitted verifyTransitiveReferences scenario and verifyScenario assertions for editing the interface source behind the wildcard re-export.",
+        "missing_information": [
+          "The omitted lines containing the relevant project contents, wildcard re-export, interface edit, and expected consumer diagnostic.",
+          "The verifyScenario implementation that performs the watch edit and diagnostic checks."
+        ],
+        "observation_id": "obs_158e2d5a3ab67ecb",
+        "reason": "This test owner is a concrete entry point for transitive project-reference scenarios and visibly includes an edit-in-referenced-config case with expected program files, project files, watched files, and dependency mappings. The excerpt is truncated and does not expose the specific wildcard re-export/interface-error scenario or its assertions, so it is navigation evidence rather than final implementation evidence.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "verifyTransitiveReferences constructs referenced-project test files.",
+          "The visible edit-in-referenced-config scenario calls verifyScenario after changing a referenced configuration and specifies expected files, watched directories, and dependency relationships.",
+          "The dependency expectations include the edited declaration path and its consuming project/configuration."
+        ]
+      },
+      "decision_line": 827
+    },
+    {
+      "request_line": 825,
+      "round": 2,
+      "observation_id": "obs_03047c7d6afe13aa",
+      "fingerprint": "5fae4300b843d3ea7ad022b17adb01ea3e7fd4b73e2410902c120d08212068ee",
+      "chars": 331,
+      "path": "src/compiler/builderState.ts",
+      "symbol": "getReferencedByPaths",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the caller that uses getReferencedByPaths to invalidate or recheck consumers after a referenced file changes.",
+        "missing_information": [
+          "The caller that uses these returned paths to invalidate projects or schedule consumer diagnostics.",
+          "The state updates for declaration/export/module-resolution caches and the wildcard re-export path."
+        ],
+        "observation_id": "obs_03047c7d6afe13aa",
+        "reason": "This implementation directly establishes a reverse dependency lookup: given a referenced file, it returns every file whose recorded references contain that path. That is a concrete dependency-graph operation relevant to finding consumers after a referenced project file changes, although the visible function does not itself show watch scheduling or re-export handling.",
+        "support_level": "direct_evidence",
+        "supported_obligation_ids": [
+          "explain_ordered_mechanism"
+        ],
+        "visible_support": [
+          "getReferencedByPaths iterates state.referencedMap entries.",
+          "It returns each filePath whose referencesInFile set contains the supplied referencedFilePath."
+        ]
+      },
+      "decision_line": 827
+    },
+    {
+      "request_line": 1140,
+      "round": 3,
+      "observation_id": "obs_025a10d0e1ed510e",
+      "fingerprint": "0b3a522628f06bf6447f97d88ced975277cef5af1319ea3a56083a8d1615a909",
+      "chars": 878,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": "createSolutionOfProject",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the caller of createSolutionOfProject that exercises a referenced interface through a wildcard re-export.",
+        "missing_information": [
+          "The caller or scenario that defines the referenced interface and wildcard re-export.",
+          "The code that changes a source file and invalidates or rebuilds the consuming project.",
+          "The diagnostic assertion for the consuming project."
+        ],
+        "observation_id": "obs_025a10d0e1ed510e",
+        "reason": "This test helper visibly constructs a solution builder for a composite project, performs an initial build, and verifies output file stamps. That is a concrete project-reference build setup relevant to the issue, but it does not show wildcard re-exports, file-change handling, or propagation of diagnostics.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "The helper calls createSolutionBuilder with a solution configuration.",
+          "It calls solutionBuilder.build() and checks output file stamps."
+        ]
+      },
+      "decision_line": 1142
+    },
+    {
+      "request_line": 1140,
+      "round": 3,
+      "observation_id": "obs_487fbadb1ac25d8a",
+      "fingerprint": "abde7e83afd2a1d526f2e1bd783eb85f518bc53bfe12af846a2a3c12495c8c3f",
+      "chars": 729,
+      "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+      "symbol": "createWatchOfConfigFile",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the caller that edits a referenced source file and inspects the watch builder or diagnostics after createWatchOfConfigFile.",
+        "missing_information": [
+          "The file-change callback or invalidation path used after editing the referenced interface.",
+          "The project-reference and wildcard re-export scenario.",
+          "The consumer diagnostic result."
+        ],
+        "observation_id": "obs_487fbadb1ac25d8a",
+        "reason": "This helper visibly creates a watch compiler host and watch program from a configuration file, making it a concrete watch-mode entry point. It does not establish how project references or changed declarations are invalidated and propagated.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "The helper calls createWatchCompilerHostOfConfigFile.",
+          "It creates a watch program and exposes the current builder program."
+        ]
+      },
+      "decision_line": 1142
+    },
+    {
+      "request_line": 1140,
+      "round": 3,
+      "observation_id": "obs_ef59d97da88321e3",
+      "fingerprint": "7f1d4644be360f4f13a1858e44c1f08c12f3509963e3cc083f2eeee33e9bc835",
+      "chars": 562,
+      "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+      "symbol": "checkOutputErrorsInitial",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the test caller that passes the expected consumer diagnostic to checkOutputErrorsInitial.",
+        "missing_information": [
+          "The concrete diagnostic for main/index.ts.",
+          "The test scenario that supplies the errors and changes the referenced interface.",
+          "Evidence that the wildcard re-export causes the error to be omitted."
+        ],
+        "observation_id": "obs_ef59d97da88321e3",
+        "reason": "This test helper visibly assembles expected watch output, including diagnostic entries and a foundErrorsWatching marker. It indicates where a watch-mode diagnostic assertion is made, but it does not show the specific Session error or the triggering rebuild path.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "The helper expects a starting compilation in watch mode.",
+          "It maps supplied diagnostics into expected host output and appends foundErrorsWatching(errors)."
+        ]
+      },
+      "decision_line": 1142
+    },
+    {
+      "request_line": 1140,
+      "round": 3,
+      "observation_id": "obs_be6b20b478e60fe8",
+      "fingerprint": "b1f86662832652be9c91aee93c5b9f76fcb376efcf5b4a2f2d3d98e526eed202",
+      "chars": 359,
+      "path": "src/compiler/core.ts",
+      "symbol": "arrayFrom",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "reject",
+        "local_follow_up": "",
+        "missing_information": [
+          "All issue-specific compiler or test scenario context."
+        ],
+        "observation_id": "obs_be6b20b478e60fe8",
+        "reason": "This generic iterator-to-array utility only consumes an iterator and optionally maps values. Its visible source contains no watch-mode, project-reference, module-resolution, re-export, declaration, or diagnostic behavior.",
+        "support_level": "insufficient",
+        "supported_obligation_ids": [],
+        "visible_support": []
+      },
+      "decision_line": 1142
+    },
+    {
+      "request_line": 1140,
+      "round": 3,
+      "observation_id": "obs_f0c8fb03b7afcaf9",
+      "fingerprint": "f62b54d432129d43b33ff70bd0fbad70efafe6d38291e2de4ef8a9040e069c6e",
+      "chars": 575,
+      "path": "src/compiler/core.ts",
+      "symbol": "mapDefinedIterator",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "reject",
+        "local_follow_up": "",
+        "missing_information": [
+          "All issue-specific compiler or test scenario context."
+        ],
+        "observation_id": "obs_f0c8fb03b7afcaf9",
+        "reason": "This generic iterator helper filters mapped iterator values. Nothing visible connects it to watch invalidation, project references, wildcard exports, declaration state, or diagnostics.",
+        "support_level": "insufficient",
+        "supported_obligation_ids": [],
+        "visible_support": []
+      },
+      "decision_line": 1142
+    },
+    {
+      "request_line": 1140,
+      "round": 3,
+      "observation_id": "obs_98562174ece668df",
+      "fingerprint": "ef7b49fb9b1b4a45f4fceca60c59eef9575d49d2ccfcf630e7fd0933a98fa3d9",
+      "chars": 956,
+      "path": "src/harness/collectionsImpl.ts",
+      "symbol": "SortedMap::entries",
+      "would_reuse": false,
+      "previous": null,
+      "recorded_decision": {
+        "disposition": "reject",
+        "local_follow_up": "",
+        "missing_information": [
+          "All issue-specific compiler or test scenario context."
+        ],
+        "observation_id": "obs_98562174ece668df",
+        "reason": "The visible SortedMap.entries implementation concerns iteration order and copy-on-write behavior. It does not visibly establish any compiler watch, project-reference, export, declaration, or diagnostic mechanism.",
+        "support_level": "insufficient",
+        "supported_obligation_ids": [],
+        "visible_support": []
+      },
+      "decision_line": 1142
+    },
+    {
+      "request_line": 1140,
+      "round": 3,
+      "observation_id": "obs_d1ccacdaddc9df40",
+      "fingerprint": "429e6eaf7d947fea7036617600903c34cb1181a16ad2be1887800a9748fe5c69",
+      "chars": 1910,
+      "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+      "symbol": null,
+      "would_reuse": true,
+      "previous": {
+        "round": 1,
+        "line": 472,
+        "decision": {
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the complete transitiveReferences scenario and its diagnostic assertions.",
+          "missing_information": [
+            "The excerpt does not show the interface change, wildcard re-export, consuming-project error, or expected diagnostic assertion."
+          ],
+          "observation_id": "obs_d1ccacdaddc9df40",
+          "reason": "The test excerpt is a concrete project-reference and transitive-reference watch/build scenario, including invalidating a project and calling buildNextInvalidatedProject, but it does not contain the requested wildcard re-export or diagnostic assertion.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "A test changes a project reference configuration and calls solutionBuilder.invalidateProject followed by buildNextInvalidatedProject.",
+            "The surrounding test suite has a section named on transitive references."
+          ]
+        }
+      },
+      "recorded_decision": {
+        "disposition": "promote",
+        "local_follow_up": "Retrieve the adjacent project-reference test that changes a source file rather than a project configuration and checks the resulting consumer diagnostics.",
+        "missing_information": [
+          "The source-file change and watcher trigger for adding an interface field.",
+          "The wildcard re-export and consuming project's type-check path.",
+          "The contrasting missing-versus-reported diagnostic."
+        ],
+        "observation_id": "obs_d1ccacdaddc9df40",
+        "reason": "This test code visibly demonstrates project-reference configuration invalidation followed by buildNextInvalidatedProject, and it lists expected declaration outputs. It is relevant to project-reference rebuild mechanics, but the shown scenario changes a configuration file rather than an interface source file and says nothing about wildcard re-exports or consumer diagnostics.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "The test calls solutionBuilder.invalidateProject with a resolved config path.",
+          "It requests a full config-program reload and then calls buildNextInvalidatedProject().",
+          "The expected outputs include referenced project declaration files."
+        ]
+      },
+      "decision_line": 1142
+    }
+  ]
+}

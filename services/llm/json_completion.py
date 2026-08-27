@@ -224,7 +224,8 @@ def _request_payload(
     }
     if _temperature_cache_key(config) not in _TEMPERATURE_DISABLED_MODELS:
         payload["temperature"] = config.temperature
-    payload[_max_tokens_parameter(config.model)] = config.max_tokens
+    if config.max_tokens is not None:
+        payload[_max_tokens_parameter(config.model)] = config.max_tokens
     return payload
 
 

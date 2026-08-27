@@ -8,6 +8,42 @@ const MAX_EXCERPT_LINES = 60;
 const ANCHOR_CONTEXT_LINES = 12;
 
 
+export function ownerSourceLayouts(projectRoot, args) {
+  const sourcePath = normalizePath(args.path);
+  const absolute = path.resolve(projectRoot, sourcePath);
+  const relative = path.relative(path.resolve(projectRoot), absolute);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("owner_source_outside_workspace");
+  const extension = path.extname(sourcePath).toLowerCase();
+  if (!SUPPORTED_EXTENSIONS.has(extension)) return {status: "unsupported", owners: []};
+  let source;
+  try { source = fs.readFileSync(absolute, "utf8"); }
+  catch { return {status: "failed", reason: "source_unreadable", owners: []}; }
+  const kind = extension === ".tsx" ? ts.ScriptKind.TSX : extension === ".jsx" ? ts.ScriptKind.JSX
+    : [".js", ".mjs", ".cjs"].includes(extension) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const file = ts.createSourceFile(sourcePath, source, ts.ScriptTarget.Latest, true, kind);
+  if (file.parseDiagnostics.length) return {status: "failed", reason: "typescript_ast_parse_failed", owners: []};
+  const owners = [];
+  function visit(node) {
+    if (ts.isFunctionLike(node) && node.body) {
+      let owner = node;
+      if ((ts.isFunctionExpression(node) || ts.isArrowFunction(node)) && ts.isBinaryExpression(node.parent)
+          && node.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken) owner = node.parent.parent;
+      const statements = ts.isBlock(node.body) ? [...node.body.statements] : [node.body];
+      const bodyRanges = statements.filter(s => !(ts.isExpressionStatement(s) && ts.isStringLiteral(s.expression)))
+        .map(s => [lineOf(file, s.getStart(file)), lineOf(file, s.end)]);
+      owners.push({line_start: lineOf(file, owner.getStart(file)), line_end: lineOf(file, owner.end),
+        signature_end: lineOf(file, node.body.getStart(file)), body_ranges: bodyRanges});
+    } else if (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) {
+      owners.push({line_start: lineOf(file,node.getStart(file)),line_end:lineOf(file,node.end),
+        signature_end:lineOf(file,node.getStart(file)),body_ranges:node.members.map(m=>[lineOf(file,m.getStart(file)),lineOf(file,m.end)])});
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(file);
+  return {status: "ok", adapter: "typescript_compiler_api", owners};
+}
+
+
 function normalizePath(value) {
   return String(value || "").replaceAll("\\", "/").replace(/^\.\//, "");
 }
@@ -380,6 +416,7 @@ export function localizeFileCall(codegraph, projectRoot, sourceNode, targetNode)
 
 export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
   const sourcePath = normalizePath(sourceNode?.filePath || sourceNode?.path);
+  const isSourceOwner = String(sourceNode?.id || "").startsWith("source_owner:");
   const extension = path.extname(sourcePath).toLowerCase();
   const base = {
     source_node_id: String(sourceNode?.id || ""),
@@ -389,6 +426,22 @@ export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
   };
   if (!SUPPORTED_EXTENSIONS.has(extension)) {
     return { ...base, status: "unsupported", reason: "unsupported_extension" };
+  }
+  if (isSourceOwner) {
+    const root = fs.realpathSync(projectRoot);
+    let resolvedPath;
+    try { resolvedPath = fs.realpathSync(path.resolve(root, sourcePath)); }
+    catch { return { ...base, status: "failed", reason: "source_unreadable" }; }
+    const relative = path.relative(root, resolvedPath);
+    if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      return { ...base, status: "failed", reason: "source_owner_outside_workspace" };
+    }
+    const matches = resolveSourceOwners(projectRoot, { path: sourcePath,
+      line_start: sourceNode.line_start, line_end: sourceNode.line_end }).owners.filter(owner =>
+      owner.id === sourceNode.id && owner.line_start === sourceNode.line_start && owner.line_end === sourceNode.line_end
+      && owner.qualified_name === (sourceNode.qualified_name || sourceNode.name));
+    if (matches.length !== 1) return { ...base, status: "failed", reason: "source_owner_identity_mismatch" };
+    sourceNode = matches[0];
   }
   let source;
   try {
@@ -402,6 +455,33 @@ export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
         : ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(sourcePath, source, ts.ScriptTarget.Latest, true, scriptKind);
   const calls = [];
+  if (isSourceOwner) {
+    let callable;
+    for (const statement of sourceFile.statements) {
+      if (lineOf(sourceFile, statement.getStart(sourceFile)) === sourceNode.line_start
+          && lineOf(sourceFile, statement.end) === sourceNode.line_end
+          && ts.isExpressionStatement(statement) && ts.isBinaryExpression(statement.expression)) {
+        const expression = statement.expression;
+        if (expression.operatorToken.kind === ts.SyntaxKind.EqualsToken
+            && (ts.isFunctionExpression(expression.right) || ts.isArrowFunction(expression.right))
+            && stableAssignmentPath(expression.left, sourceFile) === sourceNode.name) callable = expression.right;
+      }
+    }
+    if (!callable) return { ...base, status: "failed", reason: "source_owner_callable_not_found" };
+    function visitBody(node) {
+      if (ts.isFunctionLike(node) || ts.isClassDeclaration(node) || ts.isClassExpression(node)) return;
+      if (ts.isCallExpression(node)) {
+        for (const called of calledNames(node.expression)) calls.push({
+          name: called.name, qualifier: called.qualifier || "", expression_kind: called.expression_kind,
+          expression: node.expression.getText(sourceFile),
+          line_start: lineOf(sourceFile, node.getStart(sourceFile)), line_end: lineOf(sourceFile, node.end),
+        });
+      }
+      ts.forEachChild(node, visitBody);
+    }
+    visitBody(callable.body);
+    return { ...base, status: "ok", source_kind: sourceNode.kind, source_identity_kind: "ast_source_owner", calls };
+  }
   function visit(node) {
     if (ts.isCallExpression(node)) {
       const owner = outermostNamedExecutable(node, sourceFile);

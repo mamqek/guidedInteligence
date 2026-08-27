@@ -27,6 +27,7 @@ from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparis
     select_range_candidate_owners,
 )
 from services.retrieval.workspace.pipeline.execution_flow.initial_file_admission import rank_initial_files
+from services.retrieval.workspace.pipeline.execution_flow.owner_comparison_source import prepare_initial_owner_sources
 from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import (
     MAX_EVIDENCE,
     MAX_FOCUSED_RESULTS,
@@ -353,6 +354,9 @@ def run_obligation_retrieval(
         },
     )
 
+    source_preparation = prepare_initial_owner_sources(canonical_snippets, config=ctx.config, trace=ctx.trace)
+    canonical_snippets = source_preparation.observations
+    tool_calls += source_preparation.layout_requests
     file_ranking = rank_initial_files(canonical_snippets)
     admission = fit_initial_owner_comparison_admission(
         obligation_descriptions={item.id: item.description for item in repository_obligations},
@@ -389,7 +393,7 @@ def run_obligation_retrieval(
             "comparison_preferred_input_chars": ctx.config.preferred_initial_owner_comparison_input_chars,
             "comparison_input_char_budget": ctx.config.max_initial_owner_comparison_input_chars,
             "file_limit": 0,
-            "admission_limit": "ranked_quality_prefix_under_preferred_input_chars",
+            "admission_limit": "ranked_complete_file_groups_append_crossing_then_stop",
             "stopping_reason": admission.stopping_reason,
             "stopped_at_path": admission.stopped_at_path,
             "path_decisions": list(admission.path_decisions),

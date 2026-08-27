@@ -2,7 +2,7 @@ import readline from "node:readline";
 import fs from "node:fs";
 import path from "node:path";
 import codegraphPackage from "@colbymchenry/codegraph";
-import { localizeFileCall, resolveSourceOwners, sourceOwnerCalls, summarizeFileCallsToDestination } from "./source_ast.mjs";
+import { localizeFileCall, resolveSourceOwners, sourceOwnerCalls, summarizeFileCallsToDestination, ownerSourceLayouts } from "./source_ast.mjs";
 
 const { CodeGraph, setLogger, silentLogger } = codegraphPackage;
 
@@ -658,12 +658,16 @@ async function dispatch(operation, args) {
   if (operation === "resolve_file_nodes") return resolveFileNodes(args);
   if (operation === "relationships_within_nodes") return relationshipsWithinNodes(args);
   if (operation === "source_owner_calls") {
+    if (String(args.source_node?.id || "").startsWith("source_owner:")) {
+      return sourceOwnerCalls(null, projectRoot, args.source_node);
+    }
     const codegraph = await openGraph();
     const sourceNode = codegraph.getNode(String(args.node_id || ""));
     if (!sourceNode) return { status: "failed", reason: "unknown_source_node", calls: [] };
     return sourceOwnerCalls(codegraph, projectRoot, sourceNode);
   }
   if (operation === "resolve_source_owners") return resolveSourceOwners(projectRoot, args);
+  if (operation === "owner_source_layouts") return ownerSourceLayouts(projectRoot, args);
   if (operation === "edge_capabilities") return edgeCapabilities(args);
   if (operation === "expand_relationships") return expandRelationships(args);
   if (operation === "expand_nodes") return expandNodes(args);

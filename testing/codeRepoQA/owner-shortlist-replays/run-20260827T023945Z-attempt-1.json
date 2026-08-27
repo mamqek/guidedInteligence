@@ -1,0 +1,418 @@
+{
+  "created_at": "2026-08-27T03:24:58.369961+00:00",
+  "source_trace": "C:\\Programming\\guidedInteligence_testcases\\microsoft-TypeScript-35468\\runs\\run-20260827T023945Z\\retrieval-trace.jsonl",
+  "reconstruction_note": "Compact saved source views and aggregate support counts reconstructed into synthetic provenance; not exact full runtime provenance. max_group_size was independently verified against saved group membership minus shortlisted_out IDs.",
+  "baseline": {
+    "candidate_count": 168,
+    "serialized_chars": 53190,
+    "total_input_chars": 59357
+  },
+  "shortlisted": {
+    "serialized_chars": 42218,
+    "selected_count": 15,
+    "selected": [
+      {
+        "id": "o9",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyProjectChanges",
+        "line_start": 218,
+        "line_end": 223
+      },
+      {
+        "id": "o23",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyTransitiveReferences",
+        "line_start": 1056,
+        "line_end": 1064
+      },
+      {
+        "id": "o40",
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "createWatchProgram",
+        "line_start": 257,
+        "line_end": 296
+      },
+      {
+        "id": "o41",
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "createWatchProgram::reportWatchDiagnostic",
+        "line_start": 541,
+        "line_end": 545
+      },
+      {
+        "id": "o47",
+        "path": "src/compiler/builder.ts",
+        "symbol": "getNextAffectedFile",
+        "line_start": 357,
+        "line_end": 386
+      },
+      {
+        "id": "o49",
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+        "line_start": 495,
+        "line_end": 531
+      },
+      {
+        "id": "o50",
+        "path": "src/compiler/builder.ts",
+        "symbol": "getBinderAndCheckerDiagnosticsOfFile",
+        "line_start": 664,
+        "line_end": 680
+      },
+      {
+        "id": "o63",
+        "path": "src/compiler/sys.ts",
+        "symbol": "getNodeSystem::fsWatch::watchPresentFileSystemEntry",
+        "line_start": 1483,
+        "line_end": 1512
+      },
+      {
+        "id": "o79",
+        "path": "src/compiler/watch.ts",
+        "symbol": "emitFilesAndReportErrors",
+        "line_start": 200,
+        "line_end": 200
+      },
+      {
+        "id": "o100",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "buildNextInvalidatedProject",
+        "line_start": 1749,
+        "line_end": 1770
+      },
+      {
+        "id": "o103",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "invalidateProjectAndScheduleBuilds",
+        "line_start": 1732,
+        "line_end": 1736
+      },
+      {
+        "id": "o128",
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateShapeSignature",
+        "line_start": 304,
+        "line_end": 340
+      },
+      {
+        "id": "o129",
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateExportedModules",
+        "line_start": 359,
+        "line_end": 368
+      },
+      {
+        "id": "o143",
+        "path": "src/testRunner/unittests/tscWatch/emitAndErrorUpdates.ts",
+        "symbol": "verifyEmitAndErrorUpdates",
+        "line_start": 45,
+        "line_end": 69
+      },
+      {
+        "id": "o163",
+        "path": "src/compiler/program.ts",
+        "symbol": "createProgram::tryReuseStructureFromOldProgram",
+        "line_start": 1331,
+        "line_end": 1370
+      }
+    ],
+    "dormant_count": 112,
+    "shortlisted_out_count": 41,
+    "shortlisted_out": [
+      {
+        "id": "o2",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 385,
+        "line_end": 405
+      },
+      {
+        "id": "o3",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "introduceError",
+        "line_start": 504,
+        "line_end": 508
+      },
+      {
+        "id": "o5",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 675,
+        "line_end": 687
+      },
+      {
+        "id": "o6",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 688,
+        "line_end": 716
+      },
+      {
+        "id": "o7",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 1157,
+        "line_end": 1196
+      },
+      {
+        "id": "o8",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 1187,
+        "line_end": 1213
+      },
+      {
+        "id": "o10",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 270,
+        "line_end": 304
+      },
+      {
+        "id": "o11",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "buildLogic",
+        "line_start": 305,
+        "line_end": 309
+      },
+      {
+        "id": "o12",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 355,
+        "line_end": 394
+      },
+      {
+        "id": "o16",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 1127,
+        "line_end": 1166
+      },
+      {
+        "id": "o17",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 1,
+        "line_end": 4
+      },
+      {
+        "id": "o18",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 335,
+        "line_end": 335
+      },
+      {
+        "id": "o19",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 336,
+        "line_end": 338
+      },
+      {
+        "id": "o20",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyTransitiveReferences::VerifyScenario",
+        "line_start": 863,
+        "line_end": 875
+      },
+      {
+        "id": "o21",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 436,
+        "line_end": 458
+      },
+      {
+        "id": "o22",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "changeFileWithoutError",
+        "line_start": 471,
+        "line_end": 475
+      },
+      {
+        "id": "o24",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 1086,
+        "line_end": 1097
+      },
+      {
+        "id": "o25",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "changeCore",
+        "line_start": 95,
+        "line_end": 97
+      },
+      {
+        "id": "o26",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 125,
+        "line_end": 163
+      },
+      {
+        "id": "o30",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 1248,
+        "line_end": 1249
+      },
+      {
+        "id": "o31",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "fixError",
+        "line_start": 464,
+        "line_end": 469
+      },
+      {
+        "id": "o32",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 501,
+        "line_end": 503
+      },
+      {
+        "id": "o33",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyScenario",
+        "line_start": 630,
+        "line_end": 654
+      },
+      {
+        "id": "o34",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "line_start": 660,
+        "line_end": 674
+      },
+      {
+        "id": "o42",
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "",
+        "line_start": 207,
+        "line_end": 210
+      },
+      {
+        "id": "o44",
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "ProgramHost",
+        "line_start": 93,
+        "line_end": 106
+      },
+      {
+        "id": "o52",
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachFileAndExportsOfFile",
+        "line_start": 555,
+        "line_end": 591
+      },
+      {
+        "id": "o55",
+        "path": "src/compiler/builder.ts",
+        "symbol": "createBuilderProgramState",
+        "line_start": 197,
+        "line_end": 236
+      },
+      {
+        "id": "o57",
+        "path": "src/compiler/builder.ts",
+        "symbol": "isChangedSignagure",
+        "line_start": 486,
+        "line_end": 490
+      },
+      {
+        "id": "o58",
+        "path": "src/compiler/builder.ts",
+        "symbol": "doneWithAffectedFile",
+        "line_start": 598,
+        "line_end": 624
+      },
+      {
+        "id": "o59",
+        "path": "src/compiler/builder.ts",
+        "symbol": "getProgramBuildInfo",
+        "line_start": 721,
+        "line_end": 745
+      },
+      {
+        "id": "o62",
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachFilesReferencingPath",
+        "line_start": 546,
+        "line_end": 550
+      },
+      {
+        "id": "o105",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "SolutionBuilderHostBase",
+        "line_start": 94,
+        "line_end": 117
+      },
+      {
+        "id": "o106",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "createSolutionBuilderState",
+        "line_start": 339,
+        "line_end": 354
+      },
+      {
+        "id": "o107",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "setupInitialBuild",
+        "line_start": 582,
+        "line_end": 599
+      },
+      {
+        "id": "o110",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "watchConfigFile",
+        "line_start": 1772,
+        "line_end": 1785
+      },
+      {
+        "id": "o111",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "watchInputFiles",
+        "line_start": 1849,
+        "line_end": 1868
+      },
+      {
+        "id": "o114",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "invalidateProject",
+        "line_start": 1717,
+        "line_end": 1730
+      },
+      {
+        "id": "o115",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "getUpToDateStatusWorker",
+        "line_start": 1433,
+        "line_end": 1456
+      },
+      {
+        "id": "o116",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "verboseReportProjectStatus",
+        "line_start": 2091,
+        "line_end": 2095
+      },
+      {
+        "id": "o127",
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateSignaturesFromCache",
+        "line_start": 294,
+        "line_end": 299
+      }
+    ],
+    "max_group_size": 10,
+    "usage": {
+      "prompt_tokens": 16708,
+      "completion_tokens": 1231,
+      "total_tokens": 17939
+    }
+  }
+}

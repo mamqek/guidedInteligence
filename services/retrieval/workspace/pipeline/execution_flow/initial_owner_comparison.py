@@ -155,15 +155,33 @@ def compare_initial_owners(
             "prompt_chars": len(prompt_text),
             "total_input_chars": total_input_chars,
             "input_char_budget": max_input_chars,
+            "budget_policy": "append_crossing_group_then_stop",
+            "budget_overshoot_chars": max(0, total_input_chars - max_input_chars),
         }
         if trace is not None:
             trace.record("initial_owner_comparison_prepared", preparation)
         if total_input_chars > max_input_chars:
-            raise RuntimeError(
-                "initial_owner_comparison_input_budget_exceeded:"
-                f"{total_input_chars}>{max_input_chars}:"
-                f"owners={preparation['candidate_count']}:groups={len(compared)}"
-            )
+            # The last admitted file may cross the threshold. A further file
+            # after an already-over-budget prefix is still a contract error.
+            compared_paths = {_group_key(key)[0] for key in compared}
+            last_path = next(path.casefold() for path, _ in reversed(admitted_groups)
+                             if path.casefold() in compared_paths)
+            prefix = {key: values for key, values in compared.items()
+                      if _group_key(key)[0] != last_path}
+            prefix_chars = 0
+            if prefix:
+                prefix_payload, prefix_external, _, _ = _payload(obligation_descriptions, prefix)
+                prefix_format = (
+                    _global_response_format(prefix_external, max_selected=max_selected or 1)
+                    if global_selection else _response_format(prefix_external)
+                )
+                prefix_chars = (len(prompt_text) + len(json.dumps(prefix_format, sort_keys=True))
+                                + len(json.dumps(prefix_payload, sort_keys=True)))
+            if prefix_chars > max_input_chars:
+                raise RuntimeError(
+                    "initial_owner_comparison_input_budget_exceeded:"
+                    f"prefix={prefix_chars}>{max_input_chars}:groups_added_after_crossing"
+                )
 
         def log_event(event_type: str, value: Mapping[str, Any]) -> None:
             if event_type == "llm_response_received":
@@ -278,7 +296,7 @@ def fit_initial_owner_comparison_admission(
     max_files: int,
     max_selected: int,
 ) -> InitialOwnerComparisonAdmission:
-    """Admit one ranked quality prefix under a preferred request size."""
+    """Append complete ranked groups; retain the crossing group, then stop."""
     admitted: list[str] = []
     excluded: list[str] = []
     total_input_chars = 0
@@ -287,6 +305,11 @@ def fit_initial_owner_comparison_admission(
     stopped_at_path = ""
     path_decisions: list[dict[str, object]] = []
     for path in ranked_paths:
+        if stopping_reason != "ranking_exhausted":
+            excluded.append(path)
+            path_decisions.append({"path": path, "decision": "excluded_after_budget_crossing",
+                                   "crossing_path": stopped_at_path})
+            continue
         if len(admitted) >= max_files:
             excluded.append(path)
             path_decisions.append({"path": path, "decision": "excluded_file_limit"})
@@ -308,37 +331,24 @@ def fit_initial_owner_comparison_admission(
             + len(json.dumps(payload, sort_keys=True))
         )
         marginal_chars = measured - total_input_chars
-        if measured > max_input_chars:
-            excluded.extend(value for value in ranked_paths if value not in admitted and value not in excluded)
-            stopping_reason = "hard_input_ceiling"
-            stopped_at_path = path
-            path_decisions.append({
-                "path": path,
-                "decision": "stopped_hard_input_ceiling",
-                "tentative_total_input_chars": measured,
-                "marginal_chars": marginal_chars,
-            })
-            break
-        if admitted and measured > preferred_input_chars:
-            excluded.extend(value for value in ranked_paths if value not in admitted and value not in excluded)
-            stopping_reason = "preferred_input_target"
-            stopped_at_path = path
-            path_decisions.append({
-                "path": path,
-                "decision": "stopped_preferred_input_target",
-                "tentative_total_input_chars": measured,
-                "marginal_chars": marginal_chars,
-            })
-            break
         admitted.append(path)
+        previous_chars = total_input_chars
         total_input_chars = measured
         candidate_count = len({item.id for values in groups.values() for item in values})
+        if measured > min(preferred_input_chars, max_input_chars):
+            stopping_reason = ("maximum_input_threshold_crossed" if measured > max_input_chars
+                               else "preferred_input_target_crossed")
+            stopped_at_path = path
         path_decisions.append({
             "path": path,
             "decision": "admitted",
             "total_input_chars": measured,
             "marginal_chars": marginal_chars,
             "candidate_count": candidate_count,
+            "previous_input_chars": previous_chars,
+            "crossed_budget": stopping_reason != "ranking_exhausted",
+            "preferred_overshoot_chars": max(0, measured - preferred_input_chars),
+            "maximum_overshoot_chars": max(0, measured - max_input_chars),
         })
     return InitialOwnerComparisonAdmission(
         admitted_groups=tuple((path.casefold(), _ALL_FILE_OBLIGATIONS) for path in admitted),
@@ -415,6 +425,7 @@ def _payload(
         rendered_groups.append(
             {
                 "id": group_alias,
+                "path": path,
                 "obligations": list(obligation_ids),
                 "owners": owner_ids,
             }
@@ -447,7 +458,7 @@ def _source_view_payloads(
     observation: DiscoveryObservation,
 ) -> tuple[tuple[tuple[str, int, int, str], dict[str, Any]], ...]:
     handle = observation.handle
-    values = observation.source_views or (
+    values = observation.comparison_source_views or observation.source_views or (
         SimpleNamespace(
             path=handle.path,
             line_start=handle.line_start,
@@ -461,7 +472,7 @@ def _source_view_payloads(
             {
                 "p": view.path,
                 "r": [view.line_start, view.line_end],
-                "x": _compact_source_view(view.text),
+                "x": view.text if observation.comparison_source_views else _compact_source_view(view.text),
             },
         )
         for view in values
@@ -542,8 +553,27 @@ def _global_response_format(
     *,
     max_selected: int,
 ) -> dict[str, Any]:
-    group_ids = list(expected)
-    owner_ids = list(dict.fromkeys(owner_id for values in expected.values() for owner_id in values))
+    group_properties = {
+        group_id: {
+            "anyOf": [
+                {"type": "null"},
+                {
+                    "type": "object",
+                    "properties": {
+                        "primary_owner_id": {"type": "string", "enum": list(owner_ids)},
+                        "additional_owner_ids": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": list(owner_ids)},
+                            "maxItems": max(0, min(max_selected - 1, len(owner_ids) - 1)),
+                        },
+                    },
+                    "required": ["primary_owner_id", "additional_owner_ids"],
+                    "additionalProperties": False,
+                },
+            ]
+        }
+        for group_id, owner_ids in expected.items()
+    }
     return {
         "type": "json_schema",
         "json_schema": {
@@ -553,23 +583,10 @@ def _global_response_format(
                 "type": "object",
                 "properties": {
                     "selections": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "group_id": {"type": "string", "enum": group_ids},
-                                "primary_owner_id": {"type": "string", "enum": owner_ids},
-                                "additional_owner_ids": {
-                                    "type": "array",
-                                    "items": {"type": "string", "enum": owner_ids},
-                                    "maxItems": max(0, min(max_selected - 1, len(owner_ids) - 1)),
-                                },
-                            },
-                            "required": ["group_id", "primary_owner_id", "additional_owner_ids"],
-                            "additionalProperties": False,
-                        },
-                        "minItems": 1,
-                        "maxItems": min(max_selected, len(group_ids)),
+                        "type": "object",
+                        "properties": group_properties,
+                        "required": list(expected),
+                        "additionalProperties": False,
                     }
                 },
                 "required": ["selections"],
@@ -585,25 +602,26 @@ def _validate_global_response(
     *,
     max_selected: int,
 ) -> dict[str, tuple[str, ...]]:
-    rows = response.get("selections", ())
-    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)) or not rows:
+    rows = response.get("selections")
+    if set(response) != {"selections"} or not isinstance(rows, Mapping) or set(rows) != set(expected):
         raise RuntimeError("initial_owner_comparison_invalid_global_selection")
     rendered: dict[str, tuple[str, ...]] = {}
     selected_owner_ids: set[str] = set()
-    for row in rows:
-        if not isinstance(row, Mapping):
+    for group_id, row in rows.items():
+        if row is None:
+            continue
+        if not isinstance(row, Mapping) or set(row) != {"primary_owner_id", "additional_owner_ids"}:
             raise RuntimeError("initial_owner_comparison_invalid_global_selection")
-        group_id = str(row.get("group_id") or "")
-        primary_owner_id = str(row.get("primary_owner_id") or "")
+        primary_owner_id = row.get("primary_owner_id")
         additional = row.get("additional_owner_ids", ())
         if (
-            group_id not in expected
+            not isinstance(primary_owner_id, str)
             or group_id in rendered
-            or not isinstance(additional, Sequence)
-            or isinstance(additional, (str, bytes))
+            or not isinstance(additional, list)
+            or any(not isinstance(value, str) for value in additional)
         ):
             raise RuntimeError("initial_owner_comparison_invalid_global_selection")
-        group_selection = (primary_owner_id, *(str(value) for value in additional if value))
+        group_selection = (primary_owner_id, *additional)
         allowed = set(expected[group_id])
         if (
             not primary_owner_id
@@ -624,7 +642,9 @@ def _prompt_text(*, max_selected: int | None) -> str:
         return prompt
     return (
         f"{prompt}\n\nGlobal round-zero selection:\n"
-        f"- Return `selections`, selecting no more than {max_selected} owners globally across all rows.\n"
+        f"- Return `selections`, selecting no more than {max_selected} owners globally across all groups.\n"
+        "- `selections` is an object keyed by every input group ID. Use null for an unselected group; "
+        "otherwise return its primary_owner_id and additional_owner_ids. IDs must belong to that group.\n"
         "- For every selected file group, name its strongest `primary_owner_id`. Add same-file "
         "`additional_owner_ids` only for distinct, nonredundant mechanism contributions.\n"
         "- Cover the listed obligations across the complete selection; a file group may receive no owner.\n"

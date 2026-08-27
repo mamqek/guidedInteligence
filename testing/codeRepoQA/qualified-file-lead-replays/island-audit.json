@@ -1,0 +1,1915 @@
+[
+  {
+    "run_id": "run-20260827T142925Z",
+    "trace_pool_line": 1889,
+    "trace_ledger_line": 1891,
+    "pool_candidates": 28,
+    "island_count": 7,
+    "total_direct": 23,
+    "top_two_direct": 21,
+    "top_two_source_chars": 30070,
+    "top_two_candidate_arrays_chars": 57899,
+    "more_than_three_direct_islands": 1,
+    "direct_majority_islands": 4,
+    "actual_final_input_chars": 51075,
+    "cost_scope": "Candidate arrays use the current final schema and source cap; excludes prompt/schema/flows/connections. Not an island-policy LLM input.",
+    "unmatched": [],
+    "islands": [
+      {
+        "island_id": "island_a902b983419f32d2",
+        "files": [
+          "src/compiler/builder.ts",
+          "src/compiler/builderstate.ts",
+          "src/compiler/tsbuildpublic.ts",
+          "src/compiler/watchpublic.ts",
+          "src/compiler/watchutilities.ts"
+        ],
+        "promoted_observation_count": 21,
+        "final_pool_count": 21,
+        "direct": 19,
+        "navigation": 2,
+        "source_chars": 28930,
+        "capped_source_chars": 26970,
+        "candidate_array_chars": 54546,
+        "serializable_flow_candidates": 19,
+        "direct_missing_final": [
+          "handleDtsMayChangeOfAffectedFile",
+          "createWatchProgram::onSourceFileChange",
+          "updateExportedModules",
+          "getSemanticDiagnosticsOfFile",
+          "createWatchProgram::synchronizeProgram",
+          "forEachFileAndExportsOfFile",
+          "BuildInvalidedProject",
+          "getReferencedByPaths"
+        ],
+        "members": [
+          {
+            "candidate_id": "node:function:200b27b361a344e4e112e12f1b151456",
+            "observation_id": "obs_dec5815897dd1f84",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "getNextInvalidatedProject",
+            "support": "direct_evidence",
+            "source_chars": 2259,
+            "final_capped_source_chars": 2259,
+            "source_trace_line": 1454,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:fe1cbbc0b38bb778a51ef5fee351f2cc",
+            "observation_id": "obs_3902f7bea8551306",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "watchWildCardDirectories",
+            "support": "direct_evidence",
+            "source_chars": 1511,
+            "final_capped_source_chars": 1511,
+            "source_trace_line": 1454,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:9e4209e679583a4639e64a8a980cf3a4",
+            "observation_id": "obs_f429d6d76ec512a2",
+            "path": "src/compiler/builder.ts",
+            "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 2763,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 544,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:23d7e6bcf1fb33ad1d95f9f2fc2b2190",
+            "observation_id": "obs_68f9613a4b0af75f",
+            "path": "src/compiler/watchUtilities.ts",
+            "symbol": "updateWatchingWildcardDirectories",
+            "support": "navigation_only",
+            "source_chars": 757,
+            "final_capped_source_chars": 757,
+            "source_trace_line": 84,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+            "observation_id": "obs_70ab956630713908",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram",
+            "support": "direct_evidence",
+            "source_chars": 2346,
+            "final_capped_source_chars": 2346,
+            "source_trace_line": 1454,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:e9b4dcb84c194c87104f73e0e9ee18eb",
+            "observation_id": "obs_0b2b8394df6b0d7e",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "invalidateProjectAndScheduleBuilds",
+            "support": "direct_evidence",
+            "source_chars": 321,
+            "final_capped_source_chars": 321,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:65665f4b84d4e5aba2a622258554cda6",
+            "observation_id": "obs_320d23b5d27ef2c6",
+            "path": "src/compiler/builder.ts",
+            "symbol": "createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 773,
+            "final_capped_source_chars": 773,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:70d91fa7b61cda64a11e60ff45579147",
+            "observation_id": "obs_5ef93d462c7cc276",
+            "path": "src/compiler/builder.ts",
+            "symbol": "getNextAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 724,
+            "final_capped_source_chars": 724,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+            "observation_id": "obs_8f1c2f99a859013f",
+            "path": "src/compiler/builder.ts",
+            "symbol": "handleDtsMayChangeOfAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 741,
+            "final_capped_source_chars": 741,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:ee3295a1d6aa413bd4860aa5e033b3c9",
+            "observation_id": "obs_fd3fcd0b2e510cb0",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram::onSourceFileChange",
+            "support": "direct_evidence",
+            "source_chars": 772,
+            "final_capped_source_chars": 772,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:fc5e0c1d952a60d32b4da99e9f988257",
+            "observation_id": "obs_4d85bb7aba967f36",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateShapeSignature",
+            "support": "direct_evidence",
+            "source_chars": 707,
+            "final_capped_source_chars": 707,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:5126cbe8d8c43acb9f72edf0f6627954",
+            "observation_id": "obs_2b58b117f794b8d5",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateExportedModules",
+            "support": "direct_evidence",
+            "source_chars": 713,
+            "final_capped_source_chars": 713,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+            "observation_id": "obs_c2421716b29c47c9",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getFilesAffectedByUpdatedShapeWhenModuleEmit",
+            "support": "navigation_only",
+            "source_chars": 699,
+            "final_capped_source_chars": 699,
+            "source_trace_line": 84,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:b3ac8c3f944de8c8502aa146e7538955",
+            "observation_id": "obs_94daaeea1555a66f",
+            "path": "src/compiler/builder.ts",
+            "symbol": "getSemanticDiagnosticsOfFile",
+            "support": "direct_evidence",
+            "source_chars": 371,
+            "final_capped_source_chars": 371,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:89cf000fa9c0f95a285089d0f262bbca",
+            "observation_id": "obs_a0fd420eb9cfaa13",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram::synchronizeProgram",
+            "support": "direct_evidence",
+            "source_chars": 775,
+            "final_capped_source_chars": 775,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:440f39428a6d506792cce2efd459f338",
+            "observation_id": "obs_fe584ecc96bd4a46",
+            "path": "src/compiler/builder.ts",
+            "symbol": "createBuilderProgram::getSemanticDiagnostics",
+            "support": "direct_evidence",
+            "source_chars": 1727,
+            "final_capped_source_chars": 1727,
+            "source_trace_line": 544,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:92d9413de992d6c7b2e164ee96a49c14",
+            "observation_id": "obs_69dd45b9a4cc4bbe",
+            "path": "src/compiler/builder.ts",
+            "symbol": "forEachFileAndExportsOfFile",
+            "support": "direct_evidence",
+            "source_chars": 2050,
+            "final_capped_source_chars": 2050,
+            "source_trace_line": 544,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:e9f56cfaef09c1800fac3a921259683b",
+            "observation_id": "obs_cac9d36050e1e9b4",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram::createNewProgram",
+            "support": "direct_evidence",
+            "source_chars": 2193,
+            "final_capped_source_chars": 2193,
+            "source_trace_line": 989,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:883d2bb657e6c4a5ef94f90002dcd4fd",
+            "observation_id": "obs_733a583faedf272c",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "createBuildOrUpdateInvalidedProject",
+            "support": "direct_evidence",
+            "source_chars": 3931,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 989,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:interface:2eb09f516739c7fd3d03f6123f8bf4e6",
+            "observation_id": "obs_2732a1d0edba5221",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "BuildInvalidedProject",
+            "support": "direct_evidence",
+            "source_chars": 2466,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 1454,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:30a8c58d8d1b02679033b37851233006",
+            "observation_id": "obs_03047c7d6afe13aa",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getReferencedByPaths",
+            "support": "direct_evidence",
+            "source_chars": 331,
+            "final_capped_source_chars": 331,
+            "source_trace_line": 1454,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_320655f6dd3d461f",
+        "files": [
+          "src/server/session.ts"
+        ],
+        "promoted_observation_count": 2,
+        "final_pool_count": 2,
+        "direct": 2,
+        "navigation": 0,
+        "source_chars": 1140,
+        "capped_source_chars": 1140,
+        "candidate_array_chars": 3353,
+        "serializable_flow_candidates": 2,
+        "direct_missing_final": [
+          "Session::semanticCheck",
+          "Session::sendDiagnosticsEvent"
+        ],
+        "members": [
+          {
+            "candidate_id": "node:method:d49a8037eee42305f515b6c3d6451cb5",
+            "observation_id": "obs_31991ea1e7b2799e",
+            "path": "src/server/session.ts",
+            "symbol": "Session::semanticCheck",
+            "support": "direct_evidence",
+            "source_chars": 533,
+            "final_capped_source_chars": 533,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:method:090bf2c024b43646e80c1366c4dfa189",
+            "observation_id": "obs_c5761959ff769c4f",
+            "path": "src/server/session.ts",
+            "symbol": "Session::sendDiagnosticsEvent",
+            "support": "direct_evidence",
+            "source_chars": 607,
+            "final_capped_source_chars": 607,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_10abc0a9c8057d19",
+        "files": [
+          "src/compiler/tsbuildpublic.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 1,
+        "navigation": 0,
+        "source_chars": 756,
+        "capped_source_chars": 756,
+        "candidate_array_chars": 1949,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:1a791a3dd52deae978d3d12704243750",
+            "observation_id": "obs_3614e2da85b0d45d",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "queueReferencingProjects",
+            "support": "direct_evidence",
+            "source_chars": 756,
+            "final_capped_source_chars": 756,
+            "source_trace_line": 84,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_8253a5917f025815",
+        "files": [
+          "src/server/project.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 1,
+        "navigation": 0,
+        "source_chars": 3969,
+        "capped_source_chars": 2400,
+        "candidate_array_chars": 5208,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:method:a085983a8baf18ea094fc9c90e2798e0",
+            "observation_id": "obs_96d9d5358b551584",
+            "path": "src/server/project.ts",
+            "symbol": "Project::updateGraphWorker",
+            "support": "direct_evidence",
+            "source_chars": 3969,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 989,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_03c6729945d2a762",
+        "files": [
+          "src/testrunner/unittests/tsbuild/watchmode.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 266,
+        "capped_source_chars": 266,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:68b87ef75d2dbfb56b352061dbb863fd",
+            "observation_id": "obs_542f6ec5c50e9373",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "introduceError",
+            "support": "navigation_only",
+            "source_chars": 266,
+            "final_capped_source_chars": 266,
+            "source_trace_line": 84,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_91f908dd4a848883",
+        "files": [
+          "src/testrunner/unittests/tsbuild/watchmode.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 755,
+        "capped_source_chars": 755,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:010ba3b9c3d49d91958f67a4f5d3c335",
+            "observation_id": "obs_158e2d5a3ab67ecb",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "verifyTransitiveReferences",
+            "support": "navigation_only",
+            "source_chars": 755,
+            "final_capped_source_chars": 755,
+            "source_trace_line": 84,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_97062b31dfee9bd2",
+        "files": [
+          "src/testrunner/unittests/tsbuild/watchmode.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 750,
+        "capped_source_chars": 750,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:138f79a95ab0b21290f1ff62d668bc34",
+            "observation_id": "obs_5c69863ba51eee0c",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "verifyIncrementalErrors",
+            "support": "navigation_only",
+            "source_chars": 750,
+            "final_capped_source_chars": 750,
+            "source_trace_line": 84,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "run_id": "run-20260827T142935Z",
+    "trace_pool_line": 1832,
+    "trace_ledger_line": 1834,
+    "pool_candidates": 27,
+    "island_count": 7,
+    "total_direct": 11,
+    "top_two_direct": 10,
+    "top_two_source_chars": 33684,
+    "top_two_candidate_arrays_chars": 28199,
+    "more_than_three_direct_islands": 1,
+    "direct_majority_islands": 1,
+    "actual_final_input_chars": 37224,
+    "cost_scope": "Candidate arrays use the current final schema and source cap; excludes prompt/schema/flows/connections. Not an island-policy LLM input.",
+    "unmatched": [],
+    "islands": [
+      {
+        "island_id": "island_00047a2c1c7ffb5b",
+        "files": [
+          "src/compiler/builder.ts",
+          "src/compiler/builderstate.ts"
+        ],
+        "promoted_observation_count": 12,
+        "final_pool_count": 12,
+        "direct": 9,
+        "navigation": 3,
+        "source_chars": 19576,
+        "capped_source_chars": 17048,
+        "candidate_array_chars": 26721,
+        "serializable_flow_candidates": 9,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:70d91fa7b61cda64a11e60ff45579147",
+            "observation_id": "obs_5ef93d462c7cc276",
+            "path": "src/compiler/builder.ts",
+            "symbol": "getNextAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 3131,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 937,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:9e4209e679583a4639e64a8a980cf3a4",
+            "observation_id": "obs_f429d6d76ec512a2",
+            "path": "src/compiler/builder.ts",
+            "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 2763,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 937,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:fc5e0c1d952a60d32b4da99e9f988257",
+            "observation_id": "obs_4d85bb7aba967f36",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateShapeSignature",
+            "support": "direct_evidence",
+            "source_chars": 1260,
+            "final_capped_source_chars": 1260,
+            "source_trace_line": 78,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:5126cbe8d8c43acb9f72edf0f6627954",
+            "observation_id": "obs_2b58b117f794b8d5",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateExportedModules",
+            "support": "direct_evidence",
+            "source_chars": 999,
+            "final_capped_source_chars": 999,
+            "source_trace_line": 78,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:9c49488338feaf01b940967a1e0c6195",
+            "observation_id": "obs_303f2048ac073f82",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateExportedFilesMapFromCache",
+            "support": "direct_evidence",
+            "source_chars": 622,
+            "final_capped_source_chars": 622,
+            "source_trace_line": 78,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:d67cc3fb72a7366482958e07db9c1c86",
+            "observation_id": "obs_838eb9432657ceff",
+            "path": "src/compiler/builder.ts",
+            "symbol": "isChangedSignagure",
+            "support": "direct_evidence",
+            "source_chars": 310,
+            "final_capped_source_chars": 310,
+            "source_trace_line": 78,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:30a8c58d8d1b02679033b37851233006",
+            "observation_id": "obs_03047c7d6afe13aa",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getReferencedByPaths",
+            "support": "navigation_only",
+            "source_chars": 331,
+            "final_capped_source_chars": 331,
+            "source_trace_line": 937,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:440f39428a6d506792cce2efd459f338",
+            "observation_id": "obs_fe584ecc96bd4a46",
+            "path": "src/compiler/builder.ts",
+            "symbol": "createBuilderProgram::getSemanticDiagnostics",
+            "support": "direct_evidence",
+            "source_chars": 1727,
+            "final_capped_source_chars": 1727,
+            "source_trace_line": 937,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+            "observation_id": "obs_c2421716b29c47c9",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getFilesAffectedByUpdatedShapeWhenModuleEmit",
+            "support": "direct_evidence",
+            "source_chars": 2290,
+            "final_capped_source_chars": 2290,
+            "source_trace_line": 1400,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:6f34d29664876814447fb255bb945838",
+            "observation_id": "obs_aa30be69cb62721b",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getReferencedFiles",
+            "support": "navigation_only",
+            "source_chars": 3834,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 937,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:3196e566885d332462cbdb90495baa8a",
+            "observation_id": "obs_08e16e7bffcc6df3",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getFilesAffectedByUpdatedShapeWhenNonModuleEmit",
+            "support": "navigation_only",
+            "source_chars": 686,
+            "final_capped_source_chars": 686,
+            "source_trace_line": 1400,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:430c7545c8f79e184f3d819202b395df",
+            "observation_id": "obs_fc92f7a292255e31",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getFilesAffectedBy",
+            "support": "direct_evidence",
+            "source_chars": 1623,
+            "final_capped_source_chars": 1623,
+            "source_trace_line": 1400,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_03e19036db63213e",
+        "files": [
+          "src/compiler/tsbuildpublic.ts",
+          "src/harness/virtualfilesystemwithwatch.ts",
+          "src/testrunner/unittests/tsbuild/watchmode.ts"
+        ],
+        "promoted_observation_count": 9,
+        "final_pool_count": 9,
+        "direct": 1,
+        "navigation": 8,
+        "source_chars": 14108,
+        "capped_source_chars": 13030,
+        "candidate_array_chars": 1478,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:a33338c6c9363ff02277bfc18363b3ab",
+            "observation_id": "obs_d6a1a15f81e64eec",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "verifyProjectChanges",
+            "support": "navigation_only",
+            "source_chars": 2637,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 515,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:200b27b361a344e4e112e12f1b151456",
+            "observation_id": "obs_dec5815897dd1f84",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "getNextInvalidatedProject",
+            "support": "navigation_only",
+            "source_chars": 2824,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 1400,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:e9b4dcb84c194c87104f73e0e9ee18eb",
+            "observation_id": "obs_0b2b8394df6b0d7e",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "invalidateProjectAndScheduleBuilds",
+            "support": "direct_evidence",
+            "source_chars": 321,
+            "final_capped_source_chars": 321,
+            "source_trace_line": 78,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:3bdadc71a969e4127888980783cfb413",
+            "observation_id": "obs_60342648b74b4f39",
+            "path": "src/harness/virtualFileSystemWithWatch.ts",
+            "symbol": "createWatchedSystem",
+            "support": "navigation_only",
+            "source_chars": 243,
+            "final_capped_source_chars": 243,
+            "source_trace_line": 515,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:f8f74b82be3be3d78554c778c2c74e0d",
+            "observation_id": "obs_61bf08951027b2a2",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "createSolutionBuilderWithWatch",
+            "support": "navigation_only",
+            "source_chars": 347,
+            "final_capped_source_chars": 347,
+            "source_trace_line": 515,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:852d58b4a3fc1b7ccfd12f7c681b33ec",
+            "observation_id": "obs_2fc2cd9b3b831a88",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "createSolutionBuilderWithWatchHost",
+            "support": "navigation_only",
+            "source_chars": 598,
+            "final_capped_source_chars": 598,
+            "source_trace_line": 515,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:79007c855ed19ba8360c64ca7e1afe62",
+            "observation_id": "obs_d2903f753c155cb6",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "createSolutionBuilderWorker",
+            "support": "navigation_only",
+            "source_chars": 1921,
+            "final_capped_source_chars": 1921,
+            "source_trace_line": 937,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:interface:2eb09f516739c7fd3d03f6123f8bf4e6",
+            "observation_id": "obs_2732a1d0edba5221",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "BuildInvalidedProject",
+            "support": "navigation_only",
+            "source_chars": 2466,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 1400,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:ba8a11ff344d7128e7738a8783fb4c37",
+            "observation_id": "obs_3be6a1f37cdd966c",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "getUpToDateStatusWorker",
+            "support": "navigation_only",
+            "source_chars": 2751,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 1400,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_91f168c8dd37e5c6",
+        "files": [
+          "src/compiler/watchpublic.ts"
+        ],
+        "promoted_observation_count": 2,
+        "final_pool_count": 2,
+        "direct": 1,
+        "navigation": 1,
+        "source_chars": 2113,
+        "capped_source_chars": 2113,
+        "candidate_array_chars": 2081,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+            "observation_id": "obs_70ab956630713908",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram",
+            "support": "navigation_only",
+            "source_chars": 1207,
+            "final_capped_source_chars": 1207,
+            "source_trace_line": 78,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:ee3295a1d6aa413bd4860aa5e033b3c9",
+            "observation_id": "obs_fd3fcd0b2e510cb0",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram::onSourceFileChange",
+            "support": "direct_evidence",
+            "source_chars": 906,
+            "final_capped_source_chars": 906,
+            "source_trace_line": 78,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_1fab2cf58bef8ccb",
+        "files": [
+          "src/compiler/builder.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 371,
+        "capped_source_chars": 371,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:b3ac8c3f944de8c8502aa146e7538955",
+            "observation_id": "obs_94daaeea1555a66f",
+            "path": "src/compiler/builder.ts",
+            "symbol": "getSemanticDiagnosticsOfFile",
+            "support": "navigation_only",
+            "source_chars": 371,
+            "final_capped_source_chars": 371,
+            "source_trace_line": 78,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_71303aa0cf3b6d04",
+        "files": [
+          "src/compiler/sys.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 1241,
+        "capped_source_chars": 1241,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:96e2a62ad6523adaeb127bd071073868",
+            "observation_id": "obs_fa0cbb909e457918",
+            "path": "src/compiler/sys.ts",
+            "symbol": "getNodeSystem::fsWatch::watchPresentFileSystemEntry",
+            "support": "navigation_only",
+            "source_chars": 1241,
+            "final_capped_source_chars": 1241,
+            "source_trace_line": 78,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_91f908dd4a848883",
+        "files": [
+          "src/testrunner/unittests/tsbuild/watchmode.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 1230,
+        "capped_source_chars": 1230,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:010ba3b9c3d49d91958f67a4f5d3c335",
+            "observation_id": "obs_158e2d5a3ab67ecb",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "verifyTransitiveReferences",
+            "support": "navigation_only",
+            "source_chars": 1230,
+            "final_capped_source_chars": 1230,
+            "source_trace_line": 78,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_ede5c97e8bfe9c0a",
+        "files": [
+          "src/compiler/watch.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 1204,
+        "capped_source_chars": 1204,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:7ddd85cc73d784339da4386e1d9d5584",
+            "observation_id": "obs_ad3c3da59fa1d1a1",
+            "path": "src/compiler/watch.ts",
+            "symbol": "emitFilesAndReportErrors",
+            "support": "navigation_only",
+            "source_chars": 1204,
+            "final_capped_source_chars": 1204,
+            "source_trace_line": 78,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "run_id": "run-20260827T153030Z",
+    "trace_pool_line": 1828,
+    "trace_ledger_line": 1830,
+    "pool_candidates": 25,
+    "island_count": 6,
+    "total_direct": 17,
+    "top_two_direct": 17,
+    "top_two_source_chars": 31862,
+    "top_two_candidate_arrays_chars": 48678,
+    "more_than_three_direct_islands": 1,
+    "direct_majority_islands": 2,
+    "actual_final_input_chars": 52086,
+    "cost_scope": "Candidate arrays use the current final schema and source cap; excludes prompt/schema/flows/connections. Not an island-policy LLM input.",
+    "unmatched": [],
+    "islands": [
+      {
+        "island_id": "island_ca09120c0d54b946",
+        "files": [
+          "src/compiler/builder.ts",
+          "src/compiler/builderstate.ts",
+          "src/compiler/tsbuildpublic.ts",
+          "src/compiler/watchpublic.ts",
+          "src/compiler/watchutilities.ts"
+        ],
+        "promoted_observation_count": 20,
+        "final_pool_count": 20,
+        "direct": 16,
+        "navigation": 4,
+        "source_chars": 30973,
+        "capped_source_chars": 28766,
+        "candidate_array_chars": 46702,
+        "serializable_flow_candidates": 16,
+        "direct_missing_final": [
+          "updateExportedFilesMapFromCache",
+          "BuildInvalidedProject"
+        ],
+        "members": [
+          {
+            "candidate_id": "node:function:200b27b361a344e4e112e12f1b151456",
+            "observation_id": "obs_dec5815897dd1f84",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "getNextInvalidatedProject",
+            "support": "navigation_only",
+            "source_chars": 2259,
+            "final_capped_source_chars": 2259,
+            "source_trace_line": 1432,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:70d91fa7b61cda64a11e60ff45579147",
+            "observation_id": "obs_5ef93d462c7cc276",
+            "path": "src/compiler/builder.ts",
+            "symbol": "getNextAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 3131,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 994,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:9e4209e679583a4639e64a8a980cf3a4",
+            "observation_id": "obs_f429d6d76ec512a2",
+            "path": "src/compiler/builder.ts",
+            "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 2763,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 994,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+            "observation_id": "obs_70ab956630713908",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram",
+            "support": "navigation_only",
+            "source_chars": 872,
+            "final_capped_source_chars": 872,
+            "source_trace_line": 100,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:e9b4dcb84c194c87104f73e0e9ee18eb",
+            "observation_id": "obs_0b2b8394df6b0d7e",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "invalidateProjectAndScheduleBuilds",
+            "support": "direct_evidence",
+            "source_chars": 321,
+            "final_capped_source_chars": 321,
+            "source_trace_line": 100,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:3196e566885d332462cbdb90495baa8a",
+            "observation_id": "obs_08e16e7bffcc6df3",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getFilesAffectedByUpdatedShapeWhenNonModuleEmit",
+            "support": "direct_evidence",
+            "source_chars": 686,
+            "final_capped_source_chars": 686,
+            "source_trace_line": 100,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+            "observation_id": "obs_8f1c2f99a859013f",
+            "path": "src/compiler/builder.ts",
+            "symbol": "handleDtsMayChangeOfAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 919,
+            "final_capped_source_chars": 919,
+            "source_trace_line": 100,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:e9f56cfaef09c1800fac3a921259683b",
+            "observation_id": "obs_cac9d36050e1e9b4",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram::createNewProgram",
+            "support": "navigation_only",
+            "source_chars": 896,
+            "final_capped_source_chars": 896,
+            "source_trace_line": 100,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:65665f4b84d4e5aba2a622258554cda6",
+            "observation_id": "obs_320d23b5d27ef2c6",
+            "path": "src/compiler/builder.ts",
+            "symbol": "createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 884,
+            "final_capped_source_chars": 884,
+            "source_trace_line": 100,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:ee3295a1d6aa413bd4860aa5e033b3c9",
+            "observation_id": "obs_fd3fcd0b2e510cb0",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram::onSourceFileChange",
+            "support": "direct_evidence",
+            "source_chars": 906,
+            "final_capped_source_chars": 906,
+            "source_trace_line": 100,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:5126cbe8d8c43acb9f72edf0f6627954",
+            "observation_id": "obs_2b58b117f794b8d5",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateExportedModules",
+            "support": "direct_evidence",
+            "source_chars": 878,
+            "final_capped_source_chars": 878,
+            "source_trace_line": 100,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:9c49488338feaf01b940967a1e0c6195",
+            "observation_id": "obs_303f2048ac073f82",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateExportedFilesMapFromCache",
+            "support": "direct_evidence",
+            "source_chars": 622,
+            "final_capped_source_chars": 622,
+            "source_trace_line": 100,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+            "observation_id": "obs_c2421716b29c47c9",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getFilesAffectedByUpdatedShapeWhenModuleEmit",
+            "support": "direct_evidence",
+            "source_chars": 2290,
+            "final_capped_source_chars": 2290,
+            "source_trace_line": 1432,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:interface:2eb09f516739c7fd3d03f6123f8bf4e6",
+            "observation_id": "obs_2732a1d0edba5221",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "BuildInvalidedProject",
+            "support": "direct_evidence",
+            "source_chars": 2466,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 549,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:ba8a11ff344d7128e7738a8783fb4c37",
+            "observation_id": "obs_3be6a1f37cdd966c",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "getUpToDateStatusWorker",
+            "support": "direct_evidence",
+            "source_chars": 2751,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 549,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:fc5e0c1d952a60d32b4da99e9f988257",
+            "observation_id": "obs_4d85bb7aba967f36",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateShapeSignature",
+            "support": "direct_evidence",
+            "source_chars": 3096,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 549,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:440f39428a6d506792cce2efd459f338",
+            "observation_id": "obs_fe584ecc96bd4a46",
+            "path": "src/compiler/builder.ts",
+            "symbol": "createBuilderProgram::getSemanticDiagnostics",
+            "support": "direct_evidence",
+            "source_chars": 1727,
+            "final_capped_source_chars": 1727,
+            "source_trace_line": 994,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:23d7e6bcf1fb33ad1d95f9f2fc2b2190",
+            "observation_id": "obs_68f9613a4b0af75f",
+            "path": "src/compiler/watchUtilities.ts",
+            "symbol": "updateWatchingWildcardDirectories",
+            "support": "navigation_only",
+            "source_chars": 1552,
+            "final_capped_source_chars": 1552,
+            "source_trace_line": 994,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:430c7545c8f79e184f3d819202b395df",
+            "observation_id": "obs_fc92f7a292255e31",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getFilesAffectedBy",
+            "support": "direct_evidence",
+            "source_chars": 1623,
+            "final_capped_source_chars": 1623,
+            "source_trace_line": 1432,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:30a8c58d8d1b02679033b37851233006",
+            "observation_id": "obs_03047c7d6afe13aa",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getReferencedByPaths",
+            "support": "direct_evidence",
+            "source_chars": 331,
+            "final_capped_source_chars": 331,
+            "source_trace_line": 1432,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_10abc0a9c8057d19",
+        "files": [
+          "src/compiler/tsbuildpublic.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 1,
+        "navigation": 0,
+        "source_chars": 889,
+        "capped_source_chars": 889,
+        "candidate_array_chars": 1976,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:1a791a3dd52deae978d3d12704243750",
+            "observation_id": "obs_3614e2da85b0d45d",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "queueReferencingProjects",
+            "support": "direct_evidence",
+            "source_chars": 889,
+            "final_capped_source_chars": 889,
+            "source_trace_line": 100,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_53268fb5b9c3e018",
+        "files": [
+          "src/testrunner/unittests/tsbuild/watchmode.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 904,
+        "capped_source_chars": 904,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:a33338c6c9363ff02277bfc18363b3ab",
+            "observation_id": "obs_d6a1a15f81e64eec",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "verifyProjectChanges",
+            "support": "navigation_only",
+            "source_chars": 904,
+            "final_capped_source_chars": 904,
+            "source_trace_line": 100,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_71303aa0cf3b6d04",
+        "files": [
+          "src/compiler/sys.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 2014,
+        "capped_source_chars": 2014,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:96e2a62ad6523adaeb127bd071073868",
+            "observation_id": "obs_fa0cbb909e457918",
+            "path": "src/compiler/sys.ts",
+            "symbol": "getNodeSystem::fsWatch::watchPresentFileSystemEntry",
+            "support": "navigation_only",
+            "source_chars": 2014,
+            "final_capped_source_chars": 2014,
+            "source_trace_line": 549,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_91f908dd4a848883",
+        "files": [
+          "src/testrunner/unittests/tsbuild/watchmode.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 847,
+        "capped_source_chars": 847,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:010ba3b9c3d49d91958f67a4f5d3c335",
+            "observation_id": "obs_158e2d5a3ab67ecb",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "verifyTransitiveReferences",
+            "support": "navigation_only",
+            "source_chars": 847,
+            "final_capped_source_chars": 847,
+            "source_trace_line": 100,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_97062b31dfee9bd2",
+        "files": [
+          "src/testrunner/unittests/tsbuild/watchmode.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 921,
+        "capped_source_chars": 921,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:138f79a95ab0b21290f1ff62d668bc34",
+            "observation_id": "obs_5c69863ba51eee0c",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "verifyIncrementalErrors",
+            "support": "navigation_only",
+            "source_chars": 921,
+            "final_capped_source_chars": 921,
+            "source_trace_line": 100,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "run_id": "run-20260827T153303Z",
+    "trace_pool_line": 2306,
+    "trace_ledger_line": 2308,
+    "pool_candidates": 32,
+    "island_count": 7,
+    "total_direct": 20,
+    "top_two_direct": 15,
+    "top_two_source_chars": 21877,
+    "top_two_candidate_arrays_chars": 35430,
+    "more_than_three_direct_islands": 2,
+    "direct_majority_islands": 5,
+    "actual_final_input_chars": 48504,
+    "cost_scope": "Candidate arrays use the current final schema and source cap; excludes prompt/schema/flows/connections. Not an island-policy LLM input.",
+    "unmatched": [],
+    "islands": [
+      {
+        "island_id": "island_d9d607a03e6a5ed1",
+        "files": [
+          "src/compiler/builder.ts",
+          "src/compiler/tsbuildpublic.ts",
+          "src/compiler/watchpublic.ts",
+          "src/compiler/watchutilities.ts",
+          "src/testrunner/unittests/tsbuild/watchmode.ts",
+          "src/testrunner/unittests/tscwatch/helpers.ts"
+        ],
+        "promoted_observation_count": 18,
+        "final_pool_count": 18,
+        "direct": 11,
+        "navigation": 7,
+        "source_chars": 18585,
+        "capped_source_chars": 18519,
+        "candidate_array_chars": 28695,
+        "serializable_flow_candidates": 11,
+        "direct_missing_final": [
+          "introduceError",
+          "createWatchProgram::onSourceFileChange"
+        ],
+        "members": [
+          {
+            "candidate_id": "node:function:68b87ef75d2dbfb56b352061dbb863fd",
+            "observation_id": "obs_542f6ec5c50e9373",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "introduceError",
+            "support": "direct_evidence",
+            "source_chars": 266,
+            "final_capped_source_chars": 266,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:200b27b361a344e4e112e12f1b151456",
+            "observation_id": "obs_dec5815897dd1f84",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "getNextInvalidatedProject",
+            "support": "direct_evidence",
+            "source_chars": 2259,
+            "final_capped_source_chars": 2259,
+            "source_trace_line": 987,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:23d7e6bcf1fb33ad1d95f9f2fc2b2190",
+            "observation_id": "obs_68f9613a4b0af75f",
+            "path": "src/compiler/watchUtilities.ts",
+            "symbol": "updateWatchingWildcardDirectories",
+            "support": "direct_evidence",
+            "source_chars": 1552,
+            "final_capped_source_chars": 1552,
+            "source_trace_line": 987,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+            "observation_id": "obs_96587518d7cf8a6a",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "buildNextInvalidatedProject",
+            "support": "direct_evidence",
+            "source_chars": 615,
+            "final_capped_source_chars": 615,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:a33338c6c9363ff02277bfc18363b3ab",
+            "observation_id": "obs_d6a1a15f81e64eec",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "verifyProjectChanges",
+            "support": "navigation_only",
+            "source_chars": 603,
+            "final_capped_source_chars": 603,
+            "source_trace_line": 110,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+            "observation_id": "obs_70ab956630713908",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram",
+            "support": "direct_evidence",
+            "source_chars": 2346,
+            "final_capped_source_chars": 2346,
+            "source_trace_line": 1895,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:e9b4dcb84c194c87104f73e0e9ee18eb",
+            "observation_id": "obs_0b2b8394df6b0d7e",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "invalidateProjectAndScheduleBuilds",
+            "support": "direct_evidence",
+            "source_chars": 321,
+            "final_capped_source_chars": 321,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:e9f56cfaef09c1800fac3a921259683b",
+            "observation_id": "obs_cac9d36050e1e9b4",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram::createNewProgram",
+            "support": "navigation_only",
+            "source_chars": 624,
+            "final_capped_source_chars": 624,
+            "source_trace_line": 110,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:ee3295a1d6aa413bd4860aa5e033b3c9",
+            "observation_id": "obs_fd3fcd0b2e510cb0",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram::onSourceFileChange",
+            "support": "direct_evidence",
+            "source_chars": 600,
+            "final_capped_source_chars": 600,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "range:src/testRunner/unittests/tsbuild/watchMode.ts:339:349",
+            "observation_id": "obs_d2ee33fc289cfbe5",
+            "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+            "symbol": "",
+            "support": "navigation_only",
+            "source_chars": 474,
+            "final_capped_source_chars": 474,
+            "source_trace_line": 571,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:f8f74b82be3be3d78554c778c2c74e0d",
+            "observation_id": "obs_61bf08951027b2a2",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "createSolutionBuilderWithWatch",
+            "support": "direct_evidence",
+            "source_chars": 347,
+            "final_capped_source_chars": 347,
+            "source_trace_line": 987,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:852d58b4a3fc1b7ccfd12f7c681b33ec",
+            "observation_id": "obs_2fc2cd9b3b831a88",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "createSolutionBuilderWithWatchHost",
+            "support": "direct_evidence",
+            "source_chars": 598,
+            "final_capped_source_chars": 598,
+            "source_trace_line": 987,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:2b766b8b2bb848361e64d2a63836e71e",
+            "observation_id": "obs_f81305018e14309d",
+            "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "symbol": "verifyTscWatch",
+            "support": "navigation_only",
+            "source_chars": 223,
+            "final_capped_source_chars": 223,
+            "source_trace_line": 987,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:fe1cbbc0b38bb778a51ef5fee351f2cc",
+            "observation_id": "obs_3902f7bea8551306",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "watchWildCardDirectories",
+            "support": "direct_evidence",
+            "source_chars": 1511,
+            "final_capped_source_chars": 1511,
+            "source_trace_line": 1438,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:interface:2eb09f516739c7fd3d03f6123f8bf4e6",
+            "observation_id": "obs_2732a1d0edba5221",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "BuildInvalidedProject",
+            "support": "navigation_only",
+            "source_chars": 2466,
+            "final_capped_source_chars": 2400,
+            "source_trace_line": 1438,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:interface:9c1b3e65a95cec71a130cf7d3c60b364",
+            "observation_id": "obs_c57494f23c28b38b",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "WatchOfFilesAndCompilerOptions",
+            "support": "navigation_only",
+            "source_chars": 233,
+            "final_capped_source_chars": 233,
+            "source_trace_line": 1895,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:71916a944f131bae53e3f62d8aefcb2f",
+            "observation_id": "obs_fa3707413697522d",
+            "path": "src/compiler/watchPublic.ts",
+            "symbol": "createWatchProgram::watchWildcardDirectory",
+            "support": "direct_evidence",
+            "source_chars": 1796,
+            "final_capped_source_chars": 1796,
+            "source_trace_line": 1895,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:65665f4b84d4e5aba2a622258554cda6",
+            "observation_id": "obs_320d23b5d27ef2c6",
+            "path": "src/compiler/builder.ts",
+            "symbol": "createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile",
+            "support": "navigation_only",
+            "source_chars": 1751,
+            "final_capped_source_chars": 1751,
+            "source_trace_line": 1895,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_312f27d77c86d7d7",
+        "files": [
+          "src/compiler/builder.ts",
+          "src/compiler/builderstate.ts"
+        ],
+        "promoted_observation_count": 6,
+        "final_pool_count": 6,
+        "direct": 4,
+        "navigation": 2,
+        "source_chars": 3292,
+        "capped_source_chars": 3292,
+        "candidate_array_chars": 6735,
+        "serializable_flow_candidates": 4,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:70d91fa7b61cda64a11e60ff45579147",
+            "observation_id": "obs_5ef93d462c7cc276",
+            "path": "src/compiler/builder.ts",
+            "symbol": "getNextAffectedFile",
+            "support": "navigation_only",
+            "source_chars": 579,
+            "final_capped_source_chars": 579,
+            "source_trace_line": 110,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:9e4209e679583a4639e64a8a980cf3a4",
+            "observation_id": "obs_f429d6d76ec512a2",
+            "path": "src/compiler/builder.ts",
+            "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+            "support": "direct_evidence",
+            "source_chars": 573,
+            "final_capped_source_chars": 573,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:59a7c4446de36a26d1df58af0cf48578",
+            "observation_id": "obs_df63afc04bc933c2",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateSignaturesFromCache",
+            "support": "direct_evidence",
+            "source_chars": 320,
+            "final_capped_source_chars": 320,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:fc5e0c1d952a60d32b4da99e9f988257",
+            "observation_id": "obs_4d85bb7aba967f36",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateShapeSignature",
+            "support": "navigation_only",
+            "source_chars": 585,
+            "final_capped_source_chars": 585,
+            "source_trace_line": 110,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:9c49488338feaf01b940967a1e0c6195",
+            "observation_id": "obs_303f2048ac073f82",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateExportedFilesMapFromCache",
+            "support": "direct_evidence",
+            "source_chars": 622,
+            "final_capped_source_chars": 622,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:2c6c51464ce895c8cf9943bd11872b91",
+            "observation_id": "obs_e814272abc6a511b",
+            "path": "src/compiler/builder.ts",
+            "symbol": "handleDtsMayChangeOf",
+            "support": "direct_evidence",
+            "source_chars": 613,
+            "final_capped_source_chars": 613,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_b3ed171d7e457494",
+        "files": [
+          "src/compiler/sys.ts",
+          "src/harness/virtualfilesystemwithwatch.ts"
+        ],
+        "promoted_observation_count": 4,
+        "final_pool_count": 4,
+        "direct": 2,
+        "navigation": 2,
+        "source_chars": 3927,
+        "capped_source_chars": 3927,
+        "candidate_array_chars": 5694,
+        "serializable_flow_candidates": 2,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:9c6210025c4630011c667ec7150bee75",
+            "observation_id": "obs_98b13a9c628119ed",
+            "path": "src/compiler/sys.ts",
+            "symbol": "getNodeSystem::fsWatch::callbackChangingToMissingFileSystemEntry",
+            "support": "navigation_only",
+            "source_chars": 1232,
+            "final_capped_source_chars": 1232,
+            "source_trace_line": 571,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          },
+          {
+            "candidate_id": "node:function:96e2a62ad6523adaeb127bd071073868",
+            "observation_id": "obs_fa0cbb909e457918",
+            "path": "src/compiler/sys.ts",
+            "symbol": "getNodeSystem::fsWatch::watchPresentFileSystemEntry",
+            "support": "direct_evidence",
+            "source_chars": 1906,
+            "final_capped_source_chars": 1906,
+            "source_trace_line": 1438,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:2bec82fb5df72cd7376102915459a34d",
+            "observation_id": "obs_e206a0c67cae3500",
+            "path": "src/compiler/sys.ts",
+            "symbol": "getNodeSystem::fsWatch::invokeCallbackAndUpdateWatcher",
+            "support": "direct_evidence",
+            "source_chars": 601,
+            "final_capped_source_chars": 601,
+            "source_trace_line": 987,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          },
+          {
+            "candidate_id": "node:function:0b2718739af3cbe708b3c8511945d424",
+            "observation_id": "obs_7ad8f17429475d4a",
+            "path": "src/harness/virtualFileSystemWithWatch.ts",
+            "symbol": "createWatcher",
+            "support": "navigation_only",
+            "source_chars": 188,
+            "final_capped_source_chars": 188,
+            "source_trace_line": 1895,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_3af9348c88f43ff4",
+        "files": [
+          "src/server/project.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 1,
+        "navigation": 0,
+        "source_chars": 380,
+        "capped_source_chars": 380,
+        "candidate_array_chars": 1518,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:method:aed1ec1d30387ddeea8b4d3e3967a54c",
+            "observation_id": "obs_134bfb083fdb51a4",
+            "path": "src/server/project.ts",
+            "symbol": "Project::onInvalidatedResolution",
+            "support": "direct_evidence",
+            "source_chars": 380,
+            "final_capped_source_chars": 380,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_4a55041ab573a3fc",
+        "files": [
+          "src/compiler/tsbuildpublic.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 1,
+        "navigation": 0,
+        "source_chars": 575,
+        "capped_source_chars": 575,
+        "candidate_array_chars": 1654,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:function:878d61f5d36d915588069645c3be4121",
+            "observation_id": "obs_b5b3c1188086eed8",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "updateModuleResolutionCache",
+            "support": "direct_evidence",
+            "source_chars": 575,
+            "final_capped_source_chars": 575,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": true
+          }
+        ]
+      },
+      {
+        "island_id": "island_8e42c443ef890350",
+        "files": [
+          "src/compiler/builder.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 1,
+        "navigation": 0,
+        "source_chars": 621,
+        "capped_source_chars": 621,
+        "candidate_array_chars": 1875,
+        "serializable_flow_candidates": 1,
+        "direct_missing_final": [
+          "getBinderAndCheckerDiagnosticsOfFile"
+        ],
+        "members": [
+          {
+            "candidate_id": "node:function:aa8e976ec79373362a496da34cfa6e94",
+            "observation_id": "obs_492dfe725960df80",
+            "path": "src/compiler/builder.ts",
+            "symbol": "getBinderAndCheckerDiagnosticsOfFile",
+            "support": "direct_evidence",
+            "source_chars": 621,
+            "final_capped_source_chars": 621,
+            "source_trace_line": 110,
+            "in_flow_inventory": true,
+            "in_final_input": false
+          }
+        ]
+      },
+      {
+        "island_id": "island_8253a5917f025815",
+        "files": [
+          "src/server/project.ts"
+        ],
+        "promoted_observation_count": 1,
+        "final_pool_count": 1,
+        "direct": 0,
+        "navigation": 1,
+        "source_chars": 609,
+        "capped_source_chars": 609,
+        "candidate_array_chars": 2,
+        "serializable_flow_candidates": 0,
+        "direct_missing_final": [],
+        "members": [
+          {
+            "candidate_id": "node:method:a085983a8baf18ea094fc9c90e2798e0",
+            "observation_id": "obs_96d9d5358b551584",
+            "path": "src/server/project.ts",
+            "symbol": "Project::updateGraphWorker",
+            "support": "navigation_only",
+            "source_chars": 609,
+            "final_capped_source_chars": 609,
+            "source_trace_line": 110,
+            "in_flow_inventory": false,
+            "in_final_input": false
+          }
+        ]
+      }
+    ]
+  }
+]

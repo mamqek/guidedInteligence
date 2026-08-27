@@ -1,0 +1,3289 @@
+[
+  {
+    "run_id": "run-20260827T153030Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 3,
+    "oracle_positions": {
+      "src/compiler/builder.ts": 2,
+      "src/compiler/builderState.ts": 3,
+      "src/testRunner/unittests/tsbuild/watchMode.ts": 5
+    },
+    "final_items": 14,
+    "final_files": 6,
+    "retrieval_tokens": 108312,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1600,
+        "completion_tokens": 119,
+        "total_tokens": 1719
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 23201,
+        "completion_tokens": 1379,
+        "total_tokens": 24580
+      },
+      "evidence_qualification": {
+        "calls": 4,
+        "prompt_tokens": 24238,
+        "completion_tokens": 7363,
+        "total_tokens": 31601
+      },
+      "retrieval_coverage": {
+        "calls": 4,
+        "prompt_tokens": 26399,
+        "completion_tokens": 4657,
+        "total_tokens": 31056
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 1,
+        "prompt_tokens": 15227,
+        "completion_tokens": 4129,
+        "total_tokens": 19356
+      }
+    },
+    "leads": [
+      {
+        "discovery_line": 514,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 437,
+          "full_line_start": 418,
+          "language": "typescript",
+          "line_end": 437,
+          "line_start": 418,
+          "node_id": "function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "handleDtsMayChangeOfAffectedFile"
+        },
+        "discovered_round": 0,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 0,
+        "obligation_id": "explain_ordered_mechanism",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          "src/compiler/program.ts",
+          "function:e66272750f8c640f72b8d9454dfc03cf"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls program.isSourceFileDefaultLibrary at src/compiler/builder.ts:428; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 428,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_8f1c2f99a859013f",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "program.isSourceFileDefaultLibrary",
+        "target_node_id": "function:e66272750f8c640f72b8d9454dfc03cf",
+        "target_path": "src/compiler/program.ts",
+        "target_range": [
+          1532,
+          1550
+        ],
+        "target_symbol": "createProgram::isSourceFileDefaultLibrary",
+        "actions": [
+          {
+            "trace_line": 524,
+            "round": 1,
+            "discovered_round": 0,
+            "id": "action_5c8837ea251b47c0",
+            "obligation_id": "explain_ordered_mechanism",
+            "pool": "verified_lead",
+            "purpose": "structural_child_handoff",
+            "reason": "Qualified source calls program.isSourceFileDefaultLibrary at src/compiler/builder.ts:428; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "scope_id": "island_6840556d67ff4348",
+            "source_observation_id": "obs_8f1c2f99a859013f",
+            "target": "program.isSourceFileDefaultLibrary",
+            "target_line_end": 1550,
+            "target_line_start": 1532,
+            "target_node_id": "function:e66272750f8c640f72b8d9454dfc03cf",
+            "target_path": "src/compiler/program.ts",
+            "target_symbol": "createProgram::isSourceFileDefaultLibrary",
+            "type": "InspectVerifiedLead"
+          }
+        ],
+        "qualification": [
+          {
+            "trace_line": 551,
+            "round": 1,
+            "disposition": "reject",
+            "local_follow_up": "",
+            "missing_information": [
+              "All issue-specific watch, project-reference, re-export, invalidation, and diagnostic behavior."
+            ],
+            "observation_id": "obs_2917bcf9dbcee5cf",
+            "reason": "This function only determines whether a source file is a default library file based on noLib, lib, target, and filename matching. It provides no visible support for project references, file watching, re-exports, incremental signatures, invalidation, or downstream diagnostics.",
+            "support_level": "insufficient",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "The function checks hasNoDefaultLib and compiler library options.",
+              "It compares the file name with a default library path or configured library names."
+            ]
+          }
+        ],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 1036,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 541,
+          "full_line_start": 495,
+          "language": "typescript",
+          "line_end": 541,
+          "line_start": 522,
+          "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 2,
+        "obligation_id": "explain_subject",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          2,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:30a8c58d8d1b02679033b37851233006"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 509,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 2,
+        "source_observation_id": "obs_f429d6d76ec512a2",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.getReferencedByPaths",
+        "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          449,
+          453
+        ],
+        "target_symbol": "getReferencedByPaths",
+        "actions": [
+          {
+            "trace_line": 1413,
+            "round": 3,
+            "discovered_round": 2,
+            "id": "action_50d9cee4233b68a9",
+            "obligation_id": "explain_subject",
+            "pool": "verified_lead",
+            "purpose": "structural_child_handoff",
+            "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "scope_id": "island_ca09120c0d54b946",
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "target": "BuilderState.getReferencedByPaths",
+            "target_line_end": 453,
+            "target_line_start": 449,
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_symbol": "getReferencedByPaths",
+            "type": "InspectVerifiedLead"
+          }
+        ],
+        "qualification": [
+          {
+            "trace_line": 1434,
+            "round": 3,
+            "disposition": "promote",
+            "local_follow_up": "Show where BuilderState.referencedMap is populated for export declarations and project-reference dependencies.",
+            "missing_information": [
+              "The excerpt does not show how referencedMap is populated for wildcard re-exports.",
+              "It does not show project-level invalidation or downstream type checking."
+            ],
+            "observation_id": "obs_03047c7d6afe13aa",
+            "reason": "This function visibly implements reverse dependency lookup using BuilderState.referencedMap: it returns every file path whose reference set contains the changed file path.",
+            "support_level": "direct_evidence",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "visible_support": [
+              "The function iterates state.referencedMap entries.",
+              "It tests whether each referencesInFile set contains referencedFilePath.",
+              "It returns the matching referencing file paths, which are used by the affected-shape traversal."
+            ]
+          }
+        ],
+        "final_ranks": [
+          6
+        ]
+      },
+      {
+        "discovery_line": 1036,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 386,
+          "full_line_start": 333,
+          "language": "typescript",
+          "line_end": 386,
+          "line_start": 357,
+          "node_id": "function:70d91fa7b61cda64a11e60ff45579147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "getNextAffectedFile"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 1,
+        "obligation_id": "explain_subject",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          2,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:59a7c4446de36a26d1df58af0cf48578"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.updateSignaturesFromCache at src/compiler/builder.ts:354; inspect target for unresolved explain_subject; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 354,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_5ef93d462c7cc276",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.updateSignaturesFromCache",
+        "target_node_id": "function:59a7c4446de36a26d1df58af0cf48578",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          294,
+          299
+        ],
+        "target_symbol": "updateSignaturesFromCache",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      }
+    ],
+    "followups": [
+      {
+        "discovery_line": 1440,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 386,
+          "full_line_start": 333,
+          "language": "typescript",
+          "line_end": 386,
+          "line_start": 357,
+          "node_id": "function:70d91fa7b61cda64a11e60ff45579147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "getNextAffectedFile"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "incidental_visible_call",
+        "known_incoming_calls": 1,
+        "obligation_id": "explain_subject",
+        "origin": "qualified_structural_file_lead",
+        "priority_key": [
+          1,
+          0,
+          0,
+          2,
+          1,
+          "src/compiler/builderstate.ts",
+          "function:59a7c4446de36a26d1df58af0cf48578"
+        ],
+        "qualified_target": true,
+        "reason": "Qualified source calls BuilderState.updateSignaturesFromCache at src/compiler/builder.ts:354; inspect target for unresolved explain_subject; no semantic support inherited.",
+        "request_text": "",
+        "source_call_line": 354,
+        "source_call_path": "src/compiler/builder.ts",
+        "source_callable_kind": "function",
+        "source_file_literal_calls": 1,
+        "source_observation_id": "obs_5ef93d462c7cc276",
+        "source_rank": 1,
+        "structural_child": true,
+        "target": "BuilderState.updateSignaturesFromCache",
+        "target_node_id": "function:59a7c4446de36a26d1df58af0cf48578",
+        "target_path": "src/compiler/builderState.ts",
+        "target_range": [
+          294,
+          299
+        ],
+        "target_symbol": "updateSignaturesFromCache",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      },
+      {
+        "discovery_line": 1440,
+        "source_handle": {
+          "adapter": "owner_continuation",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1208,
+          "line_start": 1185,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        },
+        "discovered_round": 3,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_subject",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          3,
+          1,
+          "src/compiler/tsbuildpublic.ts",
+          "function:883d2bb657e6c4a5ef94f90002dcd4fd"
+        ],
+        "qualified_target": false,
+        "reason": "Show the code that computes status for the pending project and the continuation of createBuildOrUpdateInvalidedProject.",
+        "request_text": "Show the code that computes status for the pending project and the continuation of createBuildOrUpdateInvalidedProject. The evidence does not establish the specific wildcard re-export path from the changed interface to the dependent project or show that this path determines whether the dependent project is rechecked. The evidence shows that a watched source-file change schedules a program update and that project invalidation schedules builds, but does not establish the complete trigger linkage from the changed interface file through its project reference to downstream invalidation. The ordered evidence does not connect wildcard re-export resolution and project-reference propagation to the downstream type-checking decision, nor does it establish the contrast with a direct import. The evidence identifies generic signature, exported-module, affected-file, and invalidation state updates, but does not show the specific state representing the changed interface and wildcard re-export as affecting the dependent project's use. No supplied candidate establishes a causal implementation explanation for why project references combined with wildcard re-exports fail to propagate the changed interface in watch mode while the alternate paths detect the error.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_dec5815897dd1f84",
+        "source_rank": 1,
+        "structural_child": false,
+        "target": "createBuildOrUpdateInvalidedProject",
+        "target_node_id": "function:883d2bb657e6c4a5ef94f90002dcd4fd",
+        "target_path": "src/compiler/tsbuildPublic.ts",
+        "target_range": [
+          701,
+          1115
+        ],
+        "target_symbol": "createBuildOrUpdateInvalidedProject",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      }
+    ],
+    "scheduling": [
+      {
+        "trace_line": 523,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_ordered_mechanism",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/program.ts",
+              "function:e66272750f8c640f72b8d9454dfc03cf"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls program.isSourceFileDefaultLibrary at src/compiler/builder.ts:428; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 428,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_8f1c2f99a859013f",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "program.isSourceFileDefaultLibrary",
+            "target_node_id": "function:e66272750f8c640f72b8d9454dfc03cf",
+            "target_path": "src/compiler/program.ts",
+            "target_range": [
+              1532,
+              1550
+            ],
+            "target_symbol": "createProgram::isSourceFileDefaultLibrary"
+          }
+        ],
+        "round": 1,
+        "selected_node_ids": [
+          "function:e66272750f8c640f72b8d9454dfc03cf"
+        ],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:e66272750f8c640f72b8d9454dfc03cf",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 963,
+        "blocked_reason": "",
+        "executed_count": 1,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 2,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 1411,
+        "blocked_reason": "",
+        "executed_count": 1,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 2,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 2,
+            "obligation_id": "explain_subject",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              2,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:30a8c58d8d1b02679033b37851233006"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 509,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.getReferencedByPaths",
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              449,
+              453
+            ],
+            "target_symbol": "getReferencedByPaths"
+          },
+          {
+            "discovered_round": 2,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 1,
+            "obligation_id": "explain_subject",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              2,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:59a7c4446de36a26d1df58af0cf48578"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.updateSignaturesFromCache at src/compiler/builder.ts:354; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 354,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.updateSignaturesFromCache",
+            "target_node_id": "function:59a7c4446de36a26d1df58af0cf48578",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              294,
+              299
+            ],
+            "target_symbol": "updateSignaturesFromCache"
+          }
+        ],
+        "round": 3,
+        "selected_node_ids": [
+          "function:30a8c58d8d1b02679033b37851233006"
+        ],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:30a8c58d8d1b02679033b37851233006",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      }
+    ],
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__microsoft_typescript_35468__a27de1ce",
+        "document_count": 83401,
+        "indexed_points": 83401,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "discovery_audits": [
+      {
+        "trace_line": 514,
+        "audit": [
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 5,
+            "source_line": 1153,
+            "source_observation_id": "obs_dec5815897dd1f84",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "projectPendingBuild.delete"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 341,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenAffectedFiles.has"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 354,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.updateSignaturesFromCache"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 356,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.updateExportedFilesMapFromCache"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 369,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "Debug.assertDefined"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 370,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "program.getCompilerOptions"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 372,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "Debug.assert"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 381,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.getFilesAffectedBy"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 508,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.set"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 509,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.getReferencedByPaths"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 511,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "queue.pop"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 512,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.has"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 516,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "Debug.assertDefined"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 517,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "queue.push"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 523,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "Debug.assert"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 529,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "exportedModules.has"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 516,
+            "source_observation_id": "obs_08e16e7bffcc6df3",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getCompilerOptions"
+          },
+          {
+            "reason": "high_source_file_call_repetition",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 23,
+            "source_line": 425,
+            "source_observation_id": "obs_8f1c2f99a859013f",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "Debug.assertDefined"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 426,
+            "source_observation_id": "obs_8f1c2f99a859013f",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "program.getCompilerOptions"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 427,
+            "source_observation_id": "obs_8f1c2f99a859013f",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "program.getSourceFiles"
+          },
+          {
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "reason": "qualified_visible_cross_file_call",
+            "request_text": "",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 428,
+            "source_observation_id": "obs_8f1c2f99a859013f",
+            "source_path": "src/compiler/builder.ts",
+            "status": "accepted",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "program.isSourceFileDefaultLibrary",
+            "target_node_id": "function:e66272750f8c640f72b8d9454dfc03cf",
+            "target_path": "src/compiler/program.ts",
+            "target_previously_canonical": false
+          },
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 361,
+            "source_observation_id": "obs_2b58b117f794b8d5",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "exportedModulesMapCache.set"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 366,
+            "source_observation_id": "obs_2b58b117f794b8d5",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "exportedModulesFromDeclarationEmit.forEach"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 374,
+            "source_observation_id": "obs_2b58b117f794b8d5",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "exportedModules.set"
+          },
+          {
+            "known_incoming_calls": 114,
+            "reason": "high_static_call_indegree",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 385,
+            "source_observation_id": "obs_303f2048ac073f82",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "Debug.assert",
+            "target_node_id": "function:879b655071b8f7a2881435fdba5b32e9",
+            "target_path": "src/compiler/debug.ts"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 386,
+            "source_observation_id": "obs_303f2048ac073f82",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "exportedModulesMapCache.forEach"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 533,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getCompilerOptions"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 544,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.set"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 547,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "queue.pop"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 548,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.has"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 549,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getSourceFileByPath"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 552,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "queue.push"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_line": 559,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.values"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [
+          {
+            "discovered_round": 0,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 0,
+            "obligation_id": "explain_ordered_mechanism",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              0,
+              1,
+              "src/compiler/program.ts",
+              "function:e66272750f8c640f72b8d9454dfc03cf"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls program.isSourceFileDefaultLibrary at src/compiler/builder.ts:428; inspect target for unresolved explain_ordered_mechanism; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 428,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_8f1c2f99a859013f",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "program.isSourceFileDefaultLibrary",
+            "target_node_id": "function:e66272750f8c640f72b8d9454dfc03cf",
+            "target_path": "src/compiler/program.ts",
+            "target_range": [
+              1532,
+              1550
+            ],
+            "target_symbol": "createProgram::isSourceFileDefaultLibrary"
+          }
+        ],
+        "new_lead_count": 1,
+        "round": 0,
+        "tool_calls": 22
+      },
+      {
+        "trace_line": 594,
+        "audit": [
+          {
+            "reason": "source_not_resolved_callable",
+            "round": 1,
+            "source_observation_id": "obs_2732a1d0edba5221",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ]
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_line": 1335,
+            "source_observation_id": "obs_3be6a1f37cdd966c",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "host.fileExists"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_line": 1342,
+            "source_observation_id": "obs_3be6a1f37cdd966c",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "host.getModifiedTime"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_line": 1357,
+            "source_observation_id": "obs_3be6a1f37cdd966c",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "host.useCaseSensitiveFileNames"
+          },
+          {
+            "known_incoming_calls": 114,
+            "reason": "high_static_call_indegree",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 11,
+            "source_line": 1455,
+            "source_observation_id": "obs_3be6a1f37cdd966c",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "Debug.assert",
+            "target_node_id": "function:879b655071b8f7a2881435fdba5b32e9",
+            "target_path": "src/compiler/debug.ts"
+          },
+          {
+            "reason": "call_not_in_fitted_source",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_line": 1493,
+            "source_observation_id": "obs_3be6a1f37cdd966c",
+            "source_path": "src/compiler/tsbuildPublic.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "state.readFileWithCache"
+          },
+          {
+            "known_incoming_calls": 114,
+            "reason": "high_static_call_indegree",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 305,
+            "source_observation_id": "obs_4d85bb7aba967f36",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "Debug.assert",
+            "target_node_id": "function:879b655071b8f7a2881435fdba5b32e9",
+            "target_path": "src/compiler/debug.ts"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 309,
+            "source_observation_id": "obs_4d85bb7aba967f36",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "cacheToUpdateSignature.has"
+          },
+          {
+            "known_incoming_calls": 26,
+            "reason": "high_static_call_indegree",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 314,
+            "source_observation_id": "obs_4d85bb7aba967f36",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "Debug.fail",
+            "target_node_id": "function:9971b55f51b64410e08053605a0c59c9",
+            "target_path": "src/compiler/debug.ts"
+          },
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 323,
+            "source_observation_id": "obs_4d85bb7aba967f36",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "exportedModulesMapCache.set"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 336,
+            "source_observation_id": "obs_4d85bb7aba967f36",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getCompilerOptions"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 340,
+            "source_observation_id": "obs_4d85bb7aba967f36",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "JSON.stringify"
+          },
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 351,
+            "source_observation_id": "obs_4d85bb7aba967f36",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "cacheToUpdateSignature.set"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 1,
+        "tool_calls": 11
+      },
+      {
+        "trace_line": 1036,
+        "audit": [
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 508,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.set"
+          },
+          {
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 2,
+            "reason": "qualified_visible_cross_file_call",
+            "request_text": "",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 509,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_path": "src/compiler/builder.ts",
+            "status": "accepted",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.getReferencedByPaths",
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_previously_canonical": false
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 341,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenAffectedFiles.has"
+          },
+          {
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 1,
+            "reason": "qualified_visible_cross_file_call",
+            "request_text": "",
+            "round": 2,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 354,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_path": "src/compiler/builder.ts",
+            "status": "accepted",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "BuilderState.updateSignaturesFromCache",
+            "target_node_id": "function:59a7c4446de36a26d1df58af0cf48578",
+            "target_path": "src/compiler/builderState.ts",
+            "target_previously_canonical": false
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [
+          {
+            "discovered_round": 2,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 2,
+            "obligation_id": "explain_subject",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              2,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:30a8c58d8d1b02679033b37851233006"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.getReferencedByPaths at src/compiler/builder.ts:509; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 509,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_observation_id": "obs_f429d6d76ec512a2",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.getReferencedByPaths",
+            "target_node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              449,
+              453
+            ],
+            "target_symbol": "getReferencedByPaths"
+          },
+          {
+            "discovered_round": 2,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 1,
+            "obligation_id": "explain_subject",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              2,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:59a7c4446de36a26d1df58af0cf48578"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.updateSignaturesFromCache at src/compiler/builder.ts:354; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 354,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.updateSignaturesFromCache",
+            "target_node_id": "function:59a7c4446de36a26d1df58af0cf48578",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              294,
+              299
+            ],
+            "target_symbol": "updateSignaturesFromCache"
+          }
+        ],
+        "new_lead_count": 2,
+        "round": 2,
+        "tool_calls": 9
+      },
+      {
+        "trace_line": 1477,
+        "audit": [
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 516,
+            "source_observation_id": "obs_08e16e7bffcc6df3",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getCompilerOptions"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 4,
+            "source_line": 533,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getCompilerOptions"
+          },
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 544,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.set"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 547,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "queue.pop"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 548,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.has"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 549,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getSourceFileByPath"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 552,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "queue.push"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 559,
+            "source_observation_id": "obs_c2421716b29c47c9",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "seenFileNamesMap.values"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 3,
+            "source_line": 273,
+            "source_observation_id": "obs_fc92f7a292255e31",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "programOfThisState.getSourceFileByPath"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 451,
+            "source_observation_id": "obs_03047c7d6afe13aa",
+            "source_path": "src/compiler/builderState.ts",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "referencesInFile.has"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 3,
+        "tool_calls": 11
+      }
+    ],
+    "controller": [
+      {
+        "trace_line": 1827,
+        "candidate_ids": [
+          "node:function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "node:function:138f79a95ab0b21290f1ff62d668bc34",
+          "node:function:1a791a3dd52deae978d3d12704243750",
+          "node:function:200b27b361a344e4e112e12f1b151456",
+          "node:function:23d7e6bcf1fb33ad1d95f9f2fc2b2190",
+          "node:function:30a8c58d8d1b02679033b37851233006",
+          "node:function:3196e566885d332462cbdb90495baa8a",
+          "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "node:function:430c7545c8f79e184f3d819202b395df",
+          "node:function:440f39428a6d506792cce2efd459f338",
+          "node:function:5126cbe8d8c43acb9f72edf0f6627954",
+          "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+          "node:function:65665f4b84d4e5aba2a622258554cda6",
+          "node:function:70d91fa7b61cda64a11e60ff45579147",
+          "node:function:96e2a62ad6523adaeb127bd071073868",
+          "node:function:9c49488338feaf01b940967a1e0c6195",
+          "node:function:9e4209e679583a4639e64a8a980cf3a4",
+          "node:function:a33338c6c9363ff02277bfc18363b3ab",
+          "node:function:ba8a11ff344d7128e7738a8783fb4c37",
+          "node:function:e9b4dcb84c194c87104f73e0e9ee18eb",
+          "node:function:e9f56cfaef09c1800fac3a921259683b",
+          "node:function:ee3295a1d6aa413bd4860aa5e033b3c9",
+          "node:function:fc5e0c1d952a60d32b4da99e9f988257",
+          "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+          "node:interface:2eb09f516739c7fd3d03f6123f8bf4e6"
+        ],
+        "pending_verified_leads": [
+          {
+            "discovered_round": 2,
+            "inspection_basis": "incidental_visible_call",
+            "known_incoming_calls": 1,
+            "obligation_id": "explain_subject",
+            "origin": "qualified_structural_file_lead",
+            "priority_key": [
+              1,
+              0,
+              0,
+              2,
+              1,
+              "src/compiler/builderstate.ts",
+              "function:59a7c4446de36a26d1df58af0cf48578"
+            ],
+            "qualified_target": true,
+            "reason": "Qualified source calls BuilderState.updateSignaturesFromCache at src/compiler/builder.ts:354; inspect target for unresolved explain_subject; no semantic support inherited.",
+            "request_text": "",
+            "source_call_line": 354,
+            "source_call_path": "src/compiler/builder.ts",
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_observation_id": "obs_5ef93d462c7cc276",
+            "source_rank": 1,
+            "structural_child": true,
+            "target": "BuilderState.updateSignaturesFromCache",
+            "target_node_id": "function:59a7c4446de36a26d1df58af0cf48578",
+            "target_path": "src/compiler/builderState.ts",
+            "target_range": [
+              294,
+              299
+            ],
+            "target_symbol": "updateSignaturesFromCache"
+          },
+          {
+            "discovered_round": 3,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_subject",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              3,
+              1,
+              "src/compiler/tsbuildpublic.ts",
+              "function:883d2bb657e6c4a5ef94f90002dcd4fd"
+            ],
+            "qualified_target": false,
+            "reason": "Show the code that computes status for the pending project and the continuation of createBuildOrUpdateInvalidedProject.",
+            "request_text": "Show the code that computes status for the pending project and the continuation of createBuildOrUpdateInvalidedProject. The evidence does not establish the specific wildcard re-export path from the changed interface to the dependent project or show that this path determines whether the dependent project is rechecked. The evidence shows that a watched source-file change schedules a program update and that project invalidation schedules builds, but does not establish the complete trigger linkage from the changed interface file through its project reference to downstream invalidation. The ordered evidence does not connect wildcard re-export resolution and project-reference propagation to the downstream type-checking decision, nor does it establish the contrast with a direct import. The evidence identifies generic signature, exported-module, affected-file, and invalidation state updates, but does not show the specific state representing the changed interface and wildcard re-export as affecting the dependent project's use. No supplied candidate establishes a causal implementation explanation for why project references combined with wildcard re-exports fail to propagate the changed interface in watch mode while the alternate paths detect the error.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_dec5815897dd1f84",
+            "source_rank": 1,
+            "structural_child": false,
+            "target": "createBuildOrUpdateInvalidedProject",
+            "target_node_id": "function:883d2bb657e6c4a5ef94f90002dcd4fd",
+            "target_path": "src/compiler/tsbuildPublic.ts",
+            "target_range": [
+              701,
+              1115
+            ],
+            "target_symbol": "createBuildOrUpdateInvalidedProject"
+          }
+        ],
+        "rounds": 3,
+        "stop_reason": "three_round_budget_complete",
+        "tool_calls": 549,
+        "verified_lead_block_reason": "execution_cap_reached",
+        "verified_lead_execution_cap": 2,
+        "verified_lead_execution_count": 2
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "src/compiler/watchPublic.ts",
+        "symbol": "createWatchProgram::onSourceFileChange",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 2,
+        "path": "src/compiler/builder.ts",
+        "symbol": "getNextAffectedFile",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 3,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "getFilesAffectedBy",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 4,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateShapeSignature",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 5,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "getFilesAffectedByUpdatedShapeWhenModuleEmit",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 6,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "getReferencedByPaths",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 7,
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateExportedModules",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 8,
+        "path": "src/compiler/builder.ts",
+        "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 9,
+        "path": "src/compiler/builder.ts",
+        "symbol": "createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 10,
+        "path": "src/compiler/builder.ts",
+        "symbol": "createBuilderProgram::getSemanticDiagnostics",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 11,
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "queueReferencingProjects",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 12,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyProjectChanges",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 13,
+        "path": "src/compiler/sys.ts",
+        "symbol": "getNodeSystem::fsWatch::watchPresentFileSystemEntry",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 14,
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "verifyTransitiveReferences",
+        "obligation_id": "explain_subject"
+      }
+    ],
+    "reuse_hits": [
+      {
+        "trace_line": 991,
+        "decision": {
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the callback passed into watchPresentFileSystemEntry and the compiler watcher handler it invokes for a changed source file.",
+          "missing_information": [
+            "The callback that receives a file-content change.",
+            "The compiler watch logic that maps that callback to an input-file or project-reference invalidation.",
+            "Any downstream re-export, affected-file, or diagnostic processing."
+          ],
+          "observation_id": "obs_fa0cbb909e457918",
+          "reason": "The source shows the filesystem watcher installation and its error fallback, establishing the low-level watch mechanism but not the compiler callback that converts a changed interface file into project invalidation.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "fs.watch is installed for the present file-system entry.",
+            "The watcher invokes a callback, with a platform-specific callback when entries change to missing.",
+            "Watcher errors switch to watching the missing entry.",
+            "If fs.watch fails, the implementation falls back to fs.watchFile polling."
+          ]
+        },
+        "fingerprint": "c4e6af27aa88328fca4ac929fbc3680b144999316d849990925afd334355012f",
+        "observation_id": "obs_fa0cbb909e457918",
+        "previous_round": 1,
+        "reason": "unchanged_semantic_input",
+        "reused": true,
+        "round": 2,
+        "source_chars": 2014,
+        "handle": {
+          "adapter": "codegraph_owner_disclosure",
+          "full_line_end": 1512,
+          "full_line_start": 1483,
+          "language": "typescript",
+          "line_end": 1512,
+          "line_start": 1483,
+          "node_id": "function:96e2a62ad6523adaeb127bd071073868",
+          "outer_line_end": 1780,
+          "outer_line_start": 1137,
+          "outer_node_id": "variable:b57b82f90ed3c23058cdbc0aaf87455e",
+          "outer_symbol": "sys",
+          "path": "src/compiler/sys.ts",
+          "symbol": "getNodeSystem::fsWatch::watchPresentFileSystemEntry"
+        },
+        "history": [
+          {
+            "trace_line": 102,
+            "round": 0,
+            "reused": false,
+            "disposition": "promote",
+            "local_follow_up": "Find the caller that registers watchPresentFileSystemEntry and invokes the source-file change callback.",
+            "missing_information": [
+              "The caller that registers the watcher and the callback path from a file event to program invalidation."
+            ],
+            "observation_id": "obs_fa0cbb909e457918",
+            "reason": "The source shows the Node file-watching implementation and its recursive fs.watch configuration, identifying the low-level watcher used by watch mode, but it does not show how a changed interface file is propagated through project references.",
+            "support_level": "navigation_only",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "watchPresentFileSystemEntry configures Node fs.watch with persistent and optional recursive behavior."
+            ]
+          },
+          {
+            "trace_line": 551,
+            "round": 1,
+            "reused": false,
+            "disposition": "promote",
+            "local_follow_up": "Retrieve the callback passed into watchPresentFileSystemEntry and the compiler watcher handler it invokes for a changed source file.",
+            "missing_information": [
+              "The callback that receives a file-content change.",
+              "The compiler watch logic that maps that callback to an input-file or project-reference invalidation.",
+              "Any downstream re-export, affected-file, or diagnostic processing."
+            ],
+            "observation_id": "obs_fa0cbb909e457918",
+            "reason": "The source shows the filesystem watcher installation and its error fallback, establishing the low-level watch mechanism but not the compiler callback that converts a changed interface file into project invalidation.",
+            "support_level": "navigation_only",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "fs.watch is installed for the present file-system entry.",
+              "The watcher invokes a callback, with a platform-specific callback when entries change to missing.",
+              "Watcher errors switch to watching the missing entry.",
+              "If fs.watch fails, the implementation falls back to fs.watchFile polling."
+            ]
+          },
+          {
+            "trace_line": 991,
+            "reused": true,
+            "round": 2,
+            "disposition": "promote",
+            "local_follow_up": "Retrieve the callback passed into watchPresentFileSystemEntry and the compiler watcher handler it invokes for a changed source file.",
+            "missing_information": [
+              "The callback that receives a file-content change.",
+              "The compiler watch logic that maps that callback to an input-file or project-reference invalidation.",
+              "Any downstream re-export, affected-file, or diagnostic processing."
+            ],
+            "observation_id": "obs_fa0cbb909e457918",
+            "reason": "The source shows the filesystem watcher installation and its error fallback, establishing the low-level watch mechanism but not the compiler callback that converts a changed interface file into project invalidation.",
+            "support_level": "navigation_only",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "fs.watch is installed for the present file-system entry.",
+              "The watcher invokes a callback, with a platform-specific callback when entries change to missing.",
+              "Watcher errors switch to watching the missing entry.",
+              "If fs.watch fails, the implementation falls back to fs.watchFile polling."
+            ]
+          }
+        ],
+        "last_source": {
+          "trace_line": 549,
+          "source_text": "    export let sys: System = (() => {\n        // NodeJS detects \"\\uFEFF\" at the start of the string and *replaces* it with the actual\n        // byte order mark from the specified encoding. Using any other byte order mark does\n// ... outer owner lines omitted ...\n                function watchPresentFileSystemEntry(): FileWatcher {\n                    // Node 4.0 `fs.watch` function supports the \"recursive\" option on both OSX and Windows\n                    // (ref: https://github.com/nodejs/node/pull/2649 and https://github.com/Microsoft/TypeScript/issues/4643)\n                    if (options === undefined) {\n                        if (fsSupportsRecursiveFsWatch) {\n                            options = { persistent: true, recursive: !!recursive };\n                        }\n                        else {\n                            options = { persistent: true };\n                        }\n                    }\n                    try {\n                        const presentWatcher = _fs.watch(\n                            fileOrDirectory,\n                            options,\n                            isLinuxOrMacOs ?\n                                callbackChangingToMissingFileSystemEntry :\n                                callback\n                        );\n                        // Watch the missing file or directory or error\n                        presentWatcher.on(\"error\", () => invokeCallbackAndUpdateWatcher(watchMissingFileSystemEntry));\n                        return presentWatcher;\n                    }\n                    catch (e) {\n                        // Catch the exception and use polling instead\n                        // Eg. on linux the number of watches are limited and one could easily exhaust watches and the exception ENOSPC is thrown when creating watcher at that point\n                        // so instead of throwing error, use fs.watchFile\n                        return watchPresentFileSystemEntryWithFsWatchFile();\n                    }\n                }"
+        },
+        "final_ranks": [
+          13
+        ]
+      },
+      {
+        "trace_line": 1425,
+        "decision": {
+          "disposition": "promote",
+          "local_follow_up": "Compare this function with getFilesAffectedByUpdatedShapeWhenModuleEmit and its callers.",
+          "missing_information": [
+            "The module-emit path and the source of the updated shape for a wildcard re-export."
+          ],
+          "observation_id": "obs_08e16e7bffcc6df3",
+          "reason": "The implementation visibly determines affected files for a changed shape in non-module emit: bundled output can return only the changed file, otherwise all non-library files are returned.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "The function accepts sourceFileWithUpdatedShape.",
+            "With out or outFile it returns that source file; otherwise it returns all files excluding the default library."
+          ]
+        },
+        "fingerprint": "144e64028d7fe3e79287f417981938442314c0f856f0d5a17c14982d421408de",
+        "observation_id": "obs_08e16e7bffcc6df3",
+        "previous_round": 0,
+        "reason": "unchanged_semantic_input",
+        "reused": true,
+        "round": 3,
+        "source_chars": 686,
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 523,
+          "full_line_start": 515,
+          "language": "typescript",
+          "line_end": 523,
+          "line_start": 515,
+          "node_id": "function:3196e566885d332462cbdb90495baa8a",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builderState.ts",
+          "symbol": "getFilesAffectedByUpdatedShapeWhenNonModuleEmit"
+        },
+        "history": [
+          {
+            "trace_line": 102,
+            "round": 0,
+            "reused": false,
+            "disposition": "promote",
+            "local_follow_up": "Compare this function with getFilesAffectedByUpdatedShapeWhenModuleEmit and its callers.",
+            "missing_information": [
+              "The module-emit path and the source of the updated shape for a wildcard re-export."
+            ],
+            "observation_id": "obs_08e16e7bffcc6df3",
+            "reason": "The implementation visibly determines affected files for a changed shape in non-module emit: bundled output can return only the changed file, otherwise all non-library files are returned.",
+            "support_level": "direct_evidence",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "visible_support": [
+              "The function accepts sourceFileWithUpdatedShape.",
+              "With out or outFile it returns that source file; otherwise it returns all files excluding the default library."
+            ]
+          },
+          {
+            "trace_line": 1425,
+            "reused": true,
+            "round": 3,
+            "disposition": "promote",
+            "local_follow_up": "Compare this function with getFilesAffectedByUpdatedShapeWhenModuleEmit and its callers.",
+            "missing_information": [
+              "The module-emit path and the source of the updated shape for a wildcard re-export."
+            ],
+            "observation_id": "obs_08e16e7bffcc6df3",
+            "reason": "The implementation visibly determines affected files for a changed shape in non-module emit: bundled output can return only the changed file, otherwise all non-library files are returned.",
+            "support_level": "direct_evidence",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "visible_support": [
+              "The function accepts sourceFileWithUpdatedShape.",
+              "With out or outFile it returns that source file; otherwise it returns all files excluding the default library."
+            ]
+          }
+        ],
+        "last_source": {
+          "trace_line": 100,
+          "source_text": "        function getFilesAffectedByUpdatedShapeWhenNonModuleEmit(state: BuilderState, programOfThisState: Program, sourceFileWithUpdatedShape: SourceFile) {\n            const compilerOptions = programOfThisState.getCompilerOptions();\n            // If `--out` or `--outFile` is specified, any new emit will result in re-emitting the entire project,\n            // so returning the file itself is good enough.\n            if (compilerOptions && (compilerOptions.out || compilerOptions.outFile)) {\n                return [sourceFileWithUpdatedShape];\n            }\n            return getAllFilesExcludingDefaultLibraryFile(state, programOfThisState, sourceFileWithUpdatedShape);\n        }"
+        },
+        "final_ranks": []
+      }
+    ],
+    "changed_semantic_inputs": [
+      {
+        "trace_line": 542,
+        "decision": null,
+        "fingerprint": "a0f59e8e97f520b8784ce47c2294e5fd2d3e54a2d657a5f780c5ad611da6f469",
+        "observation_id": "obs_dec5815897dd1f84",
+        "previous_round": null,
+        "reason": "unseen_semantic_input",
+        "reused": false,
+        "round": 1,
+        "source_chars": 3302
+      },
+      {
+        "trace_line": 545,
+        "decision": null,
+        "fingerprint": "5f531bf0cd238a1b0fbf6a8f1ba7d35a586d9fc6aec9df64e0491f0b1f4f54f7",
+        "observation_id": "obs_4d85bb7aba967f36",
+        "previous_round": null,
+        "reason": "unseen_semantic_input",
+        "reused": false,
+        "round": 1,
+        "source_chars": 3096
+      },
+      {
+        "trace_line": 546,
+        "decision": null,
+        "fingerprint": "c4e6af27aa88328fca4ac929fbc3680b144999316d849990925afd334355012f",
+        "observation_id": "obs_fa0cbb909e457918",
+        "previous_round": null,
+        "reason": "unseen_semantic_input",
+        "reused": false,
+        "round": 1,
+        "source_chars": 2014
+      },
+      {
+        "trace_line": 987,
+        "decision": null,
+        "fingerprint": "491ebbde71b4fca480359d8bfe13254904b9b0ddd667931408c68793fbcd8239",
+        "observation_id": "obs_f429d6d76ec512a2",
+        "previous_round": null,
+        "reason": "unseen_semantic_input",
+        "reused": false,
+        "round": 2,
+        "source_chars": 2763
+      },
+      {
+        "trace_line": 988,
+        "decision": null,
+        "fingerprint": "b5564e3b65004e9fe7864069990f7662676681b6199708ce8b5215bfa38286c6",
+        "observation_id": "obs_5ef93d462c7cc276",
+        "previous_round": null,
+        "reason": "unseen_semantic_input",
+        "reused": false,
+        "round": 2,
+        "source_chars": 3131
+      },
+      {
+        "trace_line": 1426,
+        "decision": null,
+        "fingerprint": "731b4e25ae266c088f2251f2ca65c49970ef18a74bde387049ab5d1aff036c01",
+        "observation_id": "obs_c2421716b29c47c9",
+        "previous_round": null,
+        "reason": "unseen_semantic_input",
+        "reused": false,
+        "round": 3,
+        "source_chars": 2290
+      },
+      {
+        "trace_line": 1429,
+        "decision": null,
+        "fingerprint": "aa1663bdbe2243ee6f0d1f2e546606d3301083fa2fbc0ff561001f5edaa10334",
+        "observation_id": "obs_dec5815897dd1f84",
+        "previous_round": null,
+        "reason": "unseen_semantic_input",
+        "reused": false,
+        "round": 3,
+        "source_chars": 2259
+      }
+    ],
+    "requests": [
+      {
+        "trace_line": 11,
+        "stage": "connected_source_context",
+        "round": null,
+        "capped": false
+      },
+      {
+        "trace_line": 56,
+        "stage": "initial_owner_comparison",
+        "round": null,
+        "capped": false
+      },
+      {
+        "trace_line": 100,
+        "stage": "evidence_qualification",
+        "round": 0,
+        "capped": false,
+        "ids": [
+          "obs_fa0cbb909e457918",
+          "obs_dec5815897dd1f84",
+          "obs_5ef93d462c7cc276",
+          "obs_f429d6d76ec512a2",
+          "obs_70ab956630713908",
+          "obs_158e2d5a3ab67ecb",
+          "obs_0b2b8394df6b0d7e",
+          "obs_d6a1a15f81e64eec",
+          "obs_5c69863ba51eee0c",
+          "obs_08e16e7bffcc6df3",
+          "obs_8f1c2f99a859013f",
+          "obs_cac9d36050e1e9b4",
+          "obs_320d23b5d27ef2c6",
+          "obs_fd3fcd0b2e510cb0",
+          "obs_3614e2da85b0d45d",
+          "obs_4d85bb7aba967f36",
+          "obs_2b58b117f794b8d5",
+          "obs_303f2048ac073f82",
+          "obs_c2421716b29c47c9"
+        ]
+      },
+      {
+        "trace_line": 104,
+        "stage": "retrieval_coverage",
+        "round": 0,
+        "capped": false
+      },
+      {
+        "trace_line": 549,
+        "stage": "evidence_qualification",
+        "round": 1,
+        "capped": false,
+        "ids": [
+          "obs_dec5815897dd1f84",
+          "obs_2732a1d0edba5221",
+          "obs_3be6a1f37cdd966c",
+          "obs_4d85bb7aba967f36",
+          "obs_fa0cbb909e457918",
+          "obs_2917bcf9dbcee5cf"
+        ]
+      },
+      {
+        "trace_line": 558,
+        "stage": "retrieval_coverage",
+        "round": 1,
+        "capped": false
+      },
+      {
+        "trace_line": 994,
+        "stage": "evidence_qualification",
+        "round": 2,
+        "capped": false,
+        "ids": [
+          "obs_f429d6d76ec512a2",
+          "obs_5ef93d462c7cc276",
+          "obs_fe584ecc96bd4a46",
+          "obs_68f9613a4b0af75f",
+          "obs_146fda32efa298d0"
+        ]
+      },
+      {
+        "trace_line": 1006,
+        "stage": "retrieval_coverage",
+        "round": 2,
+        "capped": false
+      },
+      {
+        "trace_line": 1432,
+        "stage": "evidence_qualification",
+        "round": 3,
+        "capped": false,
+        "ids": [
+          "obs_c2421716b29c47c9",
+          "obs_fc92f7a292255e31",
+          "obs_82b8a68515ff2198",
+          "obs_dec5815897dd1f84",
+          "obs_03047c7d6afe13aa"
+        ]
+      },
+      {
+        "trace_line": 1441,
+        "stage": "retrieval_coverage",
+        "round": 3,
+        "capped": false
+      },
+      {
+        "trace_line": 1833,
+        "stage": "obligation_evidence_consolidation",
+        "round": null,
+        "capped": false
+      }
+    ],
+    "responses": [
+      {
+        "trace_line": 12,
+        "stage": "connected_source_context",
+        "round": null,
+        "usage": {
+          "completion_tokens": 119,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 51,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 1600,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 1597,
+            "cached_tokens": 0
+          },
+          "total_tokens": 1719
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 57,
+        "stage": "initial_owner_comparison",
+        "round": null,
+        "usage": {
+          "completion_tokens": 1379,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 1198,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 23201,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 23198,
+            "cached_tokens": 0
+          },
+          "total_tokens": 24580
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 101,
+        "stage": "evidence_qualification",
+        "round": 0,
+        "usage": {
+          "completion_tokens": 3276,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 512,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 9470,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 9467,
+            "cached_tokens": 0
+          },
+          "total_tokens": 12746
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 105,
+        "stage": "retrieval_coverage",
+        "round": 0,
+        "usage": {
+          "completion_tokens": 1156,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 317,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 5138,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 5135,
+            "cached_tokens": 0
+          },
+          "total_tokens": 6294
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 550,
+        "stage": "evidence_qualification",
+        "round": 1,
+        "usage": {
+          "completion_tokens": 1297,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 93,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 5901,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 5898,
+            "cached_tokens": 0
+          },
+          "total_tokens": 7198
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 559,
+        "stage": "retrieval_coverage",
+        "round": 1,
+        "usage": {
+          "completion_tokens": 1212,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 364,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 6430,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 6427,
+            "cached_tokens": 0
+          },
+          "total_tokens": 7642
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 995,
+        "stage": "evidence_qualification",
+        "round": 2,
+        "usage": {
+          "completion_tokens": 1574,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 512,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 4732,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 4729,
+            "cached_tokens": 0
+          },
+          "total_tokens": 6306
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 1007,
+        "stage": "retrieval_coverage",
+        "round": 2,
+        "usage": {
+          "completion_tokens": 1122,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 246,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 7163,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 7160,
+            "cached_tokens": 0
+          },
+          "total_tokens": 8285
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 1433,
+        "stage": "evidence_qualification",
+        "round": 3,
+        "usage": {
+          "completion_tokens": 1216,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 279,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 4135,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 4132,
+            "cached_tokens": 0
+          },
+          "total_tokens": 5351
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 1442,
+        "stage": "retrieval_coverage",
+        "round": 3,
+        "usage": {
+          "completion_tokens": 1167,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 302,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 7668,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 7665,
+            "cached_tokens": 0
+          },
+          "total_tokens": 8835
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "trace_line": 1834,
+        "stage": "obligation_evidence_consolidation",
+        "round": null,
+        "usage": {
+          "completion_tokens": 4129,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 961,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 15227,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 13655,
+            "cached_tokens": 1569
+          },
+          "total_tokens": 19356
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "qualification_history": {
+      "obs_fa0cbb909e457918": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Find the caller that registers watchPresentFileSystemEntry and invokes the source-file change callback.",
+          "missing_information": [
+            "The caller that registers the watcher and the callback path from a file event to program invalidation."
+          ],
+          "observation_id": "obs_fa0cbb909e457918",
+          "reason": "The source shows the Node file-watching implementation and its recursive fs.watch configuration, identifying the low-level watcher used by watch mode, but it does not show how a changed interface file is propagated through project references.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "watchPresentFileSystemEntry configures Node fs.watch with persistent and optional recursive behavior."
+          ]
+        },
+        {
+          "trace_line": 551,
+          "round": 1,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the callback passed into watchPresentFileSystemEntry and the compiler watcher handler it invokes for a changed source file.",
+          "missing_information": [
+            "The callback that receives a file-content change.",
+            "The compiler watch logic that maps that callback to an input-file or project-reference invalidation.",
+            "Any downstream re-export, affected-file, or diagnostic processing."
+          ],
+          "observation_id": "obs_fa0cbb909e457918",
+          "reason": "The source shows the filesystem watcher installation and its error fallback, establishing the low-level watch mechanism but not the compiler callback that converts a changed interface file into project invalidation.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "fs.watch is installed for the present file-system entry.",
+            "The watcher invokes a callback, with a platform-specific callback when entries change to missing.",
+            "Watcher errors switch to watching the missing entry.",
+            "If fs.watch fails, the implementation falls back to fs.watchFile polling."
+          ]
+        },
+        {
+          "trace_line": 991,
+          "reused": true,
+          "round": 2,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the callback passed into watchPresentFileSystemEntry and the compiler watcher handler it invokes for a changed source file.",
+          "missing_information": [
+            "The callback that receives a file-content change.",
+            "The compiler watch logic that maps that callback to an input-file or project-reference invalidation.",
+            "Any downstream re-export, affected-file, or diagnostic processing."
+          ],
+          "observation_id": "obs_fa0cbb909e457918",
+          "reason": "The source shows the filesystem watcher installation and its error fallback, establishing the low-level watch mechanism but not the compiler callback that converts a changed interface file into project invalidation.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "fs.watch is installed for the present file-system entry.",
+            "The watcher invokes a callback, with a platform-specific callback when entries change to missing.",
+            "Watcher errors switch to watching the missing entry.",
+            "If fs.watch fails, the implementation falls back to fs.watchFile polling."
+          ]
+        }
+      ],
+      "obs_dec5815897dd1f84": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Trace the caller that marks projectPendingBuild and the code that builds the selected project.",
+          "missing_information": [
+            "How a changed source file is converted into a pending project and how the invalidated project is subsequently type-checked."
+          ],
+          "observation_id": "obs_dec5815897dd1f84",
+          "reason": "The function visibly processes pending projects, parses their configurations, and watches a config file again for a full reload, establishing part of invalidated-project processing in solution watch/build mode.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "getNextInvalidatedProject reads state.projectPendingBuild.",
+            "It parses the project configuration and, for a Full reload, calls watchConfigFile."
+          ]
+        },
+        {
+          "trace_line": 551,
+          "round": 1,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the caller or watcher path that inserts projects into state.projectPendingBuild after an input or declaration change.",
+          "missing_information": [
+            "The watcher callback that marks the defining project or dependent project pending.",
+            "The dependency and wildcard re-export logic used to determine changed downstream types.",
+            "The affected-file processing and semantic-checking path."
+          ],
+          "observation_id": "obs_dec5815897dd1f84",
+          "reason": "The function visibly processes pending project reloads, recomputes project status, skips up-to-date projects, and returns an update project for upstream-type changes. This is a concrete downstream build/invalidation handoff, but the excerpt does not show how the interface change or wildcard re-export enters the pending queue.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "Pending projects are read from state.projectPendingBuild.",
+            "The project status is recomputed with getUpToDateStatus.",
+            "UpToDateWithUpstreamTypes produces an update-output project rather than being treated as fully up to date.",
+            "UpstreamBlocked projects are removed from the pending-build queue."
+          ]
+        },
+        {
+          "trace_line": 1434,
+          "round": 3,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Show the code that computes status for the pending project and the continuation of createBuildOrUpdateInvalidedProject.",
+          "missing_information": [
+            "The excerpt does not show watch-file change intake or invalidation-status computation.",
+            "It does not show downstream type checking or how changed upstream types are detected."
+          ],
+          "observation_id": "obs_dec5815897dd1f84",
+          "reason": "The excerpt shows a concrete project-build handoff: invalidated-project processing distinguishes up-to-date, upstream-type, blocked, and container-only statuses, then delegates remaining work to createBuildOrUpdateInvalidedProject. It is relevant navigation for the project-reference build path, but the excerpt omits how the status was computed and what the delegated build does.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "getNextInvalidatedProject processes pending project paths and their status.",
+            "An UpToDateWithUpstreamTypes status returns createUpdateOutputFileStampsProject.",
+            "Other statuses can skip a project or proceed to createBuildOrUpdateInvalidedProject.",
+            "The excerpt visibly connects project status handling to build/update actions."
+          ]
+        }
+      ],
+      "obs_5ef93d462c7cc276": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Find the code that populates state.affectedFiles after a source file shape changes.",
+          "missing_information": [
+            "The code that populates affectedFiles from a changed declaration shape and the project-reference handoff."
+          ],
+          "observation_id": "obs_5ef93d462c7cc276",
+          "reason": "The affected-file iterator visibly consumes state.affectedFiles, tracks each file as seen, and removes cached semantic diagnostics, establishing the incremental downstream checking step.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "The iterator reads the affectedFiles queue.",
+            "It records affected paths in seenAffectedFiles and removes cached semantic diagnostics for the next affected file."
+          ]
+        },
+        {
+          "trace_line": 996,
+          "round": 2,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect getFilesAffectedBy and handleDtsMayChangeOfAffectedFile for the changed interface path.",
+          "missing_information": [
+            "The code that initially records the watched source change in changedFilesSet is absent.",
+            "The implementation of getFilesAffectedBy and handleDtsMayChangeOfAffectedFile is needed to trace wildcard re-export resolution and downstream project selection.",
+            "This source does not show whether the dependent project's diagnostics are ultimately recomputed or why they could remain quiet."
+          ],
+          "observation_id": "obs_5ef93d462c7cc276",
+          "reason": "This function directly establishes the builder's ordered affected-file processing and state transitions. It obtains affected files for the next changed path, processes them one by one, removes the changed path from the change set, and commits cached signatures and exported-module data.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_subject",
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "The next changed path is read from changedFilesSet and passed to BuilderState.getFilesAffectedBy.",
+            "Each affected file is processed through handleDtsMayChangeOfAffectedFile before being returned.",
+            "After affected processing, the changed path is removed from changedFilesSet and cached signatures and exported-file maps are committed."
+          ]
+        }
+      ],
+      "obs_f429d6d76ec512a2": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect the remainder of this function to see how each referencing module is passed to the affected-file callback.",
+          "missing_information": [
+            "The specific wildcard re-export representation and the callback's exact effects on the dependent project."
+          ],
+          "observation_id": "obs_f429d6d76ec512a2",
+          "reason": "This function visibly gates exported-module traversal on a changed file and changed declaration signature, directly connecting signature changes to processing files that reference an export.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "It requires exportedModulesMap and membership in changedFilesSet.",
+            "It returns unless isChangedSignagure is true.",
+            "It handles referencing files and semantic-diagnostic cleanup for affected files."
+          ]
+        },
+        {
+          "trace_line": 996,
+          "round": 2,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect forEachFilesReferencingPath and the caller that invokes forEachReferencingModulesOfExportOfAffectedFile.",
+          "missing_information": [
+            "The caller that populates changedFilesSet and invokes this function is not shown.",
+            "The implementation of forEachFilesReferencingPath and the actual project-reference relationship are not shown.",
+            "No visible code establishes the reported missing diagnostic or proves that wildcard re-export propagation fails in this case."
+          ],
+          "observation_id": "obs_f429d6d76ec512a2",
+          "reason": "The implementation directly shows how a changed file with a changed signature is propagated through cached exported-module relationships and referencing paths, including recursive traversal for affected files. This is concrete evidence for wildcard re-export invalidation and affected-file state handling, but it does not show how the original file-watch event enters the builder.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_subject",
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "Propagation is skipped unless an exported-module map exists, the affected file is in changedFilesSet, and its signature changed.",
+            "For isolated modules, the code walks referenced paths and invokes the supplied callback for each unseen path.",
+            "The normal path checks current and cached exported-module maps for modules exporting the affected file, then calls forEachFilesReferencingPath."
+          ]
+        }
+      ],
+      "obs_70ab956630713908": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect createWatchProgram's source-change callback and program-update scheduling.",
+          "missing_information": [
+            "The watch callback, program-update scheduling, and project-reference redirect invalidation relevant to the reported failure."
+          ],
+          "observation_id": "obs_70ab956630713908",
+          "reason": "The watch-program implementation visibly creates a resolution cache and configures module resolution, making it a relevant owner for investigating re-export resolution, but the excerpt does not show source-file event handling or downstream invalidation.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "createWatchProgram creates a resolution cache.",
+            "It installs compilerHost.resolveModuleNames using the host resolver or the resolution cache."
+          ]
+        }
+      ],
+      "obs_158e2d5a3ab67ecb": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the assertions and file contents inside verifyTransitiveReferences for the c-project change scenario.",
+          "missing_information": [
+            "The source contents, wildcard re-export, change operation, and expected diagnostics."
+          ],
+          "observation_id": "obs_158e2d5a3ab67ecb",
+          "reason": "The test visibly constructs a three-project transitive-reference scenario with a, b, and c projects and a build configuration, making it a concrete test owner for downstream reference behavior, but the assertions and re-export details are omitted.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The test creates aTs, bTs, and cTs roots.",
+            "It selects a c-project configuration to build and loads project configurations for the referenced projects."
+          ]
+        }
+      ],
+      "obs_0b2b8394df6b0d7e": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Find callers of invalidateProjectAndScheduleBuilds and inspect how they choose the reload level.",
+          "missing_information": [
+            "The caller that supplies the changed source project's path and reload level, and how dependent projects are queued."
+          ],
+          "observation_id": "obs_0b2b8394df6b0d7e",
+          "reason": "The function visibly records that a file change was detected, invalidates the resolved project at a specified reload level, and schedules an invalidated build.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "It sets reportFileChangeDetected to true.",
+            "It calls invalidateProject and then scheduleBuildInvalidatedProject."
+          ]
+        }
+      ],
+      "obs_d6a1a15f81e64eec": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the changes and assertions inside verifyProjectChanges for the selected subscenario.",
+          "missing_information": [
+            "The changed file, project-reference setup, and expected error output."
+          ],
+          "observation_id": "obs_d6a1a15f81e64eec",
+          "reason": "The test visibly runs tsc --build --watch and applies a file-change scenario followed by a queued build, identifying a relevant watch-mode project-change test, but the changed file and diagnostic assertion are omitted.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The test invokes tsc with -b and -w.",
+            "Its scenario includes a change followed by checkTimeoutQueueLengthAndRun(1), described as build logic or timestamp processing."
+          ]
+        }
+      ],
+      "obs_5c69863ba51eee0c": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the remaining change steps and diagnostic assertions for verifyIncrementalErrors.",
+          "missing_information": [
+            "Whether the test uses the affected interface and dependent project, plus the diagnostic assertions after the change."
+          ],
+          "observation_id": "obs_5c69863ba51eee0c",
+          "reason": "The test visibly writes an invalid string assignment during a -b -w run and executes the build queue, providing a concrete watch-mode incremental-error scenario, but it is not shown to involve project references or a re-export.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The test runs tsc with -b and -w.",
+            "It writes let y: string = 10 and runs the build logic, then expects an empty timeout queue."
+          ]
+        }
+      ],
+      "obs_08e16e7bffcc6df3": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Compare this function with getFilesAffectedByUpdatedShapeWhenModuleEmit and its callers.",
+          "missing_information": [
+            "The module-emit path and the source of the updated shape for a wildcard re-export."
+          ],
+          "observation_id": "obs_08e16e7bffcc6df3",
+          "reason": "The implementation visibly determines affected files for a changed shape in non-module emit: bundled output can return only the changed file, otherwise all non-library files are returned.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "The function accepts sourceFileWithUpdatedShape.",
+            "With out or outFile it returns that source file; otherwise it returns all files excluding the default library."
+          ]
+        },
+        {
+          "trace_line": 1425,
+          "reused": true,
+          "round": 3,
+          "disposition": "promote",
+          "local_follow_up": "Compare this function with getFilesAffectedByUpdatedShapeWhenModuleEmit and its callers.",
+          "missing_information": [
+            "The module-emit path and the source of the updated shape for a wildcard re-export."
+          ],
+          "observation_id": "obs_08e16e7bffcc6df3",
+          "reason": "The implementation visibly determines affected files for a changed shape in non-module emit: bundled output can return only the changed file, otherwise all non-library files are returned.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "The function accepts sourceFileWithUpdatedShape.",
+            "With out or outFile it returns that source file; otherwise it returns all files excluding the default library."
+          ]
+        }
+      ],
+      "obs_8f1c2f99a859013f": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect the caller that invokes handleDtsMayChangeOfAffectedFile after a declaration-shape change.",
+          "missing_information": [
+            "How the affected file was selected and whether dependent project files are included."
+          ],
+          "observation_id": "obs_8f1c2f99a859013f",
+          "reason": "The function visibly removes semantic diagnostics for an affected file and handles the special all-files affected case, establishing diagnostic invalidation during incremental checking.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "It calls removeSemanticDiagnosticsOf for affectedFile.path.",
+            "It conditionally cleans diagnostics for default-library files when all non-library files are affected."
+          ]
+        }
+      ],
+      "obs_cac9d36050e1e9b4": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect the remainder of createNewProgram for builder-program creation and diagnostic scheduling.",
+          "missing_information": [
+            "The call to create/update the builder program and the handling of invalidated module resolutions or project references."
+          ],
+          "observation_id": "obs_cac9d36050e1e9b4",
+          "reason": "The function visibly starts creation of a new watch program after invalidation and logs roots/options, identifying the program-rebuild handoff, but the excerpt does not show reuse, reference redirects, or diagnostics.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "createNewProgram is the watch-mode program creation routine.",
+            "It logs roots and compiler options and computes whether type-root watching needs updating based on compiler-option changes or the current program."
+          ]
+        }
+      ],
+      "obs_320d23b5d27ef2c6": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the branches after affected is obtained to see how semantic diagnostics are produced.",
+          "missing_information": [
+            "The branches after obtaining an affected item, including how diagnostics are computed and reported."
+          ],
+          "observation_id": "obs_320d23b5d27ef2c6",
+          "reason": "The function visibly loops over the next affected file and returns when no affected item remains, establishing the ordered incremental semantic-diagnostics traversal.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism"
+          ],
+          "visible_support": [
+            "It calls getNextAffectedFile repeatedly.",
+            "It returns undefined when there are no more affected items."
+          ]
+        }
+      ],
+      "obs_fd3fcd0b2e510cb0": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Trace scheduleProgramUpdate from this callback into createNewProgram and builder diagnostics.",
+          "missing_information": [
+            "How scheduleProgramUpdate rebuilds the program and queues dependent projects for checking."
+          ],
+          "observation_id": "obs_fd3fcd0b2e510cb0",
+          "reason": "This is direct watch-mode change handling: it updates the cached system, invalidates resolution and project-reference redirects, advances the file version, and schedules a program update.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_trigger",
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "onSourceFileChange calls updateCachedSystemWithFile.",
+            "It invalidates deleted-file resolution and removes resolutions from project-reference redirects.",
+            "It calls nextSourceFileVersion and scheduleProgramUpdate."
+          ]
+        }
+      ],
+      "obs_3614e2da85b0d45d": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect the remainder of queueReferencingProjects to see how each later project is marked pending.",
+          "missing_information": [
+            "The exact condition that marks a referencing project pending and the relation between the wildcard re-export and the changed declaration signature."
+          ],
+          "observation_id": "obs_3614e2da85b0d45d",
+          "reason": "The function visibly queues later projects in build order only for successful composite projects, establishing the project-reference downstream scheduling rule.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "It refuses to queue when the build has errors.",
+            "It requires config.options.composite.",
+            "It iterates over projects after the current project in build order."
+          ]
+        }
+      ],
+      "obs_4d85bb7aba967f36": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "defer",
+          "local_follow_up": "Retrieve the remainder of updateShapeSignature where the shape signature is computed and stored.",
+          "missing_information": [
+            "The signature computation, cache writes, changed-signature decision, and affected-file enqueueing."
+          ],
+          "observation_id": "obs_4d85bb7aba967f36",
+          "reason": "The visible code only shows an early-return cache guard in updateShapeSignature; it does not establish how the interface shape or signature is computed or propagated.",
+          "support_level": "insufficient",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The function avoids recomputing a file shape when the path is already cached or marked as updated."
+          ]
+        },
+        {
+          "trace_line": 551,
+          "round": 1,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the caller that invokes updateShapeSignature and the consumer of exportedModulesMapCache for dependency invalidation.",
+          "missing_information": [
+            "The caller that invokes updateShapeSignature for the changed interface file.",
+            "How the exported-modules map is used to invalidate a wildcard re-export and dependent project.",
+            "Whether watch mode invokes this function with stale or refreshed source state in the reported scenario."
+          ],
+          "observation_id": "obs_4d85bb7aba967f36",
+          "reason": "The function directly shows incremental shape-signature computation and exported-module tracking. It updates cached signatures and, when a signature changes, updates the exported-modules map, which is relevant to changed interface and re-export state propagation.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "Declaration files use sourceFile.version as their latest signature.",
+            "Non-declaration files derive a signature from declaration emit output.",
+            "A changed declaration signature updates exportedModulesMapCache from referenced declarations.",
+            "A changed non-declaration signature updates exported modules from declaration emit.",
+            "The computed signature is stored in cacheToUpdateSignature and compared with the previous signature."
+          ]
+        }
+      ],
+      "obs_2b58b117f794b8d5": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Find consumers of exportedModulesMap that traverse files referencing an affected export.",
+          "missing_information": [
+            "Whether the declaration-emit symbols include wildcard re-exports in the reported case and how this cache is consumed for invalidation."
+          ],
+          "observation_id": "obs_2b58b117f794b8d5",
+          "reason": "The implementation visibly converts declaration-emit symbols into referenced file paths and stores them in an exported-modules cache, establishing a representation used for export-reference tracking.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "It iterates exportedModulesFromDeclarationEmit symbols.",
+            "It resolves each symbol to a referenced file and adds that path to exportedModules.",
+            "It caches the resulting map by source-file path."
+          ]
+        }
+      ],
+      "obs_303f2048ac073f82": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Find the caller that invokes updateExportedFilesMapFromCache after shape or declaration-emit analysis.",
+          "missing_information": [
+            "When this commit occurs relative to interface changes and affected-project scheduling."
+          ],
+          "observation_id": "obs_303f2048ac073f82",
+          "reason": "The function visibly commits computed exported-module mappings into state, replacing entries or deleting them when no exported modules remain.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "It asserts that state.exportedModulesMap exists.",
+            "It sets or deletes entries in state.exportedModulesMap from the computed cache."
+          ]
+        }
+      ],
+      "obs_c2421716b29c47c9": [
+        {
+          "trace_line": 102,
+          "round": 0,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the remainder of getFilesAffectedByUpdatedShapeWhenModuleEmit where exportedModulesMap is traversed.",
+          "missing_information": [
+            "The omitted ordinary module-emit traversal and whether the wildcard re-export is included in that traversal."
+          ],
+          "observation_id": "obs_c2421716b29c47c9",
+          "reason": "The module-emit affected-file calculation visibly distinguishes global-scope changes, isolated/bundled output, and ordinary module emit, establishing concrete rules for selecting files after an updated shape.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "Global-scope changes affect all non-library files.",
+            "isolatedModules, out, or outFile return only the changed source file.",
+            "The function receives the updated-shape source file and exported-module cache used by the module path."
+          ]
+        },
+        {
+          "trace_line": 1434,
+          "round": 3,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Show updateShapeSignature and the construction of referencedMap for the wildcard re-export path.",
+          "missing_information": [
+            "The excerpt does not show how wildcard re-exports are represented or resolved in the reverse-reference map.",
+            "It does not show downstream project type checking or the reported missing diagnostic."
+          ],
+          "observation_id": "obs_c2421716b29c47c9",
+          "reason": "The function visibly handles a source file with an updated shape, traverses files found through the reverse-reference map, recomputes each file's shape signature, and returns the files whose emit state may need updating.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "Global-scope changes return all affected files.",
+            "For module emit, traversal starts from getReferencedByPaths(state, sourceFileWithUpdatedShape.resolvedPath).",
+            "Each referenced file is passed to updateShapeSignature; files whose shape changes cause their own reverse references to be queued.",
+            "The function returns the collected source files for emission."
+          ]
+        }
+      ],
+      "obs_2732a1d0edba5221": [
+        {
+          "trace_line": 551,
+          "round": 1,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the implementation of getSemanticDiagnosticsOfNextAffectedFile and the code that creates this invalidated project.",
+          "missing_information": [
+            "The implementation that populates the invalidated project and affected-file queue.",
+            "How wildcard re-export dependencies are represented or traversed.",
+            "The specific state transition caused by the changed interface declaration."
+          ],
+          "observation_id": "obs_2732a1d0edba5221",
+          "reason": "The interface establishes the build-system API for retrieving dependencies, semantic diagnostics, and the next affected file from an invalidated project. These are directly relevant representations for downstream affected-file processing, although the interface does not itself show wildcard re-export propagation.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism"
+          ],
+          "visible_support": [
+            "BuildInvalidedProject exposes getAllDependencies for a source file.",
+            "It exposes getSemanticDiagnostics and getSemanticDiagnosticsOfNextAffectedFile.",
+            "It exposes getProgram, getSourceFile, and getSourceFiles for the invalidated project."
+          ]
+        }
+      ],
+      "obs_3be6a1f37cdd966c": [
+        {
+          "trace_line": 551,
+          "round": 1,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Retrieve the code that computes refStatus for a referenced project and the code consuming pseudoUpToDate or upstreamChangedProject.",
+          "missing_information": [
+            "How a changed interface signature updates declaration-content timestamps or project signatures.",
+            "How wildcard re-export resolution affects refStatus or affected-file selection.",
+            "The subsequent type-checking call that would report the dependent error."
+          ],
+          "observation_id": "obs_3be6a1f37cdd966c",
+          "reason": "The function visibly compares referenced-project status and distinguishes upstream blocked, upstream out-of-date, ordinary upstream output changes, and declaration-content-only changes. This establishes a concrete project-reference up-to-date decision path, but not the wildcard re-export-specific cause.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "Referenced projects are checked through refStatus.",
+            "Unbuildable or upstream-blocked references return UpstreamBlocked.",
+            "A non-UpToDate reference returns UpstreamOutOfDate.",
+            "A changed declaration-content timestamp can mark the project pseudo-up-to-date for a fast rebuild.",
+            "A newer upstream output can return OutOfDateWithUpstream."
+          ]
+        }
+      ],
+      "obs_2917bcf9dbcee5cf": [
+        {
+          "trace_line": 551,
+          "round": 1,
+          "reused": false,
+          "disposition": "reject",
+          "local_follow_up": "",
+          "missing_information": [
+            "All issue-specific watch, project-reference, re-export, invalidation, and diagnostic behavior."
+          ],
+          "observation_id": "obs_2917bcf9dbcee5cf",
+          "reason": "This function only determines whether a source file is a default library file based on noLib, lib, target, and filename matching. It provides no visible support for project references, file watching, re-exports, incremental signatures, invalidation, or downstream diagnostics.",
+          "support_level": "insufficient",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The function checks hasNoDefaultLib and compiler library options.",
+            "It compares the file name with a default library path or configured library names."
+          ]
+        }
+      ],
+      "obs_fe584ecc96bd4a46": [
+        {
+          "trace_line": 996,
+          "round": 2,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect getSemanticDiagnosticsOfNextAffectedFile and its call into the affected-file processing path.",
+          "missing_information": [
+            "The implementation of getSemanticDiagnosticsOfNextAffectedFile is not shown.",
+            "The source does not show how the dependent project is represented in the builder or whether its changed interface use is queued.",
+            "No diagnostic or quiet-watch outcome is visible."
+          ],
+          "observation_id": "obs_fe584ecc96bd4a46",
+          "reason": "The visible method shows that a whole-program semantic-diagnostics request drains the builder's affected-file queue before collecting diagnostics from every source file. It is direct evidence for the downstream type-checking stage, though the queue population and diagnostic result are outside the excerpt.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism"
+          ],
+          "visible_support": [
+            "When no specific source file is requested, getSemanticDiagnostics repeatedly calls getSemanticDiagnosticsOfNextAffectedFile until no affected work remains.",
+            "It then calls getSemanticDiagnosticsOfFile for every source file in the program."
+          ]
+        }
+      ],
+      "obs_68f9613a4b0af75f": [
+        {
+          "trace_line": 996,
+          "round": 2,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Inspect the caller that supplies watchDirectory and connects its file events to project invalidation.",
+          "missing_information": [
+            "The callback used for watchDirectory is not shown.",
+            "No file-change event handling, changedFilesSet update, project-reference invalidation, or rebuild is visible.",
+            "The code does not establish that the interface change in the reported scenario reaches the builder."
+          ],
+          "observation_id": "obs_68f9613a4b0af75f",
+          "reason": "This helper concretely manages wildcard-directory watchers by creating watchers for new wildcard directories, closing removed watchers, and replacing watchers when recursive flags change. It is relevant to locating watch setup, but the visible code does not process a source-file modification or connect a watcher event to builder invalidation.",
+          "support_level": "navigation_only",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "New wildcard directories receive a watcher through the supplied watchDirectory callback.",
+            "Removed or flag-mismatched watchers are closed and recreated."
+          ]
+        }
+      ],
+      "obs_146fda32efa298d0": [
+        {
+          "trace_line": 996,
+          "round": 2,
+          "reused": false,
+          "disposition": "reject",
+          "local_follow_up": "",
+          "missing_information": [
+            "No handling for modifications to an existing source file is shown.",
+            "No project-reference, wildcard re-export, builder invalidation, or diagnostic processing is shown."
+          ],
+          "observation_id": "obs_146fda32efa298d0",
+          "reason": "The excerpt only handles a watcher for a missing file-system entry and reacts when that entry is created. The reported issue concerns modifying an existing interface file, so this source does not provide relevant change detection or downstream rebuild evidence.",
+          "support_level": "insufficient",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "The callback is conditional on a Created event.",
+            "The callback only switches from watching a missing entry to watching a present file-system entry."
+          ]
+        }
+      ],
+      "obs_fc92f7a292255e31": [
+        {
+          "trace_line": 1434,
+          "round": 3,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Show the selected module/non-module propagation function and the callers that consume its affected SourceFile list.",
+          "missing_information": [
+            "The excerpt does not identify which branch is used by the reported project configuration.",
+            "It does not show wildcard re-export resolution or project-level downstream checking."
+          ],
+          "observation_id": "obs_fc92f7a292255e31",
+          "reason": "The function provides the entry point for affected-file computation: it locates the changed source file, updates its shape signature, selects the module or non-module propagation algorithm, and commits cached signatures.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "visible_support": [
+            "The changed source file is retrieved by path and an absent file produces no affected files.",
+            "updateShapeSignature determines whether propagation is needed.",
+            "The code dispatches to getFilesAffectedByUpdatedShapeWhenModuleEmit or getFilesAffectedByUpdatedShapeWhenNonModuleEmit.",
+            "When no external cache is supplied, signatures accumulated in the cache are committed with updateSignaturesFromCache."
+          ]
+        }
+      ],
+      "obs_82b8a68515ff2198": [
+        {
+          "trace_line": 1434,
+          "round": 3,
+          "reused": false,
+          "disposition": "reject",
+          "local_follow_up": "",
+          "missing_information": [
+            "No connection to the changed interface, wildcard re-export, affected-file computation, or watch-mode behavior is visible."
+          ],
+          "observation_id": "obs_82b8a68515ff2198",
+          "reason": "The visible interface only defines fields on an internal TypeReference object. It does not show change detection, project references, re-export handling, watch invalidation, or downstream checking.",
+          "support_level": "insufficient",
+          "supported_obligation_ids": [],
+          "visible_support": [
+            "TypeReference contains a target, optional syntax node, mapper, resolved type arguments, and an optional literal-type clone."
+          ]
+        }
+      ],
+      "obs_03047c7d6afe13aa": [
+        {
+          "trace_line": 1434,
+          "round": 3,
+          "reused": false,
+          "disposition": "promote",
+          "local_follow_up": "Show where BuilderState.referencedMap is populated for export declarations and project-reference dependencies.",
+          "missing_information": [
+            "The excerpt does not show how referencedMap is populated for wildcard re-exports.",
+            "It does not show project-level invalidation or downstream type checking."
+          ],
+          "observation_id": "obs_03047c7d6afe13aa",
+          "reason": "This function visibly implements reverse dependency lookup using BuilderState.referencedMap: it returns every file path whose reference set contains the changed file path.",
+          "support_level": "direct_evidence",
+          "supported_obligation_ids": [
+            "explain_ordered_mechanism"
+          ],
+          "visible_support": [
+            "The function iterates state.referencedMap entries.",
+            "It tests whether each referencesInFile set contains referencedFilePath.",
+            "It returns the matching referencing file paths, which are used by the affected-shape traversal."
+          ]
+        }
+      ]
+    }
+  }
+]

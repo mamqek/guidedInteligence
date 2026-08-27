@@ -128,7 +128,7 @@ export type AppConfig = {
     provider: "api" | "codex";
     api_model?: string;
     codex_model?: string;
-    max_tokens?: number;
+    max_tokens?: number | null;
     timeout_seconds?: number;
   };
   experiments?: {

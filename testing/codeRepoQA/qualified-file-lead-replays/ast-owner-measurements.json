@@ -1,0 +1,714 @@
+[
+  {
+    "run_id": "run-20260827T115408Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 1,
+    "oracle_positions": {
+      "src/exp-parser.js": 4
+    },
+    "final_items": 8,
+    "final_files": 4,
+    "retrieval_tokens": 79757,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1192,
+        "completion_tokens": 124,
+        "total_tokens": 1316
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 23820,
+        "completion_tokens": 2165,
+        "total_tokens": 25985
+      },
+      "evidence_qualification": {
+        "calls": 4,
+        "prompt_tokens": 17935,
+        "completion_tokens": 7788,
+        "total_tokens": 25723
+      },
+      "retrieval_coverage": {
+        "calls": 4,
+        "prompt_tokens": 12284,
+        "completion_tokens": 3618,
+        "total_tokens": 15902
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 1,
+        "prompt_tokens": 8162,
+        "completion_tokens": 2669,
+        "total_tokens": 10831
+      }
+    },
+    "leads": [],
+    "followups": [],
+    "scheduling": [
+      {
+        "trace_line": 134,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 1,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 245,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 2,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 339,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 3,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      }
+    ],
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__vuejs_vue_242__c145e037",
+        "document_count": 1114,
+        "indexed_points": 1114,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "discovery_audits": [
+      {
+        "trace_line": 125,
+        "audit": [
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 43,
+            "source_observation_id": "obs_8c8c2810e681f5a2",
+            "source_path": "src/directive.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "compiler.eval"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 69,
+            "source_observation_id": "obs_8c8c2810e681f5a2",
+            "source_path": "src/directive.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "Directive.inlineFilters"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 75,
+            "source_observation_id": "obs_8c8c2810e681f5a2",
+            "source_path": "src/directive.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "SINGLE_VAR_RE.test"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 76,
+            "source_observation_id": "obs_8c8c2810e681f5a2",
+            "source_path": "src/directive.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "NESTING_RE.test"
+          },
+          {
+            "reason": "source_not_resolved_callable",
+            "round": 0,
+            "source_observation_id": "obs_45bfce3eaf11e209",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ]
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 0,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 98,
+            "source_observation_id": "obs_12b3a8726b1d6c81",
+            "source_path": "src/exp-parser.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "utils.warn"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 0,
+        "tool_calls": 6
+      },
+      {
+        "trace_line": 203,
+        "audit": [
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 43,
+            "source_observation_id": "obs_8c8c2810e681f5a2",
+            "source_path": "src/directive.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "compiler.eval"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 69,
+            "source_observation_id": "obs_8c8c2810e681f5a2",
+            "source_path": "src/directive.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "Directive.inlineFilters"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 75,
+            "source_observation_id": "obs_8c8c2810e681f5a2",
+            "source_path": "src/directive.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "SINGLE_VAR_RE.test"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 76,
+            "source_observation_id": "obs_8c8c2810e681f5a2",
+            "source_path": "src/directive.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "NESTING_RE.test"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 2,
+            "source_line": 692,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "utils.log"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 2,
+            "source_line": 704,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "compiler.defineExp"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 714,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "compiler.defineComputed"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 3,
+            "source_line": 715,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "key.charAt"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 717,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "compiler.defineProp"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 719,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "compiler.defineMeta"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 2,
+            "source_line": 721,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "utils.baseKey"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 728,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "Observer.ensurePath"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 2,
+            "source_line": 729,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "key.slice"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 729,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "key.lastIndexOf"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 6,
+            "source_line": 733,
+            "source_observation_id": "obs_e8493595b82850ca",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "compiler.createBinding"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 2,
+            "source_line": 651,
+            "source_observation_id": "obs_d6c66d1a3e4cdc41",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger",
+              "explain_state_changes"
+            ],
+            "target": "directive.bind"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 6,
+            "source_line": 662,
+            "source_observation_id": "obs_d6c66d1a3e4cdc41",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger",
+              "explain_state_changes"
+            ],
+            "target": "compiler.createBinding"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 666,
+            "source_observation_id": "obs_d6c66d1a3e4cdc41",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger",
+              "explain_state_changes"
+            ],
+            "target": "compiler.hasKey"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 678,
+            "source_observation_id": "obs_d6c66d1a3e4cdc41",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger",
+              "explain_state_changes"
+            ],
+            "target": "binding.val"
+          },
+          {
+            "reason": "batch_resolution_budget",
+            "round": 1,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 684,
+            "source_observation_id": "obs_d6c66d1a3e4cdc41",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_trigger",
+              "explain_state_changes"
+            ],
+            "target": "directive.$update"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 1,
+        "tool_calls": 11
+      },
+      {
+        "trace_line": 297,
+        "audit": [
+          {
+            "reason": "source_not_resolved_callable",
+            "round": 2,
+            "source_observation_id": "obs_45bfce3eaf11e209",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect",
+              "explain_why"
+            ]
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 625,
+            "source_observation_id": "obs_fc7a2d53cfed99a8",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "compiler.getOption"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 628,
+            "source_observation_id": "obs_fc7a2d53cfed99a8",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "Directive.parse"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 2,
+            "source_callable_kind": "assigned_function",
+            "source_file_literal_calls": 1,
+            "source_line": 630,
+            "source_observation_id": "obs_fc7a2d53cfed99a8",
+            "source_path": "src/compiler.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "target": "asts.map"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 2,
+        "tool_calls": 4
+      },
+      {
+        "trace_line": 404,
+        "audit": [
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 98,
+            "source_observation_id": "obs_12b3a8726b1d6c81",
+            "source_path": "src/exp-parser.js",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_resulting_effect"
+            ],
+            "target": "utils.warn"
+          },
+          {
+            "reason": "source_not_resolved_callable",
+            "round": 3,
+            "source_observation_id": "obs_45bfce3eaf11e209",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_subject",
+              "explain_resulting_effect"
+            ]
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 3,
+        "tool_calls": 2
+      }
+    ],
+    "controller": [
+      {
+        "trace_line": 439,
+        "candidate_ids": [
+          "node:function:829aa3076fec80e1af3c0c37e1fb05c0",
+          "node:function:a3be0a4cbe6065a566c0657382734ad0",
+          "node:source_owner:src/compiler.js:490:577",
+          "node:source_owner:src/compiler.js:623:636",
+          "node:source_owner:src/compiler.js:641:685",
+          "node:source_owner:src/compiler.js:690:738",
+          "node:source_owner:src/compiler.js:797:807",
+          "node:source_owner:src/directive.js:130:224",
+          "node:source_owner:src/exp-parser.js:117:174",
+          "range:src/directives/on.js:3:37",
+          "range:test/unit/specs/directives.js:411:450"
+        ],
+        "pending_verified_leads": [],
+        "rounds": 3,
+        "stop_reason": "three_round_budget_complete",
+        "tool_calls": 99,
+        "verified_lead_block_reason": "",
+        "verified_lead_execution_cap": 2,
+        "verified_lead_execution_count": 0
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "src/compiler.js",
+        "symbol": "CompilerProto.parseDirective",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 2,
+        "path": "src/directive.js",
+        "symbol": "Directive",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 3,
+        "path": "src/compiler.js",
+        "symbol": "CompilerProto.bindDirective",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 4,
+        "path": "src/compiler.js",
+        "symbol": "CompilerProto.createBinding",
+        "obligation_id": "explain_ordered_mechanism"
+      },
+      {
+        "rank": 5,
+        "path": "src/directives/on.js",
+        "symbol": "",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 6,
+        "path": "src/exp-parser.js",
+        "symbol": "makeGetter",
+        "obligation_id": "explain_trigger"
+      },
+      {
+        "rank": 7,
+        "path": "src/directive.js",
+        "symbol": "Directive.parse",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 8,
+        "path": "src/compiler.js",
+        "symbol": "CompilerProto.defineExp",
+        "obligation_id": "explain_subject"
+      }
+    ]
+  },
+  {
+    "run_id": "run-20260827T115536Z",
+    "coverage_status": null,
+    "sufficient": null,
+    "implementation_oracles": null,
+    "oracle_positions": null,
+    "final_items": 0,
+    "final_files": 0,
+    "retrieval_tokens": 23220,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1170,
+        "completion_tokens": 139,
+        "total_tokens": 1309
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 20592,
+        "completion_tokens": 1319,
+        "total_tokens": 21911
+      }
+    },
+    "leads": [],
+    "followups": [],
+    "scheduling": [],
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__vuejs_vue_242__c145e037",
+        "document_count": 1114,
+        "indexed_points": 1114,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "discovery_audits": [],
+    "controller": [],
+    "final": []
+  }
+]

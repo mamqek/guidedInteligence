@@ -1,0 +1,42 @@
+[
+  {
+    "run_id": "run-20260827T124317Z",
+    "coverage_status": null,
+    "sufficient": null,
+    "implementation_oracles": null,
+    "oracle_positions": null,
+    "final_items": 0,
+    "final_files": 0,
+    "retrieval_tokens": 24326,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1625,
+        "completion_tokens": 173,
+        "total_tokens": 1798
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 20813,
+        "completion_tokens": 1715,
+        "total_tokens": 22528
+      }
+    },
+    "leads": [],
+    "followups": [],
+    "scheduling": [],
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__microsoft_typescript_35468__a27de1ce",
+        "document_count": 83401,
+        "indexed_points": 83401,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "discovery_audits": [],
+    "controller": [],
+    "final": []
+  }
+]

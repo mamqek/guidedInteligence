@@ -1,0 +1,760 @@
+[
+  {
+    "run_id": "run-20260827T125119Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 1,
+    "oracle_positions": {
+      "pandas/core/series.py": 2
+    },
+    "final_items": 5,
+    "final_files": 4,
+    "retrieval_tokens": 81491,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1226,
+        "completion_tokens": 135,
+        "total_tokens": 1361
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 23313,
+        "completion_tokens": 1026,
+        "total_tokens": 24339
+      },
+      "evidence_qualification": {
+        "calls": 5,
+        "prompt_tokens": 25354,
+        "completion_tokens": 9356,
+        "total_tokens": 34710
+      },
+      "retrieval_coverage": {
+        "calls": 5,
+        "prompt_tokens": 9837,
+        "completion_tokens": 4240,
+        "total_tokens": 14077
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 1,
+        "prompt_tokens": 4559,
+        "completion_tokens": 2445,
+        "total_tokens": 7004
+      }
+    },
+    "leads": [],
+    "followups": [
+      {
+        "discovery_line": 375,
+        "source_handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 250,
+          "full_line_start": 206,
+          "language": "python",
+          "line_end": 250,
+          "line_start": 206,
+          "node_id": "function:ffbd72079e28ca8dadc21bc0bed2c907",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "pandas/core/ops.py",
+          "symbol": "add_flex_arithmetic_methods"
+        },
+        "discovered_round": 2,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_why",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          2,
+          10000,
+          "pandas/core/ops.py",
+          "function:00f6f2ac093bac0ef4ba5a68ac984e52"
+        ],
+        "qualified_target": false,
+        "reason": "Retrieve `_create_methods` and the Series registration of `add_flex_arithmetic_methods` to inspect the generated `add` method.",
+        "request_text": "Retrieve `_create_methods` and the Series registration of `add_flex_arithmetic_methods` to inspect the generated `add` method.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_6c9c7e844d396af6",
+        "source_rank": 10000,
+        "structural_child": false,
+        "target": "_create_methods",
+        "target_node_id": "function:00f6f2ac093bac0ef4ba5a68ac984e52",
+        "target_path": "pandas/core/ops.py",
+        "target_range": [
+          24,
+          113
+        ],
+        "target_symbol": "_create_methods",
+        "actions": [
+          {
+            "trace_line": 483,
+            "round": 3,
+            "discovered_round": 2,
+            "id": "action_d64edb741ea67eb6",
+            "obligation_id": "explain_why",
+            "pool": "verified_lead",
+            "purpose": "verified_source_lead",
+            "reason": "Retrieve `_create_methods` and the Series registration of `add_flex_arithmetic_methods` to inspect the generated `add` method.",
+            "scope_id": "island_6f28abba9aaa2481",
+            "source_observation_id": "obs_6c9c7e844d396af6",
+            "target": "_create_methods",
+            "target_line_end": 113,
+            "target_line_start": 24,
+            "target_node_id": "function:00f6f2ac093bac0ef4ba5a68ac984e52",
+            "target_path": "pandas/core/ops.py",
+            "target_symbol": "_create_methods",
+            "type": "InspectVerifiedLead"
+          }
+        ],
+        "qualification": [
+          {
+            "trace_line": 532,
+            "round": 3,
+            "disposition": "promote",
+            "local_follow_up": "Retrieve the Series class or method-binding code that consumes the generated add and __add__ methods.",
+            "missing_information": [
+              "The Series class binding of the generated add and __add__ methods.",
+              "The generated method body and its result-name handling.",
+              "The operator dispatch path from s1 + s2."
+            ],
+            "observation_id": "obs_622f21a8809d76db",
+            "reason": "The method factory visibly creates the named add method by passing operator.add and the name 'add' into arith_method. This is a concrete handoff toward the s1.add(s2) path, but the excerpt does not show which class binds the generated method or how that path differs from operator dispatch.",
+            "support_level": "navigation_only",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "_create_methods assigns add=arith_method(operator.add, names('add'), ...).",
+              "The factory also creates special arithmetic methods separately when special=True, using names such as __add__."
+            ]
+          },
+          {
+            "trace_line": 672,
+            "round": 4,
+            "disposition": "promote",
+            "local_follow_up": "Retrieve the arith_method implementation and its Series caller/bindings for the operator path and add method.",
+            "missing_information": [
+              "The arith_method factory or callable implementation used by _create_methods",
+              "The Series bindings for operator expressions and the add method",
+              "The code that constructs the result and combines or resets its name",
+              "Any Index-based naming logic"
+            ],
+            "observation_id": "obs_622f21a8809d76db",
+            "reason": "The visible _create_methods factory is a concrete arithmetic implementation handoff: it creates arithmetic methods and explicitly includes generated/reversed operator-related methods such as rmul, rsub, rtruediv, and rpow. The excerpt does not show the add binding, the operator dispatch implementation, or result-name construction.",
+            "support_level": "navigation_only",
+            "supported_obligation_ids": [],
+            "visible_support": [
+              "_create_methods is documented as creating actual methods based upon arithmetic, comparison, and boolean method factories.",
+              "The factory constructs arithmetic methods with operator functions, symbolic operator labels, reversed flags, and default-axis/fill-zero options.",
+              "The visible code aliases div to truediv and rdiv to rtruediv."
+            ]
+          }
+        ],
+        "final_ranks": []
+      }
+    ],
+    "scheduling": [
+      {
+        "trace_line": 152,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 1,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 313,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 2,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 481,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [
+          {
+            "discovered_round": 2,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_why",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              2,
+              10000,
+              "pandas/core/ops.py",
+              "function:00f6f2ac093bac0ef4ba5a68ac984e52"
+            ],
+            "qualified_target": false,
+            "reason": "Retrieve `_create_methods` and the Series registration of `add_flex_arithmetic_methods` to inspect the generated `add` method.",
+            "request_text": "Retrieve `_create_methods` and the Series registration of `add_flex_arithmetic_methods` to inspect the generated `add` method.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_6c9c7e844d396af6",
+            "source_rank": 10000,
+            "structural_child": false,
+            "target": "_create_methods",
+            "target_node_id": "function:00f6f2ac093bac0ef4ba5a68ac984e52",
+            "target_path": "pandas/core/ops.py",
+            "target_range": [
+              24,
+              113
+            ],
+            "target_symbol": "_create_methods"
+          }
+        ],
+        "round": 3,
+        "selected_node_ids": [
+          "function:00f6f2ac093bac0ef4ba5a68ac984e52"
+        ],
+        "suppressed_actions": [],
+        "previous_priority_first_node": "function:00f6f2ac093bac0ef4ba5a68ac984e52",
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 653,
+        "blocked_reason": "",
+        "executed_count": 1,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 4,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      }
+    ],
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__pandas_dev_pandas_10068__5c2e52c6",
+        "document_count": 10334,
+        "indexed_points": 10334,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "discovery_audits": [
+      {
+        "trace_line": 143,
+        "audit": [],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 0,
+        "tool_calls": 0
+      },
+      {
+        "trace_line": 226,
+        "audit": [
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 1501,
+            "source_observation_id": "obs_7fcee82d964fc060",
+            "source_path": "pandas/core/series.py",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes",
+              "explain_why"
+            ],
+            "target": "this_vals.copy"
+          },
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 1502,
+            "source_observation_id": "obs_7fcee82d964fc060",
+            "source_path": "pandas/core/series.py",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes",
+              "explain_why"
+            ],
+            "target": "other_vals.copy"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 1,
+        "tool_calls": 2
+      },
+      {
+        "trace_line": 382,
+        "audit": [],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 2,
+        "tool_calls": 1
+      },
+      {
+        "trace_line": 554,
+        "audit": [
+          {
+            "reason": "same_file_target",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 493,
+            "source_observation_id": "obs_c432c2bd222062ef",
+            "source_path": "pandas/core/ops.py",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "_TimeOp.maybe_convert_for_time_op",
+            "target_node_id": "method:4a90cbce5bdc16ca52abb807a7f9cd25",
+            "target_path": "pandas/core/ops.py"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 519,
+            "source_observation_id": "obs_c432c2bd222062ef",
+            "source_path": "pandas/core/ops.py",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "com.take_1d"
+          },
+          {
+            "match_count": 0,
+            "reason": "target_not_unique",
+            "round": 3,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 2,
+            "source_line": 526,
+            "source_observation_id": "obs_c432c2bd222062ef",
+            "source_path": "pandas/core/ops.py",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_state_changes"
+            ],
+            "target": "left._constructor"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 3,
+        "tool_calls": 4
+      },
+      {
+        "trace_line": 682,
+        "audit": [],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 4,
+        "tool_calls": 0
+      }
+    ],
+    "controller": [
+      {
+        "trace_line": 780,
+        "candidate_ids": [
+          "node:function:00f6f2ac093bac0ef4ba5a68ac984e52",
+          "node:function:2fce42d3317e493dbf46ba8bbda25335",
+          "node:function:43c8ce71ae520317a75deed6366cfdd6",
+          "node:function:4fe757b4f3248c68cbf855de4c9e26b3",
+          "node:function:a75a77c90df8b729f40fd6a160ef26fb",
+          "node:function:f724de14c45fa0c73677bdf3450a6342",
+          "node:function:ffbd72079e28ca8dadc21bc0bed2c907",
+          "node:method:531d43d800b19c81ace5a82f745d6111",
+          "node:method:6f9ff4cb798ad8eaade92d90ee5bb3f6"
+        ],
+        "pending_verified_leads": [],
+        "rounds": 4,
+        "stop_reason": "controller_round_limit_reached",
+        "tool_calls": 201,
+        "verified_lead_block_reason": "",
+        "verified_lead_execution_cap": 2,
+        "verified_lead_execution_count": 1
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "pandas/core/ops.py",
+        "symbol": "_arith_method_SERIES::wrapper",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 2,
+        "path": "pandas/core/series.py",
+        "symbol": "Series::_binop",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 3,
+        "path": "pandas/core/common.py",
+        "symbol": "_maybe_match_name",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 4,
+        "path": "pandas/tests/test_series.py",
+        "symbol": "CheckNameIntegration::test_scalarop_preserve_name",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 5,
+        "path": "pandas/core/ops.py",
+        "symbol": "_flex_method_SERIES",
+        "obligation_id": "explain_subject"
+      }
+    ]
+  },
+  {
+    "run_id": "run-20260827T125129Z",
+    "coverage_status": "partial",
+    "sufficient": false,
+    "implementation_oracles": 0,
+    "oracle_positions": {},
+    "final_items": 2,
+    "final_files": 2,
+    "retrieval_tokens": 80185,
+    "stages": {
+      "connected_source_context": {
+        "calls": 1,
+        "prompt_tokens": 1247,
+        "completion_tokens": 121,
+        "total_tokens": 1368
+      },
+      "initial_owner_comparison": {
+        "calls": 1,
+        "prompt_tokens": 23201,
+        "completion_tokens": 566,
+        "total_tokens": 23767
+      },
+      "evidence_qualification": {
+        "calls": 5,
+        "prompt_tokens": 27909,
+        "completion_tokens": 9961,
+        "total_tokens": 37870
+      },
+      "retrieval_coverage": {
+        "calls": 5,
+        "prompt_tokens": 8883,
+        "completion_tokens": 3795,
+        "total_tokens": 12678
+      },
+      "obligation_evidence_consolidation": {
+        "calls": 1,
+        "prompt_tokens": 3065,
+        "completion_tokens": 1437,
+        "total_tokens": 4502
+      }
+    },
+    "leads": [],
+    "followups": [
+      {
+        "discovery_line": 779,
+        "source_handle": {
+          "adapter": "codegraph_owner_disclosure",
+          "full_line_end": 1511,
+          "full_line_start": 1466,
+          "language": "python",
+          "line_end": 1511,
+          "line_start": 1466,
+          "node_id": "method:531d43d800b19c81ace5a82f745d6111",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "pandas/core/series.py",
+          "symbol": "Series::_binop"
+        },
+        "discovered_round": 4,
+        "inspection_basis": "qualification_followup",
+        "known_incoming_calls": null,
+        "obligation_id": "explain_why",
+        "origin": "qualification_followup",
+        "priority_key": [
+          0,
+          1,
+          1,
+          4,
+          1,
+          "pandas/core/series.py",
+          "class:d36139b38b1044569388485a1853d6d8"
+        ],
+        "qualified_target": false,
+        "reason": "Retrieve Series.add and its call into _binop, plus _maybe_match_name.",
+        "request_text": "Retrieve Series.add and its call into _binop, plus _maybe_match_name.",
+        "source_call_line": 0,
+        "source_call_path": "",
+        "source_callable_kind": "",
+        "source_file_literal_calls": null,
+        "source_observation_id": "obs_7fcee82d964fc060",
+        "source_rank": 1,
+        "structural_child": false,
+        "target": "Series",
+        "target_node_id": "class:d36139b38b1044569388485a1853d6d8",
+        "target_path": "pandas/core/series.py",
+        "target_range": [
+          84,
+          2550
+        ],
+        "target_symbol": "Series",
+        "actions": [],
+        "qualification": [],
+        "final_ranks": []
+      }
+    ],
+    "scheduling": [
+      {
+        "trace_line": 158,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 1,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 325,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 2,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 512,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 3,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      },
+      {
+        "trace_line": 700,
+        "blocked_reason": "",
+        "executed_count": 0,
+        "execution_cap": 2,
+        "policy": "explicit_source_grounded_request_before_incidental_call",
+        "ranked_pending": [],
+        "round": 4,
+        "selected_node_ids": [],
+        "suppressed_actions": [],
+        "previous_priority_first_node": null,
+        "note": "Previous ordering on this same pending queue only; not a counterfactual full run."
+      }
+    ],
+    "indexes": [
+      {
+        "trace_line": 9,
+        "collection_name": "guided_intelligence_retrieval_role_scoped__pandas_dev_pandas_10068__5c2e52c6",
+        "document_count": 10334,
+        "indexed_points": 10334,
+        "lexical_ranking_profile": "flat_bm25",
+        "rebuilt": false
+      }
+    ],
+    "discovery_audits": [
+      {
+        "trace_line": 149,
+        "audit": [],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 0,
+        "tool_calls": 0
+      },
+      {
+        "trace_line": 229,
+        "audit": [
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 1501,
+            "source_observation_id": "obs_7fcee82d964fc060",
+            "source_path": "pandas/core/series.py",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "this_vals.copy"
+          },
+          {
+            "reason": "symbol_result_limit_cannot_prove_unique",
+            "round": 1,
+            "source_callable_kind": "function",
+            "source_file_literal_calls": 1,
+            "source_line": 1502,
+            "source_observation_id": "obs_7fcee82d964fc060",
+            "source_path": "pandas/core/series.py",
+            "status": "rejected",
+            "supported_obligation_ids": [
+              "explain_ordered_mechanism",
+              "explain_state_changes"
+            ],
+            "target": "other_vals.copy"
+          }
+        ],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 1,
+        "tool_calls": 4
+      },
+      {
+        "trace_line": 404,
+        "audit": [],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 2,
+        "tool_calls": 0
+      },
+      {
+        "trace_line": 580,
+        "audit": [],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 3,
+        "tool_calls": 0
+      },
+      {
+        "trace_line": 783,
+        "audit": [],
+        "execution_cap": 2,
+        "leads": [],
+        "new_lead_count": 0,
+        "round": 4,
+        "tool_calls": 0
+      }
+    ],
+    "controller": [
+      {
+        "trace_line": 896,
+        "candidate_ids": [
+          "node:function:2fce42d3317e493dbf46ba8bbda25335",
+          "node:function:43c8ce71ae520317a75deed6366cfdd6",
+          "node:function:4fe757b4f3248c68cbf855de4c9e26b3",
+          "node:function:a75a77c90df8b729f40fd6a160ef26fb",
+          "node:function:c839c044e5504936be646c4e99489bac",
+          "node:function:f724de14c45fa0c73677bdf3450a6342",
+          "node:function:ffbd72079e28ca8dadc21bc0bed2c907",
+          "node:method:24a2215554f85f783df1db01bcf145ac",
+          "node:method:531d43d800b19c81ace5a82f745d6111",
+          "node:method:9cea3e53f5a7ec5f26ac5de20636659e",
+          "node:variable:2778a10b1a128a14a42c93156aa1435e",
+          "node:variable:47dd6b27ef703f8bc874db1d7cd978d4",
+          "node:variable:76d42d6746347dd06e942f2c5f63fd7a"
+        ],
+        "pending_verified_leads": [
+          {
+            "discovered_round": 4,
+            "inspection_basis": "qualification_followup",
+            "known_incoming_calls": null,
+            "obligation_id": "explain_why",
+            "origin": "qualification_followup",
+            "priority_key": [
+              0,
+              1,
+              1,
+              4,
+              1,
+              "pandas/core/series.py",
+              "class:d36139b38b1044569388485a1853d6d8"
+            ],
+            "qualified_target": false,
+            "reason": "Retrieve Series.add and its call into _binop, plus _maybe_match_name.",
+            "request_text": "Retrieve Series.add and its call into _binop, plus _maybe_match_name.",
+            "source_call_line": 0,
+            "source_call_path": "",
+            "source_callable_kind": "",
+            "source_file_literal_calls": null,
+            "source_observation_id": "obs_7fcee82d964fc060",
+            "source_rank": 1,
+            "structural_child": false,
+            "target": "Series",
+            "target_node_id": "class:d36139b38b1044569388485a1853d6d8",
+            "target_path": "pandas/core/series.py",
+            "target_range": [
+              84,
+              2550
+            ],
+            "target_symbol": "Series"
+          }
+        ],
+        "rounds": 4,
+        "stop_reason": "controller_round_limit_reached",
+        "tool_calls": 241,
+        "verified_lead_block_reason": "round_budget_exhausted",
+        "verified_lead_execution_cap": 2,
+        "verified_lead_execution_count": 0
+      }
+    ],
+    "final": [
+      {
+        "rank": 1,
+        "path": "pandas/tests/test_series.py",
+        "symbol": "CheckNameIntegration::test_binop_maybe_preserve_name",
+        "obligation_id": "explain_subject"
+      },
+      {
+        "rank": 2,
+        "path": "pandas/core/common.py",
+        "symbol": "_maybe_match_name",
+        "obligation_id": "explain_subject"
+      }
+    ]
+  }
+]

@@ -1,0 +1,549 @@
+[
+  {
+    "run_id": "run-20260827T125129Z",
+    "trace_line": 62,
+    "baseline_ref": "c6a40a60d83b5e8fec78b27f95646cd1a225ea7c",
+    "recorded_policy": "current",
+    "recorded_policy_reproduced": true,
+    "old": {
+      "admitted_groups": [
+        [
+          "doc/sphinxext/numpydoc/comment_eater.py",
+          "*"
+        ],
+        [
+          "pandas/tools/rplot.py",
+          "*"
+        ],
+        [
+          "pandas/core/ops.py",
+          "*"
+        ],
+        [
+          "pandas/tests/test_panel.py",
+          "*"
+        ],
+        [
+          "pandas/tests/test_series.py",
+          "*"
+        ],
+        [
+          "pandas/tests/test_frame.py",
+          "*"
+        ]
+      ],
+      "admitted_paths": [
+        "doc/sphinxext/numpydoc/comment_eater.py",
+        "pandas/tools/rplot.py",
+        "pandas/core/ops.py",
+        "pandas/tests/test_panel.py",
+        "pandas/tests/test_series.py",
+        "pandas/tests/test_frame.py"
+      ],
+      "excluded_paths": [
+        "pandas/tests/test_expressions.py",
+        "pandas/sparse/series.py",
+        "pandas/tests/test_indexing.py",
+        "pandas/computation/tests/test_eval.py",
+        "pandas/tools/plotting.py",
+        "pandas/tseries/base.py",
+        "pandas/core/index.py",
+        "pandas/tests/test_base.py",
+        "vb_suite/binary_ops.py",
+        "pandas/tests/test_rplot.py",
+        "pandas/tests/test_groupby.py",
+        "pandas/core/series.py",
+        "pandas/core/panel.py",
+        "pandas/computation/expr.py",
+        "pandas/core/frame.py",
+        "pandas/src/datetime/np_datetime.c",
+        "vb_suite/eval.py",
+        "pandas/tests/test_internals.py",
+        "vb_suite/frame_methods.py",
+        "pandas/computation/ops.py",
+        "pandas/tseries/tests/test_plotting.py",
+        "pandas/tests/test_generic.py",
+        "vb_suite/timeseries.py",
+        "pandas/core/groupby.py",
+        "pandas/compat/__init__.py",
+        "vb_suite/join_merge.py",
+        "pandas/core/base.py",
+        "pandas/tests/test_index.py",
+        "pandas/src/ujson/lib/ultrajsonenc.c",
+        "pandas/sparse/array.py",
+        "pandas/src/datetime/np_datetime_strings.c",
+        "vb_suite/source/conf.py",
+        "pandas/io/tests/test_excel.py",
+        "pandas/core/generic.py",
+        "pandas/core/internals.py",
+        "pandas/io/tests/test_sql.py",
+        "pandas/tests/test_stats.py",
+        "pandas/io/parsers.py",
+        "pandas/tests/test_tseries.py",
+        "pandas/core/categorical.py",
+        "pandas/computation/scope.py",
+        "pandas/tests/test_graphics.py",
+        "scripts/find_commits_touching_func.py",
+        "pandas/sparse/tests/test_sparse.py"
+      ],
+      "total_input_chars": 58838,
+      "candidate_count": 177,
+      "stopping_reason": "preferred_input_target",
+      "stopped_at_path": "pandas/tests/test_expressions.py",
+      "path_decisions": [
+        {
+          "path": "doc/sphinxext/numpydoc/comment_eater.py",
+          "decision": "admitted",
+          "total_input_chars": 8156,
+          "marginal_chars": 8156,
+          "candidate_count": 11
+        },
+        {
+          "path": "pandas/tools/rplot.py",
+          "decision": "admitted",
+          "total_input_chars": 9006,
+          "marginal_chars": 850,
+          "candidate_count": 14
+        },
+        {
+          "path": "pandas/core/ops.py",
+          "decision": "admitted",
+          "total_input_chars": 19095,
+          "marginal_chars": 10089,
+          "candidate_count": 47
+        },
+        {
+          "path": "pandas/tests/test_panel.py",
+          "decision": "admitted",
+          "total_input_chars": 21447,
+          "marginal_chars": 2352,
+          "candidate_count": 55
+        },
+        {
+          "path": "pandas/tests/test_series.py",
+          "decision": "admitted",
+          "total_input_chars": 56101,
+          "marginal_chars": 34654,
+          "candidate_count": 169
+        },
+        {
+          "path": "pandas/tests/test_frame.py",
+          "decision": "admitted",
+          "total_input_chars": 58838,
+          "marginal_chars": 2737,
+          "candidate_count": 177
+        },
+        {
+          "path": "pandas/tests/test_expressions.py",
+          "decision": "stopped_preferred_input_target",
+          "tentative_total_input_chars": 61506,
+          "marginal_chars": 2668
+        }
+      ]
+    },
+    "new": {
+      "admitted_groups": [
+        [
+          "doc/sphinxext/numpydoc/comment_eater.py",
+          "*"
+        ],
+        [
+          "pandas/tools/rplot.py",
+          "*"
+        ],
+        [
+          "pandas/core/ops.py",
+          "*"
+        ],
+        [
+          "pandas/tests/test_panel.py",
+          "*"
+        ],
+        [
+          "pandas/tests/test_series.py",
+          "*"
+        ],
+        [
+          "pandas/tests/test_frame.py",
+          "*"
+        ],
+        [
+          "pandas/tools/plotting.py",
+          "*"
+        ]
+      ],
+      "admitted_paths": [
+        "doc/sphinxext/numpydoc/comment_eater.py",
+        "pandas/tools/rplot.py",
+        "pandas/core/ops.py",
+        "pandas/tests/test_panel.py",
+        "pandas/tests/test_series.py",
+        "pandas/tests/test_frame.py",
+        "pandas/tools/plotting.py"
+      ],
+      "excluded_paths": [
+        "pandas/tests/test_expressions.py",
+        "pandas/sparse/series.py",
+        "pandas/tests/test_indexing.py",
+        "pandas/computation/tests/test_eval.py",
+        "pandas/tseries/base.py",
+        "pandas/core/index.py",
+        "pandas/tests/test_base.py",
+        "vb_suite/binary_ops.py",
+        "pandas/tests/test_rplot.py",
+        "pandas/tests/test_groupby.py",
+        "pandas/core/series.py",
+        "pandas/core/panel.py",
+        "pandas/computation/expr.py",
+        "pandas/core/frame.py",
+        "pandas/src/datetime/np_datetime.c",
+        "vb_suite/eval.py",
+        "pandas/tests/test_internals.py",
+        "vb_suite/frame_methods.py",
+        "pandas/computation/ops.py",
+        "pandas/tseries/tests/test_plotting.py",
+        "pandas/tests/test_generic.py",
+        "vb_suite/timeseries.py",
+        "pandas/core/groupby.py",
+        "pandas/compat/__init__.py",
+        "vb_suite/join_merge.py",
+        "pandas/core/base.py",
+        "pandas/tests/test_index.py",
+        "pandas/src/ujson/lib/ultrajsonenc.c",
+        "pandas/sparse/array.py",
+        "pandas/src/datetime/np_datetime_strings.c",
+        "vb_suite/source/conf.py",
+        "pandas/io/tests/test_excel.py",
+        "pandas/core/generic.py",
+        "pandas/core/internals.py",
+        "pandas/io/tests/test_sql.py",
+        "pandas/tests/test_stats.py",
+        "pandas/io/parsers.py",
+        "pandas/tests/test_tseries.py",
+        "pandas/core/categorical.py",
+        "pandas/computation/scope.py",
+        "pandas/tests/test_graphics.py",
+        "scripts/find_commits_touching_func.py",
+        "pandas/sparse/tests/test_sparse.py"
+      ],
+      "total_input_chars": 59928,
+      "candidate_count": 180,
+      "stopping_reason": "ranking_exhausted",
+      "stopped_at_path": "",
+      "path_decisions": [
+        {
+          "path": "doc/sphinxext/numpydoc/comment_eater.py",
+          "decision": "admitted",
+          "total_input_chars": 8156,
+          "marginal_chars": 8156,
+          "candidate_count": 11
+        },
+        {
+          "path": "pandas/tools/rplot.py",
+          "decision": "admitted",
+          "total_input_chars": 9006,
+          "marginal_chars": 850,
+          "candidate_count": 14
+        },
+        {
+          "path": "pandas/core/ops.py",
+          "decision": "admitted",
+          "total_input_chars": 19095,
+          "marginal_chars": 10089,
+          "candidate_count": 47
+        },
+        {
+          "path": "pandas/tests/test_panel.py",
+          "decision": "admitted",
+          "total_input_chars": 21447,
+          "marginal_chars": 2352,
+          "candidate_count": 55
+        },
+        {
+          "path": "pandas/tests/test_series.py",
+          "decision": "admitted",
+          "total_input_chars": 56101,
+          "marginal_chars": 34654,
+          "candidate_count": 169
+        },
+        {
+          "path": "pandas/tests/test_frame.py",
+          "decision": "admitted",
+          "total_input_chars": 58838,
+          "marginal_chars": 2737,
+          "candidate_count": 177
+        },
+        {
+          "path": "pandas/tests/test_expressions.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61506,
+          "marginal_chars": 2668
+        },
+        {
+          "path": "pandas/sparse/series.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61146,
+          "marginal_chars": 2308
+        },
+        {
+          "path": "pandas/tests/test_indexing.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 63144,
+          "marginal_chars": 4306
+        },
+        {
+          "path": "pandas/computation/tests/test_eval.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61451,
+          "marginal_chars": 2613
+        },
+        {
+          "path": "pandas/tools/plotting.py",
+          "decision": "admitted",
+          "total_input_chars": 59928,
+          "marginal_chars": 1090,
+          "candidate_count": 180
+        },
+        {
+          "path": "pandas/tseries/base.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61555,
+          "marginal_chars": 1627
+        },
+        {
+          "path": "pandas/core/index.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 63972,
+          "marginal_chars": 4044
+        },
+        {
+          "path": "pandas/tests/test_base.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61246,
+          "marginal_chars": 1318
+        },
+        {
+          "path": "vb_suite/binary_ops.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 64618,
+          "marginal_chars": 4690
+        },
+        {
+          "path": "pandas/tests/test_rplot.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61548,
+          "marginal_chars": 1620
+        },
+        {
+          "path": "pandas/tests/test_groupby.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61201,
+          "marginal_chars": 1273
+        },
+        {
+          "path": "pandas/core/series.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61039,
+          "marginal_chars": 1111
+        },
+        {
+          "path": "pandas/core/panel.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60768,
+          "marginal_chars": 840
+        },
+        {
+          "path": "pandas/computation/expr.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60783,
+          "marginal_chars": 855
+        },
+        {
+          "path": "pandas/core/frame.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60782,
+          "marginal_chars": 854
+        },
+        {
+          "path": "pandas/src/datetime/np_datetime.c",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60560,
+          "marginal_chars": 632
+        },
+        {
+          "path": "vb_suite/eval.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61558,
+          "marginal_chars": 1630
+        },
+        {
+          "path": "pandas/tests/test_internals.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61392,
+          "marginal_chars": 1464
+        },
+        {
+          "path": "vb_suite/frame_methods.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 62207,
+          "marginal_chars": 2279
+        },
+        {
+          "path": "pandas/computation/ops.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61646,
+          "marginal_chars": 1718
+        },
+        {
+          "path": "pandas/tseries/tests/test_plotting.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60412,
+          "marginal_chars": 484
+        },
+        {
+          "path": "pandas/tests/test_generic.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60383,
+          "marginal_chars": 455
+        },
+        {
+          "path": "vb_suite/timeseries.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 62086,
+          "marginal_chars": 2158
+        },
+        {
+          "path": "pandas/core/groupby.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61488,
+          "marginal_chars": 1560
+        },
+        {
+          "path": "pandas/compat/__init__.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61848,
+          "marginal_chars": 1920
+        },
+        {
+          "path": "vb_suite/join_merge.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61797,
+          "marginal_chars": 1869
+        },
+        {
+          "path": "pandas/core/base.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61656,
+          "marginal_chars": 1728
+        },
+        {
+          "path": "pandas/tests/test_index.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61920,
+          "marginal_chars": 1992
+        },
+        {
+          "path": "pandas/src/ujson/lib/ultrajsonenc.c",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60344,
+          "marginal_chars": 416
+        },
+        {
+          "path": "pandas/sparse/array.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60521,
+          "marginal_chars": 593
+        },
+        {
+          "path": "pandas/src/datetime/np_datetime_strings.c",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60604,
+          "marginal_chars": 676
+        },
+        {
+          "path": "vb_suite/source/conf.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60550,
+          "marginal_chars": 622
+        },
+        {
+          "path": "pandas/io/tests/test_excel.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61733,
+          "marginal_chars": 1805
+        },
+        {
+          "path": "pandas/core/generic.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60829,
+          "marginal_chars": 901
+        },
+        {
+          "path": "pandas/core/internals.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60343,
+          "marginal_chars": 415
+        },
+        {
+          "path": "pandas/io/tests/test_sql.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60916,
+          "marginal_chars": 988
+        },
+        {
+          "path": "pandas/tests/test_stats.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60252,
+          "marginal_chars": 324
+        },
+        {
+          "path": "pandas/io/parsers.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60709,
+          "marginal_chars": 781
+        },
+        {
+          "path": "pandas/tests/test_tseries.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60995,
+          "marginal_chars": 1067
+        },
+        {
+          "path": "pandas/core/categorical.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60664,
+          "marginal_chars": 736
+        },
+        {
+          "path": "pandas/computation/scope.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61383,
+          "marginal_chars": 1455
+        },
+        {
+          "path": "pandas/tests/test_graphics.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61170,
+          "marginal_chars": 1242
+        },
+        {
+          "path": "scripts/find_commits_touching_func.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 60571,
+          "marginal_chars": 643
+        },
+        {
+          "path": "pandas/sparse/tests/test_sparse.py",
+          "decision": "skipped_preferred_input_target",
+          "tentative_total_input_chars": 61024,
+          "marginal_chars": 1096
+        }
+      ]
+    },
+    "added_paths": [
+      "pandas/tools/plotting.py"
+    ],
+    "removed_paths": [],
+    "note": "Saved-input deterministic packing, not a prediction of LLM choices."
+  }
+]

@@ -1,0 +1,2927 @@
+[
+  {
+    "run_id": "run-20260827T123717Z",
+    "baseline_ref": "c6a40a60d83b5e8fec78b27f95646cd1a225ea7c",
+    "trace_line": 1627,
+    "recorded_policy": "current",
+    "recorded_selected_ids_reproduced": true,
+    "recorded_chars": 44839,
+    "replay_chars_delta": -1,
+    "replay_precision_note": "Trace candidate scores are rounded; a nonzero character delta means size reproduction is approximate.",
+    "old_count": 14,
+    "new_count": 14,
+    "old_chars": 44798,
+    "new_chars": 44838,
+    "added": [
+      {
+        "candidate_id": "node:function:30a8c58d8d1b02679033b37851233006",
+        "path": "src/compiler/builderState.ts",
+        "symbol": "getReferencedByPaths"
+      }
+    ],
+    "removed": [
+      {
+        "candidate_id": "node:function:9c49488338feaf01b940967a1e0c6195",
+        "path": "src/compiler/builderState.ts",
+        "symbol": "updateExportedFilesMapFromCache"
+      }
+    ],
+    "new_ledger": {
+      "candidate_inventory": [
+        {
+          "candidate_id": "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+          "path": "src/compiler/builderState.ts",
+          "line_start": 528,
+          "line_end": 560,
+          "node_id": "function:527911fba78843cb1e07cd2dcdee2f0e",
+          "symbol": "getFilesAffectedByUpdatedShapeWhenModuleEmit",
+          "score": 0.75,
+          "base_score": 0.75,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense",
+            "within_file_search"
+          ],
+          "obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes",
+            "explain_subject",
+            "explain_why"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 2,
+                "score": 0.6111,
+                "matched_terms": [
+                  "0",
+                  "a",
+                  "as",
+                  "change",
+                  "code",
+                  "file",
+                  "getreferencedbypaths",
+                  "in",
+                  "of",
+                  "referenced",
+                  "start",
+                  "that",
+                  "the",
+                  "this",
+                  "to",
+                  "when",
+                  "with"
+                ]
+              },
+              {
+                "obligation_id": "explain_state_changes",
+                "rank": 1,
+                "score": 0.75,
+                "matched_terms": [
+                  "a",
+                  "changed",
+                  "file",
+                  "path",
+                  "shape",
+                  "state",
+                  "that",
+                  "the",
+                  "to",
+                  "when"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "getFilesAffectedByUpdatedShapeWhenModuleEmit",
+              "isFileAffectingGlobalScope",
+              "getAllFilesExcludingDefaultLibraryFile",
+              "getReferencedByPaths",
+              "while",
+              "updateShapeSignature",
+              "arrayFrom",
+              "mapDefinedIterator"
+            ],
+            "callable_defaults": [],
+            "returned_names": [
+              "getAllFilesExcludingDefaultLibraryFile",
+              "arrayFrom"
+            ],
+            "written_fields": [],
+            "read_fields": [
+              "getCompilerOptions",
+              "isolatedModules",
+              "out",
+              "outFile",
+              "set",
+              "path",
+              "resolvedPath",
+              "length",
+              "pop",
+              "has",
+              "getSourceFileByPath",
+              "push",
+              "values"
+            ],
+            "full_range": [
+              528,
+              560
+            ],
+            "primary_anchor": [
+              528,
+              560
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes",
+            "explain_subject",
+            "explain_why"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 42.75,
+          "outgoing_transition_count": 2,
+          "matched_request_terms": [
+            "compiler",
+            "module",
+            "shape",
+            "updat"
+          ],
+          "causal_roles": [
+            "domain_owner",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [
+            "node:function:30a8c58d8d1b02679033b37851233006",
+            "node:function:fc5e0c1d952a60d32b4da99e9f988257"
+          ],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:9e4209e679583a4639e64a8a980cf3a4",
+          "path": "src/compiler/builder.ts",
+          "line_start": 495,
+          "line_end": 541,
+          "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+          "symbol": "forEachReferencingModulesOfExportOfAffectedFile",
+          "score": 0.5588,
+          "base_score": 0.5588,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense",
+            "within_file_search"
+          ],
+          "obligation_ids": [
+            "explain_subject",
+            "explain_ordered_mechanism",
+            "explain_state_changes",
+            "explain_why"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 1,
+                "score": 0.5588,
+                "matched_terms": [
+                  "and",
+                  "file",
+                  "from",
+                  "it",
+                  "not",
+                  "path",
+                  "state",
+                  "through"
+                ]
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 1,
+                "score": 0.5588,
+                "matched_terms": [
+                  "and",
+                  "changed",
+                  "export",
+                  "file",
+                  "from",
+                  "in",
+                  "path",
+                  "state",
+                  "that",
+                  "the",
+                  "through",
+                  "while"
+                ]
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 2,
+                "score": 0.5,
+                "matched_terms": [
+                  "affected",
+                  "and",
+                  "as",
+                  "exportedmodulesmap",
+                  "file",
+                  "from",
+                  "is",
+                  "it",
+                  "not",
+                  "path",
+                  "this",
+                  "through"
+                ]
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 3,
+                "score": 0.3333,
+                "matched_terms": [
+                  "0",
+                  "affected",
+                  "and",
+                  "as",
+                  "but",
+                  "change",
+                  "export",
+                  "exportedmodulesmap",
+                  "file",
+                  "for",
+                  "from",
+                  "in",
+                  "is",
+                  "path",
+                  "that",
+                  "the",
+                  "then",
+                  "through",
+                  "to"
+                ]
+              },
+              {
+                "obligation_id": "explain_state_changes",
+                "rank": 4,
+                "score": 0.3929,
+                "matched_terms": [
+                  "and",
+                  "cache",
+                  "file",
+                  "path",
+                  "state"
+                ]
+              },
+              {
+                "obligation_id": "explain_state_changes",
+                "rank": 4,
+                "score": 0.3929,
+                "matched_terms": [
+                  "and",
+                  "cache",
+                  "changed",
+                  "export",
+                  "file",
+                  "path",
+                  "signature",
+                  "state",
+                  "that",
+                  "the",
+                  "to"
+                ]
+              },
+              {
+                "obligation_id": "explain_subject",
+                "rank": 23,
+                "score": 0.0667,
+                "matched_terms": [
+                  "and",
+                  "through"
+                ]
+              },
+              {
+                "obligation_id": "explain_why",
+                "rank": 3,
+                "score": 0.4167,
+                "matched_terms": [
+                  "affected",
+                  "and",
+                  "from",
+                  "path",
+                  "state"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "forEachReferencingModulesOfExportOfAffectedFile",
+              "signature",
+              "isChangedSignagure",
+              "while",
+              "forEachEntry",
+              "forEachFilesReferencingPath"
+            ],
+            "callable_defaults": [],
+            "returned_names": [],
+            "written_fields": [],
+            "read_fields": [
+              "exportedModulesMap",
+              "changedFilesSet",
+              "path",
+              "compilerOptions",
+              "set",
+              "getReferencedByPaths",
+              "resolvedPath",
+              "length",
+              "pop",
+              "has",
+              "assertDefined",
+              "program",
+              "push",
+              "assert",
+              "currentAffectedFilesExportedModulesMap"
+            ],
+            "full_range": [
+              495,
+              541
+            ],
+            "primary_anchor": [
+              522,
+              541
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes",
+            "explain_subject",
+            "explain_why"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 40.5588,
+          "outgoing_transition_count": 1,
+          "matched_request_terms": [
+            "compiler",
+            "export",
+            "modul"
+          ],
+          "causal_roles": [
+            "domain_owner",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [
+            "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4"
+          ],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:f774c5ec569fdef0fe0225ee569847bc",
+          "path": "src/testRunner/unittests/tscWatch/emitAndErrorUpdates.ts",
+          "line_start": 242,
+          "line_end": 255,
+          "node_id": "function:f774c5ec569fdef0fe0225ee569847bc",
+          "symbol": "verifyTransitiveExports",
+          "score": 0.2,
+          "base_score": 0.2,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense"
+          ],
+          "obligation_ids": [
+            "explain_subject",
+            "explain_ordered_mechanism",
+            "explain_resulting_effect",
+            "explain_why"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 19,
+                "score": 0.0909,
+                "matched_terms": [
+                  "and",
+                  "exports",
+                  "file",
+                  "from",
+                  "interface",
+                  "of",
+                  "path",
+                  "updates"
+                ]
+              },
+              {
+                "obligation_id": "explain_resulting_effect",
+                "rank": 7,
+                "score": 0.2,
+                "matched_terms": [
+                  "and",
+                  "exports",
+                  "import",
+                  "interface",
+                  "path",
+                  "to"
+                ]
+              },
+              {
+                "obligation_id": "explain_subject",
+                "rank": 9,
+                "score": 0.2,
+                "matched_terms": [
+                  "and",
+                  "exports",
+                  "interface"
+                ]
+              },
+              {
+                "obligation_id": "explain_why",
+                "rank": 12,
+                "score": 0.1429,
+                "matched_terms": [
+                  "and",
+                  "exports",
+                  "from",
+                  "import",
+                  "interface",
+                  "path",
+                  "to"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "verifyTransitiveExports",
+              "verifyEmitAndErrorUpdates"
+            ],
+            "callable_defaults": [],
+            "returned_names": [],
+            "written_fields": [],
+            "read_fields": [
+              "writeFile",
+              "path",
+              "content",
+              "runQueuedTimeoutCallbacks"
+            ],
+            "full_range": [
+              242,
+              255
+            ],
+            "primary_anchor": [
+              242,
+              255
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_resulting_effect",
+            "explain_subject",
+            "explain_why"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 33.2,
+          "outgoing_transition_count": 0,
+          "matched_request_terms": [
+            "export",
+            "tsc",
+            "updat",
+            "watch"
+          ],
+          "causal_roles": [
+            "validation"
+          ],
+          "qualified_call_neighbor_ids": [],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:68b87ef75d2dbfb56b352061dbb863fd",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "line_start": 504,
+          "line_end": 508,
+          "node_id": "function:68b87ef75d2dbfb56b352061dbb863fd",
+          "symbol": "introduceError",
+          "score": 1.0,
+          "base_score": 1.0,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense"
+          ],
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_subject",
+                "rank": 2,
+                "score": 0.5714,
+                "matched_terms": [
+                  "and",
+                  "error",
+                  "project",
+                  "watch"
+                ]
+              },
+              {
+                "obligation_id": "explain_trigger",
+                "rank": 1,
+                "score": 1.0,
+                "matched_terms": [
+                  "and",
+                  "file",
+                  "is",
+                  "project",
+                  "tsc",
+                  "watch"
+                ]
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 8,
+                "score": 0.2,
+                "matched_terms": [
+                  "and",
+                  "changed",
+                  "error",
+                  "file",
+                  "path",
+                  "project",
+                  "watch"
+                ]
+              },
+              {
+                "obligation_id": "explain_resulting_effect",
+                "rank": 2,
+                "score": 0.5,
+                "matched_terms": [
+                  "and",
+                  "error",
+                  "path",
+                  "project",
+                  "watch"
+                ]
+              },
+              {
+                "obligation_id": "explain_why",
+                "rank": 2,
+                "score": 0.5476,
+                "matched_terms": [
+                  "and",
+                  "changed",
+                  "path",
+                  "project",
+                  "watch"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "introduceError",
+              "incrementalBuild"
+            ],
+            "callable_defaults": [],
+            "returned_names": [],
+            "written_fields": [],
+            "read_fields": [
+              "writeFile",
+              "path",
+              "content"
+            ],
+            "full_range": [
+              504,
+              508
+            ],
+            "primary_anchor": [
+              504,
+              508
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_trigger"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 12.0,
+          "outgoing_transition_count": 0,
+          "matched_request_terms": [
+            "mode",
+            "watch"
+          ],
+          "causal_roles": [
+            "validation"
+          ],
+          "qualified_call_neighbor_ids": [],
+          "selected_for_final_request": false
+        },
+        {
+          "candidate_id": "node:function:200b27b361a344e4e112e12f1b151456",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "line_start": 1154,
+          "line_end": 1193,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "symbol": "getNextInvalidatedProject",
+          "score": 0.8333,
+          "base_score": 0.8333,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense"
+          ],
+          "obligation_ids": [
+            "explain_trigger",
+            "explain_ordered_mechanism"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 3,
+                "score": 0.4583,
+                "matched_terms": [
+                  "file",
+                  "project",
+                  "state",
+                  "the"
+                ]
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 3,
+                "score": 0.4583,
+                "matched_terms": [
+                  "file",
+                  "in",
+                  "of",
+                  "project",
+                  "state",
+                  "the"
+                ]
+              },
+              {
+                "obligation_id": "explain_resulting_effect",
+                "rank": 1,
+                "score": 0.75,
+                "matched_terms": [
+                  "a",
+                  "project",
+                  "result",
+                  "state",
+                  "the",
+                  "to",
+                  "type"
+                ]
+              },
+              {
+                "obligation_id": "explain_resulting_effect",
+                "rank": 1,
+                "score": 0.75,
+                "matched_terms": [
+                  "project",
+                  "state",
+                  "the"
+                ]
+              },
+              {
+                "obligation_id": "explain_trigger",
+                "rank": 4,
+                "score": 0.3733,
+                "matched_terms": [
+                  "build",
+                  "file",
+                  "project",
+                  "the"
+                ]
+              },
+              {
+                "obligation_id": "explain_why",
+                "rank": 1,
+                "score": 0.8333,
+                "matched_terms": [
+                  "project",
+                  "state",
+                  "the"
+                ]
+              },
+              {
+                "obligation_id": "explain_why",
+                "rank": 1,
+                "score": 0.8333,
+                "matched_terms": [
+                  "project",
+                  "state",
+                  "type"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "reportBuildQueue",
+              "parseConfigFile",
+              "reportParseConfigFileDiagnostic",
+              "watchConfigFile",
+              "watchWildCardDirectories",
+              "watchInputFiles",
+              "getFileNamesFromConfigSpecs",
+              "getDirectoryPath"
+            ],
+            "callable_defaults": [],
+            "returned_names": [],
+            "written_fields": [],
+            "read_fields": [
+              "projectPendingBuild",
+              "delete",
+              "Full",
+              "Partial",
+              "configFileSpecs",
+              "options",
+              "parseConfigFileHost"
+            ],
+            "full_range": [
+              1124,
+              1233
+            ],
+            "primary_anchor": [
+              1154,
+              1193
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_trigger"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 21.8333,
+          "outgoing_transition_count": 1,
+          "matched_request_terms": [
+            "compiler"
+          ],
+          "causal_roles": [
+            "controller",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [
+            "node:function:94121753e270cdfe67fe6e1a59c6cb40"
+          ],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:e9b4dcb84c194c87104f73e0e9ee18eb",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "line_start": 1732,
+          "line_end": 1736,
+          "node_id": "function:e9b4dcb84c194c87104f73e0e9ee18eb",
+          "symbol": "invalidateProjectAndScheduleBuilds",
+          "score": 0.8333,
+          "base_score": 0.8333,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense"
+          ],
+          "obligation_ids": [
+            "explain_trigger",
+            "explain_ordered_mechanism"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 3,
+                "score": 0.4583,
+                "matched_terms": [
+                  "state"
+                ]
+              },
+              {
+                "obligation_id": "explain_resulting_effect",
+                "rank": 1,
+                "score": 0.75,
+                "matched_terms": [
+                  "state"
+                ]
+              },
+              {
+                "obligation_id": "explain_why",
+                "rank": 1,
+                "score": 0.8333,
+                "matched_terms": [
+                  "state"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "invalidateProjectAndScheduleBuilds",
+              "invalidateProject",
+              "scheduleBuildInvalidatedProject"
+            ],
+            "callable_defaults": [],
+            "returned_names": [],
+            "written_fields": [
+              "reportFileChangeDetected"
+            ],
+            "read_fields": [],
+            "full_range": [
+              1732,
+              1736
+            ],
+            "primary_anchor": [
+              1732,
+              1736
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_trigger"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 21.8333,
+          "outgoing_transition_count": 0,
+          "matched_request_terms": [
+            "build",
+            "compiler"
+          ],
+          "causal_roles": [
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "line_start": 1749,
+          "line_end": 1770,
+          "node_id": "function:94121753e270cdfe67fe6e1a59c6cb40",
+          "symbol": "buildNextInvalidatedProject",
+          "score": 0.8333,
+          "base_score": 0.8333,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense"
+          ],
+          "obligation_ids": [
+            "explain_trigger",
+            "explain_ordered_mechanism"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 3,
+                "score": 0.4583,
+                "matched_terms": [
+                  "project",
+                  "state",
+                  "watch"
+                ]
+              },
+              {
+                "obligation_id": "explain_resulting_effect",
+                "rank": 1,
+                "score": 0.75,
+                "matched_terms": [
+                  "project",
+                  "state",
+                  "watch"
+                ]
+              },
+              {
+                "obligation_id": "explain_why",
+                "rank": 1,
+                "score": 0.8333,
+                "matched_terms": [
+                  "project",
+                  "state",
+                  "watch"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "buildNextInvalidatedProject",
+              "reportWatchStatus",
+              "getBuildOrder",
+              "getNextInvalidatedProject",
+              "scheduleBuildInvalidatedProject",
+              "disableCache",
+              "reportErrorSummary"
+            ],
+            "callable_defaults": [],
+            "returned_names": [],
+            "written_fields": [
+              "timerToBuildInvalidatedProject",
+              "reportFileChangeDetected"
+            ],
+            "read_fields": [
+              "projectErrorsReported",
+              "File_change_detected_Starting_incremental_compilation",
+              "done",
+              "projectPendingBuild",
+              "watch"
+            ],
+            "full_range": [
+              1749,
+              1770
+            ],
+            "primary_anchor": [
+              1749,
+              1770
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_trigger"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 23.8333,
+          "outgoing_transition_count": 1,
+          "matched_request_terms": [
+            "build",
+            "compiler"
+          ],
+          "causal_roles": [
+            "controller",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [
+            "node:function:200b27b361a344e4e112e12f1b151456"
+          ],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:f9758962a49b397523e72bb89ce6e22e",
+          "path": "src/compiler/sys.ts",
+          "line_start": 205,
+          "line_end": 272,
+          "node_id": "function:f9758962a49b397523e72bb89ce6e22e",
+          "symbol": "createDynamicPriorityPollingWatchFile::pollQueue",
+          "score": 0.5,
+          "base_score": 0.5,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "within_file_search"
+          ],
+          "obligation_ids": [
+            "explain_trigger"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 2,
+                "score": 0.5,
+                "matched_terms": [
+                  "and",
+                  "file",
+                  "for",
+                  "index",
+                  "the",
+                  "this",
+                  "to"
+                ]
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 2,
+                "score": 0.5,
+                "matched_terms": [
+                  "and",
+                  "file",
+                  "for",
+                  "index",
+                  "the",
+                  "this",
+                  "to"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "createDynamicPriorityPollingWatchFile",
+              "pollQueue",
+              "for",
+              "nextPollIndex",
+              "onWatchedFileStat",
+              "getModifiedTime",
+              "addChangedFileToLowPollingIntervalQueue",
+              "addToPollingIntervalQueue"
+            ],
+            "callable_defaults": [],
+            "returned_names": [
+              "pollIndex"
+            ],
+            "written_fields": [
+              "unchangedPolls",
+              "length"
+            ],
+            "read_fields": [
+              "isClosed",
+              "fileName",
+              "Low",
+              "High",
+              "Medium"
+            ],
+            "full_range": [
+              205,
+              272
+            ],
+            "primary_anchor": [
+              205,
+              272
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_owner_disclosure"
+          },
+          "direct_obligation_ids": [
+            "explain_trigger"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 17.5,
+          "outgoing_transition_count": 0,
+          "matched_request_terms": [
+            "compiler",
+            "watch"
+          ],
+          "causal_roles": [
+            "controller",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [],
+          "selected_for_final_request": false
+        },
+        {
+          "candidate_id": "node:function:30a8c58d8d1b02679033b37851233006",
+          "path": "src/compiler/builderState.ts",
+          "line_start": 449,
+          "line_end": 453,
+          "node_id": "function:30a8c58d8d1b02679033b37851233006",
+          "symbol": "getReferencedByPaths",
+          "score": 1.0,
+          "base_score": 1.0,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "verified_direct_lead",
+            "within_file_search"
+          ],
+          "obligation_ids": [
+            "explain_ordered_mechanism"
+          ],
+          "source_paths": [],
+          "relationship_types": [
+            "calls"
+          ],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 0,
+                "score": 1.0,
+                "matched_terms": []
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 1,
+                "score": 0.625,
+                "matched_terms": [
+                  "as",
+                  "export",
+                  "file",
+                  "getreferencedbypaths",
+                  "referenced",
+                  "the"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "getReferencedByPaths",
+              "arrayFrom",
+              "mapDefinedIterator"
+            ],
+            "callable_defaults": [],
+            "returned_names": [
+              "arrayFrom"
+            ],
+            "written_fields": [],
+            "read_fields": [
+              "referencedMap",
+              "has"
+            ],
+            "full_range": [
+              449,
+              453
+            ],
+            "primary_anchor": [
+              449,
+              453
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 13.0,
+          "outgoing_transition_count": 0,
+          "matched_request_terms": [
+            "compiler"
+          ],
+          "causal_roles": [
+            "supporting"
+          ],
+          "qualified_call_neighbor_ids": [
+            "node:function:527911fba78843cb1e07cd2dcdee2f0e"
+          ],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+          "path": "src/compiler/builder.ts",
+          "line_start": 418,
+          "line_end": 437,
+          "node_id": "function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+          "symbol": "handleDtsMayChangeOfAffectedFile",
+          "score": 0.5588,
+          "base_score": 0.5588,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense"
+          ],
+          "obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 1,
+                "score": 0.5588,
+                "matched_terms": [
+                  "and",
+                  "export",
+                  "file",
+                  "from",
+                  "in",
+                  "path",
+                  "state",
+                  "that"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "handleDtsMayChangeOfAffectedFile",
+              "removeSemanticDiagnosticsOf",
+              "forEach",
+              "skipTypeChecking",
+              "forEachReferencingModulesOfExportOfAffectedFile",
+              "handleDtsMayChangeOf"
+            ],
+            "callable_defaults": [],
+            "returned_names": [],
+            "written_fields": [
+              "cleanedDiagnosticsOfLibFiles"
+            ],
+            "read_fields": [
+              "ComputeHash",
+              "path",
+              "allFilesExcludingDefaultLibraryFile",
+              "affectedFiles",
+              "assertDefined",
+              "program",
+              "getCompilerOptions",
+              "getSourceFiles",
+              "isSourceFileDefaultLibrary"
+            ],
+            "full_range": [
+              418,
+              437
+            ],
+            "primary_anchor": [
+              418,
+              437
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 24.5588,
+          "outgoing_transition_count": 1,
+          "matched_request_terms": [
+            "compiler"
+          ],
+          "causal_roles": [
+            "domain_owner",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [
+            "node:function:9e4209e679583a4639e64a8a980cf3a4"
+          ],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:440f39428a6d506792cce2efd459f338",
+          "path": "src/compiler/builder.ts",
+          "line_start": 1061,
+          "line_end": 1085,
+          "node_id": "function:440f39428a6d506792cce2efd459f338",
+          "symbol": "createBuilderProgram::getSemanticDiagnostics",
+          "score": 0.5,
+          "base_score": 0.5,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "within_file_search"
+          ],
+          "obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 1,
+                "score": 0.5,
+                "matched_terms": [
+                  "a",
+                  "affected",
+                  "and",
+                  "file",
+                  "for",
+                  "from",
+                  "in",
+                  "is",
+                  "it",
+                  "no",
+                  "not",
+                  "of",
+                  "that",
+                  "the",
+                  "this",
+                  "through",
+                  "to",
+                  "when"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "createBuilderProgram",
+              "getSemanticDiagnostics",
+              "assertSourceFileOkWithoutNextAffectedCall",
+              "getSemanticDiagnosticsOfFile",
+              "while",
+              "getSemanticDiagnosticsOfNextAffectedFile",
+              "for",
+              "addRange"
+            ],
+            "callable_defaults": [],
+            "returned_names": [
+              "them",
+              "Debug",
+              "getSemanticDiagnosticsOfFile",
+              "diagnostics"
+            ],
+            "written_fields": [],
+            "read_fields": [
+              "getState",
+              "assertDefined",
+              "program",
+              "outFile",
+              "out",
+              "assert",
+              "semanticDiagnosticsPerFile"
+            ],
+            "full_range": [
+              1061,
+              1085
+            ],
+            "primary_anchor": [
+              1061,
+              1085
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_owner_disclosure"
+          },
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_why"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 21.5,
+          "outgoing_transition_count": 1,
+          "matched_request_terms": [
+            "compiler",
+            "diagnostic"
+          ],
+          "causal_roles": [
+            "controller",
+            "observer",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:e9f56cfaef09c1800fac3a921259683b",
+          "path": "src/compiler/watchPublic.ts",
+          "line_start": 390,
+          "line_end": 424,
+          "node_id": "function:e9f56cfaef09c1800fac3a921259683b",
+          "symbol": "createWatchProgram::createNewProgram",
+          "score": 0.4167,
+          "base_score": 0.4167,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense"
+          ],
+          "obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 4,
+                "score": 0.4167,
+                "matched_terms": [
+                  "and",
+                  "file",
+                  "from",
+                  "in",
+                  "it",
+                  "not",
+                  "of",
+                  "that",
+                  "the"
+                ]
+              },
+              {
+                "obligation_id": "explain_why",
+                "rank": 7,
+                "score": 0.2083,
+                "matched_terms": [
+                  "and",
+                  "from",
+                  "on",
+                  "paths",
+                  "that",
+                  "the",
+                  "to"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "createNewProgram",
+              "writeLog",
+              "getCurrentProgram",
+              "createProgram"
+            ],
+            "callable_defaults": [],
+            "returned_names": [],
+            "written_fields": [
+              "hasInvalidatedResolution",
+              "hasChangedAutomaticTypeDirectiveNames"
+            ],
+            "read_fields": [
+              "stringify",
+              "startCachingPerDirectoryResolution"
+            ],
+            "full_range": [
+              390,
+              424
+            ],
+            "primary_anchor": [
+              390,
+              424
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_owner_disclosure"
+          },
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 23.4167,
+          "outgoing_transition_count": 0,
+          "matched_request_terms": [
+            "compiler",
+            "watch"
+          ],
+          "causal_roles": [
+            "controller",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:c64ea9220f111372e4b932683827ce1a",
+          "path": "src/compiler/resolutionCache.ts",
+          "line_start": 408,
+          "line_end": 416,
+          "node_id": "function:c64ea9220f111372e4b932683827ce1a",
+          "symbol": "createResolutionCache::resolveModuleNames",
+          "score": 1.0,
+          "base_score": 1.0,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "verified_direct_lead"
+          ],
+          "obligation_ids": [
+            "explain_state_changes"
+          ],
+          "source_paths": [],
+          "relationship_types": [
+            "calls"
+          ],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_state_changes",
+                "rank": 0,
+                "score": 1.0,
+                "matched_terms": []
+              }
+            ],
+            "visible_calls": [
+              "resolveModuleNames",
+              "resolutionExtensionIsTSOrJson"
+            ],
+            "callable_defaults": [],
+            "returned_names": [
+              "resolveNamesWithLocalCache"
+            ],
+            "written_fields": [],
+            "read_fields": [
+              "resolvedModule"
+            ],
+            "full_range": [
+              408,
+              416
+            ],
+            "primary_anchor": [
+              408,
+              416
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_state_changes"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 24.0,
+          "outgoing_transition_count": 0,
+          "matched_request_terms": [
+            "compiler",
+            "module",
+            "resolution"
+          ],
+          "causal_roles": [
+            "controller",
+            "domain_owner"
+          ],
+          "qualified_call_neighbor_ids": [
+            "node:function:3f2bdc55d5b1eba952e61c76e7172be0"
+          ],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:fc5e0c1d952a60d32b4da99e9f988257",
+          "path": "src/compiler/builderState.ts",
+          "line_start": 304,
+          "line_end": 354,
+          "node_id": "function:fc5e0c1d952a60d32b4da99e9f988257",
+          "symbol": "updateShapeSignature",
+          "score": 0.75,
+          "base_score": 0.75,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense"
+          ],
+          "obligation_ids": [
+            "explain_state_changes",
+            "explain_why"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_state_changes",
+                "rank": 1,
+                "score": 0.75,
+                "matched_terms": [
+                  "file",
+                  "path",
+                  "signature",
+                  "to"
+                ]
+              },
+              {
+                "obligation_id": "explain_state_changes",
+                "rank": 1,
+                "score": 0.75,
+                "matched_terms": [
+                  "changed",
+                  "export",
+                  "file",
+                  "path",
+                  "shape",
+                  "signature",
+                  "state",
+                  "that",
+                  "the",
+                  "to"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "updateShapeSignature"
+            ],
+            "callable_defaults": [],
+            "returned_names": [
+              "false",
+              "Debug"
+            ],
+            "written_fields": [],
+            "read_fields": [
+              "assert",
+              "exportedModulesMap",
+              "hasCalledUpdateShapeSignature",
+              "path",
+              "has",
+              "fileInfos",
+              "fail",
+              "signature",
+              "isDeclarationFile",
+              "version"
+            ],
+            "full_range": [
+              304,
+              354
+            ],
+            "primary_anchor": [
+              304,
+              340
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_state_changes",
+            "explain_why"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 26.75,
+          "outgoing_transition_count": 0,
+          "matched_request_terms": [
+            "compiler",
+            "shape"
+          ],
+          "causal_roles": [
+            "domain_owner",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [
+            "node:function:527911fba78843cb1e07cd2dcdee2f0e"
+          ],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:9c49488338feaf01b940967a1e0c6195",
+          "path": "src/compiler/builderState.ts",
+          "line_start": 383,
+          "line_end": 395,
+          "node_id": "function:9c49488338feaf01b940967a1e0c6195",
+          "symbol": "updateExportedFilesMapFromCache",
+          "score": 0.75,
+          "base_score": 0.75,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense"
+          ],
+          "obligation_ids": [
+            "explain_state_changes"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 14,
+                "score": 0.1204,
+                "matched_terms": [
+                  "export",
+                  "from",
+                  "it",
+                  "of",
+                  "path",
+                  "state",
+                  "the",
+                  "updates"
+                ]
+              },
+              {
+                "obligation_id": "explain_state_changes",
+                "rank": 1,
+                "score": 0.75,
+                "matched_terms": [
+                  "cache",
+                  "export",
+                  "path",
+                  "state",
+                  "the",
+                  "to"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "updateExportedFilesMapFromCache"
+            ],
+            "callable_defaults": [],
+            "returned_names": [],
+            "written_fields": [],
+            "read_fields": [
+              "assert",
+              "exportedModulesMap",
+              "forEach"
+            ],
+            "full_range": [
+              383,
+              395
+            ],
+            "primary_anchor": [
+              383,
+              395
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_state_changes"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 20.75,
+          "outgoing_transition_count": 0,
+          "matched_request_terms": [
+            "compiler",
+            "export"
+          ],
+          "causal_roles": [
+            "domain_owner",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [],
+          "selected_for_final_request": false
+        },
+        {
+          "candidate_id": "node:function:aa8e976ec79373362a496da34cfa6e94",
+          "path": "src/compiler/builder.ts",
+          "line_start": 664,
+          "line_end": 680,
+          "node_id": "function:aa8e976ec79373362a496da34cfa6e94",
+          "symbol": "getBinderAndCheckerDiagnosticsOfFile",
+          "score": 0.5588,
+          "base_score": 0.5588,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_sparse"
+          ],
+          "obligation_ids": [
+            "explain_state_changes"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 1,
+                "score": 0.5588,
+                "matched_terms": [
+                  "and",
+                  "changed",
+                  "file",
+                  "from",
+                  "it",
+                  "of",
+                  "or",
+                  "path",
+                  "state",
+                  "that",
+                  "the"
+                ]
+              },
+              {
+                "obligation_id": "explain_state_changes",
+                "rank": 4,
+                "score": 0.3929,
+                "matched_terms": [
+                  "and",
+                  "cache",
+                  "changed",
+                  "file",
+                  "or",
+                  "path",
+                  "state",
+                  "that",
+                  "the",
+                  "when"
+                ]
+              },
+              {
+                "obligation_id": "explain_why",
+                "rank": 3,
+                "score": 0.4167,
+                "matched_terms": [
+                  "affected",
+                  "and",
+                  "changed",
+                  "check",
+                  "diagnostic",
+                  "from",
+                  "or",
+                  "path",
+                  "state",
+                  "that",
+                  "the"
+                ]
+              }
+            ],
+            "visible_calls": [
+              "getBinderAndCheckerDiagnosticsOfFile"
+            ],
+            "callable_defaults": [],
+            "returned_names": [
+              "cachedDiagnostics",
+              "diagnostics"
+            ],
+            "written_fields": [],
+            "read_fields": [
+              "path",
+              "semanticDiagnosticsPerFile",
+              "assertDefined",
+              "program"
+            ],
+            "full_range": [
+              664,
+              680
+            ],
+            "primary_anchor": [
+              664,
+              680
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_node"
+          },
+          "direct_obligation_ids": [
+            "explain_state_changes"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 13.5588,
+          "outgoing_transition_count": 0,
+          "matched_request_terms": [
+            "compiler",
+            "diagnostic"
+          ],
+          "causal_roles": [
+            "observer",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [],
+          "selected_for_final_request": true
+        },
+        {
+          "candidate_id": "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "path": "src/compiler/watchPublic.ts",
+          "line_start": 215,
+          "line_end": 720,
+          "node_id": "function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "symbol": "createWatchProgram",
+          "score": 0.4167,
+          "base_score": 0.4167,
+          "origin": "qualified_direct_evidence",
+          "provenance_origins": [
+            "qualified_direct_evidence",
+            "qdrant_file_group_dense"
+          ],
+          "obligation_ids": [
+            "explain_state_changes"
+          ],
+          "source_paths": [],
+          "relationship_types": [],
+          "covered_concepts": [],
+          "missing_concepts": [],
+          "facts": {
+            "semantic_discoveries": [
+              {
+                "obligation_id": "explain_subject",
+                "rank": 3,
+                "score": 0.3409,
+                "matched_terms": [
+                  "the",
+                  "watch"
+                ]
+              },
+              {
+                "obligation_id": "explain_subject",
+                "rank": 3,
+                "score": 0.3409,
+                "matched_terms": [
+                  "and",
+                  "compiler",
+                  "that",
+                  "the",
+                  "type"
+                ]
+              },
+              {
+                "obligation_id": "explain_subject",
+                "rank": 3,
+                "score": 0.3409,
+                "matched_terms": [
+                  "the",
+                  "watch"
+                ]
+              },
+              {
+                "obligation_id": "explain_trigger",
+                "rank": 3,
+                "score": 0.375,
+                "matched_terms": [
+                  "and",
+                  "callback",
+                  "entry",
+                  "file",
+                  "is",
+                  "source",
+                  "the",
+                  "tsc"
+                ]
+              },
+              {
+                "obligation_id": "explain_trigger",
+                "rank": 3,
+                "score": 0.375,
+                "matched_terms": []
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 4,
+                "score": 0.4167,
+                "matched_terms": [
+                  "the",
+                  "watch"
+                ]
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 4,
+                "score": 0.4167,
+                "matched_terms": [
+                  "module",
+                  "resolution",
+                  "the",
+                  "watch"
+                ]
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 4,
+                "score": 0.4167,
+                "matched_terms": [
+                  "and",
+                  "changed",
+                  "compiler",
+                  "file",
+                  "from",
+                  "in",
+                  "not",
+                  "of",
+                  "path",
+                  "source",
+                  "that",
+                  "the"
+                ]
+              },
+              {
+                "obligation_id": "explain_ordered_mechanism",
+                "rank": 4,
+                "score": 0.4167,
+                "matched_terms": []
+              }
+            ],
+            "visible_calls": [
+              "createResolutionCache",
+              "getDirectoryPath",
+              "getNormalizedAbsolutePath"
+            ],
+            "callable_defaults": [],
+            "returned_names": [],
+            "written_fields": [
+              "resolveModuleNames",
+              "resolveTypeReferenceDirectives"
+            ],
+            "read_fields": [],
+            "full_range": [
+              215,
+              720
+            ],
+            "primary_anchor": [
+              215,
+              720
+            ],
+            "anchor_reliability_tier": 0,
+            "anchor_decision_code": "",
+            "localization_adapter": "codegraph_owner_disclosure"
+          },
+          "direct_obligation_ids": [
+            "explain_state_changes"
+          ],
+          "inherited_obligation_ids": [],
+          "node_score": 17.4167,
+          "outgoing_transition_count": 2,
+          "matched_request_terms": [
+            "compiler",
+            "watch"
+          ],
+          "causal_roles": [
+            "controller",
+            "state_owner"
+          ],
+          "qualified_call_neighbor_ids": [
+            "node:function:c64ea9220f111372e4b932683827ce1a"
+          ],
+          "selected_for_final_request": true
+        }
+      ],
+      "connection_decisions": [
+        {
+          "decision": "rejected_weaker_parallel_connection",
+          "from_candidate_id": "node:function:9e4209e679583a4639e64a8a980cf3a4",
+          "to_candidate_id": "node:function:30a8c58d8d1b02679033b37851233006",
+          "relationship": "qualified_call",
+          "provenance": "source_inferred_qualified_owner_call",
+          "weight": 5.0,
+          "replaced_by_relationship": "calls",
+          "replaced_by_provenance": "source_verified_direct_call",
+          "replaced_by_weight": 5.0
+        }
+      ],
+      "flow_decisions": [
+        {
+          "flow_id": "mechanism_flow_1",
+          "root_candidate_id": "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+          "candidate_ids": [
+            "node:function:527911fba78843cb1e07cd2dcdee2f0e"
+          ],
+          "score": 161.55,
+          "root_path": "src/compiler/builderState.ts",
+          "root_hypothesis_score": 82.75,
+          "connected_to_selected_candidate": false,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "compiler",
+            "module",
+            "shape",
+            "updat"
+          ],
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes",
+            "explain_subject",
+            "explain_why"
+          ],
+          "new_responsibility_keys": [
+            "src/compiler/builderState.ts:domain_owner",
+            "src/compiler/builderState.ts:state_owner"
+          ],
+          "new_substantive_candidate_ids": [
+            "node:function:527911fba78843cb1e07cd2dcdee2f0e"
+          ],
+          "new_qualified_connecting_candidate_ids": [],
+          "protected_handoff_terms": [],
+          "new_transition_count": 0,
+          "added_chars": 4102,
+          "added_candidate_chars": 3985,
+          "added_flow_chars": 117,
+          "added_connection_chars": 0,
+          "used_chars": 7139,
+          "compared_with": []
+        },
+        {
+          "flow_id": "mechanism_flow_2",
+          "root_candidate_id": "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+          "candidate_ids": [
+            "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+            "node:function:fc5e0c1d952a60d32b4da99e9f988257"
+          ],
+          "score": 148.4685,
+          "root_path": "src/compiler/builderState.ts",
+          "root_hypothesis_score": 82.75,
+          "connected_to_selected_candidate": true,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "compiler",
+            "module",
+            "shape",
+            "updat"
+          ],
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes",
+            "explain_subject",
+            "explain_why"
+          ],
+          "new_responsibility_keys": [],
+          "new_substantive_candidate_ids": [
+            "node:function:fc5e0c1d952a60d32b4da99e9f988257"
+          ],
+          "new_qualified_connecting_candidate_ids": [
+            "node:function:fc5e0c1d952a60d32b4da99e9f988257"
+          ],
+          "protected_handoff_terms": [],
+          "new_transition_count": 1,
+          "added_chars": 2767,
+          "added_candidate_chars": 2598,
+          "added_flow_chars": 169,
+          "added_connection_chars": 0,
+          "used_chars": 9906,
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_1",
+              "score": 161.55,
+              "shared_candidate_ids": [
+                "node:function:527911fba78843cb1e07cd2dcdee2f0e"
+              ]
+            }
+          ]
+        },
+        {
+          "flow_id": "mechanism_flow_3",
+          "root_candidate_id": "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+          "candidate_ids": [
+            "node:function:527911fba78843cb1e07cd2dcdee2f0e",
+            "node:function:30a8c58d8d1b02679033b37851233006"
+          ],
+          "score": 145.7185,
+          "root_path": "src/compiler/builderState.ts",
+          "root_hypothesis_score": 82.75,
+          "connected_to_selected_candidate": true,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "compiler",
+            "module",
+            "shape",
+            "updat"
+          ],
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes",
+            "explain_subject",
+            "explain_why"
+          ],
+          "new_responsibility_keys": [],
+          "new_substantive_candidate_ids": [],
+          "new_qualified_connecting_candidate_ids": [
+            "node:function:30a8c58d8d1b02679033b37851233006"
+          ],
+          "protected_handoff_terms": [],
+          "new_transition_count": 1,
+          "added_chars": 1612,
+          "added_candidate_chars": 1443,
+          "added_flow_chars": 169,
+          "added_connection_chars": 0,
+          "used_chars": 11518,
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_1",
+              "score": 161.55,
+              "shared_candidate_ids": [
+                "node:function:527911fba78843cb1e07cd2dcdee2f0e"
+              ]
+            },
+            {
+              "flow_id": "mechanism_flow_2",
+              "score": 148.4685,
+              "shared_candidate_ids": [
+                "node:function:527911fba78843cb1e07cd2dcdee2f0e"
+              ]
+            }
+          ]
+        },
+        {
+          "flow_id": "mechanism_flow_4",
+          "root_candidate_id": "node:function:9e4209e679583a4639e64a8a980cf3a4",
+          "candidate_ids": [
+            "node:function:9e4209e679583a4639e64a8a980cf3a4",
+            "node:function:30a8c58d8d1b02679033b37851233006"
+          ],
+          "score": 143.2803,
+          "root_path": "src/compiler/builder.ts",
+          "root_hypothesis_score": 80.5588,
+          "connected_to_selected_candidate": true,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "compiler",
+            "export",
+            "modul"
+          ],
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes",
+            "explain_subject",
+            "explain_why"
+          ],
+          "new_responsibility_keys": [
+            "src/compiler/builder.ts:domain_owner",
+            "src/compiler/builder.ts:state_owner"
+          ],
+          "new_substantive_candidate_ids": [
+            "node:function:9e4209e679583a4639e64a8a980cf3a4"
+          ],
+          "new_qualified_connecting_candidate_ids": [],
+          "protected_handoff_terms": [],
+          "new_transition_count": 1,
+          "added_chars": 5175,
+          "added_candidate_chars": 5006,
+          "added_flow_chars": 169,
+          "added_connection_chars": 0,
+          "used_chars": 16693,
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_3",
+              "score": 145.7185,
+              "shared_candidate_ids": [
+                "node:function:30a8c58d8d1b02679033b37851233006"
+              ]
+            }
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:9e4209e679583a4639e64a8a980cf3a4",
+          "candidate_ids": [
+            "node:function:9e4209e679583a4639e64a8a980cf3a4"
+          ],
+          "score": 159.1118,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_4",
+              "score": 143.2803,
+              "shared_candidate_ids": [
+                "node:function:9e4209e679583a4639e64a8a980cf3a4"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_4"
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:fc5e0c1d952a60d32b4da99e9f988257",
+          "candidate_ids": [
+            "node:function:fc5e0c1d952a60d32b4da99e9f988257"
+          ],
+          "score": 87.35,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_2",
+              "score": 148.4685,
+              "shared_candidate_ids": [
+                "node:function:fc5e0c1d952a60d32b4da99e9f988257"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_2"
+          ]
+        },
+        {
+          "flow_id": "mechanism_flow_5",
+          "root_candidate_id": "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+          "candidate_ids": [
+            "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+            "node:function:9e4209e679583a4639e64a8a980cf3a4"
+          ],
+          "score": 145.5921,
+          "root_path": "src/compiler/builder.ts",
+          "root_hypothesis_score": 44.5588,
+          "connected_to_selected_candidate": true,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "compiler",
+            "export",
+            "modul"
+          ],
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes",
+            "explain_subject",
+            "explain_why"
+          ],
+          "new_responsibility_keys": [],
+          "new_substantive_candidate_ids": [
+            "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4"
+          ],
+          "new_qualified_connecting_candidate_ids": [
+            "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4"
+          ],
+          "protected_handoff_terms": [],
+          "new_transition_count": 1,
+          "added_chars": 2645,
+          "added_candidate_chars": 2476,
+          "added_flow_chars": 169,
+          "added_connection_chars": 0,
+          "used_chars": 19338,
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_4",
+              "score": 143.2803,
+              "shared_candidate_ids": [
+                "node:function:9e4209e679583a4639e64a8a980cf3a4"
+              ]
+            }
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+          "candidate_ids": [
+            "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+            "node:function:9e4209e679583a4639e64a8a980cf3a4",
+            "node:function:30a8c58d8d1b02679033b37851233006"
+          ],
+          "score": 142.8115,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_3",
+              "score": 145.7185,
+              "shared_candidate_ids": [
+                "node:function:30a8c58d8d1b02679033b37851233006"
+              ]
+            },
+            {
+              "flow_id": "mechanism_flow_4",
+              "score": 143.2803,
+              "shared_candidate_ids": [
+                "node:function:30a8c58d8d1b02679033b37851233006",
+                "node:function:9e4209e679583a4639e64a8a980cf3a4"
+              ]
+            },
+            {
+              "flow_id": "mechanism_flow_5",
+              "score": 145.5921,
+              "shared_candidate_ids": [
+                "node:function:9e4209e679583a4639e64a8a980cf3a4",
+                "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": []
+        },
+        {
+          "root_candidate_id": "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4",
+          "candidate_ids": [
+            "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4"
+          ],
+          "score": 81.9118,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_5",
+              "score": 145.5921,
+              "shared_candidate_ids": [
+                "node:function:fe0cc9cf62a2482b8f4d07fa3fc079f4"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_5"
+          ]
+        },
+        {
+          "flow_id": "mechanism_flow_6",
+          "root_candidate_id": "node:function:f774c5ec569fdef0fe0225ee569847bc",
+          "candidate_ids": [
+            "node:function:f774c5ec569fdef0fe0225ee569847bc"
+          ],
+          "score": 155.64,
+          "root_path": "src/testRunner/unittests/tscWatch/emitAndErrorUpdates.ts",
+          "root_hypothesis_score": 73.2,
+          "connected_to_selected_candidate": false,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "export",
+            "tsc",
+            "updat",
+            "watch"
+          ],
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_resulting_effect",
+            "explain_subject",
+            "explain_why"
+          ],
+          "new_responsibility_keys": [
+            "src/testRunner/unittests/tscWatch/emitAndErrorUpdates.ts:validation"
+          ],
+          "new_substantive_candidate_ids": [],
+          "new_qualified_connecting_candidate_ids": [],
+          "protected_handoff_terms": [],
+          "new_transition_count": 0,
+          "added_chars": 2480,
+          "added_candidate_chars": 2363,
+          "added_flow_chars": 117,
+          "added_connection_chars": 0,
+          "used_chars": 21818,
+          "compared_with": []
+        },
+        {
+          "root_candidate_id": "node:function:30a8c58d8d1b02679033b37851233006",
+          "candidate_ids": [
+            "node:function:30a8c58d8d1b02679033b37851233006"
+          ],
+          "score": 38.6,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_3",
+              "score": 145.7185,
+              "shared_candidate_ids": [
+                "node:function:30a8c58d8d1b02679033b37851233006"
+              ]
+            },
+            {
+              "flow_id": "mechanism_flow_4",
+              "score": 143.2803,
+              "shared_candidate_ids": [
+                "node:function:30a8c58d8d1b02679033b37851233006"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_3",
+            "mechanism_flow_4"
+          ]
+        },
+        {
+          "flow_id": "mechanism_flow_7",
+          "root_candidate_id": "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+          "candidate_ids": [
+            "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+            "node:function:200b27b361a344e4e112e12f1b151456",
+            "node:function:e9b4dcb84c194c87104f73e0e9ee18eb"
+          ],
+          "score": 85.594,
+          "root_path": "src/compiler/tsbuildPublic.ts",
+          "root_hypothesis_score": 43.8333,
+          "connected_to_selected_candidate": false,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "build",
+            "compiler"
+          ],
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_trigger"
+          ],
+          "new_responsibility_keys": [
+            "src/compiler/tsbuildPublic.ts:controller",
+            "src/compiler/tsbuildPublic.ts:state_owner"
+          ],
+          "new_substantive_candidate_ids": [
+            "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+            "node:function:200b27b361a344e4e112e12f1b151456",
+            "node:function:e9b4dcb84c194c87104f73e0e9ee18eb"
+          ],
+          "new_qualified_connecting_candidate_ids": [
+            "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+            "node:function:200b27b361a344e4e112e12f1b151456"
+          ],
+          "protected_handoff_terms": [],
+          "new_transition_count": 2,
+          "added_chars": 7602,
+          "added_candidate_chars": 7385,
+          "added_flow_chars": 217,
+          "added_connection_chars": 0,
+          "used_chars": 29420,
+          "compared_with": []
+        },
+        {
+          "root_candidate_id": "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+          "candidate_ids": [
+            "node:function:94121753e270cdfe67fe6e1a59c6cb40"
+          ],
+          "score": 83.7667,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_7",
+              "score": 85.594,
+              "shared_candidate_ids": [
+                "node:function:94121753e270cdfe67fe6e1a59c6cb40"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_7"
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+          "candidate_ids": [
+            "node:function:94121753e270cdfe67fe6e1a59c6cb40",
+            "node:function:200b27b361a344e4e112e12f1b151456"
+          ],
+          "score": 81.4176,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_7",
+              "score": 85.594,
+              "shared_candidate_ids": [
+                "node:function:200b27b361a344e4e112e12f1b151456",
+                "node:function:94121753e270cdfe67fe6e1a59c6cb40"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_7"
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:200b27b361a344e4e112e12f1b151456",
+          "candidate_ids": [
+            "node:function:200b27b361a344e4e112e12f1b151456",
+            "node:function:e9b4dcb84c194c87104f73e0e9ee18eb"
+          ],
+          "score": 81.0176,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_7",
+              "score": 85.594,
+              "shared_candidate_ids": [
+                "node:function:200b27b361a344e4e112e12f1b151456",
+                "node:function:e9b4dcb84c194c87104f73e0e9ee18eb"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_7"
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:e9b4dcb84c194c87104f73e0e9ee18eb",
+          "candidate_ids": [
+            "node:function:e9b4dcb84c194c87104f73e0e9ee18eb"
+          ],
+          "score": 80.3667,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_7",
+              "score": 85.594,
+              "shared_candidate_ids": [
+                "node:function:e9b4dcb84c194c87104f73e0e9ee18eb"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_7"
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:200b27b361a344e4e112e12f1b151456",
+          "candidate_ids": [
+            "node:function:200b27b361a344e4e112e12f1b151456"
+          ],
+          "score": 78.3667,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_7",
+              "score": 85.594,
+              "shared_candidate_ids": [
+                "node:function:200b27b361a344e4e112e12f1b151456"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_7"
+          ]
+        },
+        {
+          "flow_id": "mechanism_flow_8",
+          "root_candidate_id": "node:function:e9f56cfaef09c1800fac3a921259683b",
+          "candidate_ids": [
+            "node:function:e9f56cfaef09c1800fac3a921259683b"
+          ],
+          "score": 88.6833,
+          "root_path": "src/compiler/watchPublic.ts",
+          "root_hypothesis_score": 43.4167,
+          "connected_to_selected_candidate": false,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "compiler",
+            "watch"
+          ],
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "new_responsibility_keys": [
+            "src/compiler/watchPublic.ts:controller",
+            "src/compiler/watchPublic.ts:state_owner"
+          ],
+          "new_substantive_candidate_ids": [
+            "node:function:e9f56cfaef09c1800fac3a921259683b"
+          ],
+          "new_qualified_connecting_candidate_ids": [],
+          "protected_handoff_terms": [],
+          "new_transition_count": 0,
+          "added_chars": 2719,
+          "added_candidate_chars": 2601,
+          "added_flow_chars": 118,
+          "added_connection_chars": 0,
+          "used_chars": 32139,
+          "compared_with": []
+        },
+        {
+          "flow_id": "mechanism_flow_9",
+          "root_candidate_id": "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "candidate_ids": [
+            "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+            "node:function:e9f56cfaef09c1800fac3a921259683b"
+          ],
+          "score": 85.451,
+          "root_path": "src/compiler/watchPublic.ts",
+          "root_hypothesis_score": 27.4167,
+          "connected_to_selected_candidate": true,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "compiler",
+            "watch"
+          ],
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes"
+          ],
+          "new_responsibility_keys": [],
+          "new_substantive_candidate_ids": [
+            "node:function:3f2bdc55d5b1eba952e61c76e7172be0"
+          ],
+          "new_qualified_connecting_candidate_ids": [],
+          "protected_handoff_terms": [],
+          "new_transition_count": 1,
+          "added_chars": 3454,
+          "added_candidate_chars": 3287,
+          "added_flow_chars": 167,
+          "added_connection_chars": 0,
+          "used_chars": 35593,
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_8",
+              "score": 88.6833,
+              "shared_candidate_ids": [
+                "node:function:e9f56cfaef09c1800fac3a921259683b"
+              ]
+            }
+          ]
+        },
+        {
+          "flow_id": "mechanism_flow_10",
+          "root_candidate_id": "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "candidate_ids": [
+            "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+            "node:function:c64ea9220f111372e4b932683827ce1a"
+          ],
+          "score": 77.4255,
+          "root_path": "src/compiler/watchPublic.ts",
+          "root_hypothesis_score": 27.4167,
+          "connected_to_selected_candidate": true,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "compiler",
+            "module",
+            "resolution",
+            "watch"
+          ],
+          "direct_obligation_ids": [
+            "explain_state_changes"
+          ],
+          "new_responsibility_keys": [
+            "src/compiler/resolutionCache.ts:controller",
+            "src/compiler/resolutionCache.ts:domain_owner"
+          ],
+          "new_substantive_candidate_ids": [
+            "node:function:c64ea9220f111372e4b932683827ce1a"
+          ],
+          "new_qualified_connecting_candidate_ids": [
+            "node:function:c64ea9220f111372e4b932683827ce1a"
+          ],
+          "protected_handoff_terms": [],
+          "new_transition_count": 1,
+          "added_chars": 1891,
+          "added_candidate_chars": 1722,
+          "added_flow_chars": 169,
+          "added_connection_chars": 0,
+          "used_chars": 37484,
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_9",
+              "score": 85.451,
+              "shared_candidate_ids": [
+                "node:function:3f2bdc55d5b1eba952e61c76e7172be0"
+              ]
+            }
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:c64ea9220f111372e4b932683827ce1a",
+          "candidate_ids": [
+            "node:function:c64ea9220f111372e4b932683827ce1a"
+          ],
+          "score": 61.8,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_10",
+              "score": 77.4255,
+              "shared_candidate_ids": [
+                "node:function:c64ea9220f111372e4b932683827ce1a"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_10"
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "candidate_ids": [
+            "node:function:3f2bdc55d5b1eba952e61c76e7172be0"
+          ],
+          "score": 57.4833,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_9",
+              "score": 85.451,
+              "shared_candidate_ids": [
+                "node:function:3f2bdc55d5b1eba952e61c76e7172be0"
+              ]
+            },
+            {
+              "flow_id": "mechanism_flow_10",
+              "score": 77.4255,
+              "shared_candidate_ids": [
+                "node:function:3f2bdc55d5b1eba952e61c76e7172be0"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_9",
+            "mechanism_flow_10"
+          ]
+        },
+        {
+          "flow_id": "mechanism_flow_11",
+          "root_candidate_id": "node:function:440f39428a6d506792cce2efd459f338",
+          "candidate_ids": [
+            "node:function:440f39428a6d506792cce2efd459f338",
+            "node:function:aa8e976ec79373362a496da34cfa6e94"
+          ],
+          "score": 103.4382,
+          "root_path": "src/compiler/builder.ts",
+          "root_hypothesis_score": 39.5,
+          "connected_to_selected_candidate": false,
+          "connected_to_selected_file": false,
+          "decision": "selected",
+          "matched_mechanism_terms": [
+            "compiler",
+            "diagnostic"
+          ],
+          "direct_obligation_ids": [
+            "explain_ordered_mechanism",
+            "explain_state_changes",
+            "explain_why"
+          ],
+          "new_responsibility_keys": [
+            "src/compiler/builder.ts:controller"
+          ],
+          "new_substantive_candidate_ids": [
+            "node:function:440f39428a6d506792cce2efd459f338",
+            "node:function:aa8e976ec79373362a496da34cfa6e94"
+          ],
+          "new_qualified_connecting_candidate_ids": [],
+          "protected_handoff_terms": [],
+          "new_transition_count": 1,
+          "added_chars": 5672,
+          "added_candidate_chars": 5502,
+          "added_flow_chars": 170,
+          "added_connection_chars": 0,
+          "used_chars": 43156,
+          "compared_with": []
+        },
+        {
+          "root_candidate_id": "node:function:440f39428a6d506792cce2efd459f338",
+          "candidate_ids": [
+            "node:function:440f39428a6d506792cce2efd459f338"
+          ],
+          "score": 83.3,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_11",
+              "score": 103.4382,
+              "shared_candidate_ids": [
+                "node:function:440f39428a6d506792cce2efd459f338"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_11"
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:aa8e976ec79373362a496da34cfa6e94",
+          "candidate_ids": [
+            "node:function:aa8e976ec79373362a496da34cfa6e94"
+          ],
+          "score": 48.7118,
+          "decision": "rejected_no_new_candidate",
+          "compared_with": [
+            {
+              "flow_id": "mechanism_flow_11",
+              "score": 103.4382,
+              "shared_candidate_ids": [
+                "node:function:aa8e976ec79373362a496da34cfa6e94"
+              ]
+            }
+          ],
+          "dominated_by_flow_ids": [
+            "mechanism_flow_11"
+          ]
+        },
+        {
+          "root_candidate_id": "node:function:9c49488338feaf01b940967a1e0c6195",
+          "candidate_ids": [
+            "node:function:9c49488338feaf01b940967a1e0c6195"
+          ],
+          "score": 60.15,
+          "root_path": "src/compiler/builderState.ts",
+          "root_hypothesis_score": 30.75,
+          "decision": "rejected_input_char_budget",
+          "new_qualified_connecting_candidate_ids": [],
+          "added_chars": 1886,
+          "used_chars": 43156,
+          "input_char_budget": 45000,
+          "compared_with": []
+        },
+        {
+          "root_candidate_id": "node:function:f9758962a49b397523e72bb89ce6e22e",
+          "candidate_ids": [
+            "node:function:f9758962a49b397523e72bb89ce6e22e"
+          ],
+          "score": 57.5,
+          "root_path": "src/compiler/sys.ts",
+          "root_hypothesis_score": 27.5,
+          "decision": "rejected_input_char_budget",
+          "new_qualified_connecting_candidate_ids": [],
+          "added_chars": 3899,
+          "used_chars": 43156,
+          "input_char_budget": 45000,
+          "compared_with": []
+        },
+        {
+          "root_candidate_id": "node:function:68b87ef75d2dbfb56b352061dbb863fd",
+          "candidate_ids": [
+            "node:function:68b87ef75d2dbfb56b352061dbb863fd"
+          ],
+          "score": 51.4,
+          "root_path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "root_hypothesis_score": 22.0,
+          "decision": "rejected_input_char_budget",
+          "new_qualified_connecting_candidate_ids": [],
+          "added_chars": 1867,
+          "used_chars": 43156,
+          "input_char_budget": 45000,
+          "compared_with": []
+        }
+      ],
+      "input_char_budget": 45000,
+      "used_chars": 44838,
+      "unselected_flow_count": 3,
+      "source_inferred_connection_count": 5
+    },
+    "note": "Deterministic saved-input replay only; no final LLM result predicted."
+  }
+]

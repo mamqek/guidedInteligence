@@ -1,0 +1,804 @@
+diff --git a/services/retrieval/workspace/pipeline/execution_flow/initial_owner_comparison.py b/services/retrieval/workspace/pipeline/execution_flow/initial_owner_comparison.py
+index 3824795..2b7b87d 100644
+--- a/services/retrieval/workspace/pipeline/execution_flow/initial_owner_comparison.py
++++ b/services/retrieval/workspace/pipeline/execution_flow/initial_owner_comparison.py
+@@ -12,6 +12,10 @@ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations
+     DiscoveryObservation,
+     DiscoveryProvenance,
+ )
++from services.retrieval.workspace.pipeline.execution_flow.initial_owner_shortlist import (
++    DEFAULT_MAX_OWNERS_PER_FILE,
++    shortlist_owner_groups,
++)
+ 
+ 
+ PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "initial_owner_comparison.md"
+@@ -33,6 +37,8 @@ _TOP_LEVEL_VALUE_KINDS = {"constant", "variable"}
+ class InitialOwnerComparison:
+     selected: tuple[DiscoveryObservation, ...]
+     dormant: tuple[DiscoveryObservation, ...]
++    shortlisted_out: tuple[DiscoveryObservation, ...]
++    shortlist_decisions: tuple[dict[str, object], ...]
+     usage: Mapping[str, int]
+     serialized_chars: int
+     compared_group_count: int
+@@ -119,7 +125,31 @@ def compare_initial_owners(
+     This stage does not qualify evidence. It only prevents channel order from
+     silently choosing one owner before the normal qualification LLM sees it.
+     """
+-    groups = _candidate_groups(observations, admitted_groups)
++    complete_groups = _candidate_groups(observations, admitted_groups)
++    shortlist = shortlist_owner_groups(
++        complete_groups,
++        obligation_descriptions=obligation_descriptions,
++        max_owners_per_group=DEFAULT_MAX_OWNERS_PER_FILE,
++    )
++    groups = dict(shortlist.groups)
++    if trace is not None:
++        trace.record(
++            "initial_owner_shortlist_created",
++            {
++                "input_candidate_count": len({
++                    item.id for values in complete_groups.values() for item in values
++                }),
++                "output_candidate_count": len({
++                    item.id for values in groups.values() for item in values
++                }),
++                "shortlisted_out_count": len(shortlist.omitted),
++                "group_count": len(groups),
++                "max_owners_per_group": DEFAULT_MAX_OWNERS_PER_FILE,
++                "max_output_group_size": max((len(values) for values in groups.values()), default=0),
++                "shortlisted_out_disposition": "deferred",
++                "decisions": list(shortlist.decisions),
++            },
++        )
+     global_selection = max_selected is not None
+     auto_selected = {} if global_selection else {
+         group_id: (values[0].id,)
+@@ -254,12 +284,17 @@ def compare_initial_owners(
+                 "dormant_count": len(dormant),
+                 "dormant_file_count": len({item.handle.path for item in dormant}),
+                 "dormant_owners": [_owner_trace(item) for item in dormant],
++                "shortlisted_out_count": len(shortlist.omitted),
++                "shortlisted_out_file_count": len({item.handle.path for item in shortlist.omitted}),
++                "shortlisted_out_owners": [_owner_trace(item) for item in shortlist.omitted],
+                 "usage": dict(usage),
+             },
+         )
+     return InitialOwnerComparison(
+         selected=tuple(selected),
+         dormant=tuple(dormant),
++        shortlisted_out=shortlist.omitted,
++        shortlist_decisions=shortlist.decisions,
+         usage=usage,
+         serialized_chars=serialized_chars,
+         compared_group_count=len(compared),
+diff --git a/services/retrieval/workspace/pipeline/execution_flow/qualification_first_retrieval.py b/services/retrieval/workspace/pipeline/execution_flow/qualification_first_retrieval.py
+index 34d61e7..a7d51c2 100644
+--- a/services/retrieval/workspace/pipeline/execution_flow/qualification_first_retrieval.py
++++ b/services/retrieval/workspace/pipeline/execution_flow/qualification_first_retrieval.py
+@@ -420,6 +420,7 @@ def run_obligation_retrieval(
+             "selection_method": "initial_owner_comparison_global_semantic_selection",
+             "post_comparison_reducer_applied": False,
+             "owner_comparison_dormant_count": len(owner_comparison.dormant),
++            "owner_comparison_shortlisted_out_count": len(owner_comparison.shortlisted_out),
+             "output_snippets": [item.to_dict(include_text=False) for item in initial_observations],
+         },
+     )
+@@ -428,7 +429,7 @@ def run_obligation_retrieval(
+         owner_comparison_selected=owner_comparison.selected,
+         round_zero_selected=initial_observations,
+         owner_comparison_dormant=owner_comparison.dormant,
+-        guardrail_decisions=file_admission_decisions,
++        guardrail_decisions=(*file_admission_decisions, *owner_comparison.shortlist_decisions),
+     )
+     ctx.trace.record(
+         "discovery_observations_created",
+@@ -453,6 +454,7 @@ def run_obligation_retrieval(
+             ),
+             "initial_owner_comparison_selected_count": len(owner_comparison.selected),
+             "initial_owner_comparison_dormant_count": len(owner_comparison.dormant),
++            "initial_owner_comparison_shortlisted_out_count": len(owner_comparison.shortlisted_out),
+             "dormant_island_completion_enabled": ctx.config.dormant_island_completion_enabled,
+         },
+     )
+diff --git a/tests/test_initial_owner_comparison.py b/tests/test_initial_owner_comparison.py
+index 4e8afe2..6eb1e40 100644
+--- a/tests/test_initial_owner_comparison.py
++++ b/tests/test_initial_owner_comparison.py
+@@ -17,6 +17,9 @@ from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparis
+     fit_initial_owner_comparison_admission,
+     select_range_candidate_owners,
+ )
++from services.retrieval.workspace.pipeline.execution_flow.initial_owner_shortlist import (
++    shortlist_owner_groups,
++)
+ 
+ 
+ def _observation(identifier: str, symbol: str, start: int, text: str) -> DiscoveryObservation:
+@@ -46,6 +49,118 @@ def _observation(identifier: str, symbol: str, start: int, text: str) -> Discove
+ 
+ 
+ class InitialOwnerComparisonTests(unittest.TestCase):
++    def test_exact_anchor_stratum_cannot_overflow_shortlist(self) -> None:
++        values = tuple(
++            replace(
++                _observation(str(index), f"owner_{index}", index * 20, "return value"),
++                exact_anchor_matches=(f"owner_{index}",),
++            )
++            for index in range(15)
++        )
++        result = shortlist_owner_groups(
++            {"file": values}, obligation_descriptions={"ordered": "Explain the operation."}
++        )
++        self.assertEqual(len(result.groups["file"]), 10)
++        self.assertEqual(len(result.omitted), 5)
++        self.assertTrue(all(
++            item["reason"] == "same_path_alternative"
++            for item in result.decisions if not item["selected"]
++        ))
++
++    def test_shortlist_retains_distinct_builder_state_mutations(self) -> None:
++        symbols = (
++            "getFilesAffectedByUpdatedShapeWhenNonModuleEmit",
++            "ReusableBuilderState",
++            "BuilderState",
++            "FileInfo",
++            "ComputingExportedModulesMap",
++            "canReuseOldState",
++            "create",
++            "clone",
++            "getFilesAffectedBy",
++            "updateSignaturesFromCache",
++            "updateShapeSignature",
++            "updateExportedModules",
++            "updateExportedModules::addExportedModule",
++            "updateExportedFilesMapFromCache",
++            "getFilesAffectedByUpdatedShapeWhenModuleEmit",
++        )
++        values = tuple(
++            _observation(str(index), symbol, index * 20, f"function {symbol}() {{ update state; }}")
++            for index, symbol in enumerate(symbols, start=1)
++        )
++
++        result = shortlist_owner_groups(
++            {"builder-state": values},
++            obligation_descriptions={
++                "ordered": "Trace signature updates and exported module dependency state after an invalidation."
++            },
++        )
++
++        selected = {item.handle.symbol for item in result.groups["builder-state"]}
++        self.assertEqual(len(selected), 10)
++        self.assertIn("Series::updateShapeSignature", selected)
++        self.assertIn("Series::updateExportedModules", selected)
++        self.assertEqual(len(result.omitted), 5)
++
++    def test_shortlist_understands_common_compact_operator_names(self) -> None:
++        noise = tuple(
++            _observation(f"noise-{index}", f"helper_{index}", index * 20, "def helper(): return value")
++            for index in range(1, 35)
++        )
++        binop = _observation(
++            "binop",
++            "_binop",
++            900,
++            "def _binop(self, other, func): return result",
++        )
++
++        result = shortlist_owner_groups(
++            {"series": (*noise, binop)},
++            obligation_descriptions={
++                "ordered": "Trace the binary arithmetic operator path and resulting name metadata."
++            },
++        )
++
++        self.assertIn("binop", {item.id for item in result.groups["series"]})
++        self.assertEqual(len(result.groups["series"]), 10)
++
++    def test_compare_shortlists_before_llm_and_does_not_mark_omissions_dormant(self) -> None:
++        values = tuple(
++            _observation(str(index), f"owner_{index}", index * 20, f"function owner_{index}() {{ return build(); }}")
++            for index in range(1, 16)
++        )
++
++        def completion(_config, messages, **_kwargs):
++            payload = json.loads(messages[1]["content"])
++            self.assertEqual(len(payload["groups"][0]["owners"]), 10)
++            selected = payload["groups"][0]["owners"][0]
++            return {
++                "selections": [
++                    {"group_id": "g1", "primary_owner_id": selected, "additional_owner_ids": []}
++                ]
++            }
++
++        with patch(
++            "services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
++            side_effect=completion,
++        ):
++            result = compare_initial_owners(
++                llm_config=object(),
++                obligation_descriptions={"ordered": "Trace the build mechanism."},
++                observations=values,
++                admitted_groups=(("pandas/core/series.py", "*"),),
++                max_input_chars=40_000,
++                max_selected=4,
++            )
++
++        self.assertEqual(len(result.selected), 1)
++        self.assertEqual(len(result.shortlisted_out), 5)
++        self.assertEqual(len(result.dormant), 9)
++        self.assertTrue({item.id for item in result.shortlisted_out}.isdisjoint(
++            {item.id for item in result.dormant}
++        ))
++
+     def test_global_selection_is_the_only_round_zero_limit(self) -> None:
+         first = _observation("first", "first", 100, "function first() { return build(); }")
+         second = _observation("second", "second", 200, "function second() { return update(); }")
+diff --git a/tests/test_qualification_first_retrieval.py b/tests/test_qualification_first_retrieval.py
+index c2b0f00..77e5c5a 100644
+--- a/tests/test_qualification_first_retrieval.py
++++ b/tests/test_qualification_first_retrieval.py
+@@ -154,6 +154,26 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
+         self.assertEqual([item.id for item in deferred], [held_selected.id])
+         self.assertEqual(deferred[0].admission_reason, "same_path_alternative")
+ 
++    def test_shortlist_omission_preserves_deferred_same_file_eligibility_reason(self) -> None:
++        from services.retrieval.workspace.pipeline.execution_flow.initial_owner_shortlist import shortlist_owner_groups
++
++        values = tuple(
++            _observation(str(index), "src/compiler/state.ts", f"function:owner{index}", ("why",))
++            for index in range(12)
++        )
++        shortlist = shortlist_owner_groups(
++            {"state": values}, obligation_descriptions={"why": "Explain state invalidation."}
++        )
++        deferred = _deferred_after_initial_owner_comparison(
++            baseline_candidates=values,
++            owner_comparison_selected=(),
++            round_zero_selected=(),
++            owner_comparison_dormant=shortlist.groups["state"],
++            guardrail_decisions=shortlist.decisions,
++        )
++        self.assertEqual({item.id for item in deferred}, {item.id for item in shortlist.omitted})
++        self.assertEqual({item.admission_reason for item in deferred}, {"same_path_alternative"})
++
+     def test_prepare_qualification_request_builds_bounded_payload_without_calling_llm(self) -> None:
+         card = DisclosureCard(
+             observation_id="obs_watch",
+
+diff --git a/services/retrieval/workspace/pipeline/execution_flow/initial_owner_shortlist.py b/services/retrieval/workspace/pipeline/execution_flow/initial_owner_shortlist.py
+new file mode 100644
+--- /dev/null
++++ b/services/retrieval/workspace/pipeline/execution_flow/initial_owner_shortlist.py
+@@ -0,0 +1,338 @@
++from __future__ import annotations
++
++from collections import Counter
++from dataclasses import dataclass
++import math
++import re
++from typing import Mapping, Sequence
++
++from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import DiscoveryObservation
++
++
++DEFAULT_MAX_OWNERS_PER_FILE = 10
++
++_STOPWORDS = frozenset(
++    "a an and are as at be by can code does evidence file for from has how if in into is it its mechanism "
++    "must of on or path repository source that the their this through to when where which while why with without".split()
++)
++_TOKEN_EXPANSIONS = {
++    "arith": frozenset(("arithmetic", "operation", "operator")),
++    "binop": frozenset(("arithmetic", "binary", "operation", "operator")),
++    "cmp": frozenset(("compare", "comparison")),
++    "deps": frozenset(("dependency",)),
++    "diag": frozenset(("diagnostic", "error")),
++    "dts": frozenset(("declaration", "type")),
++    "fs": frozenset(("file", "system")),
++    "reexport": frozenset(("export", "module")),
++    "ref": frozenset(("reference",)),
++    "tsc": frozenset(("build", "compile")),
++    "uptodate": frozenset(("current", "state")),
++}
++_RESPONSIBILITIES = {
++    "control": frozenset("build rebuild watch schedule queue trigger process next emit compile program".split()),
++    "dependency": frozenset("reference export reexport module import resolve dependency dependent".split()),
++    "diagnostic": frozenset("diagnostic error report check semantic type".split()),
++    "flow": frozenset("call caller return visit traverse foreach handle worker create get operation operator".split()),
++    "state": frozenset("state update change invalidate cache signature stale refresh reuse dirty shape map set current".split()),
++    "test": frozenset("test verify assert scenario expect baseline".split()),
++}
++
++
++@dataclass(frozen=True)
++class OwnerShortlistResult:
++    groups: Mapping[str, tuple[DiscoveryObservation, ...]]
++    omitted: tuple[DiscoveryObservation, ...]
++    decisions: tuple[dict[str, object], ...]
++
++
++@dataclass(frozen=True)
++class _Features:
++    all_tokens: frozenset[str]
++    symbol_tokens: frozenset[str]
++    symbol_overlap: frozenset[str]
++    all_overlap: frozenset[str]
++    responsibilities: frozenset[str]
++    region_keys: frozenset[tuple[str, int, int]]
++    family: str
++
++
++def shortlist_owner_groups(
++    groups: Mapping[str, Sequence[DiscoveryObservation]],
++    *,
++    obligation_descriptions: Mapping[str, str],
++    max_owners_per_group: int = DEFAULT_MAX_OWNERS_PER_FILE,
++) -> OwnerShortlistResult:
++    """Bound each admitted file group without turning omissions into LLM rejections."""
++    if max_owners_per_group <= 0:
++        raise ValueError("max_owners_per_group must be positive")
++    rendered: dict[str, tuple[DiscoveryObservation, ...]] = {}
++    omitted: list[DiscoveryObservation] = []
++    decisions: list[dict[str, object]] = []
++    for group_id, values in groups.items():
++        observations = tuple(values)
++        if len(observations) <= max_owners_per_group:
++            rendered[group_id] = observations
++            decisions.extend(
++                _decision(group_id, item, selected=True, stratum="within_limit")
++                for item in observations
++            )
++            continue
++        selected, strata, scores = _shortlist_group(
++            observations,
++            obligation_descriptions=obligation_descriptions,
++            limit=max_owners_per_group,
++        )
++        selected_ids = {item.id for item in selected}
++        rendered[group_id] = selected
++        for item in observations:
++            is_selected = item.id in selected_ids
++            if not is_selected:
++                omitted.append(item)
++            decisions.append(
++                _decision(
++                    group_id,
++                    item,
++                    selected=is_selected,
++                    stratum=strata.get(item.id, "deferred_shortlist_omission"),
++                    score=scores.get(item.id, 0.0),
++                )
++            )
++    return OwnerShortlistResult(
++        groups=rendered,
++        omitted=tuple(omitted),
++        decisions=tuple(decisions),
++    )
++
++
++def _shortlist_group(
++    observations: Sequence[DiscoveryObservation],
++    *,
++    obligation_descriptions: Mapping[str, str],
++    limit: int,
++) -> tuple[tuple[DiscoveryObservation, ...], dict[str, str], dict[str, float]]:
++    obligation_ids = tuple(dict.fromkeys(
++        obligation_id
++        for item in observations
++        for obligation_id in item.obligation_ids
++    ))
++    obligation_tokens = _tokens(" ".join(obligation_descriptions.get(value, "") for value in obligation_ids))
++    features = {
++        item.id: _features(item, observations=observations, obligation_tokens=obligation_tokens)
++        for item in observations
++    }
++    document_frequency = Counter(
++        token
++        for item in observations
++        for token in features[item.id].all_tokens
++    )
++
++    def rarity(tokens: frozenset[str]) -> float:
++        return sum(
++            math.log((len(observations) + 1) / (document_frequency[token] + 1)) + 1
++            for token in tokens
++        )
++
++    scores: dict[str, float] = {}
++    for item in observations:
++        value = features[item.id]
++        support = item.support_counts
++        nested_family_penalty = 2.0 if value.family != item.handle.symbol.casefold() else 0.0
++        scores[item.id] = (
++            (5.0 * rarity(value.symbol_overlap))
++            + (1.8 * rarity(value.all_overlap - value.symbol_overlap))
++            + (1.4 * len(value.responsibilities))
++            + (1.2 * support["channels"])
++            + (0.3 * support["obligations"])
++            + (0.1 * support["query_views"])
++            + (1.0 / max(1, item.best_rank))
++            - nested_family_penalty
++        )
++
++    semantic = sorted(observations, key=lambda item: (-scores[item.id], item.best_rank, item.id))
++    agreement = sorted(
++        observations,
++        key=lambda item: (
++            -item.support_counts["channels"],
++            -item.support_counts["obligations"],
++            -item.support_counts["query_views"],
++            item.best_rank,
++            -scores[item.id],
++            item.id,
++        ),
++    )
++    retrieval = sorted(
++        observations,
++        key=lambda item: (
++            item.best_rank,
++            -item.support_counts["channels"],
++            -item.support_counts["obligations"],
++            -scores[item.id],
++            item.id,
++        ),
++    )
++    exact = sorted(
++        (item for item in observations if item.exact_anchor_matches),
++        key=lambda item: (-len(item.exact_anchor_matches), -scores[item.id], item.best_rank, item.id),
++    )
++
++    selected: list[DiscoveryObservation] = []
++    strata: dict[str, str] = {}
++
++    def add(values: Sequence[DiscoveryObservation], count: int, stratum: str) -> None:
++        if len(selected) >= limit or count <= 0:
++            return
++        added = 0
++        for item in values:
++            if item in selected or _redundant_family_member(item, selected, features):
++                continue
++            selected.append(item)
++            strata[item.id] = stratum
++            added += 1
++            if len(selected) >= limit or added >= count:
++                return
++
++    add(exact, limit, "exact_anchor")
++    add(semantic, 5, "semantic_obligation_overlap")
++    add(agreement, 2, "dense_sparse_or_obligation_agreement")
++    add(retrieval, 1, "best_retrieval_rank")
++
++    while len(selected) < min(limit, len(observations)):
++        remaining = [
++            item
++            for item in observations
++            if item not in selected and not _redundant_family_member(item, selected, features)
++        ]
++        if not remaining:
++            remaining = [item for item in observations if item not in selected]
++        if not remaining:
++            break
++        selected_responsibilities = set().union(
++            *(features[item.id].responsibilities for item in selected)
++        ) if selected else set()
++        selected_regions = set().union(
++            *(features[item.id].region_keys for item in selected)
++        ) if selected else set()
++
++        def marginal_value(item: DiscoveryObservation) -> tuple[float, int, str]:
++            value = features[item.id]
++            redundancy = max(
++                (_token_similarity(value.all_tokens, features[other.id].all_tokens) for other in selected),
++                default=0.0,
++            )
++            responsibility_gain = len(value.responsibilities - selected_responsibilities)
++            region_gain = bool(value.region_keys - selected_regions)
++            return (
++                scores[item.id]
++                - (2.2 * redundancy)
++                + (1.5 * responsibility_gain)
++                + (0.6 if region_gain else 0.0),
++                -item.best_rank,
++                item.id,
++            )
++
++        chosen = max(remaining, key=marginal_value)
++        selected.append(chosen)
++        strata[chosen.id] = "marginal_semantic_diversity"
++    return tuple(selected), strata, scores
++
++
++def _features(
++    observation: DiscoveryObservation,
++    *,
++    observations: Sequence[DiscoveryObservation],
++    obligation_tokens: frozenset[str],
++) -> _Features:
++    symbol_tokens = _tokens(observation.handle.symbol)
++    all_tokens = frozenset().union(
++        symbol_tokens,
++        _tokens(observation.handle.outer_symbol),
++        _tokens(observation.observed_text),
++        *(_tokens(view.text) for view in observation.source_views),
++    )
++    responsibilities = frozenset(
++        name for name, terms in _RESPONSIBILITIES.items() if all_tokens & terms
++    )
++    region_keys = frozenset(
++        (view.path.casefold(), view.line_start, view.line_end)
++        for view in observation.source_views
++    ) or frozenset(((
++        observation.handle.path.casefold(),
++        observation.handle.line_start,
++        observation.handle.line_end,
++    ),))
++    symbols = {item.handle.symbol.casefold() for item in observations}
++    family = observation.handle.symbol.casefold()
++    if observation.handle.outer_symbol.casefold() in symbols:
++        family = observation.handle.outer_symbol.casefold()
++    return _Features(
++        all_tokens=all_tokens,
++        symbol_tokens=symbol_tokens,
++        symbol_overlap=symbol_tokens & obligation_tokens,
++        all_overlap=all_tokens & obligation_tokens,
++        responsibilities=responsibilities,
++        region_keys=region_keys,
++        family=family,
++    )
++
++
++def _redundant_family_member(
++    candidate: DiscoveryObservation,
++    selected: Sequence[DiscoveryObservation],
++    features: Mapping[str, _Features],
++) -> bool:
++    value = features[candidate.id]
++    return any(
++        value.family == features[item.id].family
++        and _token_similarity(value.all_tokens, features[item.id].all_tokens) >= 0.65
++        for item in selected
++    )
++
++
++def _token_similarity(left: frozenset[str], right: frozenset[str]) -> float:
++    union = left | right
++    return len(left & right) / len(union) if union else 0.0
++
++
++def _tokens(value: str) -> frozenset[str]:
++    separated = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", value).replace("::", " ")
++    base = {
++        _stem(token)
++        for token in re.findall(r"[A-Za-z][A-Za-z0-9]+", separated.lower())
++        if len(token) > 2 and token not in _STOPWORDS
++    }
++    return frozenset((*base, *(expanded for token in base for expanded in _TOKEN_EXPANSIONS.get(token, ()))))
++
++
++def _stem(token: str) -> str:
++    for suffix, replacement in (
++        ("ies", "y"),
++        ("ation", "ate"),
++        ("ments", "ment"),
++        ("ing", ""),
++        ("ed", ""),
++        ("es", ""),
++        ("s", ""),
++    ):
++        if token.endswith(suffix) and len(token) > len(suffix) + 3:
++            return token[: -len(suffix)] + replacement
++    return token
++
++
++def _decision(
++    group_id: str,
++    observation: DiscoveryObservation,
++    *,
++    selected: bool,
++    stratum: str,
++    score: float = 0.0,
++) -> dict[str, object]:
++    return {
++        "group_id": group_id,
++        "observation_id": observation.id,
++        "path": observation.handle.path,
++        "symbol": observation.handle.symbol,
++        "selected": selected,
++        "reason": "" if selected else "same_path_alternative",
++        "stratum": stratum,
++        "semantic_score": round(score, 4),
++    }
+
+diff --git a/testing/codeRepoQA/replay_owner_shortlist.py b/testing/codeRepoQA/replay_owner_shortlist.py
+new file mode 100644
+--- /dev/null
++++ b/testing/codeRepoQA/replay_owner_shortlist.py
+@@ -0,0 +1,186 @@
++from __future__ import annotations
++
++import argparse
++from datetime import datetime, timezone
++import json
++from pathlib import Path
++import sys
++from typing import Any, Mapping
++
++
++ROOT = Path(__file__).resolve().parents[2]
++if str(ROOT) not in sys.path:
++    sys.path.insert(0, str(ROOT))
++
++from services.retrieval.workspace.bm25 import file_role
++from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import (
++    DiscoveryObservation,
++    DiscoveryProvenance,
++    RetrievedSourceView,
++    SourceHandle,
++)
++from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import compare_initial_owners
++from testing.codeRepoQA.run_case import _load_project_llm_config, _load_test_run_config
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description="Replay one saved initial-owner comparison through current code.")
++    parser.add_argument("--trace", required=True)
++    parser.add_argument("--run-config", default="configs/testing/workspace.json")
++    parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++
++    saved_payload, baseline = _saved_payload(Path(args.trace))
++    observations, admitted_groups = _observations(saved_payload)
++    result = compare_initial_owners(
++        llm_config=_load_project_llm_config(_load_test_run_config(args.run_config)),
++        obligation_descriptions={
++            str(key): str(value) for key, value in saved_payload.get("obligations", {}).items()
++        },
++        observations=observations,
++        admitted_groups=admitted_groups,
++        max_input_chars=100_000,
++        max_selected=24,
++    )
++    artifact = {
++        "created_at": datetime.now(timezone.utc).isoformat(),
++        "source_trace": str(Path(args.trace).resolve()),
++        "reconstruction_note": (
++            "Saved compact owner/source payload; aggregate support counts are reconstructed into synthetic "
++            "provenance. This replay tests comparison behavior, not exact historical runtime provenance."
++        ),
++        "baseline": baseline,
++        "shortlisted": {
++            "serialized_chars": result.serialized_chars,
++            "selected_count": len(result.selected),
++            "selected": [_item(item) for item in result.selected],
++            "dormant_count": len(result.dormant),
++            "shortlisted_out_count": len(result.shortlisted_out),
++            "shortlisted_out": [_item(item) for item in result.shortlisted_out],
++            "shortlist_decisions": list(result.shortlist_decisions),
++            "usage": dict(result.usage),
++        },
++    }
++    output = Path(args.output)
++    output.parent.mkdir(parents=True, exist_ok=True)
++    output.write_text(json.dumps(artifact, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
++    print(output)
++    return 0
++
++
++def _saved_payload(trace_path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
++    preparation: dict[str, Any] = {}
++    for line in trace_path.read_text(encoding="utf-8").splitlines():
++        event = json.loads(line)
++        if event.get("event_type") == "initial_owner_comparison_prepared":
++            preparation = dict(event.get("payload", {}))
++        payload = event.get("payload", {})
++        if (
++            event.get("event_type") == "llm_request_sent"
++            and payload.get("stage") == "initial_owner_comparison"
++        ):
++            messages = payload.get("request_payload", {}).get("messages", ())
++            request = json.loads(messages[-1]["content"])
++            return request, {
++                "candidate_count": preparation.get("candidate_count"),
++                "serialized_chars": preparation.get("serialized_chars", len(messages[-1]["content"])),
++                "total_input_chars": preparation.get("total_input_chars"),
++            }
++    raise RuntimeError("Saved trace contains no initial owner-comparison request.")
++
++
++def _observations(
++    payload: Mapping[str, Any],
++) -> tuple[tuple[DiscoveryObservation, ...], tuple[tuple[str, str], ...]]:
++    owners = payload.get("owners", {})
++    views = payload.get("views", {})
++    rendered: list[DiscoveryObservation] = []
++    admitted: list[tuple[str, str]] = []
++    seen: set[str] = set()
++    for group in payload.get("groups", ()):
++        owner_ids = tuple(str(value) for value in group.get("owners", ()))
++        obligation_ids = tuple(str(value) for value in group.get("obligations", ()))
++        group_path = ""
++        for owner_id in owner_ids:
++            if owner_id in seen:
++                continue
++            seen.add(owner_id)
++            owner = owners.get(owner_id, {})
++            source_views = tuple(
++                _view(views.get(str(view_id), {}))
++                for view_id in owner.get("v", ())
++                if _view_path(views.get(str(view_id), {}))
++            )
++            if not source_views:
++                continue
++            first = source_views[0]
++            group_path = group_path or first.path
++            counts = tuple(int(value) for value in owner.get("c", ())) + (0, 0, 0, 0)
++            query_view_count = max(1, counts[1])
++            channel_count = max(1, counts[3])
++            raw_count = max(1, counts[0])
++            rank = max(1, int(owner.get("r") or 1))
++            provenance = tuple(
++                DiscoveryProvenance(
++                    retriever="qdrant_file_group_dense" if index % channel_count == 0 else "qdrant_file_group_sparse",
++                    query_id=f"replay:{owner_id}:{index}",
++                    obligation_ids=(obligation_ids[index % len(obligation_ids)],) if obligation_ids else (),
++                    ranks=(rank,),
++                    scores=(1.0 / rank,),
++                    source_key=f"{first.path}:{first.line_start}:{first.line_end}:{index % raw_count}",
++                )
++                for index in range(query_view_count)
++            )
++            symbol = str(owner.get("s") or "")
++            rendered.append(
++                DiscoveryObservation(
++                    id=owner_id,
++                    handle=SourceHandle(
++                        path=first.path,
++                        line_start=first.line_start,
++                        line_end=first.line_end,
++                        node_id=f"replay:{owner_id}",
++                        symbol=symbol,
++                        full_line_start=first.line_start,
++                        full_line_end=first.line_end,
++                        outer_symbol=str(owner.get("u") or ""),
++                    ),
++                    observed_text="\n".join(view.text for view in source_views),
++                    source_views=source_views,
++                    provenance=provenance,
++                    artifact_role=file_role(first.path),
++                )
++            )
++        if group_path:
++            admitted.append((group_path.casefold(), "*"))
++    return tuple(rendered), tuple(dict.fromkeys(admitted))
++
++
++def _view(value: Mapping[str, Any]) -> RetrievedSourceView:
++    source_range = tuple(value.get("r", (0, 0))) + (0, 0)
++    start = max(1, int(source_range[0] or 1))
++    end = max(start, int(source_range[1] or start))
++    return RetrievedSourceView(
++        path=_view_path(value),
++        line_start=start,
++        line_end=end,
++        text=str(value.get("x") or ""),
++    )
++
++
++def _view_path(value: Mapping[str, Any]) -> str:
++    return str(value.get("p") or "").replace("\\", "/")
++
++
++def _item(observation: DiscoveryObservation) -> dict[str, object]:
++    return {
++        "id": observation.id,
++        "path": observation.handle.path,
++        "symbol": observation.handle.symbol,
++        "line_start": observation.handle.line_start,
++        "line_end": observation.handle.line_end,
++    }
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
