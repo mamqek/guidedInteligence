@@ -218,3 +218,19 @@ recurrence bias, missing intermediate connections, Helpers discovery, and final-
 Final verification: 221 focused/relevant checks pass. Optional full-owner bounds and source facts are exposed
 by the adapters and tested; these metadata fields do not enter prompts, ranking or cost calculations. There is
 no added third-party dependency, fallback LLM behavior, per-file cap, or production compatibility branch.
+
+## 2026-08-29 restoration verification
+
+After subsequent final-admission experiments were rejected, this version was restored from the pre-joint-selection
+snapshot and committed as `3e68d44`. Two unchanged actual TypeScript repetitions again retain all three central
+Oracle files:
+
+| Run | Evidence | Oracle files | Retrieval tokens | Final request |
+|---|---:|---:|---:|---:|
+| run-20260829T003915Z | 13 | Builder, BuilderState, WatchMode | 89,424 | 10 candidates / 7 flows / 35,527 chars |
+| run-20260829T004122Z | 12 | Builder, BuilderState, WatchMode | 102,356 | 13 candidates / 9 flows / 50,803 chars |
+
+Both are partial/false and skip explanation generation. The first retains BuilderState module-emit propagation
+and reverse-reference lookup. The second retains the reverse-reference lookup and signature-cache update. Both
+retain WatchMode source. These are actual-pipeline results, not saved-input replays. Full measurements are also
+recorded in the retrieval changelog.

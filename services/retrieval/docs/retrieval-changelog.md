@@ -1,5 +1,24 @@
 # Retrieval Changelog
 
+## 2026-08-29: Three-Oracle Baseline Restored and Reverified
+
+Restored the exact tracked snapshot saved before joint file-connection/final-snippet experiments, plus the shared
+snippet-selection module it used, on `codex/snippet-first-admission`. Commit `3e68d44`. Later experiments are
+preserved in stash `d8e5f3263e58e3895e05ab47bef68e183ae2cfd5`; their run artifacts were not deleted.
+
+Two requested actual TypeScript runs use the unchanged workspace profile, gpt-5.6-luna, final selection enabled,
+explanation disabled, dormant completion disabled and the existing 83,401-document index (`rebuilt:false`).
+
+| Run | Returned evidence | Oracle files | Coverage / sufficient | Retrieval tokens | Final payload / tokens |
+|---|---:|---:|---|---:|---:|
+| run-20260829T003915Z | 13 | 3 | partial / false | 89,424 | 35,527 chars / 14,615 |
+| run-20260829T004122Z | 12 | 3 | partial / false | 102,356 | 50,803 chars / 18,052 |
+
+Both retain Builder, BuilderState and WatchMode. Run 1 selects module-emit propagation and getReferencedByPaths;
+run 2 selects getReferencedByPaths and updateSignaturesFromCache. WatchMode evidence survives in both. This
+reproduces the defining three-Oracle result twice. The runs remain partial/insufficient and are not evidence that
+the issue's complete wildcard-specific causal chain has been established.
+
 ## 2026-08-28: Shared Selection Interface and Snippet-First Initial Admission
 
 Record: [shared snippet admission experiment](decisions/snippet-first-admission-experiment.md).
