@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
+
+if TYPE_CHECKING:
+    from services.retrieval.workspace.pipeline.execution_flow.actions.pending_file_handoffs import PendingFileHandoff
 
 from services.retrieval.workspace.pipeline.execution_flow.actions.policy import (
     ActionPool,
@@ -34,6 +37,7 @@ class ScheduledRoundActions:
     maturation_children: tuple[RetrievalAction, ...]
     test_maturation: tuple[RetrievalAction, ...]
     verified_lead: tuple[RetrievalAction, ...]
+    pending_file_handoff: tuple[RetrievalAction, ...] = ()
     suppressed: tuple[dict[str, object], ...] = ()
 
     @property
@@ -60,6 +64,7 @@ def schedule_round_actions(
     pending_maturation_child_roots: set[str],
     blocked_maturation_root_ids: set[str],
     verified_lead_actions: Sequence[RetrievalAction],
+    pending_file_handoffs: Sequence[PendingFileHandoff] = (),
 ) -> ScheduledRoundActions:
     """Select every queue without letting one pool silently consume another.
 
@@ -92,6 +97,13 @@ def schedule_round_actions(
         scope_order=active_island_ids,
         refined_paths=refined_paths,
         prefer_relationship=round_index > 1,
+        attempted_effects=attempted_effects,
+    )
+    normal, pending_selected = _reserve_pending_file_handoff(
+        normal,
+        pending_file_handoffs,
+        normal_limit=normal_limit,
+        round_index=round_index,
         attempted_effects=attempted_effects,
     )
     deferred = _select_deferred_file_seed_actions(
@@ -144,8 +156,44 @@ def schedule_round_actions(
         maturation_children=maturation_children,
         test_maturation=test_maturation,
         verified_lead=tuple(novel_verified[:1]),
+        pending_file_handoff=pending_selected,
         suppressed=tuple(suppression_records),
     )
+
+
+def _reserve_pending_file_handoff(
+    normal: Sequence[RetrievalAction],
+    pending: Sequence[PendingFileHandoff],
+    *,
+    normal_limit: int,
+    round_index: int,
+    attempted_effects: set[tuple[str, ...]],
+) -> tuple[tuple[RetrievalAction, ...], tuple[RetrievalAction, ...]]:
+    """Use one existing ordinary slot for the oldest still-novel retained handoff."""
+
+    if round_index <= 1 or normal_limit <= 0:
+        return tuple(normal), ()
+    eligible = [
+        item.action
+        for item in pending
+        if _action_effect(item.action) not in attempted_effects
+    ]
+    if not eligible:
+        return tuple(normal), ()
+    pending_action = eligible[0]
+    pending_effect = _action_effect(pending_action)
+    natural = next((item for item in normal if _action_effect(item) == pending_effect), None)
+    if natural is not None:
+        return tuple(normal), (natural,)
+    compatible = [
+        item
+        for item in normal
+        if _action_effect(item) != pending_effect
+        and _action_root_id(item) != _action_root_id(pending_action)
+        and _action_scope_id(item) != _action_scope_id(pending_action)
+    ]
+    kept = compatible[: max(normal_limit - 1, 0)]
+    return tuple((*kept, pending_action)), (pending_action,)
 
 
 def _select_actions(

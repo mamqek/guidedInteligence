@@ -38,6 +38,7 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _candidate_trace_item,
     _confirmed_obligation_paths,
     _consolidate_obligation_evidence,
+    _select_unresolved_file_trace_evidence,
     _distinctive_terms,
     _edge_index,
     _evidence_item,
@@ -385,7 +386,8 @@ def run_obligation_retrieval(
             "input_file_count": len({item.handle.path.casefold() for item in canonical_snippets}),
             "admitted_file_count": len(admission.admitted_paths),
             "admitted_paths": list(admission.admitted_paths),
-            "coverage_reserved_paths": [],
+            "coverage_reserved_paths": list(admission.coverage_reserved_paths),
+            "coverage_reserved_snippet_ids": list(admission.coverage_reserved_ids),
             "excluded_file_count": len(admission.excluded_paths),
             "excluded_paths": list(admission.excluded_paths),
             "participating_candidate_count": admission.candidate_count,
@@ -575,13 +577,19 @@ def run_obligation_retrieval(
             expanded_edges=controller.edges,
             input_char_budget=ctx.config.max_final_selection_input_chars,
             candidate_islands=candidate_islands,
-            file_traces=controller.file_traces,
         )
         consolidation = _preserve_active_island_candidates(
             consolidation,
             candidates_by_id,
             candidate_islands,
             controller,
+            file_traces=controller.file_traces,
+        )
+        consolidation = _select_unresolved_file_trace_evidence(
+            ctx,
+            consolidation,
+            candidates_by_id,
+            controller.file_traces,
         )
     else:
         consolidation = _skipped_consolidation(repository_states)
@@ -614,7 +622,19 @@ def run_obligation_retrieval(
                 transition = _transition_from_shared_anchors(dependency, item, confirmed_values)
             item.transitions.append(transition or {"from": dependency_id, "status": "unresolved", "reason": "No qualified controller action established this handoff."})
 
-    selected = _selected_evidence(consolidation, candidates_by_id, repository_obligations)
+    accepted_trace_count = _accepted_file_trace_count(consolidation, controller.file_traces)
+    protected_trace_source_ids = _accepted_file_trace_source_candidate_ids(
+        consolidation,
+        controller.file_traces,
+        candidates_by_id,
+    )
+    selected = _selected_evidence(
+        consolidation,
+        candidates_by_id,
+        repository_obligations,
+        max_items=max(0, MAX_EVIDENCE - accepted_trace_count),
+        protected_candidate_ids=protected_trace_source_ids,
+    )
     selected.extend(
         _selected_file_trace_evidence(
             consolidation,
@@ -787,6 +807,8 @@ def _preserve_active_island_candidates(
     candidates: Mapping[str, GroundedCandidate],
     candidate_islands: Mapping[str, str],
     controller: Any,
+    *,
+    file_traces: Sequence[Mapping[str, object]] = (),
 ) -> dict[str, Any]:
     active_roots = set(controller.islands.active_root_ids)
     active_islands = {
@@ -838,9 +860,42 @@ def _preserve_active_island_candidates(
         )
         accepted.append(candidate_id)
         preserved.append(candidate_id)
+    trace_sources: list[str] = []
+    accepted_set = set(accepted)
+    reserved_source_paths: set[str] = set()
+    for trace in file_traces:
+        source_observation_id = str(trace.get("source_observation_id") or "")
+        source_path = str(trace.get("source_path") or "").replace("\\", "/").casefold()
+        if not source_observation_id or source_path in reserved_source_paths:
+            continue
+        exact_choices = [
+            (candidate_id, candidate)
+            for candidate_id, candidate in candidates.items()
+            if _observation_id_for_candidate(candidate) == source_observation_id
+            and candidate_islands.get(candidate_id, "") in protected_islands
+        ]
+        if not exact_choices or any(candidate_id in accepted_set for candidate_id, _ in exact_choices):
+            reserved_source_paths.add(source_path)
+            continue
+        if len(accepted) >= MAX_EVIDENCE:
+            break
+        candidate_id, _candidate = min(
+            exact_choices,
+            key=lambda item: (
+                0 if item[1].origin == "qualified_direct_evidence" else 1,
+                -item[1].score,
+                item[1].path.casefold(),
+                item[1].line_start,
+            ),
+        )
+        accepted.append(candidate_id)
+        accepted_set.add(candidate_id)
+        trace_sources.append(candidate_id)
+        reserved_source_paths.add(source_path)
     result = dict(consolidation)
     result["accepted_candidate_ids"] = accepted
     result["preserved_active_island_candidate_ids"] = preserved
+    result["preserved_file_trace_source_candidate_ids"] = trace_sources
     return result
 
 
@@ -861,12 +916,31 @@ def _selected_evidence(
     consolidation: Mapping[str, Any],
     candidates: Mapping[str, GroundedCandidate],
     obligations: Sequence[Any],
+    *,
+    max_items: int = MAX_EVIDENCE,
+    protected_candidate_ids: Sequence[str] = (),
 ) -> list[EvidenceItem]:
     selected: list[EvidenceItem] = []
     accepted_by_obligation = consolidation.get("accepted_ids_by_obligation", {})
-    for candidate_id in consolidation.get("accepted_candidate_ids", ()):
+    accepted_ids = [
+        str(candidate_id)
+        for candidate_id in consolidation.get("accepted_candidate_ids", ())
+        if str(candidate_id) in candidates
+    ]
+    protected = set(protected_candidate_ids)
+    while len(accepted_ids) > max_items:
+        removal_index = next(
+            (
+                index
+                for index in range(len(accepted_ids) - 1, -1, -1)
+                if accepted_ids[index] not in protected
+            ),
+            len(accepted_ids) - 1,
+        )
+        accepted_ids.pop(removal_index)
+    for candidate_id in accepted_ids:
         candidate = candidates.get(str(candidate_id))
-        if candidate is None or len(selected) >= MAX_EVIDENCE:
+        if candidate is None or len(selected) >= max_items:
             continue
         obligation_id = next(
             (item.id for item in obligations if candidate_id in accepted_by_obligation.get(item.id, ())),
@@ -874,6 +948,36 @@ def _selected_evidence(
         )
         selected.append(_evidence_item(candidate, obligation_id=obligation_id, rank=len(selected) + 1))
     return selected
+
+
+def _accepted_file_trace_count(
+    consolidation: Mapping[str, Any],
+    file_traces: Sequence[Mapping[str, object]],
+) -> int:
+    accepted = {str(value) for value in consolidation.get("accepted_file_trace_ids", ())}
+    return sum(
+        1
+        for trace in file_traces
+        if f"file_trace:{str(trace.get('source_island_id') or 'unknown')}:{str(trace.get('path') or '')}" in accepted
+    )
+
+
+def _accepted_file_trace_source_candidate_ids(
+    consolidation: Mapping[str, Any],
+    file_traces: Sequence[Mapping[str, object]],
+    candidates: Mapping[str, GroundedCandidate],
+) -> tuple[str, ...]:
+    accepted = {str(value) for value in consolidation.get("accepted_file_trace_ids", ())}
+    source_observation_ids = {
+        str(trace.get("source_observation_id") or "")
+        for trace in file_traces
+        if f"file_trace:{str(trace.get('source_island_id') or 'unknown')}:{str(trace.get('path') or '')}" in accepted
+    }
+    return tuple(
+        candidate_id
+        for candidate_id, candidate in candidates.items()
+        if _observation_id_for_candidate(candidate) in source_observation_ids
+    )
 
 
 def _selected_connected_evidence(

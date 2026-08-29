@@ -17,6 +17,7 @@ class FileTraceSeed:
     obligation_id: str
     relationship_direction: str
     relationship_kinds: tuple[str, ...]
+    obligation_ids: tuple[str, ...] = ()
     connection_summary: Mapping[str, object] = field(default_factory=dict)
 
 
@@ -32,6 +33,7 @@ class FileTraceEvidence:
     source_island_id: str
     action_id: str
     obligation_id: str
+    obligation_ids: tuple[str, ...]
     relationship_direction: str
     relationship_kinds: tuple[str, ...]
     endpoint_qualification: str
@@ -96,6 +98,7 @@ def build_file_trace_evidence(
                 source_island_id=island_id,
                 action_id=seed.action_id,
                 obligation_id=seed.obligation_id,
+                obligation_ids=tuple(dict.fromkeys((seed.obligation_id, *seed.obligation_ids))),
                 relationship_direction=seed.relationship_direction,
                 relationship_kinds=kinds,
                 endpoint_qualification=endpoint_qualification,

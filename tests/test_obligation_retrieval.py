@@ -26,6 +26,7 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _concept_coverage,
     _consolidation_response_format,
     _consolidate_obligation_evidence,
+    _select_unresolved_file_trace_evidence,
     _candidate_overlap_relations,
     _connected_candidate_shortlists,
     _confirmed_obligation_paths,
@@ -935,7 +936,9 @@ class ObligationRetrievalTests(unittest.TestCase):
                 ctx,
                 (state,),
                 candidate_islands={source_id: "island_watch"},
-                file_traces=(trace,),
+            )
+            result = _select_unresolved_file_trace_evidence(
+                ctx, result, {source_id: source}, (trace,)
             )
 
         self.assertEqual(complete.call_count, 2)
@@ -992,10 +995,119 @@ class ObligationRetrievalTests(unittest.TestCase):
         }
         ctx = SimpleNamespace(config=SimpleNamespace(llm_config=SimpleNamespace()), trace=SimpleNamespace(record=lambda *args, **kwargs: None))
         with patch("services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval.complete_json", return_value=response) as complete:
-            result = _consolidate_obligation_evidence(ctx, (state,), candidate_islands={source_id: "island_watch", alternate_id: "island_watch"}, file_traces=(trace,))
+            result = _consolidate_obligation_evidence(
+                ctx,
+                (state,),
+                candidate_islands={source_id: "island_watch", alternate_id: "island_watch"},
+            )
+            result = _select_unresolved_file_trace_evidence(
+                ctx, result, {source_id: source, alternate_id: alternate}, (trace,)
+            )
         self.assertEqual(complete.call_count, 1)
         self.assertFalse(result["file_trace_decision_records"][0]["source_accepted"])
         self.assertEqual(result["file_trace_decision_records"][0]["decision"], "source_island_not_selected")
+
+    def test_file_trace_can_support_a_related_unresolved_obligation_after_primary_is_supported(self) -> None:
+        source = replace(
+            _candidate_with_text(
+                "function:watchScenario",
+                "src/testRunner/unittests/tsbuild/watchMode.ts",
+                "function watchScenario() { verifyTscWatch(input); }",
+            ),
+            obligation_ids=("subject", "why"),
+        )
+        source_id = _global_candidate_id(source)
+        trace = {
+            "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+            "source_path": source.path,
+            "source_observation_id": _candidate_observation_id(source),
+            "endpoint_observation_id": "obs_endpoint",
+            "endpoint_symbol": "verifyTscWatch",
+            "source_island_id": "island_watch",
+            "action_id": "action_watch_helpers",
+            "obligation_id": "subject",
+            "obligation_ids": ("subject", "why"),
+            "relationship_direction": "outgoing",
+            "relationship_kinds": ("calls",),
+            "endpoint_qualification": "reject/insufficient",
+            "connection_summary": {"direct_call_site_count": 18},
+            "reason": "The source reaches the helper file.",
+        }
+        consolidation = {
+            "accepted_candidate_ids": [source_id],
+            "selection_records": [],
+            "obligation_assessments": [],
+            "obligation_statuses": {"subject": "repository_supported", "why": "partial"},
+            "llm_calls": 1,
+            "usage": {},
+        }
+        response = {
+            "decisions": [{
+                "trace_id": "file_trace:island_watch:src/testRunner/unittests/tscWatch/helpers.ts",
+                "disposition": "select",
+                "reason": "The trace supports the unresolved why obligation.",
+            }]
+        }
+        ctx = SimpleNamespace(
+            config=SimpleNamespace(llm_config=SimpleNamespace()),
+            trace=SimpleNamespace(record=lambda *args, **kwargs: None),
+        )
+
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval.complete_json",
+            return_value=response,
+        ) as complete:
+            result = _select_unresolved_file_trace_evidence(
+                ctx, consolidation, {source_id: source}, (trace,)
+            )
+
+        self.assertEqual(complete.call_count, 1)
+        record = result["file_trace_decision_records"][0]
+        self.assertEqual(record["obligation_status"], "repository_supported")
+        self.assertEqual(record["eligible_obligation_ids"], ["why"])
+        self.assertTrue(record["endpoint_rejection_overridden_by_repeated_calls"])
+        self.assertTrue(record["selected"])
+
+    def test_rejected_file_trace_endpoint_with_one_call_remains_blocked(self) -> None:
+        source = replace(
+            _candidate_with_text(
+                "function:watchScenario", "tests/watch.ts", "verifyTscWatch(input);"
+            ),
+            obligation_ids=("why",),
+        )
+        source_id = _global_candidate_id(source)
+        trace = {
+            "path": "tests/helpers.ts",
+            "source_path": source.path,
+            "source_observation_id": _candidate_observation_id(source),
+            "source_island_id": "island_watch",
+            "obligation_id": "why",
+            "obligation_ids": ("why",),
+            "endpoint_qualification": "reject/insufficient",
+            "connection_summary": {"direct_call_site_count": 1},
+        }
+        consolidation = {
+            "accepted_candidate_ids": [source_id],
+            "obligation_statuses": {"why": "partial"},
+            "llm_calls": 1,
+            "usage": {},
+        }
+        ctx = SimpleNamespace(
+            config=SimpleNamespace(llm_config=SimpleNamespace()),
+            trace=SimpleNamespace(record=lambda *args, **kwargs: None),
+        )
+
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval.complete_json"
+        ) as complete:
+            result = _select_unresolved_file_trace_evidence(
+                ctx, consolidation, {source_id: source}, (trace,)
+            )
+
+        complete.assert_not_called()
+        record = result["file_trace_decision_records"][0]
+        self.assertTrue(record["endpoint_blocked"])
+        self.assertEqual(record["decision"], "endpoint_rejected")
 
     def test_prompt_relevant_callee_localization_continues_named_flow(self) -> None:
         with TemporaryDirectory() as root:

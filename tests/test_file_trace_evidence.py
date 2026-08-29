@@ -27,6 +27,7 @@ class FileTraceEvidenceTests(unittest.TestCase):
             obligation_id="ordered_mechanism",
             relationship_direction="outgoing",
             relationship_kinds=("calls",),
+            obligation_ids=("ordered_mechanism", "why"),
             connection_summary={
                 "direct_call_site_count": 5,
                 "destination_symbols": [
@@ -46,6 +47,7 @@ class FileTraceEvidenceTests(unittest.TestCase):
         self.assertEqual(trace["source_path"], "src/testRunner/unittests/tsbuild/watchMode.ts")
         self.assertEqual(trace["source_island_id"], "island_watch")
         self.assertEqual(trace["relationship_kinds"], ("calls",))
+        self.assertEqual(trace["obligation_ids"], ("ordered_mechanism", "why"))
         self.assertEqual(trace["connection_summary"]["direct_call_site_count"], 5)
         self.assertNotIn("snippet", trace)
         self.assertNotIn("line_start", trace)

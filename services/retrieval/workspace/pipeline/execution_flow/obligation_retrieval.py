@@ -3262,7 +3262,6 @@ def _consolidate_obligation_evidence(
     expanded_edges: Sequence[Mapping[str, Any]] = (),
     input_char_budget: int | None = MAX_EXPLANATION_INPUT_CHARS,
     candidate_islands: Mapping[str, str] | None = None,
-    file_traces: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     candidate_islands = candidate_islands or {}
     (
@@ -3385,24 +3384,6 @@ def _consolidate_obligation_evidence(
 
     obligation_ids = [state.obligation.id for state in states]
     candidate_ids = list(candidate_by_id)
-    file_trace_payloads: list[dict[str, Any]] = []
-    for trace in file_traces:
-        if not str(trace.get("path") or "").strip():
-            continue
-        payload = _file_trace_payload(trace)
-        source_observation_id = str(trace.get("source_observation_id") or "")
-        destination_path = str(trace.get("path") or "").replace("\\", "/").casefold()
-        payload["source_candidate_ids"] = [
-            candidate_id
-            for candidate_id, candidate in candidate_by_id.items()
-            if _candidate_observation_id(candidate) == source_observation_id
-        ]
-        payload["destination_candidate_ids"] = [
-            candidate_id
-            for candidate_id, candidate in candidate_by_id.items()
-            if candidate.path.replace("\\", "/").casefold() == destination_path
-        ]
-        file_trace_payloads.append(payload)
     consolidation_payload = {
         "obligations": payload_obligations,
         "candidates": payload_candidates,
@@ -3505,120 +3486,6 @@ def _consolidate_obligation_evidence(
         },
     )
 
-    file_trace_by_id = {str(item["trace_id"]): item for item in file_trace_payloads}
-    selected_paths = {
-        candidate_by_id[candidate_id].path.replace("\\", "/").casefold()
-        for candidate_id in accepted_ids
-    }
-    eligibility_by_trace_id: dict[str, dict[str, Any]] = {}
-    eligible_file_traces: list[dict[str, Any]] = []
-    for trace_id, trace in file_trace_by_id.items():
-        source_candidate_ids = [str(value) for value in trace.get("source_candidate_ids", ())]
-        source_accepted = any(candidate_id in accepted_ids for candidate_id in source_candidate_ids)
-        destination_selected = str(trace.get("path") or "").replace("\\", "/").casefold() in selected_paths
-        endpoint_qualification = str(trace.get("endpoint_qualification") or "")
-        endpoint_rejected = endpoint_qualification.startswith("reject/")
-        obligation_id = str(trace.get("obligation_id") or "")
-        assessment_status = str(assessment_by_obligation.get(obligation_id, {}).get("status") or "unresolved")
-        obligation_unresolved = assessment_status in {"partial", "unresolved"}
-        eligible = source_accepted and not destination_selected and not endpoint_rejected and obligation_unresolved
-        eligibility_by_trace_id[trace_id] = {
-            "trace_id": trace_id,
-            "path": str(trace.get("path") or ""),
-            "source_accepted": source_accepted,
-            "destination_selected_as_snippet": destination_selected,
-            "endpoint_qualification": endpoint_qualification,
-            "obligation_status": assessment_status,
-            "eligible": eligible,
-        }
-        if eligible:
-            eligible_file_traces.append(trace)
-
-    file_trace_llm_decisions: list[dict[str, Any]] = []
-    if eligible_file_traces:
-        def log_file_trace_event(event_type: str, payload: Mapping[str, Any]) -> None:
-            if event_type == "llm_response_received":
-                raw = payload.get("raw_response", {})
-                raw_usage = raw.get("usage", {}) if isinstance(raw, Mapping) else {}
-                if isinstance(raw_usage, Mapping):
-                    for key in usage:
-                        usage[key] += int(raw_usage.get(key, 0) or 0)
-            ctx.trace.record(event_type, {"stage": "unresolved_file_evidence_selection", **dict(payload)})
-
-        file_trace_response = complete_json(
-            ctx.config.llm_config,
-            (
-                {"role": "system", "content": FILE_TRACE_SELECTION_PROMPT_PATH.read_text(encoding="utf-8")},
-                {
-                    "role": "user",
-                    "content": json.dumps(
-                        {
-                            "selected_snippets": selection_records,
-                            "obligation_assessments": assessments,
-                            "eligible_file_traces": eligible_file_traces,
-                        },
-                        sort_keys=True,
-                    ),
-                },
-            ),
-            response_format=_file_trace_selection_response_format(
-                [str(item["trace_id"]) for item in eligible_file_traces]
-            ),
-            log_event=log_file_trace_event,
-        )
-        file_trace_llm_decisions = [
-            dict(item)
-            for item in file_trace_response.get("decisions", ())
-            if isinstance(item, Mapping)
-        ]
-
-    llm_decision_by_trace_id = {
-        str(item.get("trace_id") or ""): item for item in file_trace_llm_decisions
-    }
-    accepted_file_trace_ids: list[str] = []
-    file_trace_selection_records: list[dict[str, Any]] = []
-    file_trace_decision_records: list[dict[str, Any]] = []
-    for trace_id, trace in file_trace_by_id.items():
-        eligibility = eligibility_by_trace_id[trace_id]
-        llm_decision = llm_decision_by_trace_id.get(trace_id, {})
-        llm_selected = str(llm_decision.get("disposition") or "") == "select"
-        selected_trace = bool(eligibility["eligible"] and llm_selected and len(accepted_file_trace_ids) < 2)
-        reason = str(llm_decision.get("reason") or "")
-        if selected_trace:
-            accepted_file_trace_ids.append(trace_id)
-            file_trace_selection_records.append({"trace_id": trace_id, "reason": reason})
-        file_trace_decision_records.append(
-            {
-                **eligibility,
-                "llm_selected": llm_selected,
-                "llm_reason": reason,
-                "selected": selected_trace,
-                "decision": (
-                    "selected_unresolved_file_evidence"
-                    if selected_trace
-                    else "source_island_not_selected"
-                    if not eligibility["source_accepted"]
-                    else "destination_already_has_selected_snippet"
-                    if eligibility["destination_selected_as_snippet"]
-                    else "endpoint_rejected"
-                    if str(eligibility["endpoint_qualification"]).startswith("reject/")
-                    else "obligation_not_unresolved"
-                    if str(eligibility["obligation_status"]) not in {"partial", "unresolved"}
-                    else "llm_rejected_file_trace"
-                    if not llm_selected
-                    else "file_trace_selection_cap"
-                ),
-            }
-        )
-    ctx.trace.record(
-        "file_trace_selection_evaluated",
-        {
-            "input_trace_count": len(file_trace_by_id),
-            "selected_trace_count": len(accepted_file_trace_ids),
-            "records": file_trace_decision_records,
-        },
-    )
-
     accepted_id_set = set(accepted_ids)
     obligation_statuses: dict[str, str] = {}
     unresolved_reasons: dict[str, str] = {}
@@ -3716,16 +3583,17 @@ def _consolidate_obligation_evidence(
     rejected_ids = [candidate_id for candidate_id in candidate_ids if candidate_id not in accepted_id_set]
     result = {
         "strategy": "global_causal_mechanism_selection_v2",
-        "llm_calls": 1 + (1 if eligible_file_traces else 0),
+        "llm_calls": 1,
         "accepted_candidate_ids": accepted_ids,
         "accepted_ids_by_obligation": accepted_ids_by_obligation,
-        "accepted_file_trace_ids": accepted_file_trace_ids,
-        "file_trace_selection_records": file_trace_selection_records,
-        "file_trace_decision_records": file_trace_decision_records,
+        "accepted_file_trace_ids": [],
+        "file_trace_selection_records": [],
+        "file_trace_decision_records": [],
         "rejected_candidate_ids": rejected_ids,
         "invalid_candidate_ids": list(ordered_unique(tuple(invalid_ids))),
         "selected_mechanisms": selected_mechanisms,
         "selection_records": selection_records,
+        "obligation_assessments": assessments,
         "overlap_selection_records": overlap_selection_records,
         "obligation_statuses": obligation_statuses,
         "unresolved_reasons": unresolved_reasons,
@@ -3740,7 +3608,7 @@ def _consolidate_obligation_evidence(
             "strategy": "global_causal_mechanism_selection_v2",
             "selected_mechanisms": selected_mechanisms,
             "selected_evidence": selection_records,
-            "selected_file_traces": file_trace_selection_records,
+            "selected_file_traces": [],
             "globally_rejected_candidate_ids": rejected_ids,
             "obligations": [
                 {
@@ -3758,6 +3626,220 @@ def _consolidate_obligation_evidence(
         },
     )
     ctx.trace.record("obligation_evidence_consolidated", result)
+    return result
+
+
+def _select_unresolved_file_trace_evidence(
+    ctx: WorkspaceRetrievalContext,
+    consolidation: Mapping[str, Any],
+    candidates: Mapping[str, GroundedCandidate],
+    file_traces: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Apply the exact-source file-trace gate after final candidate preservation."""
+
+    accepted_ids = [
+        str(value)
+        for value in consolidation.get("accepted_candidate_ids", ())
+        if str(value) in candidates
+    ]
+    accepted_set = set(accepted_ids)
+    selected_paths = {
+        candidates[candidate_id].path.replace("\\", "/").casefold()
+        for candidate_id in accepted_ids
+    }
+    trace_payloads: list[dict[str, Any]] = []
+    for trace in file_traces:
+        if not str(trace.get("path") or "").strip():
+            continue
+        payload = _file_trace_payload(trace)
+        source_observation_id = str(trace.get("source_observation_id") or "")
+        destination_path = str(trace.get("path") or "").replace("\\", "/").casefold()
+        payload["source_candidate_ids"] = [
+            candidate_id
+            for candidate_id, candidate in candidates.items()
+            if _candidate_observation_id(candidate) == source_observation_id
+        ]
+        payload["destination_candidate_ids"] = [
+            candidate_id
+            for candidate_id, candidate in candidates.items()
+            if candidate.path.replace("\\", "/").casefold() == destination_path
+        ]
+        trace_payloads.append(payload)
+
+    statuses = {
+        str(key): str(value)
+        for key, value in dict(consolidation.get("obligation_statuses", {})).items()
+    }
+    eligibility_by_id: dict[str, dict[str, Any]] = {}
+    eligible: list[dict[str, Any]] = []
+    for trace in trace_payloads:
+        trace_id = str(trace["trace_id"])
+        source_accepted = any(
+            str(candidate_id) in accepted_set
+            for candidate_id in trace.get("source_candidate_ids", ())
+        )
+        destination_selected = (
+            str(trace.get("path") or "").replace("\\", "/").casefold() in selected_paths
+        )
+        endpoint_qualification = str(trace.get("endpoint_qualification") or "")
+        direct_call_site_count = int(
+            dict(trace.get("connection_summary") or {}).get("direct_call_site_count", 0) or 0
+        )
+        endpoint_rejection_overridden = bool(
+            endpoint_qualification.startswith("reject/") and direct_call_site_count >= 2
+        )
+        endpoint_blocked = bool(
+            endpoint_qualification.startswith("reject/") and not endpoint_rejection_overridden
+        )
+        trace_obligation_ids = tuple(dict.fromkeys((
+            str(trace.get("obligation_id") or ""),
+            *(str(value) for value in trace.get("obligation_ids", ()) if str(value)),
+        )))
+        eligible_obligation_ids = [
+            obligation_id
+            for obligation_id in trace_obligation_ids
+            if statuses.get(obligation_id, "unresolved") in {"partial", "unresolved"}
+        ]
+        obligation_status = statuses.get(str(trace.get("obligation_id") or ""), "unresolved")
+        is_eligible = bool(
+            source_accepted
+            and not destination_selected
+            and not endpoint_blocked
+            and bool(eligible_obligation_ids)
+        )
+        eligibility_by_id[trace_id] = {
+            "trace_id": trace_id,
+            "path": str(trace.get("path") or ""),
+            "source_accepted": source_accepted,
+            "destination_selected_as_snippet": destination_selected,
+            "endpoint_qualification": endpoint_qualification,
+            "direct_call_site_count": direct_call_site_count,
+            "endpoint_rejection_overridden_by_repeated_calls": endpoint_rejection_overridden,
+            "endpoint_blocked": endpoint_blocked,
+            "obligation_status": obligation_status,
+            "eligible_obligation_ids": eligible_obligation_ids,
+            "eligible": is_eligible,
+        }
+        if is_eligible:
+            eligible.append(trace)
+
+    trace_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    llm_decisions: list[dict[str, Any]] = []
+    if eligible:
+        def log_file_trace_event(event_type: str, payload: Mapping[str, Any]) -> None:
+            if event_type == "llm_response_received":
+                raw = payload.get("raw_response", {})
+                raw_usage = raw.get("usage", {}) if isinstance(raw, Mapping) else {}
+                if isinstance(raw_usage, Mapping):
+                    for key in trace_usage:
+                        trace_usage[key] += int(raw_usage.get(key, 0) or 0)
+            ctx.trace.record(
+                event_type,
+                {"stage": "unresolved_file_evidence_selection", **dict(payload)},
+            )
+
+        selection_records = [
+            dict(item)
+            for item in consolidation.get("selection_records", ())
+            if isinstance(item, Mapping)
+        ]
+        recorded_ids = {str(item.get("candidate_id") or "") for item in selection_records}
+        for candidate_id in accepted_ids:
+            if candidate_id in recorded_ids:
+                continue
+            candidate = candidates[candidate_id]
+            selection_records.append(
+                {
+                    "candidate_id": candidate_id,
+                    "mechanism_role": "deterministically_preserved_source",
+                    "obligation_ids": list(candidate.obligation_ids),
+                    "reason": "Retained by the bounded deterministic representation policy.",
+                    "exclusive_contribution": "Preserves a represented repository source for unresolved handoff evaluation.",
+                }
+            )
+        response = complete_json(
+            ctx.config.llm_config,
+            (
+                {"role": "system", "content": FILE_TRACE_SELECTION_PROMPT_PATH.read_text(encoding="utf-8")},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "selected_snippets": selection_records,
+                            "obligation_assessments": list(consolidation.get("obligation_assessments", ())),
+                            "eligible_file_traces": eligible,
+                        },
+                        sort_keys=True,
+                    ),
+                },
+            ),
+            response_format=_file_trace_selection_response_format(
+                [str(item["trace_id"]) for item in eligible]
+            ),
+            log_event=log_file_trace_event,
+        )
+        llm_decisions = [
+            dict(item)
+            for item in response.get("decisions", ())
+            if isinstance(item, Mapping)
+        ]
+
+    llm_by_id = {str(item.get("trace_id") or ""): item for item in llm_decisions}
+    accepted_trace_ids: list[str] = []
+    selection_records: list[dict[str, Any]] = []
+    decision_records: list[dict[str, Any]] = []
+    for trace in trace_payloads:
+        trace_id = str(trace["trace_id"])
+        eligibility = eligibility_by_id[trace_id]
+        decision = llm_by_id.get(trace_id, {})
+        llm_selected = str(decision.get("disposition") or "") == "select"
+        selected = bool(eligibility["eligible"] and llm_selected and len(accepted_trace_ids) < 2)
+        reason = str(decision.get("reason") or "")
+        if selected:
+            accepted_trace_ids.append(trace_id)
+            selection_records.append({"trace_id": trace_id, "reason": reason})
+        decision_records.append(
+            {
+                **eligibility,
+                "llm_selected": llm_selected,
+                "llm_reason": reason,
+                "selected": selected,
+                "decision": (
+                    "selected_unresolved_file_evidence"
+                    if selected
+                    else "source_island_not_selected"
+                    if not eligibility["source_accepted"]
+                    else "destination_already_has_selected_snippet"
+                    if eligibility["destination_selected_as_snippet"]
+                    else "endpoint_rejected"
+                    if eligibility["endpoint_blocked"]
+                    else "obligation_not_unresolved"
+                    if not eligibility["eligible_obligation_ids"]
+                    else "llm_rejected_file_trace"
+                    if not llm_selected
+                    else "file_trace_selection_cap"
+                ),
+            }
+        )
+    ctx.trace.record(
+        "file_trace_selection_evaluated",
+        {
+            "input_trace_count": len(trace_payloads),
+            "selected_trace_count": len(accepted_trace_ids),
+            "records": decision_records,
+        },
+    )
+
+    result = dict(consolidation)
+    result["llm_calls"] = int(consolidation.get("llm_calls", 0) or 0) + (1 if eligible else 0)
+    usage = dict(consolidation.get("usage", {}))
+    for key, value in trace_usage.items():
+        usage[key] = int(usage.get(key, 0) or 0) + value
+    result["usage"] = usage
+    result["accepted_file_trace_ids"] = accepted_trace_ids
+    result["file_trace_selection_records"] = selection_records
+    result["file_trace_decision_records"] = decision_records
+    ctx.trace.record("file_trace_evidence_consolidated", result)
     return result
 
 
@@ -4041,6 +4123,7 @@ def _file_trace_payload(trace: Mapping[str, Any]) -> dict[str, Any]:
         "relationship_direction": str(trace.get("relationship_direction") or ""),
         "relationship_kinds": list(trace.get("relationship_kinds") or ()),
         "obligation_id": str(trace.get("obligation_id") or ""),
+        "obligation_ids": list(trace.get("obligation_ids") or ()),
         "endpoint_symbol": str(trace.get("endpoint_symbol") or ""),
         "endpoint_qualification": str(trace.get("endpoint_qualification") or ""),
         "connection_summary": dict(trace.get("connection_summary") or {}),

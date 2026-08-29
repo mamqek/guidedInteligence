@@ -54,6 +54,11 @@ from services.retrieval.workspace.pipeline.execution_flow.actions.scheduler impo
     _has_specific_exact_anchors,
     schedule_round_actions,
 )
+from services.retrieval.workspace.pipeline.execution_flow.actions.pending_file_handoffs import (
+    PendingFileHandoff,
+    reconcile_pending_file_handoffs,
+    retain_pending_file_handoffs,
+)
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard, disclose_observations
 from services.retrieval.workspace.pipeline.execution_flow.structural_components import build_structural_components
 from services.retrieval.workspace.tools import ToolRequest
@@ -215,6 +220,7 @@ def run_retrieval_controller(
     executed_verified_lead_node_ids: set[str] = set()
     verified_lead_executions = 0
     seen_raw_source_ids: set[str] = set()
+    pending_file_handoffs: tuple[PendingFileHandoff, ...] = ()
 
     def discover_qualified_leads(changed_ids: Sequence[str], round_index: int) -> bool:
         nonlocal tool_calls
@@ -273,6 +279,16 @@ def run_retrieval_controller(
             round_index=round_index,
         )
         tool_calls += catalogue.tool_calls
+        pending_file_handoffs = reconcile_pending_file_handoffs(
+            pending_file_handoffs,
+            round_index=round_index,
+            observations=observations,
+            decisions=decisions,
+            coverage=coverage.coverage,
+            observation_to_island=islands.observation_to_island,
+            active_island_ids=islands.active_island_ids,
+            attempted_effects=attempted_effects,
+        )
         verified_lead_selected = _select_verified_lead_actions(
             tuple(pending_verified_leads.values()),
             executed_count=verified_lead_executions,
@@ -293,6 +309,7 @@ def run_retrieval_controller(
                 lead.source_observation_id for lead in pending_verified_leads.values()
             },
             verified_lead_actions=verified_lead_selected,
+            pending_file_handoffs=pending_file_handoffs,
         )
         normal_selected = schedule.normal
         deferred_file_seed_selected = schedule.deferred_file_rescue
@@ -316,6 +333,34 @@ def run_retrieval_controller(
                 pending_verified_leads.pop(action.target_node_id, None)
         verified_lead_selected = schedule.verified_lead
         selected = schedule.selected
+        pending_file_handoffs = retain_pending_file_handoffs(
+            pending_file_handoffs,
+            catalogue.actions,
+            selected,
+            round_index=round_index,
+            observations=observations,
+            decisions=decisions,
+            coverage=coverage.coverage,
+            observation_to_island=islands.observation_to_island,
+            active_island_ids=islands.active_island_ids,
+            attempted_effects=attempted_effects,
+        )
+        ctx.trace.record(
+            "pending_file_handoffs_updated",
+            {
+                "round": round_index,
+                "policy": "test_source_only_max_two_one_per_island_ttl_two_rounds",
+                "selected_action_ids": [item.id for item in schedule.pending_file_handoff],
+                "pending": [
+                    {
+                        "action": action_to_dict(item.action),
+                        "discovered_round": item.discovered_round,
+                        "catalogue_rank": item.catalogue_rank,
+                    }
+                    for item in pending_file_handoffs
+                ],
+            },
+        )
         if schedule.suppressed:
             ctx.trace.record("controller_actions_suppressed", {"round": round_index, "actions": list(schedule.suppressed)})
         if not selected:
@@ -334,6 +379,7 @@ def run_retrieval_controller(
                 "verified_lead_action_count": len(verified_lead_selected),
                 "verified_lead_pending_count": len(pending_verified_leads),
                 "verified_lead_execution_count": verified_lead_executions,
+                "pending_file_handoff_action_count": len(schedule.pending_file_handoff),
                 "scope_assignments": [
                     {
                         "slot": index,
@@ -411,6 +457,10 @@ def run_retrieval_controller(
                                 obligation_id=action.obligation_id,
                                 relationship_direction=action.direction,
                                 relationship_kinds=action.edge_kinds,
+                                obligation_ids=tuple(dict.fromkeys((
+                                    *action.obligation_ids,
+                                    *observations[action.root_observation_id].obligation_ids,
+                                ))),
                                 connection_summary=_file_connection_summary(
                                     execution.edges, source_path, endpoint.handle.path,
                                 ),
@@ -434,6 +484,7 @@ def run_retrieval_controller(
                         obligation_id=action.obligation_id,
                         relationship_direction="outgoing",
                         relationship_kinds=("calls",),
+                        obligation_ids=source.obligation_ids,
                         connection_summary={
                             "source_path": source.handle.path,
                             "destination_path": action.target_path,
