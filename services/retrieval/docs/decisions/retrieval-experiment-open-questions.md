@@ -16,6 +16,32 @@
 - Helpers has no qualified snippet or WatchMode file trace in either new run. In the second, four exact retrieved
   Helpers owners remain deferred; raw WatchMode calls provide leads in both runs. This differs from QRC-1's
   earlier exact-source file-trace rejection. Discovery/trace creation must be audited before applying that diagnosis.
+- 2026-08-29 capability-retention follow-up: the two three-Oracle baseline traces show that an unexecuted WatchMode
+  file action was present in round 1 but later disappeared when owner node IDs filled the combined 16-node edge-
+  capability slice. [The bounded retention experiment](file-handoff-capability-retention-experiment.md) queried
+  omitted file nodes separately and passed focused lifecycle coverage twice, but actual runs `015817Z` / `020528Z`
+  never activated the intended WatchMode target and retained three/two Oracle files. After reverting, actual runs
+  `034209Z` / `034747Z` both restored three Oracles. The experiment is reverted. The exact `020528Z` BuilderState
+  loss occurred through pre-existing verified-lead competition before the first overflow request, so it does not
+  prove a deterministic overflow displacement; it does prove that this unexercised additive change lacked sufficient
+  live evidence to retain. Helpers recovery remains open.
+- 2026-08-29 scheduling-retention follow-up: [the pending handoff experiment](pending-file-handoff-scheduling-experiment.md)
+  proved in diagnostic `042117Z` that preserving the exact starved WatchMode action recovers the historical
+  WatchMode-to-Helpers traversal and its 18 calls. Three bounded variants were nevertheless reverted. Broad
+  retention forced a zero-edge `sys.ts` action; safer variants rarely activated, and all four acceptance runs
+  retained only two Oracle overlaps. Runs `043211Z` and `044424Z` created Helpers normally but rejected its trace at
+  `source_island_not_selected` because the exact WatchMode source was not accepted by final consolidation. The first
+  decisive boundary is therefore run-dependent: scheduling when the action disappears, but final source acceptance
+  when the trace already exists. A next experiment should isolate the latter on saved final-selection input rather
+  than add more controller capacity or another scheduling heuristic.
+- 2026-08-29 mixed-island resolution: [the representation experiment](mixed-island-file-trace-representation-experiment.md)
+  restored the bounded test-source pending scheduler and fixed each measured downstream loss boundary without
+  increasing controller slots, rounds, graph calls, or the final evidence cap. Exact file-trace source preservation
+  was retained; the broader artifact-role reservation was rejected because it could preserve the wrong test file.
+  Final actual runs `150112Z` and `150534Z` both retained Builder, BuilderState, WatchMode, and Helpers, using
+  106,410/103,059 retrieval tokens. Helpers remained an LLM-selected structural participant with no claim about its
+  internal behavior. This closes the specific Helpers scheduling/representation question; overall semantic coverage
+  remains `partial/false` and is not closed by structural file evidence.
 - Final snippet-first admission remains a separate experiment, with stage-specific semantic eligibility and
   connections. A common interface does not make initial retrieval associations equivalent to qualified support.
 

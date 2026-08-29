@@ -53,6 +53,8 @@ class InitialOwnerComparisonAdmission:
     admitted_ids: tuple[str, ...]
     excluded_ids: tuple[str, ...]
     snippet_decisions: tuple[dict[str, object], ...]
+    coverage_reserved_ids: tuple[str, ...]
+    coverage_reserved_paths: tuple[str, ...]
 
 
 def select_range_candidate_owners(
@@ -291,6 +293,7 @@ def fit_initial_owner_comparison_admission(
     from .snippet_selection import admit_snippets, discovery_priority, discovery_selection_view
 
     by_id = {item.id: item for item in observations}
+    reserved_ids = _coverage_reserved_observation_ids(observations, obligation_descriptions)
     def measure(ids: tuple[str, ...]) -> int:
         values = tuple(by_id[identifier] for identifier in ids)
         paths = tuple(dict.fromkeys(item.handle.path.casefold() for item in values))
@@ -299,7 +302,10 @@ def fit_initial_owner_comparison_admission(
 
     result = admit_snippets(
         tuple(discovery_selection_view(item) for item in observations),
-        priority=lambda item, _selected: discovery_priority(item),
+        priority=lambda item, _selected: (
+            0 if item.id in reserved_ids else 1,
+            *discovery_priority(item),
+        ),
         measure=measure, threshold=min(preferred_input_chars, max_input_chars),
     )
     admitted_paths = tuple(dict.fromkeys(by_id[value].handle.path for value in result.admitted_ids))
@@ -329,7 +335,53 @@ def fit_initial_owner_comparison_admission(
         stopped_at_path=by_id[result.crossing_id].handle.path if result.crossing_id else "",
         path_decisions=path_decisions, admitted_ids=result.admitted_ids,
         excluded_ids=result.excluded_ids, snippet_decisions=result.decisions,
+        coverage_reserved_ids=tuple(value for value in result.admitted_ids if value in reserved_ids),
+        coverage_reserved_paths=tuple(dict.fromkeys(
+            by_id[value].handle.path for value in result.admitted_ids if value in reserved_ids
+        )),
     )
+
+
+def _coverage_reserved_observation_ids(
+    observations: Sequence[DiscoveryObservation],
+    obligation_descriptions: Mapping[str, str],
+) -> set[str]:
+    """Reserve one strongest retrieved owner for each repository obligation."""
+
+    reserved: set[str] = set()
+    for obligation_id in obligation_descriptions:
+        choices: list[tuple[tuple[Any, ...], str]] = []
+        for observation in observations:
+            matching = [
+                provenance
+                for provenance in observation.provenance
+                if obligation_id in provenance.obligation_ids
+            ]
+            if not matching:
+                continue
+            best_rank = min(
+                (rank for item in matching for rank in item.ranks if rank > 0),
+                default=10_000,
+            )
+            best_score = max(
+                (score for item in matching for score in item.scores),
+                default=0.0,
+            )
+            choices.append((
+                (
+                    best_rank,
+                    -best_score,
+                    -(observation.recurrence or 1),
+                    0 if observation.exact_anchor_matches else 1,
+                    observation.handle.path.casefold(),
+                    observation.handle.line_start,
+                    observation.id,
+                ),
+                observation.id,
+            ))
+        if choices:
+            reserved.add(min(choices)[1])
+    return reserved
 
 
 def _comparison_input_chars(

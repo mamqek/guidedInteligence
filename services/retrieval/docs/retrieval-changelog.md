@@ -1,5 +1,83 @@
 # Retrieval Changelog
 
+## 2026-08-29: Pending Cross-file Handoff Scheduling — Reverted
+
+Record: [pending cross-file handoff scheduling experiment](decisions/pending-file-handoff-scheduling-experiment.md).
+
+Tested deterministic starvation memory for already-enumerated file-seeded cross-file
+actions. The implementation retained at most two actions, one per island, for two
+rounds and could substitute the oldest eligible action into one of the unchanged two
+ordinary slots. It added no action slot, round, graph request, or LLM request. Focused
+lifecycle and scheduling tests passed twice; 104 related tests passed at the most
+restrictive variant.
+
+Attempt 1 succeeded mechanically in diagnostic `run-20260829T042117Z`: the unselected
+WatchMode action was retained in round 1, executed in round 2, aggregated the historical
+18 WatchMode-to-Helpers call sites, and created the Helpers file trace. Its acceptance
+run `042653Z` selected WatchMode normally, then retained and forced an unrelated
+`sys.ts` file action that returned zero edges; final evidence retained only two Oracle
+overlaps. Attempt 2 stopped accruing debt after any file handoff ran, but acceptance
+runs `043211Z` / `043614Z` never used retained scheduling and returned two/two Oracle
+overlaps at 87,864/101,994 tokens. Attempt 3 limited debt to repository-classified test
+sources; diagnostic `044106Z` correctly excluded an implementation action but had no
+eligible WatchMode action, and acceptance `044424Z` again returned two Oracle overlaps
+at 108,387 tokens.
+
+Two safer-variant runs (`043211Z`, `044424Z`) did execute WatchMode through ordinary
+scheduling and created the Helpers trace. Final trace selection rejected Helpers in
+both with `source_island_not_selected`: WatchMode itself was not accepted by final
+consolidation. Thus scheduling is a real loss boundary in historical/current saved
+traces, but repairing it alone does not stabilize final evidence. All production and
+experiment-test code was reverted after the third variant; 100 related baseline tests
+pass. The next bounded work should replay the already-created Helpers trace at final
+source acceptance rather than increase scheduling or capability budgets.
+
+## 2026-08-29: Bounded File-Handoff Capability Retention — Reverted
+
+Record: [file-handoff capability retention experiment](decisions/file-handoff-capability-retention-experiment.md).
+
+Diagnosed a second loss boundary behind unstable WatchMode-to-Helpers traces. Action enumeration appended resolved
+bounded-handoff file nodes after qualified owner nodes, then queried only the first 16 combined IDs. In both restored
+three-Oracle baselines WatchMode had a file-seeded cross-file action in round 1; after owner growth its file node fell
+outside the capability slice and the catalogue reported `edge_kind_not_represented_around_root`. An unexecuted action
+therefore could not be reconstructed even though its obligation remained partial.
+
+Attempt 1 preserved the unchanged first 16 owner/file IDs and issued one additional CodeGraph capability request
+only for resolved bounded-handoff file nodes omitted by that slice. A deterministic test proved that the same
+WatchMode file-action ID existed before and after sixteen unrelated owners crowded the primary request. The focused
+test passed twice and 101 qualification/controller/action tests passed with the experiment enabled.
+
+Actual TypeScript runs used bundled Node 24.19.0, the unchanged workspace profile and model, final selection enabled,
+and response generation skipped:
+
+| Run | Evidence | Oracle files | Coverage / sufficient | Retrieval tokens | Overflow capability calls |
+|---|---:|---:|---|---:|---:|
+| run-20260829T015817Z | 12 | 3 | partial / false | 96,050 | 2 |
+| run-20260829T020528Z | 12 | 2 | partial / false | 103,858 | 2 |
+
+Both runs exercised overflow requests, but neither made WatchMode an eligible bounded-handoff root during controller
+enumeration; protected nodes were other files, and no action enabled by an overflow response was selected or executed.
+Thus they did not prove Helpers recovery. The second run lost BuilderState from final evidence.
+
+Two user-requested actual-pipeline counterfactuals then restored the tracked production behavior:
+
+| Run | Evidence | Oracle files | Coverage / sufficient | Retrieval tokens |
+|---|---:|---:|---|---:|
+| run-20260829T034209Z | 12 | 3 | partial / false | 103,951 |
+| run-20260829T034747Z | 14 | 3 | partial / false | 108,293 |
+
+The exact `020528Z` loss was a verified-lead-cap interaction, not an observed overflow action. BuilderState's
+`getReferencedByPaths` and `updateShapeSignature` leads were discovered in round 1 but ranked behind explicit
+qualification follow-ups to `getSemanticDiagnosticsOfNextAffectedFile` and `createWildcardDirectoryWatcher`.
+Those two consumed the verified-lead execution cap; BuilderState remained pending and never entered the final pool.
+This losing state existed before the first overflow request, and no overflow-enabled action executed. Nevertheless,
+the target behavior was unexercised and the live pair was worse/unstable, while both counterfactuals restored the
+three-Oracle result. The capability-retention implementation and its experiment-only test were therefore reverted.
+The decision record preserves the patch design for a future saved-input replay.
+
+Diagnostic `run-20260829T015651Z` failed before retrieval because the system Node lacked `node:sqlite`; it is excluded
+and was replaced by the two bundled-Node runs. No fallback pipeline was used.
+
 ## 2026-08-29: Three-Oracle Baseline Restored and Reverified
 
 Restored the exact tracked snapshot saved before joint file-connection/final-snippet experiments, plus the shared
@@ -5154,3 +5232,49 @@ Verification:
   qualification saw the wrong scenario. Neither quality improvement nor stable non-regression was established.
 - All 100 focused tests passed with the corrected implementation; all 95 baseline tests passed after rollback.
   The decision note links exact trace lines and a preserved implementation patch that passes `git apply --check`.
+
+## 2026-08-29 — Mixed-island file-trace representation accepted
+
+- Experiment: [`decisions/mixed-island-file-trace-representation-experiment.md`](decisions/mixed-island-file-trace-representation-experiment.md).
+  Restored the bounded pending scheduler only for repository-classified test-source, file-seeded cross-file
+  handoffs: at most two pending actions, one per island, two-round lifetime, and one existing ordinary slot after
+  round 1. It adds no action slots, graph requests, controller rounds, or unconditional LLM calls.
+- Final evidence now applies deterministic preservation after the candidate LLM and before file-trace eligibility.
+  A protected mixed island can preserve the exact source of a created trace even when another compiler file already
+  represents that island. The alternative artifact-role reservation was tested and removed because a competing test
+  file could win without preserving the trace source.
+- File traces retain the source observation's related obligation IDs. A rejected endpoint may reach the unchanged
+  trace LLM only with at least two recorded direct call sites; one-call rejected endpoints remain blocked. Accepted
+  traces reserve capacity inside the existing evidence cap and protect their exact source when a snippet must be
+  displaced.
+- Repeat `run-20260829T145414Z` exposed a separate upstream loss: BuilderState was raw rank 1 for state changes and
+  had nine exact resolved owners, but global preferred-budget admission excluded all of them. Initial owner comparison
+  now reserves the strongest observation per repository obligation before applying the unchanged global ranking and
+  character budget. This is displacement within the same request budget, not extra capacity.
+- Intermediate actual runs identified the successive gates: `060303Z` reconstructed the 18-call traversal;
+  `060847Z` failed the primary-obligation gate; `061557Z` failed rejected-endpoint eligibility; `062527Z` selected
+  Helpers but filled the evidence cap first; `063022Z` emitted all four target files. These are diagnostic boundary
+  results, not acceptance substitutes.
+- Counted actual acceptance, with final selection enabled and response generation skipped:
+  - `run-20260829T150112Z`: `partial/false`, 14 evidence items, four Oracle implementation files (Builder,
+    BuilderState, WatchMode, Helpers), Helpers rank 14, 106,410 retrieval tokens.
+  - `run-20260829T150534Z`: `partial/false`, 12 evidence items, the same four Oracle files, Helpers rank 11,
+    103,059 retrieval tokens. The pending WatchMode handoff naturally executed in round 2.
+- In both runs, the file-trace LLM selected Helpers only as structural supportive evidence and explicitly avoided
+  claims about internal behavior. Focused suites passed twice at 194 tests; the broader relevant suite passed all
+  214 tests. Decision: retain exact trace-source variant and the audited boundary repairs; keep the role variant
+  removed. The result stabilizes all four target files but does not resolve the remaining `partial/false` semantic
+  obligations.
+- Cross-repository regression used the same actual workspace pipeline with final selection enabled and response
+  generation skipped. Initial Vue/Pandas attempts `153616Z` / `153646Z` are excluded because the shell selected Node
+  without `node:sqlite` and CodeGraph failed before retrieval. Corrected bundled-Node runs completed normally:
+  - Vue `run-20260829T153748Z`: `partial/false`, ten evidence items, 1/2 Oracle overlap including implementation
+    Oracle `src/exp-parser.js` at file rank 3, 92,801 retrieval tokens.
+  - Pandas `run-20260829T154053Z`: `partial/false`, three evidence items, 2/3 Oracle overlap including sole
+    implementation Oracle `pandas/core/series.py` plus `pandas/tests/test_series.py`, 76,670 retrieval tokens.
+- Pending test-source scheduling, exact mixed-island source restoration, and the repeated-rejected-endpoint override
+  were dormant in both regression runs. The per-obligation initial admission reservation activated within the
+  unchanged request budget. Existing file traces selected `src/text-parser.js` and `pandas/core/ops.py` only as
+  navigation-only structural participants. Neither displaced an Oracle. Relative to the most recent recorded runs,
+  Vue changed from 0/2 to 1/2 and Pandas from 1/3 to 2/3; treat this as non-regression evidence, not a causal quality
+  claim, because retrieval inputs and LLM decisions vary.

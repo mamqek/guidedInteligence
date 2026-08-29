@@ -66,12 +66,14 @@ from services.retrieval.workspace.pipeline.execution_flow.source_disclosure impo
     fit_cards_to_source_capacity,
 )
 from services.retrieval.workspace.pipeline.execution_flow.structural_components import build_structural_components
+from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import _candidate_observation_id
 from services.retrieval.workspace.pipeline.execution_flow.qualification_first_retrieval import (
     _candidate_from_qualified,
     _deferred_after_initial_owner_comparison,
     _file_group_initial_results,
     _initial_sparse_query,
     _preserve_active_island_candidates,
+    _selected_evidence,
 )
 from services.retrieval.workspace.tools import ToolObservation
 
@@ -2280,6 +2282,64 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
 
         self.assertEqual(result["accepted_candidate_ids"], ["builder", "watch"])
         self.assertEqual(result["preserved_active_island_candidate_ids"], ["watch"])
+
+    def test_exact_trace_source_is_reserved_in_an_already_represented_mixed_island(self) -> None:
+        from services.retrieval.workspace.pipeline.execution_flow.evidence_islands import EvidenceIsland, IslandSelection
+        from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import GroundedCandidate
+
+        builder = GroundedCandidate(
+            "src/compiler/builder.ts", 1, 5, "builder", 0.9,
+            "qualified_direct_evidence", node_id="function:builder", file_role="implementation",
+        )
+        watch = GroundedCandidate(
+            "src/testRunner/unittests/tsbuild/watchMode.ts", 10, 20, "watch", 0.5,
+            "qualified_navigation_evidence", node_id="function:verifyTransitiveReferences",
+            file_role="test", obligation_ids=("mechanism",),
+        )
+        candidates = {"builder": builder, "watch": watch}
+        watch_observation_id = _candidate_observation_id(watch)
+        controller = SimpleNamespace(
+            islands=IslandSelection(
+                islands=(EvidenceIsland(
+                    "mixed_compiler_test_island",
+                    ("obs_builder", watch_observation_id),
+                ),),
+                active_root_ids=(watch_observation_id,),
+                inactive_promoted_ids=(), edges=(), tool_calls=0,
+            )
+        )
+        candidate_islands = {candidate_id: "mixed_compiler_test_island" for candidate_id in candidates}
+        consolidation = {"accepted_candidate_ids": ["builder"]}
+        trace = {
+            "source_observation_id": watch_observation_id,
+            "source_path": watch.path,
+            "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+        }
+
+        exact = _preserve_active_island_candidates(
+            consolidation, candidates, candidate_islands, controller, file_traces=(trace,)
+        )
+
+        self.assertEqual(exact["accepted_candidate_ids"], ["builder", "watch"])
+        self.assertEqual(exact["preserved_file_trace_source_candidate_ids"], ["watch"])
+
+    def test_evidence_composition_reserves_trace_slot_without_dropping_exact_source(self) -> None:
+        from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import GroundedCandidate
+
+        candidates = {
+            "compiler": GroundedCandidate("src/compiler/a.ts", 1, 2, "a", 1.0, "qualified_direct_evidence"),
+            "other": GroundedCandidate("src/compiler/b.ts", 1, 2, "b", 0.8, "qualified_navigation_evidence"),
+            "watch": GroundedCandidate("tests/watch.ts", 1, 2, "watch", 0.5, "qualified_navigation_evidence"),
+        }
+        selected = _selected_evidence(
+            {"accepted_candidate_ids": ["compiler", "other", "watch"]},
+            candidates,
+            (EvidenceObligation("mechanism", "Explain.", True),),
+            max_items=2,
+            protected_candidate_ids=("watch",),
+        )
+
+        self.assertEqual([item.metadata["path"] for item in selected], ["src/compiler/a.ts", "tests/watch.ts"])
 
 
 def _build_test_islands(

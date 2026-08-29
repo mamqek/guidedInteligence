@@ -234,6 +234,41 @@ class InitialOwnerComparisonTests(unittest.TestCase):
         self.assertEqual(len(result.excluded_ids), 19)
         self.assertEqual(result.stopping_reason, "preferred_input_target_crossed")
 
+    def test_admission_reserves_one_best_snippet_per_obligation_before_global_ranking(self) -> None:
+        shared = replace(
+            _observation("shared", "shared", 10, "return shared()"),
+            recurrence=5,
+        )
+        state = replace(
+            _observation("state", "state", 20, "return state()"),
+            handle=replace(shared.handle, path="builderState.ts", node_id="method:state"),
+            provenance=(DiscoveryProvenance(
+                "qdrant_dense_file_group", "q:state", ("state",), (1,), (1.0,)
+            ),),
+        )
+        filler = replace(
+            _observation("filler", "filler", 30, "return filler()"),
+            handle=replace(shared.handle, path="filler.ts", node_id="method:filler"),
+            recurrence=4,
+        )
+        kwargs = dict(
+            obligation_descriptions={"ordered": "Explain work.", "state": "Explain state."},
+            observations=(shared, filler, state),
+            preferred_input_chars=100_000,
+            max_input_chars=100_000,
+            max_selected=24,
+        )
+        full = fit_initial_owner_comparison_admission(**kwargs)
+        boundary = full.snippet_decisions[1]["total_input_chars"] - 1
+        result = fit_initial_owner_comparison_admission(
+            **{**kwargs, "preferred_input_chars": boundary}
+        )
+
+        self.assertEqual(set(result.coverage_reserved_ids), {"shared", "state"})
+        self.assertIn("builderState.ts", result.coverage_reserved_paths)
+        self.assertIn("state", result.admitted_ids)
+        self.assertNotIn("filler", result.admitted_ids)
+
     def test_resolves_sibling_methods_and_keeps_class_as_outer_context(self) -> None:
         nodes = (
             {"id": "series", "kind": "class", "qualified_name": "Series", "line_start": 84, "line_end": 2550},
