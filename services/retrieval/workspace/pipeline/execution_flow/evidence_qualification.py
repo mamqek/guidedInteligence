@@ -27,6 +27,7 @@ CLASSIFICATION_TO_DECISION = {
     "reject_insufficient": ("reject", "insufficient"),
 }
 INPUT_SAFETY_RESERVE_CHARS = 512
+MAX_QUALIFICATION_REASON_CHARS = 400
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,8 @@ class QualificationReuseCache:
         context = payload["file_contexts"][item.pop("file_context_id")]
         owner = context["relevant_owners"][item.pop("owner_context_id")]
         item.pop("observation_id", None)
+        # Prior judgment is memory, not changed source or independently new proof.
+        item.pop("previous_qualification", None)
         navigation = item.pop("navigation_context", {})
         handle = dict(item.get("source_handle", {}))
         if item.get("mode") == "full" and handle.get("full_line_start") and handle.get("full_line_end"):
@@ -446,6 +449,7 @@ def _payload(
                 "mode": card.mode,
                 "source_text": "" if blank_source else card.source_text,
                 "truncation_reason": card.truncation_reason,
+                "previous_qualification": dict(card.previous_qualification or {}),
                 "navigation_context": navigation_context,
             }, preserve={"source_text"})
         )
@@ -516,6 +520,8 @@ def _validate_decisions(
         reason = str(value.get("reason") or "").strip()
         if not reason:
             raise RuntimeError(f"qualification_response_invalid: missing reason for {observation_id}")
+        if len(reason) > MAX_QUALIFICATION_REASON_CHARS:
+            raise RuntimeError(f"qualification_response_invalid: reason exceeds {MAX_QUALIFICATION_REASON_CHARS} characters for {observation_id}")
         visible_support = _strings(value.get("visible_support"), limit=6)
         if disposition == "promote" and not visible_support:
             raise RuntimeError(f"qualification_response_invalid: promotion lacks visible support for {observation_id}")
@@ -558,7 +564,7 @@ def _response_format(ids: Sequence[str]) -> dict[str, Any]:
         "additionalProperties": False,
         "properties": {
             "classification": {"type": "string", "enum": list(CLASSIFICATION_TO_DECISION)},
-            "reason": {"type": "string"},
+            "reason": {"type": "string", "minLength": 1, "maxLength": MAX_QUALIFICATION_REASON_CHARS},
             "visible_support": {"type": "array", "items": {"type": "string"}},
             "missing_information": {"type": "array", "items": {"type": "string"}},
             "local_follow_up": {"type": "string"},

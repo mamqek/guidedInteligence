@@ -174,6 +174,7 @@ class GroundedCandidate:
     relationship_types: tuple[str, ...] = ()
     obligation_ids: tuple[str, ...] = ()
     facts: CandidateFacts = field(default_factory=CandidateFacts)
+    qualification_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -2966,6 +2967,7 @@ def _select_mechanism_flows(
                     "relationship_types": list(candidate.relationship_types),
                     "facts": candidate.facts.to_dict(),
                     "snippet": candidate.text[:MAX_CONSOLIDATION_SNIPPET_CHARS],
+                    "qualification_reason": candidate.qualification_reason,
                 },
                 sort_keys=True,
             )
@@ -3316,6 +3318,7 @@ def _consolidate_obligation_evidence(
             "relationship_types": list(candidate.relationship_types),
             "facts": candidate.facts.to_dict(),
             "snippet": candidate.text[:MAX_CONSOLIDATION_SNIPPET_CHARS],
+            "qualification_reason": candidate.qualification_reason,
         }
         for candidate_id, candidate in candidate_by_id.items()
     ]
@@ -5014,6 +5017,7 @@ def _candidate_trace_item(
     """Serialize decision-relevant candidate state without duplicating source text in trace logs."""
     return {
         "candidate_id": candidate_id or _global_candidate_id(candidate),
+        "qualification_reason": candidate.qualification_reason,
         "path": candidate.path,
         "line_start": candidate.line_start,
         "line_end": candidate.line_end,
@@ -6248,5 +6252,6 @@ def _evidence_item(candidate: GroundedCandidate, *, obligation_id: str, rank: in
             "source_paths": list(candidate.source_paths),
             "relationship_types": list(candidate.relationship_types),
             "originating_obligations": list(candidate.obligation_ids),
+            "qualification_reason": candidate.qualification_reason,
         },
     )

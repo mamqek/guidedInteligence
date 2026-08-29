@@ -177,119 +177,62 @@ class InitialOwnerComparisonTests(unittest.TestCase):
                 max_selected=2,
             )
 
-    def test_file_admission_uses_exact_serialized_comparison_budget(self) -> None:
-        values = (
-            _observation("first", "first", 100, "function first() { return build(); }"),
-            _observation("second", "second", 200, "function second() { return update(); }"),
-        )
-        admission = fit_initial_owner_comparison_admission(
-            obligation_descriptions={"ordered": "Explain the mechanism."},
-            observations=values,
-            ranked_paths=("pandas/core/series.py",),
-            preferred_input_chars=30_000,
-            max_input_chars=40_000,
-            max_files=24,
-            max_selected=24,
-        )
+    def test_snippet_admission_interleaves_files_and_keeps_only_crossing_item(self) -> None:
+        from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import _comparison_input_chars
+        first = _observation("first", "first", 10, "return build()")
+        middle = replace(_observation("middle", "middle", 20, "return update()"),
+                         handle=replace(first.handle, path="other.py", node_id="method:middle"))
+        last = _observation("last", "last", 30, "return state()")
+        values = tuple(replace(item, recurrence=4-i) for i, item in enumerate((first, middle, last)))
+        kwargs = dict(obligation_descriptions={"ordered": "Explain work."},
+                      preferred_input_chars=100_000, max_input_chars=100_000, max_selected=24)
+        full = fit_initial_owner_comparison_admission(observations=values, **kwargs)
+        self.assertEqual(full.admitted_ids, ("first", "middle", "last"))
+        boundary = full.snippet_decisions[1]["total_input_chars"]
+        kwargs["preferred_input_chars"] = boundary - 1
+        result = fit_initial_owner_comparison_admission(observations=values, **kwargs)
+        self.assertEqual(result.admitted_ids, ("first", "middle"))
+        self.assertEqual(result.excluded_ids, ("last",))
+        self.assertEqual(len(result.admitted_paths), 2)
+        self.assertEqual(result.total_input_chars, boundary)
+        self.assertEqual(result.path_decisions[0]["admitted_snippet_count"], 1)
+        self.assertEqual(result.path_decisions[0]["excluded_snippet_count"], 1)
+        measured = _comparison_input_chars(kwargs["obligation_descriptions"],
+                    _candidate_groups(values[:2], result.admitted_groups), 24)
+        self.assertEqual(result.total_input_chars, measured)
+        kwargs["preferred_input_chars"] = boundary
+        equal = fit_initial_owner_comparison_admission(observations=values, **kwargs)
+        self.assertEqual(equal.admitted_ids, ("first", "middle", "last"))
 
-        self.assertEqual(admission.admitted_paths, ("pandas/core/series.py",))
-        self.assertEqual(admission.candidate_count, 2)
-        self.assertGreater(admission.total_input_chars, 0)
+    def test_comparison_validation_removes_last_snippet_not_last_file(self) -> None:
+        from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import _comparison_input_chars
+        first = _observation("first", "first", 10, "return build()")
+        second = replace(_observation("second", "second", 20, "return update()"),
+                         handle=replace(first.handle, path="other.py", node_id="method:second"))
+        third = _observation("third", "third", 30, "return state()")
+        fourth = _observation("fourth", "fourth", 40, "return check()")
+        groups = ((first.handle.path, "*"), (second.handle.path, "*"))
+        budget = _comparison_input_chars({}, _candidate_groups((first, second), groups), 24)
+        response = {"selections": {"g1": {"primary_owner_id": "o1", "additional_owner_ids": []},
+                                    "g2": None}}
+        with patch("services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison.complete_json",
+                   return_value=response):
+            result = compare_initial_owners(llm_config=object(), obligation_descriptions={},
+                observations=(first, second, third), admitted_groups=groups, max_input_chars=budget,
+                max_selected=24)
+            self.assertEqual([item.id for item in result.selected], ["first"])
+            with self.assertRaisesRegex(RuntimeError, "snippets_added_after_crossing"):
+                compare_initial_owners(llm_config=object(), obligation_descriptions={},
+                    observations=(first, second, third, fourth), admitted_groups=groups,
+                    max_input_chars=budget, max_selected=24)
 
-    def test_file_admission_keeps_crossing_group_and_stops_without_backfill(self) -> None:
-        first = _observation("first", "first", 100, "function first() { return build(); }")
-        second = _observation("second", "second", 200, "function second() { return update(); }")
-        third = _observation("third", "third", 300, "function third() { return check(); }")
-        second = DiscoveryObservation(**{
-            **second.__dict__,
-            "handle": replace(second.handle, path="pandas/core/large.py"),
-            "observed_text": "x" * 4_000,
-        })
-        third = DiscoveryObservation(**{
-            **third.__dict__,
-            "handle": replace(third.handle, path="pandas/core/small.py"),
-        })
-        unconstrained = fit_initial_owner_comparison_admission(
-            obligation_descriptions={"ordered": "Explain the mechanism."},
-            observations=(first, second, third),
-            ranked_paths=("pandas/core/series.py", "pandas/core/large.py", "pandas/core/small.py"),
-            preferred_input_chars=40_000,
-            max_input_chars=40_000,
-            max_files=24,
-            max_selected=24,
-        )
-        second_total = int(unconstrained.path_decisions[1]["total_input_chars"])
-
-        admission = fit_initial_owner_comparison_admission(
-            obligation_descriptions={"ordered": "Explain the mechanism."},
-            observations=(first, second, third),
-            ranked_paths=("pandas/core/series.py", "pandas/core/large.py", "pandas/core/small.py"),
-            preferred_input_chars=second_total - 1,
-            max_input_chars=40_000,
-            max_files=24,
-            max_selected=24,
-        )
-
-        self.assertEqual(admission.admitted_paths, ("pandas/core/series.py", "pandas/core/large.py"))
-        self.assertEqual(
-            admission.excluded_paths,
-            ("pandas/core/small.py",),
-        )
-        self.assertEqual(admission.stopping_reason, "preferred_input_target_crossed")
-        self.assertEqual(admission.stopped_at_path, "pandas/core/large.py")
-        self.assertTrue(admission.path_decisions[1]["crossed_budget"])
-        self.assertEqual(admission.path_decisions[2]["decision"], "excluded_after_budget_crossing")
-        self.assertEqual(admission.total_input_chars, second_total)
-
-        # Equality is not overflow: the next complete group is still admitted.
-        equal = fit_initial_owner_comparison_admission(
-            obligation_descriptions={"ordered": "Explain the mechanism."},
-            observations=(first, second, third),
-            ranked_paths=("pandas/core/series.py", "pandas/core/large.py", "pandas/core/small.py"),
-            preferred_input_chars=second_total, max_input_chars=40_000,
-            max_files=24, max_selected=24)
-        self.assertEqual(len(equal.admitted_paths), 3)
-        self.assertEqual(equal.stopped_at_path, "pandas/core/small.py")
-
-    def test_first_group_may_cross_maximum_but_no_following_group_is_added(self) -> None:
-        small = _observation("small", "small", 10, "return read();")
-        large = [replace(_observation(str(i), str(i), 100+i*60, "x"*80),
-                         handle=replace(small.handle, path="large.py", node_id=f"function:{i}", line_start=i*60+1)) for i in range(15)]
-        kwargs = dict(obligation_descriptions={"ordered": "Explain work."}, max_selected=24, max_files=24,
-                      preferred_input_chars=100_000, max_input_chars=100_000)
-        measured = fit_initial_owner_comparison_admission(observations=[small], ranked_paths=[small.handle.path], **kwargs)
-        kwargs['max_input_chars'] = measured.total_input_chars
-        result = fit_initial_owner_comparison_admission(observations=[*large, small], ranked_paths=['large.py', small.handle.path], **kwargs)
-        self.assertEqual(result.admitted_paths, ('large.py',))
-        self.assertEqual(result.path_decisions[0]['decision'], 'admitted')
-        self.assertGreater(result.total_input_chars, measured.total_input_chars)
-        self.assertEqual(result.excluded_paths, (small.handle.path,))
-        self.assertEqual(result.stopping_reason, 'maximum_input_threshold_crossed')
-
-    def test_file_cap_still_applies(self) -> None:
-        first = _observation('first', 'first', 10, 'return read();')
-        second = replace(first, id='second', handle=replace(first.handle, path='second.py'))
-        result = fit_initial_owner_comparison_admission(obligation_descriptions={'ordered': 'Explain.'},
-            observations=[first,second], ranked_paths=[first.handle.path,second.handle.path],
-            preferred_input_chars=100_000, max_input_chars=100_000, max_files=1, max_selected=24)
-        self.assertEqual(result.admitted_paths, (first.handle.path,))
-        self.assertEqual(result.path_decisions[1]['decision'], 'excluded_file_limit')
-
-    def test_file_admission_allows_first_file_above_preferred_but_below_hard_ceiling(self) -> None:
-        value = _observation("first", "first", 100, "function first() { return build(); }")
-
-        admission = fit_initial_owner_comparison_admission(
-            obligation_descriptions={"ordered": "Explain the mechanism."},
-            observations=(value,),
-            ranked_paths=("pandas/core/series.py",),
-            preferred_input_chars=1,
-            max_input_chars=40_000,
-            max_files=24,
-            max_selected=24,
-        )
-
-        self.assertEqual(admission.admitted_paths, ("pandas/core/series.py",))
-        self.assertEqual(admission.stopping_reason, "preferred_input_target_crossed")
+    def test_first_snippet_can_cross_without_admitting_rest_of_file(self) -> None:
+        values = tuple(_observation(str(i), str(i), i*100, "return value()") for i in range(20))
+        result = fit_initial_owner_comparison_admission(obligation_descriptions={}, observations=values,
+            preferred_input_chars=1, max_input_chars=100_000, max_selected=24)
+        self.assertEqual(result.admitted_ids, ("0",))
+        self.assertEqual(len(result.excluded_ids), 19)
+        self.assertEqual(result.stopping_reason, "preferred_input_target_crossed")
 
     def test_resolves_sibling_methods_and_keeps_class_as_outer_context(self) -> None:
         nodes = (

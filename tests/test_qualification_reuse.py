@@ -113,8 +113,8 @@ class QualificationReuseTests(unittest.TestCase):
         with patch(MODULE + ".complete_json", side_effect=self.answer) as llm:
             first = self.qualify((large,))
             expected = prepare_qualification_request(user_request="Explain state", cards=(large, other),
-                                                     max_input_chars=6000, obligations=self.obligations)
-            second = self.qualify((large, other), max_input_chars=6000)
+                                                     max_input_chars=7500, obligations=self.obligations)
+            second = self.qualify((large, other), max_input_chars=7500)
         self.assertNotEqual(first.cards[0].source_text, second.cards[0].source_text)
         self.assertEqual(llm.call_count, 2)
         self.assertEqual(second.cards, expected.cards)
@@ -146,7 +146,7 @@ class QualificationReuseTests(unittest.TestCase):
         other = replace(large, observation_id="other", handle=SourceHandle("src/other.ts", 1, 70))
         with patch(MODULE + ".complete_json", side_effect=self.answer) as llm:
             first = self.qualify((large,))
-            second = self.qualify((large, other), max_input_chars=6000)
+            second = self.qualify((large, other), max_input_chars=7500)
         sent = json.loads(llm.call_args.args[1][1]["content"])
         self.assertEqual([x["observation_id"] for x in sent["observations"]], ["other"])
         self.assertEqual(second.cards[0].source_text, first.cards[0].source_text)

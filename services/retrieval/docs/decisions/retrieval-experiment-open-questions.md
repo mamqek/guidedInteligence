@@ -1,12 +1,65 @@
 # Retrieval Experiment Open Questions
 
+## SSA-1 — Shared snippet admission, initial boundary retained; final boundary pending
+
+- [Shared selection experiment](snippet-first-admission-experiment.md): implements the IOC-1/FPK-1
+  snippet-first proposal at initial admission only. Global canonical-snippet priority and exact incremental
+  serialization replace whole-file admission. Qualified-candidate adapter exists but is not active in final
+  selection. Controller, scoring signals, source cards, limits and final flow admission are unchanged.
+- Controlled saved-input replays and both live-input counterfactuals demonstrate broader file access with less
+  whole-group waste. Both full TypeScript runs retain Builder, BuilderState and WatchMode, still partial/false.
+  Retained on the experiment branch; detailed run IDs, costs and comparisons are in the decision note/changelog.
+- Remaining ordering issue: recurrence can outrank excellent single-query owners. A missing intermediate callable
+  leaves a later direct helper without represented connections; the final responsibility filter then excludes it.
+  Some other direct evidence still falls after final flow budgeting. Do not attribute those boundaries to file
+  admission or silently change the scoring weights while integrating common selection machinery.
+- Helpers has no qualified snippet or WatchMode file trace in either new run. In the second, four exact retrieved
+  Helpers owners remain deferred; raw WatchMode calls provide leads in both runs. This differs from QRC-1's
+  earlier exact-source file-trace rejection. Discovery/trace creation must be audited before applying that diagnosis.
+- Final snippet-first admission remains a separate experiment, with stage-specific semantic eligibility and
+  connections. A common interface does not make initial retrieval associations equivalent to qualified support.
+
+## QRC-1 — Bounded qualification rationale across evidence stages
+
+- [Rationale carryforward experiment](qualification-rationale-carryforward-experiment.md): requested after SBR-1
+  rollback. Existing qualification reason capped at 400 characters and carried through reassessment, candidates,
+  coverage, final selection and returned evidence metadata. No description stage or new inspection calls.
+- 177 focused/relevant checks pass; actual TypeScript runs `run-20260828T021522Z` / `run-20260828T021533Z`
+  completed partial/false, 2/2 Oracle files, 87,747/107,062 tokens. All final/coverage candidates carry reasons;
+  three real reassessments receive prior reason (one navigation-to-direct, one unchanged navigation, one unchanged
+  rejection). Existing direct-proof cache reused two judgments per run; no live direct-to-navigation reassessment
+  exercised the original concern. Retained for review, not quality-accepted; metadata uses unchanged budgets.
+- Run 2's navigation-only watchRecursivePattern is still appended by post-LLM active-island preservation despite
+  its explicit limitation. Rationale transport is not a fix for that separate deterministic admission boundary.
+- Follow-up loss audit: missing Builder is excluded before comparison by whole-file prefix budgeting in both
+  runs (FPK-1/IOC-1); run 1's 43-owner editorServices group adds 40,613 request characters and yields no selection.
+  Helpers' snippets lose semantic eligibility, but a separate file trace is created in both runs. That trace is
+  excluded by `source_island_not_selected` (955/1166): the gate actually requires the exact source candidate,
+  verifyTransitiveReferences, to be accepted by final consolidation, not any selected member of its island/file.
+  Later active-island preservation returns other WatchMode snippets without reevaluating file traces. This corrects
+  the earlier incomplete attribution to qualification alone; see the experiment record's file-trace follow-up.
+
+## SBR-1 — Description memory, source inspections and downstream caveats
+
+- [Source brief / inspection experiment](source-brief-inspection-experiment.md): reverted at user request on
+  2026-08-28; baseline `7c50ba2` restored and experiment branch deleted. Runs/replays preserved and explicitly
+  labelled outside the baseline statistics cohort. Two completed retries showed no final-quality improvement and
+  materially higher cost. Full measurements and failed attempts remain in the decision record/changelog.
+- Pending owner questions coalesce and retain provenance in focused tests; live scheduling delays requests and leaves
+  unanswered work at the round limit. New question wording is not proof of semantically new work.
+- Description memory still grows through complete call metadata and per-owner claims. Do not resolve this by silently
+  clipping evidence or increasing budgets. Generic test support is also overstated by the unchanged final selector,
+  which does not receive qualification's missing-information warnings. These are separate follow-up boundaries.
+- FPK-1 remains: early file admission can exclude the implementation before descriptions exist. This experiment does
+  not repair it. See the record's full dense/sparse → resolution → admission → recovery → final audit.
+
 ## POS-1 / IOC-2 — Positive proof retention and pre-comparison body visibility
 
 - 2026-08-28 follow-up: [group contract and focused cards](group-contract-and-focused-owner-cards.md).
   Group-keyed schema passes two real fixed-input calls and both actual runs; retained as a contract correction.
   Focused source windows pass two comparisons but still admit six saved-input files. Actual 225224Z / 225234Z:
   3/2 Oracle files, partial/false, 101,440/101,088 tokens. Provisional, not quality-accepted; FPK-1 still loses
-  builderState before comparison in the second run. File-summary navigation is analysis only.
+  builderState before comparison in the second run. Later description/inspection work is tracked separately in SBR-1.
 
 - Record: [positive proof / body / island experiments](positive-proof-owner-body-island-experiments.md).
 - P: positive-only reuse and verified-crop source retention are provisional after 213229Z / 213541Z (3/2 Oracle
@@ -209,6 +262,12 @@ map it to an entry here before treating it as a new regression or inventing anot
 
 ## IOC-1 — Initial owner comparison scale and support independence
 
+- Proposed follow-up (not implemented): admit globally ranked individual canonical snippets, using file grouping
+  only for serialization and shared metadata. Unlike the rejected shortlist, this changes admission units before
+  the budget boundary, so savings can admit other files. Compare saved inputs for prior semantic-owner retention,
+  file diversity, per-file concentration, and exact serialized cost before live experiments. Existing snippet
+  priority is exact anchor, recurrence, rank, score, path/line; it is not a semantic relevance guarantee. Avoid
+  presenting a hard ten-per-file cap or rank-only reorder as a new solution to the already measured shortlist loss.
 - Experiment: compact initial owner comparison plus complete structural range resolution.
 - Current budget follow-up: FPK-1 now provisionally includes the complete crossing file before stopping; 60K/100K
   are thresholds rather than strict pre-add ceilings. Replacement run 20260827T132218Z returned two watchMode owners

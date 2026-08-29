@@ -50,6 +50,9 @@ class InitialOwnerComparisonAdmission:
     stopping_reason: str
     stopped_at_path: str
     path_decisions: tuple[dict[str, object], ...]
+    admitted_ids: tuple[str, ...]
+    excluded_ids: tuple[str, ...]
+    snippet_decisions: tuple[dict[str, object], ...]
 
 
 def select_range_candidate_owners(
@@ -155,32 +158,22 @@ def compare_initial_owners(
             "prompt_chars": len(prompt_text),
             "total_input_chars": total_input_chars,
             "input_char_budget": max_input_chars,
-            "budget_policy": "append_crossing_group_then_stop",
+            "budget_policy": "append_crossing_snippet_then_stop",
             "budget_overshoot_chars": max(0, total_input_chars - max_input_chars),
         }
         if trace is not None:
             trace.record("initial_owner_comparison_prepared", preparation)
         if total_input_chars > max_input_chars:
-            # The last admitted file may cross the threshold. A further file
-            # after an already-over-budget prefix is still a contract error.
-            compared_paths = {_group_key(key)[0] for key in compared}
-            last_path = next(path.casefold() for path, _ in reversed(admitted_groups)
-                             if path.casefold() in compared_paths)
-            prefix = {key: values for key, values in compared.items()
-                      if _group_key(key)[0] != last_path}
-            prefix_chars = 0
-            if prefix:
-                prefix_payload, prefix_external, _, _ = _payload(obligation_descriptions, prefix)
-                prefix_format = (
-                    _global_response_format(prefix_external, max_selected=max_selected or 1)
-                    if global_selection else _response_format(prefix_external)
-                )
-                prefix_chars = (len(prompt_text) + len(json.dumps(prefix_format, sort_keys=True))
-                                + len(json.dumps(prefix_payload, sort_keys=True)))
+            # Validate the exact admission unit, including when the last snippet
+            # extends an earlier file group rather than creating a new group.
+            participating = {item.id for values in compared.values() for item in values}
+            ordered = tuple(item for item in observations if item.id in participating)
+            prefix = _candidate_groups(ordered[:-1], admitted_groups)
+            prefix_chars = _comparison_input_chars(obligation_descriptions, prefix, max_selected)
             if prefix_chars > max_input_chars:
                 raise RuntimeError(
                     "initial_owner_comparison_input_budget_exceeded:"
-                    f"prefix={prefix_chars}>{max_input_chars}:groups_added_after_crossing"
+                    f"prefix={prefix_chars}>{max_input_chars}:snippets_added_after_crossing"
                 )
 
         def log_event(event_type: str, value: Mapping[str, Any]) -> None:
@@ -290,76 +283,67 @@ def fit_initial_owner_comparison_admission(
     *,
     obligation_descriptions: Mapping[str, str],
     observations: Sequence[DiscoveryObservation],
-    ranked_paths: Sequence[str],
     preferred_input_chars: int,
     max_input_chars: int,
-    max_files: int,
     max_selected: int,
 ) -> InitialOwnerComparisonAdmission:
-    """Append complete ranked groups; retain the crossing group, then stop."""
-    admitted: list[str] = []
-    excluded: list[str] = []
-    total_input_chars = 0
-    candidate_count = 0
-    stopping_reason = "ranking_exhausted"
-    stopped_at_path = ""
-    path_decisions: list[dict[str, object]] = []
-    for path in ranked_paths:
-        if stopping_reason != "ranking_exhausted":
-            excluded.append(path)
-            path_decisions.append({"path": path, "decision": "excluded_after_budget_crossing",
-                                   "crossing_path": stopped_at_path})
-            continue
-        if len(admitted) >= max_files:
-            excluded.append(path)
-            path_decisions.append({"path": path, "decision": "excluded_file_limit"})
-            continue
-        tentative = (*admitted, path)
-        groups = _candidate_groups(
-            observations,
-            tuple((value.casefold(), _ALL_FILE_OBLIGATIONS) for value in tentative),
-        )
-        payload, external_groups, _group_aliases, _owner_aliases = _payload(
-            obligation_descriptions,
-            groups,
-        )
-        prompt_text = _prompt_text(max_selected=max_selected)
-        response_format = _global_response_format(external_groups, max_selected=max_selected)
-        measured = (
-            len(prompt_text)
-            + len(json.dumps(response_format, sort_keys=True))
-            + len(json.dumps(payload, sort_keys=True))
-        )
-        marginal_chars = measured - total_input_chars
-        admitted.append(path)
-        previous_chars = total_input_chars
-        total_input_chars = measured
-        candidate_count = len({item.id for values in groups.values() for item in values})
-        if measured > min(preferred_input_chars, max_input_chars):
-            stopping_reason = ("maximum_input_threshold_crossed" if measured > max_input_chars
-                               else "preferred_input_target_crossed")
-            stopped_at_path = path
-        path_decisions.append({
-            "path": path,
-            "decision": "admitted",
-            "total_input_chars": measured,
-            "marginal_chars": marginal_chars,
-            "candidate_count": candidate_count,
-            "previous_input_chars": previous_chars,
-            "crossed_budget": stopping_reason != "ranking_exhausted",
-            "preferred_overshoot_chars": max(0, measured - preferred_input_chars),
-            "maximum_overshoot_chars": max(0, measured - max_input_chars),
-        })
-    return InitialOwnerComparisonAdmission(
-        admitted_groups=tuple((path.casefold(), _ALL_FILE_OBLIGATIONS) for path in admitted),
-        admitted_paths=tuple(admitted),
-        excluded_paths=tuple(excluded),
-        total_input_chars=total_input_chars,
-        candidate_count=candidate_count,
-        stopping_reason=stopping_reason,
-        stopped_at_path=stopped_at_path,
-        path_decisions=tuple(path_decisions),
+    """Rank and admit canonical snippets; file grouping is serialization only."""
+    from .snippet_selection import admit_snippets, discovery_priority, discovery_selection_view
+
+    by_id = {item.id: item for item in observations}
+    def measure(ids: tuple[str, ...]) -> int:
+        values = tuple(by_id[identifier] for identifier in ids)
+        paths = tuple(dict.fromkeys(item.handle.path.casefold() for item in values))
+        groups = _candidate_groups(values, tuple((path, _ALL_FILE_OBLIGATIONS) for path in paths))
+        return _comparison_input_chars(obligation_descriptions, groups, max_selected)
+
+    result = admit_snippets(
+        tuple(discovery_selection_view(item) for item in observations),
+        priority=lambda item, _selected: discovery_priority(item),
+        measure=measure, threshold=min(preferred_input_chars, max_input_chars),
     )
+    admitted_paths = tuple(dict.fromkeys(by_id[value].handle.path for value in result.admitted_ids))
+    admitted_keys = {path.casefold() for path in admitted_paths}
+    excluded_paths = tuple(dict.fromkeys(
+        item.handle.path for item in observations if item.handle.path.casefold() not in admitted_keys
+    ))
+    path_decisions = tuple({
+        "path": path,
+        "canonical_snippet_count": sum(item.handle.path.casefold() == path.casefold() for item in observations),
+        "admitted_snippet_count": sum(by_id[value].handle.path.casefold() == path.casefold()
+                                      for value in result.admitted_ids),
+        "excluded_snippet_count": sum(by_id[value].handle.path.casefold() == path.casefold()
+                                      for value in result.excluded_ids),
+        "marginal_chars": sum(row.get("marginal_chars", 0) for row in result.decisions
+                              if row["path"].casefold() == path.casefold()),
+    } for path in dict.fromkeys(item.handle.path for item in observations))
+    stopping_reason = (
+        "maximum_input_threshold_crossed" if result.total_input_chars > max_input_chars
+        else "preferred_input_target_crossed" if result.crossing_id else "ranking_exhausted"
+    )
+    return InitialOwnerComparisonAdmission(
+        admitted_groups=tuple((path.casefold(), _ALL_FILE_OBLIGATIONS) for path in admitted_paths),
+        admitted_paths=admitted_paths, excluded_paths=excluded_paths,
+        total_input_chars=result.total_input_chars, candidate_count=len(result.admitted_ids),
+        stopping_reason=stopping_reason,
+        stopped_at_path=by_id[result.crossing_id].handle.path if result.crossing_id else "",
+        path_decisions=path_decisions, admitted_ids=result.admitted_ids,
+        excluded_ids=result.excluded_ids, snippet_decisions=result.decisions,
+    )
+
+
+def _comparison_input_chars(
+    obligations: Mapping[str, str],
+    groups: Mapping[str, Sequence[DiscoveryObservation]],
+    max_selected: int | None,
+) -> int:
+    if not groups:
+        return 0
+    payload, external, _, _ = _payload(obligations, groups)
+    schema = (_global_response_format(external, max_selected=max_selected)
+              if max_selected is not None else _response_format(external))
+    return (len(_prompt_text(max_selected=max_selected))
+            + len(json.dumps(payload, sort_keys=True)) + len(json.dumps(schema, sort_keys=True)))
 
 
 def _candidate_groups(
