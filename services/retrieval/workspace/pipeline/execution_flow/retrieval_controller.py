@@ -139,7 +139,15 @@ def run_retrieval_controller(
         qualification = qualify_cards(
             llm_config=ctx.config.llm_config,
             user_request=user_request,
-            cards=disclosure.cards,
+            cards=tuple(
+                replace(card, previous_qualification={
+                    "support_level": previous.support_level,
+                    "disposition": previous.disposition,
+                    "reason": previous.reason,
+                    "supported_obligation_ids": list(previous.supported_obligation_ids),
+                }) if (previous := decisions.get(card.observation_id)) is not None else card
+                for card in disclosure.cards
+            ),
             obligations=obligations,
             max_input_chars=ctx.config.max_qualification_input_chars,
             trace=ctx.trace,

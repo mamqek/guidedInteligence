@@ -46,6 +46,7 @@ class DisclosureCard:
     used_chars: int = 0
     complete_source_text: str = ""
     preview_source_text: str = ""
+    previous_qualification: Mapping[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)

@@ -26,7 +26,6 @@ from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparis
     fit_initial_owner_comparison_admission,
     select_range_candidate_owners,
 )
-from services.retrieval.workspace.pipeline.execution_flow.initial_file_admission import rank_initial_files
 from services.retrieval.workspace.pipeline.execution_flow.owner_comparison_source import prepare_initial_owner_sources
 from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import (
     MAX_EVIDENCE,
@@ -357,32 +356,33 @@ def run_obligation_retrieval(
     source_preparation = prepare_initial_owner_sources(canonical_snippets, config=ctx.config, trace=ctx.trace)
     canonical_snippets = source_preparation.observations
     tool_calls += source_preparation.layout_requests
-    file_ranking = rank_initial_files(canonical_snippets)
     admission = fit_initial_owner_comparison_admission(
         obligation_descriptions={item.id: item.description for item in repository_obligations},
         observations=canonical_snippets,
-        ranked_paths=file_ranking.ranked_paths,
         preferred_input_chars=ctx.config.preferred_initial_owner_comparison_input_chars,
         max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
-        max_files=max(1, len(file_ranking.ranked_paths)),
         max_selected=ctx.config.max_discovery_observations,
     )
     admitted_path_keys = {path.casefold() for path in admission.admitted_paths}
+    admitted_ids = set(admission.admitted_ids)
+    canonical_by_id = {item.id: item for item in canonical_snippets}
+    comparison_snippets = tuple(canonical_by_id[value] for value in admission.admitted_ids)
     file_admission_decisions = tuple(
         {
             "observation_id": item.id,
             "path": item.handle.path,
             "symbol": item.handle.symbol,
-            "reason": "file_not_admitted",
+            "reason": ("same_path_alternative" if item.handle.path.casefold() in admitted_path_keys
+                       else "file_not_admitted"),
         }
         for item in canonical_snippets
-        if item.handle.path.casefold() not in admitted_path_keys
+        if item.id not in admitted_ids
     )
     ctx.trace.record(
         "initial_files_admitted",
         {
             "input_snippet_count": len(canonical_snippets),
-            "input_file_count": len(file_ranking.ranked_paths),
+            "input_file_count": len({item.handle.path.casefold() for item in canonical_snippets}),
             "admitted_file_count": len(admission.admitted_paths),
             "admitted_paths": list(admission.admitted_paths),
             "coverage_reserved_paths": [],
@@ -393,18 +393,21 @@ def run_obligation_retrieval(
             "comparison_preferred_input_chars": ctx.config.preferred_initial_owner_comparison_input_chars,
             "comparison_input_char_budget": ctx.config.max_initial_owner_comparison_input_chars,
             "file_limit": 0,
-            "admission_limit": "ranked_complete_file_groups_append_crossing_then_stop",
+            "admission_limit": "ranked_individual_snippets_append_crossing_then_stop",
             "stopping_reason": admission.stopping_reason,
             "stopped_at_path": admission.stopped_at_path,
             "path_decisions": list(admission.path_decisions),
-            "ranking": list(file_ranking.path_details),
+            "ranking_unit": "snippet",
+            "ranking": list(admission.snippet_decisions),
+            "admitted_snippet_ids": list(admission.admitted_ids),
+            "excluded_snippet_ids": list(admission.excluded_ids),
             "nonadmitted_disposition": "deferred",
         },
     )
     owner_comparison = compare_initial_owners(
         llm_config=ctx.config.llm_config,
         obligation_descriptions={item.id: item.description for item in repository_obligations},
-        observations=canonical_snippets,
+        observations=comparison_snippets,
         admitted_groups=admission.admitted_groups,
         max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
         max_selected=ctx.config.max_discovery_observations,
@@ -721,6 +724,7 @@ def _candidate_from_qualified(
         source_paths=(),
         relationship_types=observation.relationship_kinds,
         obligation_ids=decision.supported_obligation_ids,
+        qualification_reason=decision.reason,
         facts=_candidate_facts(
             card.source_text,
             semantic_discoveries=semantic,
@@ -740,6 +744,7 @@ def _controller_candidate_payload(candidate: GroundedCandidate) -> dict[str, Any
         "line_end": candidate.line_end,
         "symbol": candidate.symbol,
         "snippet": candidate.text,
+        "qualification_reason": candidate.qualification_reason,
         "obligation_ids": list(candidate.obligation_ids),
         "qualification_support": (
             "direct_evidence"

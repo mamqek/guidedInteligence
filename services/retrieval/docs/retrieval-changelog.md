@@ -1,5 +1,117 @@
 # Retrieval Changelog
 
+## 2026-08-28: Shared Selection Interface and Snippet-First Initial Admission
+
+Record: [shared snippet admission experiment](decisions/snippet-first-admission-experiment.md).
+Branch `codex/snippet-first-admission`; starting tracked dirty state preserved in stash snapshot
+`ea8a285d79f1692f88d79c4b27d8b99007301796`, without removing it. Existing rationale changes/artifacts retained.
+Shared read-only discovery/qualified adapters distinguish retrieval associations from semantic support and
+unknown connections from inspected empty neighborhoods. Common admission uses stage-owned priority, eligibility
+and exact serialized marginal cost; it retains the crossing snippet, then stops. Only initial owner comparison
+uses this in production. Grouping is serialization of admitted snippets, not wholesale admission of their file.
+Controller, final-flow scoring/admission, prompts, sources and budgets remain unchanged. 221 relevant checks pass.
+
+Two saved-input replays exactly reconstruct original requests and repeat deterministically. File access changes
+4 to 16 / 4 to 20, compared snippets 105 to 66 / 76 to 71, characters 90,777 to 60,679 / 63,699 to 60,270.
+Both real LLM comparisons are valid and select the newly admitted Builder propagation owner. Some previous
+selections are excluded by unchanged recurrence-first priority; broader file access is not universal owner recall.
+
+Actual TypeScript runs, final selection enabled and explanation skipped:
+
+| Run | Compared snippets / files | Initial request chars | Retrieval tokens | Oracle files | Coverage / sufficient |
+|---|---:|---:|---:|---:|---|
+| run-20260828T131737Z | 64 / 21 | 60,111 | 101,538 | 3 | partial / false |
+| run-20260828T132110Z | 71 / 22 | 60,654 | 112,414 | 3 | partial / false |
+
+Old whole-file code replayed on these exact live inputs would admit 7 files / 92 snippets / 67,818 characters
+and 4 / 91 / 69,798. Builder now reaches final evidence in both runs. BuilderState was initially admitted only
+in the first; existing later recovery obtains it in the second. Baseline rationale runs retained two Oracle
+files each. Comparison tokens decrease 42,851 to 34,578 (-19.3%); total retrieval increases 194,809 to 213,952
+(+9.8%). Total live deltas are descriptive, not controlled causal estimates of token savings or semantic quality.
+
+Residual losses: neither run creates a WatchMode-to-Helpers file trace, unlike the earlier pair whose existing
+traces failed exact-source final acceptance. The second run's four retrieved Helpers owners remain deferred.
+Its forEachFilesReferencingPath is rank 152 despite best retrieval rank 1, due to recurrence 1; the missing
+intermediate connection contributes to a recovered direct helper failing final responsibility eligibility.
+Other direct test/diagnostic snippets are cut by unchanged final-flow budgeting. Post-LLM island preservation
+still returns some noisy server/test snippets. Detailed source-level audits and exact trace links are in the record.
+
+Startup diagnostic `run-20260828T131742Z` failed during concurrent structural sync lock contention, before
+retrieval. Preserved and excluded from acceptance; replaced after sync finished. Ordinary first-run sync removed
+12,273 stale indexed records, not source files; final graph counts match baseline and pending references are zero.
+Existing Qdrant index reports `rebuilt=false`; no forced rebuild or scope change. This environmental cleanup is
+disclosed rather than claiming byte-identical graph state. All three runs are tagged separately from baselines.
+
+Decision: retain the measured initial-admission improvement on the experiment branch. Final-selection integration
+remains pending as a separate boundary; no claim of full sufficiency or resolved ranking/Helpers behavior.
+
+## 2026-08-28: Helpers File-Trace and Snippet-Admission Follow-up Audit
+
+No runtime change or new run. In rationale runs `run-20260828T021522Z` / `run-20260828T021533Z`, Helpers file
+traces exist (945/1156) but fail exact-source acceptance before file-trace selection (955/1166). The recorded
+`source_island_not_selected` label is broader than the actual condition: final consolidation must accept the
+particular source observation. Later preservation of other WatchMode snippets does not reevaluate this gate.
+This corrects the incomplete previous explanation based only on helper qualification. Historical run
+`run-20260826T094609Z` selected Helpers at this gate (2017), with an accepted source and insufficient endpoint.
+Details are in the rationale experiment note; QRC-1 and IOC-1 now record the boundary and the unimplemented
+global-snippet admission proposal. The previous ten-owner shortlist ran after file admission without backfill;
+it did not test this proposed change of admission unit.
+
+## 2026-08-28: Bounded Qualification Rationale Carryforward
+
+Record: [qualification rationale experiment](decisions/qualification-rationale-carryforward-experiment.md).
+The existing qualification reason is one sentence capped at 400 characters, validated rather than truncated.
+It follows the qualified candidate through coverage, final selection, trace and returned metadata; genuine
+reassessment receives the prior classification/reason. Direct-proof reuse remains unchanged, and previous
+negative judgments can still be corrected. No description stage, additional mandatory LLM call, larger budget,
+new source disclosure, round-limit change, index scope change, or explanation implementation change.
+
+Actual TypeScript runs `run-20260828T021522Z` / `run-20260828T021533Z`: partial/false, 2/2 Oracle files,
+87,747/107,062 retrieval tokens. Existing 83,401-point index reused; dormant completion off; explanation skipped.
+All 57 reasons fit (maximum 281/279 characters), all 8/12 final-input candidates and 7/10 returned items retain
+the reason. Three actual reassessments use it: generic transitive-reference test stays navigation, path regex
+stays rejected, getNextInvalidatedProject becomes direct state evidence and reaches returned rank 4 in run 1.
+That latter source view also changed, so rationale alone cannot be credited. Two direct judgments per run are
+reused by the existing cache; no live direct-to-navigation reassessment tests the original concern.
+
+Combined cost 194,809 versus baseline 202,528 (-3.8%), not causal savings because inventories and round counts
+differed. Builder was raw-retrieved and structurally resolved but excluded before qualification in both runs.
+Run 2 still returns a navigation-only regex via unchanged post-LLM active-island preservation, not final LLM
+selection. No overall quality improvement demonstrated. 177 tests pass; bounded continuity retained for review.
+Run cohort annotations and saved audits keep these separate from baseline and reverted source-description runs.
+
+## 2026-08-28: Source-Grounded Descriptions and Coalesced Inspections — Reverted
+
+User requested complete removal after review. Restored baseline runtime at `7c50ba2` on
+`codex/dormant-island-reconnection` and deleted the experiment branch. Runtime/replay code archived in stash
+`e0a4ed606195f93c7ad26d2eeb80f0056f633810`; no experimental descriptions, queue or budget overrides remain active.
+All four actual runs below are preserved and labelled `source-brief-inspection-reverted`, excluded by designation
+from baseline statistics. Original traces/results remain intact; isolated replays are labelled historical diagnostics.
+See the experiment record and `testing/codeRepoQA/source-brief-replays/README.md` for the exact cohort manifest.
+
+Record: [source brief / inspection experiment](decisions/source-brief-inspection-experiment.md).
+Branch `codex/source-brief-inspection`, base `7c50ba2`. Round-zero/later qualification reads complete owners
+in bounded batches and writes cited descriptions; coverage sees descriptions plus metadata and proposes existing-pool
+typed inspections. Pending questions coalesce by owner/revision, preserve each purpose/round, and use one ordinary
+slot per owner. Novelty validation precedes slots. No prequalification or explanation change; final logic unchanged,
+with temporary 100k flow budget. Qualification/coverage 100k. Strict source/citation validation; no fallback.
+
+First real pair 235551Z/235644Z failed round-three coverage at 114,261/105,071 characters (324,752 tokens total).
+Removing duplicate qualification narratives from repeated coverage context, using ordered call tables, and compact
+JSON avoids dropping source or metadata. Two focused lean-context replays and a late-context check pass.
+
+Completed retries `run-20260828T000632Z` / `run-20260828T000640Z`: partial/false, 3/1 Oracle files,
+184,492/179,634 tokens (+79.8% pair cost versus 225224Z/225234Z). Two/one full inspections execute; two/three
+remain pending at the unchanged round stop. One verifies timestamp/pseudo-up-to-date conditions; two explicitly
+cannot establish downstream/wildcard claims. No inspection-induced downgrade. Same-owner cross-round coalescing is
+fixture-proven only. All final flows/connections fit; no final-budget exclusions.
+
+Run 2's builder files were raw-retrieved, resolved and canonical, then excluded by unchanged initial file admission.
+Both final selectors nevertheless rank generic `verifyTransitiveReferences` first as an issue anchor despite explicit
+qualification caveats; the unchanged final request does not carry those caveats. No final-quality gain established.
+108 relevant tests passed during implementation. Mechanically verified, **not quality-accepted**; subsequently
+reverted at user request. Full run/source/loss audit and 991,898-token experiment ledger remain in the record.
+
 ## 2026-08-28: Group-Keyed Comparison and Focused Owner Cards
 
 Record: [group contract / focused cards](decisions/group-contract-and-focused-owner-cards.md).
