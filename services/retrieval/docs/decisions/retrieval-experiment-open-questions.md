@@ -45,6 +45,32 @@
 - Final snippet-first admission remains a separate experiment, with stage-specific semantic eligibility and
   connections. A common interface does not make initial retrieval associations equivalent to qualified support.
 
+## NCA-1 / WRF-1 — Non-code artifacts and wide mechanical refactors deferred
+
+- Keep the accepted mixed-island scheduling and exact trace-source implementation unchanged. The focused TypeScript
+  pair repeated all four target files, and the ordinary Vue/Pandas mechanism regressions did not lose their existing
+  implementation Oracles. Do not broaden artifact preservation or alter owner scheduling merely to improve the two
+  cases below.
+- Non-code artifact limitation (`vuejs-vue-13052`, `run-20260829T162949Z`): Qdrant retrieved
+  `packages/compiler-sfc/package.json` at dense file rank 5 / grouped rank 9 and `pnpm-lock.yaml` at dense rank 7 /
+  grouped rank 11 for the strongest matching obligations. CodeGraph correctly returned zero owners. Both were then
+  excluded at initial comparison admission at global positions 160 and 173+ after the 60,237-character crossing;
+  neither reached owner comparison, qualification, or final selection. The issue literally identifies
+  `compileTemplate.ts`, `compileTemplate`, and `format`, but says only "compiler/sfc package" and "optional
+  dependencies" rather than naming either manifest path. Exact-anchor recognition therefore did not fail. A future
+  solution, if this case class is prioritized, needs a separately measured dependency-artifact inference and
+  file-level configuration evidence boundary; it must not pretend manifests have CodeGraph owners.
+- Wide-refactor limitation (`pandas-dev-pandas-35925`, `run-20260829T162616Z`): the hidden Oracle is a 25-file Black
+  formatting cleanup spanning configuration, docs, tests, and implementation. Causal mechanism selection retained
+  only `pandas/core/aggregation.py` (1/25); earlier nonempty runs varied from three to five overlaps while the four
+  immediately preceding runs returned no evidence. Changed-file overlap is a poor proxy for explanation quality on
+  a mechanical repository-wide patch. A future treatment would first need an explicit task/artifact contract for
+  refactors (for example representative files versus exhaustive change scope) before changing retrieval.
+- Status: documented and deferred, not an active implementation plan. No heuristic, extra slot, manifest bypass,
+  broad artifact-role reservation, or evaluator-specific exception is authorized by these observations. Reopen only
+  with a separate experiment framework, focused fixtures, and cross-repository acceptance that leaves the current
+  focused behavior intact.
+
 ## QRC-1 — Bounded qualification rationale across evidence stages
 
 - [Rationale carryforward experiment](qualification-rationale-carryforward-experiment.md): requested after SBR-1

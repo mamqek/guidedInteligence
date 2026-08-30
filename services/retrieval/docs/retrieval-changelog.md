@@ -5236,21 +5236,78 @@ Verification:
 ## 2026-08-29 — Mixed-island file-trace representation accepted
 
 - Experiment: [`decisions/mixed-island-file-trace-representation-experiment.md`](decisions/mixed-island-file-trace-representation-experiment.md).
-  Restored the bounded pending scheduler only for repository-classified test-source, file-seeded cross-file
-  handoffs: at most two pending actions, one per island, two-round lifetime, and one existing ordinary slot after
-  round 1. It adds no action slots, graph requests, controller rounds, or unconditional LLM calls.
-- Final evidence now applies deterministic preservation after the candidate LLM and before file-trace eligibility.
-  A protected mixed island can preserve the exact source of a created trace even when another compiler file already
-  represents that island. The alternative artifact-role reservation was tested and removed because a competing test
-  file could win without preserving the trace source.
-- File traces retain the source observation's related obligation IDs. A rejected endpoint may reach the unchanged
-  trace LLM only with at least two recorded direct call sites; one-call rejected endpoints remain blocked. Accepted
-  traces reserve capacity inside the existing evidence cap and protect their exact source when a snippet must be
-  displaced.
-- Repeat `run-20260829T145414Z` exposed a separate upstream loss: BuilderState was raw rank 1 for state changes and
-  had nine exact resolved owners, but global preferred-budget admission excluded all of them. Initial owner comparison
-  now reserves the strongest observation per repository obligation before applying the unchanged global ranking and
-  character budget. This is displacement within the same request budget, not extra capacity.
+  The final architecture and invariants are documented separately in
+  [`retained-file-trace-representation-design.md`](retained-file-trace-representation-design.md); the experiment note
+  remains the chronological attempt and measurement record.
+
+### Failure chain repaired
+
+The missing Helpers Oracle was not one defect. The same useful structural relationship could disappear at six
+different boundaries. The retained change repairs each boundary at the stage that owns it:
+
+| Boundary | Observed failure | Retained correction |
+|---|---|---|
+| Initial owner-comparison admission | BuilderState was raw rank 1 for state changes with nine exact owners, but all owners fell after the global preferred-budget crossing | Reserve the strongest observation for each repository obligation, then fill the unchanged request budget by the existing global ranking |
+| Controller scheduling | A useful WatchMode file handoff was enumerated but lost its ordinary round-one slot and was not reliably reconstructed later | Keep a bounded pending ledger only for test-source, file-seeded, cross-file handoffs; revalidate before spending one existing ordinary slot in a later round |
+| Final source representation | WatchMode belonged to a mixed island already represented by a different compiler file, so one-per-island preservation did not retain the exact trace source | Preserve the exact source observation of a created file trace when its protected active island lacks that source file, without broad per-role diversity |
+| Trace obligation gate | The same structural traversal could be scheduled under an already-supported obligation even though another source-related obligation remained partial | Carry all source-related obligation IDs on the trace and require at least one to remain partial or unresolved |
+| Endpoint qualification gate | Helpers' localized snippet was rejected even though the independent file trace aggregated 18 direct call sites | Allow a rejected endpoint to reach the existing trace LLM only with at least two direct call sites; one-call rejected endpoints remain blocked |
+| Final output composition | The trace LLM selected Helpers, but 14 snippets filled `MAX_EVIDENCE` before traces were appended | Reserve output capacity inside the same 14-item cap for accepted traces and protect each accepted trace's exact source while trimming a lower-priority snippet |
+
+### Retained implementation
+
+1. **Coverage-aware initial comparison admission.**
+   `fit_initial_owner_comparison_admission` computes one strongest observation per repository obligation before the
+   existing snippet-first ranking. Reservations are deduplicated when one observation is strongest for several
+   obligations. They consume the existing character budget and displace lower-ranked input; they do not enlarge the
+   owner-comparison request. Trace fields `coverage_reserved_ids` and `coverage_reserved_paths` expose the effect.
+
+2. **Bounded pending file handoffs.**
+   `pending_file_handoffs.py` retains only `ExpandRelationship` actions that are file-seeded, `cross_file_only`,
+   explicitly classified as handoffs, and rooted in a repository-classified test artifact. The ledger is capped at
+   two entries globally, one per island, with a two-round lifetime. Covered obligations, inactive islands, attempted
+   effects, natural selection of the same effect, and expiration all remove entries. From round 2 onward the scheduler
+   may replace one ordinary selection with one valid pending action; no new slot, round, or graph request is created.
+
+3. **Exact trace-source representation before eligibility.**
+   Final consolidation now runs in the order candidate LLM → deterministic active-island/source preservation → file-
+   trace eligibility and trace LLM. The existing one-candidate-per-active-island safeguard remains. In addition, when
+   a created trace's protected island is represented only by another file, the best candidate for the trace's exact
+   source observation may be added. This is provenance-specific: it does not preserve arbitrary files or every test
+   role in a mixed island.
+
+4. **Obligation-stable trace eligibility.**
+   `FileTraceSeed` and `FileTraceEvidence` retain the primary scheduling obligation plus all repository obligations
+   associated with the source observation. Eligibility depends on at least one related obligation remaining partial
+   or unresolved, removing accidental dependence on which equivalent gap happened to schedule the traversal.
+
+5. **Structural repetition without semantic overclaim.**
+   Snippet rejection and file-level structural participation are treated as distinct judgments. A rejected endpoint
+   stays blocked unless the controller recorded at least two direct source-to-destination call sites. Passing this
+   threshold does not select the file: the exact source must be accepted, the destination must still be absent, a
+   related obligation must remain unresolved, and the dedicated file-trace LLM must select the destination only as
+   supportive structural evidence. The final reason is prohibited from asserting unobserved internal behavior.
+
+6. **Trace-aware composition within the fixed evidence cap.**
+   Every LLM-accepted trace reserves one of the existing `MAX_EVIDENCE = 14` output positions. Snippet trimming
+   protects the accepted trace's exact source, because emitting a destination without its grounded source would make
+   the structural claim uninterpretable. Connected external evidence is appended only from the remaining capacity.
+   The cap itself is unchanged.
+
+### Preserved invariants and rejected alternative
+
+- No additional controller action slots, controller rounds, graph-call allowance, final evidence positions, or
+  unconditional LLM calls.
+- No TypeScript filename, symbol, testcase ID, or obligation ID appears in the production policy.
+- One-per-island preservation remains the default. The added exception is only the exact source of an already-created
+  file trace.
+- The broader artifact-role variant was tested and removed. In a mixed island it could reserve a stronger but
+  unrelated test file, consume capacity, and still leave the actual trace source absent.
+- A file trace remains navigation/support evidence. It is not a replacement for a qualified snippet proving the
+  destination's internal behavior.
+
+### How the corrections composed in live runs
+
 - Intermediate actual runs identified the successive gates: `060303Z` reconstructed the 18-call traversal;
   `060847Z` failed the primary-obligation gate; `061557Z` failed rejected-endpoint eligibility; `062527Z` selected
   Helpers but filled the evidence cap first; `063022Z` emitted all four target files. These are diagnostic boundary
@@ -5278,3 +5335,32 @@ Verification:
   navigation-only structural participants. Neither displaced an Oracle. Relative to the most recent recorded runs,
   Vue changed from 0/2 to 1/2 and Pandas from 1/3 to 2/3; treat this as non-regression evidence, not a causal quality
   claim, because retrieval inputs and LLM decisions vary.
+- Two further cases were selected from the 31 non-held-out corpus entries; none of the seven explicitly held-out
+  cases was run:
+  - Pandas cleanup `run-20260829T162616Z`: `partial/false`, one evidence item, 1/25 overlap
+    (`pandas/core/aggregation.py` at rank 1), 53,315 retrieval tokens. The Oracle is a 25-file Black-formatting patch
+    spanning configuration, docs, tests, and implementation, so this remains a known poor fit for causal evidence
+    selection rather than a focused mechanism case.
+  - Vue dependency compatibility `run-20260829T162949Z`: `partial/false`, one evidence item, 0/2 overlap, 44,079
+    retrieval tokens. Retrieval selected the affected `compileTemplate.ts`; both Oracles are manifests
+    (`packages/compiler-sfc/package.json` and `pnpm-lock.yaml`), matching the 0/2 overlap of all recorded prior valid
+    runs for this case.
+- Pending scheduling, exact trace-source preservation, rejected-endpoint override, and file-trace selection were
+  dormant in both additional runs. Obligation reservation deduplicated all six obligations to the globally first
+  admitted observation in each run and therefore displaced nothing. The results expose pre-existing mass-change and
+  manifest-Oracle limitations, not a measured regression caused by the retained TypeScript repair.
+- Scope freeze after cross-corpus review: retain the current implementation and defer two separate unsupported task
+  shapes rather than adding speculative exceptions.
+  - Dependency/manifests: in Vue `162949Z`, Qdrant did retrieve the package manifest (dense rank 5, grouped rank 9)
+    and lockfile (dense rank 7, grouped rank 11). Both had zero structural owners and no literal path anchor, then
+    disappeared at initial admission at global positions 160/173+ after the 60,237-character input crossing. The
+    exact-target classifier correctly extracted the issue's literal `compileTemplate.ts` URL, function, and `format`
+    method; it did not invent `package.json` or `pnpm-lock.yaml` from prose about a package and optional dependencies.
+    Any future repair belongs in a measured dependency-artifact inference plus file-level configuration-evidence
+    stage, not CodeGraph scheduling or the accepted trace-source rule.
+  - Wide mechanical refactors: Pandas `162616Z` evaluates against every file touched by a 25-file Black cleanup,
+    while the retrieval contract selects explanatory mechanism evidence. Before treating low exhaustive overlap as a
+    retrieval defect, define whether such tasks require representative mechanism/configuration evidence or exhaustive
+    change-scope recovery. No broad file reservation or evaluator-specific exception is retained.
+- These limitations are registered as NCA-1 / WRF-1 in the open-questions registry. They are explicitly deferred;
+  the four-Oracle TypeScript version remains the retained baseline for subsequent work.
