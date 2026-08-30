@@ -65,6 +65,8 @@ def schedule_round_actions(
     blocked_maturation_root_ids: set[str],
     verified_lead_actions: Sequence[RetrievalAction],
     pending_file_handoffs: Sequence[PendingFileHandoff] = (),
+    ordinary_actions: Sequence[RetrievalAction] | None = None,
+    fold_owner_maturation_into_ordinary: bool = False,
 ) -> ScheduledRoundActions:
     """Select every queue without letting one pool silently consume another.
 
@@ -91,7 +93,7 @@ def schedule_round_actions(
             novel_actions.append(action)
     by_pool = partition_actions_by_pool(novel_actions)
     normal = _select_actions(
-        by_pool[ActionPool.ORDINARY],
+        by_pool[ActionPool.ORDINARY] if ordinary_actions is None else ordinary_actions,
         active_root_ids,
         normal_limit,
         scope_order=active_island_ids,
@@ -124,14 +126,18 @@ def schedule_round_actions(
         and isinstance(action, SearchWithinFile)
         and bool(action.handoff_reason)
     )
-    maturation = _select_maturation_actions(
-        maturation_children,
-        maturation_actions,
-        active_root_ids,
-        attempted=attempted_action_ids,
-        scope_order=active_island_ids,
-        refined_paths=refined_paths,
-        attempted_effects=attempted_effects,
+    maturation = (
+        ()
+        if fold_owner_maturation_into_ordinary
+        else _select_maturation_actions(
+            maturation_children,
+            maturation_actions,
+            active_root_ids,
+            attempted=attempted_action_ids,
+            scope_order=active_island_ids,
+            refined_paths=refined_paths,
+            attempted_effects=attempted_effects,
+        )
     )
     test_maturation = _select_maturation_actions(
         (),
@@ -153,11 +159,54 @@ def schedule_round_actions(
         normal=normal,
         deferred_file_rescue=deferred,
         owner_maturation=maturation,
-        maturation_children=maturation_children,
+        maturation_children=() if fold_owner_maturation_into_ordinary else maturation_children,
         test_maturation=test_maturation,
         verified_lead=tuple(novel_verified[:1]),
         pending_file_handoff=pending_selected,
         suppressed=tuple(suppression_records),
+    )
+
+
+def select_ordinary_backfill_action(
+    actions: Sequence[RetrievalAction],
+    *,
+    active_root_ids: Sequence[str],
+    active_island_ids: Sequence[str],
+    normal_limit: int,
+    round_index: int,
+    refined_paths: set[str],
+    attempted_action_ids: set[str],
+    attempted_effects: set[tuple[str, ...]],
+    pending_maturation_child_roots: set[str],
+    blocked_maturation_root_ids: set[str],
+    pending_file_handoffs: Sequence[PendingFileHandoff] = (),
+    occupied_scope_ids: set[str] | None = None,
+) -> RetrievalAction | None:
+    """Choose one novel ordinary replacement after an empty execution.
+
+    The ordinary scheduler remains the ranking authority. Auxiliary pools are
+    deliberately ignored, and an unoccupied island is preferred when one is
+    available. The caller owns the bounded retry allowance.
+    """
+
+    schedule = schedule_round_actions(
+        actions,
+        active_root_ids=active_root_ids,
+        active_island_ids=active_island_ids,
+        normal_limit=normal_limit,
+        round_index=round_index,
+        refined_paths=refined_paths,
+        attempted_action_ids=attempted_action_ids,
+        attempted_effects=attempted_effects,
+        pending_maturation_child_roots=pending_maturation_child_roots,
+        blocked_maturation_root_ids=blocked_maturation_root_ids,
+        verified_lead_actions=(),
+        pending_file_handoffs=pending_file_handoffs,
+    )
+    occupied = occupied_scope_ids or set()
+    return next(
+        (action for action in schedule.normal if _action_scope_id(action) not in occupied),
+        schedule.normal[0] if schedule.normal else None,
     )
 
 

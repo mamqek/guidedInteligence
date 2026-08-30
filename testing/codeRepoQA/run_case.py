@@ -35,9 +35,11 @@ from services.retrieval.workspace.pipeline.index_flow import save_sync_manifest
 from services.retrieval.cases import HiddenCodeRepoQACase, VisibleCodeRepoQACase, load_coderepoqa_case
 from services.retrieval.config import (
     DEFAULT_CODEX_PROMPT_PROFILE,
+    INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     RETRIEVAL_MODE_CODEX,
     RETRIEVAL_MODE_WORKSPACE,
     SUPPORTED_CODEX_PROMPT_PROFILES,
+    SUPPORTED_INITIAL_SELECTION_MODES,
     SUPPORTED_RETRIEVAL_MODES,
     RetrievalEmbeddingConfig,
     RetrievalQdrantConfig,
@@ -176,6 +178,9 @@ def run_case(
     skip_final_evidence_selection: bool = False,
     stop_before_round_zero_qualification: bool = False,
     dormant_island_completion_enabled: bool = False,
+    island_frontier_ordinary_scheduling_enabled: bool = False,
+    island_frontier_fold_owner_maturation_enabled: bool = False,
+    initial_selection_mode: str = INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
@@ -218,6 +223,9 @@ def run_case(
         final_evidence_selection_enabled=not skip_final_evidence_selection,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
+        island_frontier_ordinary_scheduling_enabled=island_frontier_ordinary_scheduling_enabled,
+        island_frontier_fold_owner_maturation_enabled=island_frontier_fold_owner_maturation_enabled,
+        initial_selection_mode=initial_selection_mode,
         semantic_island_beam_size=semantic_island_beam_size,
         embedding_batch_size=embedding_batch_size,
         embedding_concurrency=embedding_concurrency,
@@ -293,6 +301,9 @@ def evaluate_case(
     skip_final_evidence_selection: bool = False,
     stop_before_round_zero_qualification: bool = False,
     dormant_island_completion_enabled: bool = False,
+    island_frontier_ordinary_scheduling_enabled: bool = False,
+    island_frontier_fold_owner_maturation_enabled: bool = False,
+    initial_selection_mode: str = INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
@@ -375,6 +386,9 @@ def evaluate_case(
         skip_final_evidence_selection=skip_final_evidence_selection,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
+        island_frontier_ordinary_scheduling_enabled=island_frontier_ordinary_scheduling_enabled,
+        island_frontier_fold_owner_maturation_enabled=island_frontier_fold_owner_maturation_enabled,
+        initial_selection_mode=initial_selection_mode,
         semantic_island_beam_size=semantic_island_beam_size,
         embedding_batch_size=embedding_batch_size,
         embedding_concurrency=embedding_concurrency,
@@ -400,6 +414,9 @@ def evaluate_case(
         skip_final_evidence_selection=skip_final_evidence_selection,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
+        island_frontier_ordinary_scheduling_enabled=island_frontier_ordinary_scheduling_enabled,
+        island_frontier_fold_owner_maturation_enabled=island_frontier_fold_owner_maturation_enabled,
+        initial_selection_mode=initial_selection_mode,
         embedding_cache_path=embedding_cache_path,
         lexical_ranking_profile=lexical_ranking_profile,
     )
@@ -524,7 +541,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         action=argparse.BooleanOptionalAction,
         default=None,
     )
+    run_parser.add_argument(
+        "--island-frontier-ordinary-scheduling",
+        dest="island_frontier_ordinary_scheduling_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
+    run_parser.add_argument(
+        "--island-frontier-fold-owner-maturation",
+        dest="island_frontier_fold_owner_maturation_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
     run_parser.add_argument("--semantic-island-beam-size", type=int)
+    run_parser.add_argument("--initial-selection-mode", choices=SUPPORTED_INITIAL_SELECTION_MODES)
     evaluate_parser = subparsers.add_parser("evaluate-case")
     evaluate_parser.add_argument("--issue-json", required=True)
     evaluate_parser.add_argument("--run-config")
@@ -550,7 +580,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         action=argparse.BooleanOptionalAction,
         default=None,
     )
+    evaluate_parser.add_argument(
+        "--island-frontier-ordinary-scheduling",
+        dest="island_frontier_ordinary_scheduling_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
+    evaluate_parser.add_argument(
+        "--island-frontier-fold-owner-maturation",
+        dest="island_frontier_fold_owner_maturation_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
     evaluate_parser.add_argument("--semantic-island-beam-size", type=int)
+    evaluate_parser.add_argument("--initial-selection-mode", choices=SUPPORTED_INITIAL_SELECTION_MODES)
     batch_parser = subparsers.add_parser("evaluate-batch")
     batch_parser.add_argument("--run-config", required=True)
     batch_parser.add_argument("--issue-json", action="append", default=[])
@@ -560,6 +603,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     batch_parser.add_argument("--chunk-overlap", type=int)
     batch_parser.add_argument("--rebuild-index", action="store_true")
     batch_parser.add_argument("--semantic-island-beam-size", type=int)
+    batch_parser.add_argument("--initial-selection-mode", choices=SUPPORTED_INITIAL_SELECTION_MODES)
+    batch_parser.add_argument(
+        "--island-frontier-ordinary-scheduling",
+        dest="island_frontier_ordinary_scheduling_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
+    batch_parser.add_argument(
+        "--island-frontier-fold-owner-maturation",
+        dest="island_frontier_fold_owner_maturation_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
     batch_parser.add_argument("--shared-repo-root")
     batch_parser.add_argument("--retrieval-mode", choices=SUPPORTED_RETRIEVAL_MODES)
     batch_parser.add_argument("--codex-command", action="append", default=None)
@@ -631,6 +687,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "dormant_island_completion_enabled",
                 False,
             ),
+            island_frontier_ordinary_scheduling_enabled=_config_bool_override(
+                args,
+                run_config,
+                "island_frontier_ordinary_scheduling_enabled",
+                False,
+            ),
+            island_frontier_fold_owner_maturation_enabled=_config_bool_override(
+                args,
+                run_config,
+                "island_frontier_fold_owner_maturation_enabled",
+                False,
+            ),
+            initial_selection_mode=str(_config_value(
+                args,
+                run_config,
+                "initial_selection_mode",
+                INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
+            )),
             semantic_island_beam_size=int(
                 _config_value(args, run_config, "semantic_island_beam_size", 4)
             ),
@@ -680,6 +754,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "dormant_island_completion_enabled",
                 False,
             ),
+            island_frontier_ordinary_scheduling_enabled=_config_bool_override(
+                args,
+                run_config,
+                "island_frontier_ordinary_scheduling_enabled",
+                False,
+            ),
+            island_frontier_fold_owner_maturation_enabled=_config_bool_override(
+                args,
+                run_config,
+                "island_frontier_fold_owner_maturation_enabled",
+                False,
+            ),
+            initial_selection_mode=str(_config_value(
+                args,
+                run_config,
+                "initial_selection_mode",
+                INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
+            )),
             semantic_island_beam_size=int(
                 _config_value(args, run_config, "semantic_island_beam_size", 4)
             ),
@@ -957,6 +1049,7 @@ def _evaluate_case_subprocess_command(args: argparse.Namespace, issue_json: str)
         ("codex_prompt_profile", "--codex-prompt-profile"),
         ("codex_timeout_seconds", "--codex-timeout-seconds"),
         ("semantic_island_beam_size", "--semantic-island-beam-size"),
+        ("initial_selection_mode", "--initial-selection-mode"),
     )
     for attribute, option in value_options:
         value = getattr(args, attribute, None)
@@ -966,6 +1059,20 @@ def _evaluate_case_subprocess_command(args: argparse.Namespace, issue_json: str)
         command.extend(("--codex-command", str(token)))
     if getattr(args, "rebuild_index", False):
         command.append("--rebuild-index")
+    frontier_override = getattr(args, "island_frontier_ordinary_scheduling_enabled", None)
+    if frontier_override is not None:
+        command.append(
+            "--island-frontier-ordinary-scheduling"
+            if frontier_override
+            else "--no-island-frontier-ordinary-scheduling"
+        )
+    owner_fold_override = getattr(args, "island_frontier_fold_owner_maturation_enabled", None)
+    if owner_fold_override is not None:
+        command.append(
+            "--island-frontier-fold-owner-maturation"
+            if owner_fold_override
+            else "--no-island-frontier-fold-owner-maturation"
+        )
     return command
 
 
@@ -1128,6 +1235,9 @@ def _write_run_metadata(
     skip_final_evidence_selection: bool,
     stop_before_round_zero_qualification: bool,
     dormant_island_completion_enabled: bool,
+    island_frontier_ordinary_scheduling_enabled: bool,
+    island_frontier_fold_owner_maturation_enabled: bool,
+    initial_selection_mode: str,
     embedding_cache_path: Path | None = None,
     lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> None:
@@ -1148,6 +1258,9 @@ def _write_run_metadata(
         "skip_final_evidence_selection": skip_final_evidence_selection,
         "stop_before_round_zero_qualification": stop_before_round_zero_qualification,
         "dormant_island_completion_enabled": dormant_island_completion_enabled,
+        "island_frontier_ordinary_scheduling_enabled": island_frontier_ordinary_scheduling_enabled,
+        "island_frontier_fold_owner_maturation_enabled": island_frontier_fold_owner_maturation_enabled,
+        "initial_selection_mode": initial_selection_mode,
         "embedding_cache_path": str(embedding_cache_path) if embedding_cache_path is not None else "",
         "lexical_ranking_profile": lexical_ranking_profile,
         "intent_system": "request_analysis_obligations_v1",
@@ -1500,6 +1613,9 @@ def _workspace_retrieval_config_for_case(
     final_evidence_selection_enabled: bool = True,
     stop_before_round_zero_qualification: bool = False,
     dormant_island_completion_enabled: bool = False,
+    island_frontier_ordinary_scheduling_enabled: bool = False,
+    island_frontier_fold_owner_maturation_enabled: bool = False,
+    initial_selection_mode: str = INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
@@ -1550,6 +1666,9 @@ def _workspace_retrieval_config_for_case(
         final_evidence_selection_enabled=final_evidence_selection_enabled,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
+        island_frontier_ordinary_scheduling_enabled=island_frontier_ordinary_scheduling_enabled,
+        island_frontier_fold_owner_maturation_enabled=island_frontier_fold_owner_maturation_enabled,
+        initial_selection_mode=initial_selection_mode,
         semantic_island_beam_size=semantic_island_beam_size,
         enable_indexing=load_retrieval_enable_indexing(TOOL_ENV_PATH) if retrieval_mode != RETRIEVAL_MODE_CODEX else False,
         structural_graph_timeout_seconds=CODE_REPOQA_STRUCTURAL_INDEX_TIMEOUT_SECONDS,

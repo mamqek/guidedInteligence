@@ -32,6 +32,7 @@ from services.retrieval.workspace.pipeline.execution_flow.file_trace_evidence im
     FileTraceSeed,
     build_file_trace_evidence,
 )
+from services.retrieval.workspace.pipeline.execution_flow.island_frontiers import IslandFrontierLedger
 from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_execution import (
     ExpandRelationship,
     InspectDeferredObservation,
@@ -53,6 +54,7 @@ from services.retrieval.workspace.pipeline.execution_flow.actions.scheduler impo
     _action_scope_id,
     _has_specific_exact_anchors,
     schedule_round_actions,
+    select_ordinary_backfill_action,
 )
 from services.retrieval.workspace.pipeline.execution_flow.actions.pending_file_handoffs import (
     PendingFileHandoff,
@@ -221,6 +223,7 @@ def run_retrieval_controller(
     verified_lead_executions = 0
     seen_raw_source_ids: set[str] = set()
     pending_file_handoffs: tuple[PendingFileHandoff, ...] = ()
+    frontier_ledger = IslandFrontierLedger()
 
     def discover_qualified_leads(changed_ids: Sequence[str], round_index: int) -> bool:
         nonlocal tool_calls
@@ -295,25 +298,104 @@ def run_retrieval_controller(
             observation_to_island=islands.observation_to_island,
             limit=len(pending_verified_leads),
         )
-        schedule = schedule_round_actions(
-            catalogue.actions,
-            active_root_ids=islands.active_root_ids,
-            active_island_ids=islands.active_island_ids,
-            normal_limit=ctx.config.max_controller_actions_per_round,
+        projected_actions = tuple(dict.fromkeys((
+            *catalogue.actions,
+            *verified_lead_selected,
+            *(item.action for item in pending_file_handoffs),
+        )))
+        projected_frontiers = frontier_ledger.observe_catalogue(
+            projected_actions,
+            islands=islands,
+            decisions=decisions,
+            coverage=coverage.coverage,
             round_index=round_index,
-            refined_paths=refined_paths,
-            attempted_action_ids=attempted,
-            attempted_effects=attempted_effects,
-            pending_maturation_child_roots=pending_maturation_child_roots,
-            blocked_maturation_root_ids={
+        )
+        ctx.trace.record(
+            "island_frontiers_projected",
+            {
+                "round": round_index,
+                "mode": "read_only",
+                "catalogue_action_count": len(catalogue.actions),
+                "projected_action_count": len(projected_actions),
+                "frontier_count": len(projected_frontiers),
+                "continuation_count": sum(len(item.continuations) for item in projected_frontiers),
+                "available_persisted_continuation_count": sum(
+                    1
+                    for item in projected_frontiers
+                    for continuation in item.continuations
+                    if continuation.state == "available" and not continuation.present_in_catalogue
+                ),
+                "frontiers": [item.to_dict() for item in projected_frontiers],
+            },
+        )
+        schedule_arguments = {
+            "active_root_ids": islands.active_root_ids,
+            "active_island_ids": islands.active_island_ids,
+            "normal_limit": ctx.config.max_controller_actions_per_round,
+            "round_index": round_index,
+            "refined_paths": refined_paths,
+            "attempted_action_ids": attempted,
+            "attempted_effects": attempted_effects,
+            "pending_maturation_child_roots": pending_maturation_child_roots,
+            "blocked_maturation_root_ids": {
                 lead.source_observation_id for lead in pending_verified_leads.values()
             },
-            verified_lead_actions=verified_lead_selected,
-            pending_file_handoffs=pending_file_handoffs,
+            "verified_lead_actions": verified_lead_selected,
+            "pending_file_handoffs": pending_file_handoffs,
+        }
+        baseline_schedule = schedule_round_actions(
+            catalogue.actions,
+            **schedule_arguments,
+        )
+        frontier_ordinary_enabled = bool(
+            getattr(ctx.config, "island_frontier_ordinary_scheduling_enabled", False)
+        )
+        fold_owner_maturation = bool(
+            getattr(ctx.config, "island_frontier_fold_owner_maturation_enabled", False)
+        )
+        experimental_ordinary_actions = tuple((
+            *(
+                item for item in catalogue.actions
+                if action_pool(item.purpose) is ActionPool.ORDINARY
+            ),
+            *(baseline_schedule.owner_maturation if fold_owner_maturation else ()),
+            *frontier_ledger.persisted_available_ordinary_actions(),
+        ))
+        schedule = (
+            schedule_round_actions(
+                catalogue.actions,
+                ordinary_actions=experimental_ordinary_actions,
+                fold_owner_maturation_into_ordinary=fold_owner_maturation,
+                **schedule_arguments,
+            )
+            if frontier_ordinary_enabled
+            else baseline_schedule
+        )
+        ctx.trace.record(
+            "island_frontier_ordinary_schedule_compared",
+            {
+                "round": round_index,
+                "enabled": frontier_ordinary_enabled,
+                "fold_owner_maturation": fold_owner_maturation,
+                "baseline_action_ids": [item.id for item in baseline_schedule.normal],
+                "frontier_action_ids": [item.id for item in schedule.normal],
+                "baseline_effects": [list(_action_effect(item)) for item in baseline_schedule.normal],
+                "frontier_effects": [list(_action_effect(item)) for item in schedule.normal],
+                "persisted_selected_action_ids": [
+                    item.id
+                    for item in schedule.normal
+                    if (continuation := frontier_ledger.continuation_for_action(item.id)) is not None
+                    and not continuation.present_in_catalogue
+                ],
+            },
         )
         normal_selected = schedule.normal
         deferred_file_seed_selected = schedule.deferred_file_rescue
-        maturation_selected = schedule.owner_maturation
+        folded_owner_maturation_selected = tuple(
+            item for item in schedule.normal
+            if action_pool(item.purpose) is ActionPool.OWNER_MATURATION
+        )
+        maturation_selected = (*schedule.owner_maturation, *folded_owner_maturation_selected)
         maturation_children = schedule.maturation_children
         test_maturation_selected = schedule.test_maturation
         suppressed_ids = {item["action_id"] for item in schedule.suppressed}
@@ -333,6 +415,24 @@ def run_retrieval_controller(
                 pending_verified_leads.pop(action.target_node_id, None)
         verified_lead_selected = schedule.verified_lead
         selected = schedule.selected
+        selected_continuations = [frontier_ledger.continuation_for_action(item.id) for item in selected]
+        ctx.trace.record(
+            "island_frontier_schedule_audit",
+            {
+                "round": round_index,
+                "mode": "read_only",
+                "selected_action_count": len(selected),
+                "mapped_selected_action_count": sum(item is not None for item in selected_continuations),
+                "all_selected_actions_mapped": all(item is not None for item in selected_continuations),
+                "selected": [
+                    {
+                        "action_id": action.id,
+                        "continuation": continuation.to_dict() if continuation is not None else None,
+                    }
+                    for action, continuation in zip(selected, selected_continuations)
+                ],
+            },
+        )
         pending_file_handoffs = retain_pending_file_handoffs(
             pending_file_handoffs,
             catalogue.actions,
@@ -374,6 +474,7 @@ def run_retrieval_controller(
                 "normal_action_count": len(normal_selected),
                 "deferred_file_seed_action_count": len(deferred_file_seed_selected),
                 "maturation_action_count": len(maturation_selected),
+                "folded_owner_maturation_action_count": len(folded_owner_maturation_selected),
                 "maturation_child_action_count": len(maturation_children),
                 "test_maturation_action_count": len(test_maturation_selected),
                 "verified_lead_action_count": len(verified_lead_selected),
@@ -408,7 +509,19 @@ def run_retrieval_controller(
         round_new_raw_source_ids: set[str] = set()
         round_materialization_losses: list[dict[str, Any]] = []
         matured_observation_ids: set[str] = set()
-        for action in selected:
+        action_queue = list(selected)
+        ordinary_action_ids = {action.id for action in normal_selected}
+        productive_ordinary_scopes: set[str] = set()
+        productive_ordinary_count = 0
+        ordinary_attempt_count = 0
+        max_ordinary_attempts = max(
+            len(normal_selected),
+            ctx.config.max_controller_actions_per_round * 2,
+        )
+        action_index = 0
+        while action_index < len(action_queue):
+            action = action_queue[action_index]
+            action_index += 1
             attempted.add(action.id)
             attempted_effects.add(_action_effect(action))
             if isinstance(action, SearchWithinFile):
@@ -543,6 +656,64 @@ def run_retrieval_controller(
                     "materialization_losses": list(execution.materialization_losses),
                 },
             )
+            produced_result = bool(execution.observations or execution.edges or new_raw_ids)
+            frontier_ledger.record_execution(action.id, produced_result=produced_result)
+            if action.id in ordinary_action_ids:
+                ordinary_attempt_count += 1
+                if produced_result:
+                    productive_ordinary_count += 1
+                    productive_ordinary_scopes.add(_action_scope_id(action))
+                elif (
+                    ordinary_attempt_count < max_ordinary_attempts
+                    and productive_ordinary_count < ctx.config.max_controller_actions_per_round
+                ):
+                    reserved_actions = action_queue[action_index:]
+                    reserved_ordinary_scopes = {
+                        _action_scope_id(item)
+                        for item in reserved_actions
+                        if item.id in ordinary_action_ids
+                    }
+                    replacement = select_ordinary_backfill_action(
+                        catalogue.actions,
+                        active_root_ids=islands.active_root_ids,
+                        active_island_ids=islands.active_island_ids,
+                        normal_limit=ctx.config.max_controller_actions_per_round,
+                        round_index=round_index,
+                        refined_paths=refined_paths,
+                        attempted_action_ids={*attempted, *(item.id for item in reserved_actions)},
+                        attempted_effects={
+                            *attempted_effects,
+                            *(_action_effect(item) for item in reserved_actions),
+                        },
+                        pending_maturation_child_roots=pending_maturation_child_roots,
+                        blocked_maturation_root_ids={
+                            lead.source_observation_id for lead in pending_verified_leads.values()
+                        },
+                        pending_file_handoffs=pending_file_handoffs,
+                        occupied_scope_ids={
+                            *productive_ordinary_scopes,
+                            *reserved_ordinary_scopes,
+                        },
+                    )
+                    if replacement is not None:
+                        action_queue.append(replacement)
+                        ordinary_action_ids.add(replacement.id)
+                    ctx.trace.record(
+                        "controller_empty_ordinary_action_backfill",
+                        {
+                            "round": round_index,
+                            "empty_action_id": action.id,
+                            "empty_action_effect": list(_action_effect(action)),
+                            "replacement_action": (
+                                action_to_dict(replacement) if replacement is not None else None
+                            ),
+                            "ordinary_attempt_count": ordinary_attempt_count,
+                            "ordinary_attempt_limit": max_ordinary_attempts,
+                            "productive_ordinary_scope_count": len(productive_ordinary_scopes),
+                            "productive_ordinary_action_count": productive_ordinary_count,
+                            "productive_ordinary_slot_limit": ctx.config.max_controller_actions_per_round,
+                        },
+                    )
             if isinstance(action, InspectOwnerContinuation):
                 ctx.trace.record(
                     "owner_continuation_executed",
@@ -755,6 +926,33 @@ def run_retrieval_controller(
 
     if not stop_reason:
         stop_reason = "controller_round_limit_reached"
+    terminal_frontiers = frontier_ledger.refresh(
+        islands=islands,
+        decisions=decisions,
+        coverage=coverage.coverage,
+    )
+    ctx.trace.record(
+        "island_frontiers_terminal",
+        {
+            "mode": "read_only",
+            "stop_reason": stop_reason,
+            "frontier_count": len(terminal_frontiers),
+            "continuation_count": sum(len(item.continuations) for item in terminal_frontiers),
+            "available_continuation_count": sum(
+                1
+                for item in terminal_frontiers
+                for continuation in item.continuations
+                if continuation.state == "available"
+            ),
+            "available_persisted_continuation_count": sum(
+                1
+                for item in terminal_frontiers
+                for continuation in item.continuations
+                if continuation.state == "available" and not continuation.present_in_catalogue
+            ),
+            "frontiers": [item.to_dict() for item in terminal_frontiers],
+        },
+    )
     file_traces = build_file_trace_evidence(
         file_trace_seeds,
         tuple(decisions.values()),

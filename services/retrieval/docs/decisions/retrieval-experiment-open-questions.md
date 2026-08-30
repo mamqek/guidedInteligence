@@ -1,5 +1,24 @@
 # Retrieval Experiment Open Questions
 
+## IOG-1 — Historical initial guardrail does not recover cohort all-zero cases
+
+- Actual-pipeline diagnostics `run-20260830T131540Z` (pandas 22698) and
+  `run-20260830T131852Z` (Vue 10004) switched only initial selection to the historical
+  24-observation guardrail. Both remained `partial/false` with zero of two Oracle
+  files. They are outside the 80-run cohort statistics.
+- The Oracle implementation file was present in raw retrieval for both cases. The
+  legacy guardrail excluded pandas `core/indexes/base.py` and both Vue Oracle files
+  before qualification. Current semantic admission was broader: it admitted pandas
+  `base.py` in three of four cohort runs and both Vue files in all four.
+- Remaining boundary: select/localize the responsibility-bearing owner after file
+  admission. Current Vue sometimes selected `events.js::normalizeEvents`, which was
+  correctly deferred because it did not show the requested ordinary input-listener
+  teardown; it did not select `updateDOMListeners`. Current pandas admitted the file
+  but selected no Oracle-file owner for round zero.
+- Status: legacy mode remains a diagnostic switch, rejected as a quality remedy. A
+  follow-up must compare responsibility-bearing owner localization on fixed admitted
+  files; do not enlarge the historical top-24 cap or promote an Oracle path by name.
+
 ## SSA-1 — Shared snippet admission, initial boundary retained; final boundary pending
 
 - [Shared selection experiment](snippet-first-admission-experiment.md): implements the IOC-1/FPK-1
@@ -482,6 +501,25 @@ map it to an entry here before treating it as a new regression or inventing anot
     trace is judged by final selection;
   - whether unresolved-claim wording names exact callees reliably enough without becoming prompt-sensitive;
   - whether prioritizing a structural child over another verified lead ever suppresses a more useful same-file lead.
+
+## IFC-1 — Persistent island continuations and pool comparability
+
+- Experiment: [island-centered controller](island-centered-controller-experiment-plan.md).
+- Status: ordinary persistence and owner-maturation folding are best-effort opt-in; broad pool unification is not
+  accepted.
+- Proven boundary: the controller can retain a normalized ordinary continuation after it disappears from the current
+  graph-capability catalogue and later execute it without increasing the productive ordinary-slot cap. TypeScript
+  `run-20260830T123601Z` naturally exercised this path, but the retained file expansion returned empty.
+- Accepted negative result: deferred-file rescue cannot simply enter the active-island allowance. Diagnostic
+  `run-20260830T124320Z` selected zero rescues, so that fold was removed.
+- Promising boundary: owner maturation can compete within its already-grounded active island. TypeScript
+  `125440Z` / `125843Z` retained all four target files and Vue `130338Z` retained its implementation Oracle.
+- Still unresolved: Pandas regression could not reach controller execution because two runs failed the same strict
+  round-zero qualification contract. Do not promote the opt-in flags or fold test maturation, verified leads, or
+  pending handoffs until a valid Pandas comparison and a productive persisted-continuation activation exist.
+- Symptoms that map here: a known normalized action disappears solely because a later capability request omits its
+  node; an auxiliary family adds work outside the described ordinary allowance; folding a family reduces its
+  selection rate to zero.
 
 ## ISL-1 — Mechanism fragmentation through an unobserved connector
 

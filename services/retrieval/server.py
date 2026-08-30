@@ -1459,6 +1459,12 @@ class RuntimeState:
             dormant_island_completion_enabled=bool(
                 retrieval_settings.get("dormant_island_completion_enabled", False)
             ),
+            island_frontier_ordinary_scheduling_enabled=bool(
+                retrieval_settings.get("island_frontier_ordinary_scheduling_enabled", False)
+            ),
+            island_frontier_fold_owner_maturation_enabled=bool(
+                retrieval_settings.get("island_frontier_fold_owner_maturation_enabled", False)
+            ),
             max_exploration_rounds=int(retrieval_settings.get("max_exploration_rounds") or 4),
             max_controller_actions_per_round=int(
                 retrieval_settings.get("max_controller_actions_per_round") or 2
@@ -1467,6 +1473,9 @@ class RuntimeState:
                 retrieval_settings.get("semantic_island_beam_size") or 4
             ),
             max_discovery_observations=int(retrieval_settings.get("max_discovery_observations") or 24),
+            initial_selection_mode=str(
+                retrieval_settings.get("initial_selection_mode") or "semantic_owner_comparison"
+            ).strip().lower(),
             max_qualification_input_chars=int(
                 retrieval_settings.get("max_qualification_input_chars") or 40000
             ),

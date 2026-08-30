@@ -26,6 +26,12 @@ LLM_API_STYLE_OPENAI_CHAT = "openai_chat_completions"
 LLM_API_STYLE_CODEX_CLI = "codex_cli"
 SUPPORTED_LLM_API_STYLES = (LLM_API_STYLE_OPENAI_CHAT, LLM_API_STYLE_CODEX_CLI)
 SUPPORTED_RETRIEVAL_EMBEDDING_API_STYLES = ("openai_embeddings",)
+INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON = "semantic_owner_comparison"
+INITIAL_SELECTION_LEGACY_OBSERVATION_GUARDRAIL = "legacy_observation_guardrail"
+SUPPORTED_INITIAL_SELECTION_MODES = (
+    INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
+    INITIAL_SELECTION_LEGACY_OBSERVATION_GUARDRAIL,
+)
 
 
 def _repo_root() -> Path:
@@ -338,6 +344,8 @@ class WorkspaceRetrievalConfig:
     final_evidence_selection_enabled: bool = True
     stop_before_round_zero_qualification: bool = False
     dormant_island_completion_enabled: bool = False
+    island_frontier_ordinary_scheduling_enabled: bool = False
+    island_frontier_fold_owner_maturation_enabled: bool = False
     run_dir: str | None = None
     chunk_line_count: int = 40
     chunk_line_overlap: int = 10
@@ -347,6 +355,7 @@ class WorkspaceRetrievalConfig:
     max_controller_actions_per_round: int = 2
     semantic_island_beam_size: int = 4
     max_discovery_observations: int = 24
+    initial_selection_mode: str = INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON
     max_qualification_input_chars: int = 40000
     preferred_initial_owner_comparison_input_chars: int = 60000
     max_initial_owner_comparison_input_chars: int = 100000
@@ -544,6 +553,20 @@ class WorkspaceRetrievalConfig:
             raise ValueError("semantic_island_beam_size must be greater than zero.")
         if self.max_discovery_observations <= 0:
             raise ValueError("max_discovery_observations must be greater than zero.")
+        if (
+            self.island_frontier_fold_owner_maturation_enabled
+            and not self.island_frontier_ordinary_scheduling_enabled
+        ):
+            raise ValueError(
+                "island_frontier_fold_owner_maturation_enabled requires "
+                "island_frontier_ordinary_scheduling_enabled."
+            )
+        if self.initial_selection_mode not in SUPPORTED_INITIAL_SELECTION_MODES:
+            raise ValueError(
+                "Unsupported initial_selection_mode: "
+                f"{self.initial_selection_mode}. Supported values: "
+                f"{', '.join(SUPPORTED_INITIAL_SELECTION_MODES)}."
+            )
         if self.max_qualification_input_chars <= 0:
             raise ValueError("max_qualification_input_chars must be greater than zero.")
         if self.max_initial_owner_comparison_input_chars <= 0:
