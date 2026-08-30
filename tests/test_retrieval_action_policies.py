@@ -22,6 +22,7 @@ from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_
 )
 from services.retrieval.workspace.pipeline.execution_flow.actions.scheduler import (
     schedule_round_actions,
+    select_ordinary_backfill_action,
 )
 from services.retrieval.workspace.pipeline.execution_flow.actions.pending_file_handoffs import (
     PendingFileHandoff,
@@ -198,6 +199,101 @@ class RetrievalActionPolicyTests(unittest.TestCase):
         self.assertEqual(schedule.normal, (novel,))
         self.assertEqual(len(schedule.suppressed), 1)
         self.assertEqual(schedule.suppressed[0]["action_id"], "repeat")
+
+    def test_empty_ordinary_action_can_backfill_from_an_unoccupied_island(self) -> None:
+        empty = SearchWithinFile(
+            "empty", "why", "root_empty", "src/empty.ts", "Find empty code.",
+            scope_id="island_empty",
+        )
+        queued = SearchWithinFile(
+            "queued", "why", "root_queued", "src/queued.ts", "Find queued code.",
+            scope_id="island_queued",
+        )
+        replacement = SearchWithinFile(
+            "replacement", "why", "root_replacement", "src/replacement.ts", "Find replacement code.",
+            scope_id="island_replacement",
+        )
+
+        selected = select_ordinary_backfill_action(
+            (empty, queued, replacement),
+            active_root_ids=("root_empty", "root_queued", "root_replacement"),
+            active_island_ids=("island_empty", "island_queued", "island_replacement"),
+            normal_limit=2,
+            round_index=1,
+            refined_paths={"src/empty.ts"},
+            attempted_action_ids={"empty"},
+            attempted_effects={normalized_action_effect(empty)},
+            pending_maturation_child_roots=set(),
+            blocked_maturation_root_ids=set(),
+            occupied_scope_ids={"island_queued"},
+        )
+
+        self.assertEqual(selected, replacement)
+
+    def test_empty_ordinary_backfill_never_selects_an_auxiliary_action(self) -> None:
+        empty = SearchWithinFile(
+            "empty", "why", "root_empty", "src/empty.ts", "Find empty code.",
+            scope_id="island_empty",
+        )
+        auxiliary = SearchWithinFile(
+            "auxiliary", "why", "root_aux", "src/aux.ts", "Rescue deferred code.",
+            scope_id="frontier_aux", purpose=ActionPurpose.DEFERRED_FILE_RESCUE,
+        )
+
+        selected = select_ordinary_backfill_action(
+            (empty, auxiliary),
+            active_root_ids=("root_empty",),
+            active_island_ids=("island_empty",),
+            normal_limit=2,
+            round_index=1,
+            refined_paths={"src/empty.ts"},
+            attempted_action_ids={"empty"},
+            attempted_effects={normalized_action_effect(empty)},
+            pending_maturation_child_roots=set(),
+            blocked_maturation_root_ids=set(),
+        )
+
+        self.assertIsNone(selected)
+
+    def test_owner_maturation_can_compete_inside_existing_ordinary_capacity(self) -> None:
+        first = SearchWithinFile(
+            "first", "why", "root_first", "src/first.ts", "Inspect first.",
+            scope_id="island_first",
+        )
+        second = SearchWithinFile(
+            "second", "why", "root_second", "src/second.ts", "Inspect second.",
+            scope_id="island_second",
+        )
+        maturation = InspectOwnerContinuation(
+            "maturation", "why", "root_first", (11, 20), (1, 20), "Continue first.",
+            scope_id="island_first", purpose=ActionPurpose.OWNER_MATURATION,
+        )
+        common = {
+            "active_root_ids": ("root_first", "root_second"),
+            "active_island_ids": ("island_first", "island_second"),
+            "normal_limit": 2,
+            "round_index": 1,
+            "refined_paths": set(),
+            "attempted_action_ids": set(),
+            "attempted_effects": set(),
+            "pending_maturation_child_roots": set(),
+            "blocked_maturation_root_ids": set(),
+            "verified_lead_actions": (),
+        }
+
+        baseline = schedule_round_actions((first, second, maturation), **common)
+        folded = schedule_round_actions(
+            (first, second, maturation),
+            ordinary_actions=(first, second, maturation),
+            fold_owner_maturation_into_ordinary=True,
+            **common,
+        )
+
+        self.assertEqual(len(baseline.normal), 2)
+        self.assertEqual(baseline.owner_maturation, (maturation,))
+        self.assertEqual(len(folded.normal), 2)
+        self.assertIn(maturation, folded.normal)
+        self.assertEqual(folded.owner_maturation, ())
 
     def test_pending_file_handoff_uses_one_existing_slot_only_after_discovery_round(self) -> None:
         pending_action = self._file_handoff("pending", "watch", "watch_island")

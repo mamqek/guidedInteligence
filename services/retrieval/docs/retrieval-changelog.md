@@ -1,5 +1,44 @@
 # Retrieval Changelog
 
+## 2026-08-30: Historical Initial Guardrail on Cohort All-Zero Cases — Rejected
+
+Tested the opt-in `legacy_observation_guardrail` initial-selection mode on the two
+development-cohort cases whose four corrected campaign runs all had zero total Oracle
+overlap: `pandas-dev-pandas-22698` and `vuejs-vue-10004`. These were actual workspace
+pipeline runs with final evidence selection enabled and response generation disabled;
+the existing indexes were reused. No held-out case was accessed, and no production
+default was changed.
+
+| Case / run | Legacy initial input -> retained | Final overlap | Coverage / sufficient | Retrieval tokens |
+|---|---:|---:|---|---:|
+| pandas 22698 / `run-20260830T131540Z` | 496 snippets / 104 files -> 24 snippets / 11 files | 0 / 2 | partial / false | 59,172 |
+| Vue 10004 / `run-20260830T131852Z` | 282 snippets -> 24 snippets / 11 files | 0 / 2 | partial / false | 94,029 |
+
+The failure boundary became earlier under the historical mode. For pandas, raw
+retrieval contained the implementation Oracle `pandas/core/indexes/base.py`, but the
+24-observation guardrail excluded it; the Oracle test was absent from raw retrieval.
+For Vue, raw retrieval contained both `src/platforms/web/runtime/modules/events.js`
+and `test/unit/features/component/component-keep-alive.spec.js`, but the same guardrail
+excluded both. Neither run subsequently qualified or placed an Oracle file in the
+final pool.
+
+This does not vindicate the current downstream behavior. In the four current-mode
+pandas cohort runs, `base.py` was admitted to initial comparison three times but no
+owner from it survived round-zero selection. In all four current-mode Vue runs both
+Oracle files were admitted; `events.js::normalizeEvents` survived round zero twice,
+then qualification deferred it as insufficient because it showed special range and
+checkbox/radio normalization rather than ordinary text-input listener update/removal.
+The test never survived round-zero selection. Thus the current failures are an
+owner-selection/localization problem after broad file admission, whereas the legacy
+mode converts them into deterministic top-24 truncation.
+
+The legacy mode also did not provide a uniform cost win. Pandas used 59,172 tokens
+versus a 56,238-token mean for its four current cohort runs, because saved initial
+comparison tokens were spent in later qualification/consolidation. Vue used 94,029
+versus a 118,070-token current mean, but retained the same zero overlap. Result:
+quality-rejected as a remedy for these cases; keep the switch diagnostic-only and do
+not replace semantic owner comparison with the historical guardrail.
+
 ## 2026-08-29: Pending Cross-file Handoff Scheduling — Reverted
 
 Record: [pending cross-file handoff scheduling experiment](decisions/pending-file-handoff-scheduling-experiment.md).
@@ -5364,3 +5403,67 @@ different boundaries. The retained change repairs each boundary at the stage tha
     change-scope recovery. No broad file reservation or evaluator-specific exception is retained.
 - These limitations are registered as NCA-1 / WRF-1 in the open-questions registry. They are explicitly deferred;
   the four-Oracle TypeScript version remains the retained baseline for subsequent work.
+
+## 2026-08-30 — Empty ordinary-action backfill and switchable historical admission
+
+- Ordinary controller scheduling now distinguishes an attempted tool effect from productive use of an ordinary
+  slot. An action returning no observations, edges, or new raw sources remains in the attempted-effect ledger, but
+  the controller selects the next eligible ordinary action from the existing catalogue in the same round. Attempts
+  are capped at twice the configured productive-slot count. Auxiliary pools are never used as replacements.
+- The first implementation allowed a replacement to duplicate an ordinary island whose action was still queued.
+  Live runs `run-20260830T100510Z` and `run-20260830T100904Z` each retained only two Oracle files, and the latter
+  visibly scheduled redundant Builder work. That attempt was rejected. The retained implementation excludes both
+  already-productive scopes and still-queued ordinary scopes when choosing a replacement.
+- The corrected boundary passed the 96-test focused suite twice. In actual acceptance
+  `run-20260830T101534Z`, an empty EditorServices cross-file expansion was recorded and replaced by a distinct
+  CommandLineParser continuation; final evidence retained Builder, BuilderState, and WatchMode, used 103,241
+  retrieval tokens, and remained `partial/false`. `run-20260830T102004Z` retained Builder and WatchMode at 100,792
+  tokens, while confirmatory `run-20260830T102416Z` retained Builder, BuilderState, WatchMode, and Helpers at 110,229
+  tokens. Neither latter run contained an empty action or invoked backfill, demonstrating that their two-versus-four
+  variability is outside the changed scheduler branch. Decision: retain the bounded corrected backfill; its live
+  quality evidence is one naturally exercised run, not a claim that it stabilizes final selection.
+- Initial admission now has an explicit mode boundary. The unchanged default is
+  `semantic_owner_comparison`. Opt-in `legacy_observation_guardrail` reproduces the direct
+  `aggregate_observations(..., limit=24)` admission from commit
+  `45a473ed30794e5e6f500c2d4338a7956e4352dd` and skips the initial owner-comparison LLM. It deliberately uses current
+  raw retrieval inputs; it is not a full historical pipeline rollback. Select it in a reusable config with
+  `initial_selection_mode`, or for a focused run with
+  `--initial-selection-mode legacy_observation_guardrail`. Run metadata and trace events record the selected mode.
+- Stop-before-qualification diagnostics made the boundary explicit. Legacy `run-20260830T095103Z` admitted 24
+  snippets across six files and initially contained only WatchMode; current `run-20260830T095541Z` admitted 16
+  snippets across nine files and initially contained Builder plus WatchMode. Thus the old admission algorithm does
+  not reproduce the old candidate outcome after upstream retrieval changed. Actual legacy acceptances
+  `run-20260830T095730Z` and `run-20260830T100104Z` both retained Builder, WatchMode, and Helpers but missed
+  BuilderState, remained `partial/false`, and used 77,626 / 79,150 retrieval tokens. Decision: keep this as a
+  comparison switch only; do not replace the semantic default.
+- The proposed island-centered controller is documented separately as a staged experiment. No frontier runtime,
+  action-family unification, or 16-node-cap redesign was implemented in this change.
+
+## 2026-08-30 — Island-frontier controller experiment
+
+- Added a responsibility-named `IslandFrontierLedger` beside the controller. It projects established direct and
+  navigation evidence, unresolved/completed gaps, normalized executable continuations, grounding, estimated cost,
+  catalogue presence, and execution state. The projection emits no LLM or tool request and does not select actions.
+  Diagnostic `run-20260830T121409Z` mapped all 13 selected actions, retained seven available continuations absent
+  from the terminal catalogue, and preserved the WatchMode file continuation through an island-ID migration.
+- Added opt-in `island_frontier_ordinary_scheduling_enabled`. The first variant was rejected after diagnostic
+  `122246Z`: effect deduplication altered a current action despite selecting no persisted continuation. The corrected
+  variant keeps the current ordinary catalogue untouched and appends only missing available continuations. Diagnostic
+  `122756Z` matched baseline effects in every round. TypeScript acceptances `123149Z` and `123601Z` both retained all
+  four target files at 104,871 / 110,580 tokens. The latter selected one missing same-island `watch.ts` file expansion;
+  it returned empty and was safely backfilled. Decision: best-effort opt-in persistence; mechanical memory is proven,
+  evidence improvement is not.
+- A deferred-file-rescue fold was tested and completely removed. Diagnostic `124320Z` selected zero rescues because
+  active promoted islands occupied the shared allowance. Reducing action count by starving the recovery mechanism is
+  not accepted queue unification.
+- Added opt-in `island_frontier_fold_owner_maturation_enabled`, valid only with ordinary frontier scheduling. It moves
+  only the one owner-maturation action already chosen by the existing scheduler into the ordinary island allowance;
+  deferred rescue, test maturation, verified leads, pending handoffs, action limits, and final evidence caps remain
+  unchanged. Diagnostic `125058Z` replaced a local incremental-test search with a WatchMode owner continuation and
+  materialized one snippet. TypeScript `125440Z` / `125843Z` both retained Builder, BuilderState, WatchMode, and
+  Helpers, activating folded maturation two/three times at 102,460 / 103,130 tokens. Vue `130338Z` folded once and
+  retained `src/exp-parser.js` at 46,733 tokens.
+- Pandas cross-repository acceptance is unresolved. Runs `130550Z` and `130714Z` failed identically during round-zero
+  qualification (`direct evidence lacks supported obligations for obs_9dfbb74673408833`) before the controller ran.
+  The explicit failure was retained; no deterministic fallback or qualification change was introduced. Consequently
+  owner-maturation folding remains opt-in and later auxiliary-family folds were not attempted.

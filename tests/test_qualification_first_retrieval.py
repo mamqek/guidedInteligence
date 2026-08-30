@@ -72,6 +72,7 @@ from services.retrieval.workspace.pipeline.execution_flow.qualification_first_re
     _deferred_after_initial_owner_comparison,
     _file_group_initial_results,
     _initial_sparse_query,
+    _legacy_initial_observation_selection,
     _preserve_active_island_candidates,
     _selected_evidence,
 )
@@ -79,6 +80,26 @@ from services.retrieval.workspace.tools import ToolObservation
 
 
 class QualificationFirstRetrievalTests(unittest.TestCase):
+    def test_legacy_initial_selection_reproduces_bounded_observation_guardrail(self) -> None:
+        values = tuple(
+            _observation(f"obs_{index}", f"src/{index}.ts", f"function:{index}", (f"obligation_{index}",))
+            for index in range(4)
+        )
+
+        selected, deferred, all_observations, decisions = _legacy_initial_observation_selection(
+            values,
+            limit=2,
+        )
+
+        self.assertEqual(len(selected), 2)
+        self.assertEqual(len(deferred), 2)
+        self.assertEqual(len(all_observations), 4)
+        self.assertEqual({item.id for item in selected}.intersection(item.id for item in deferred), set())
+        self.assertEqual(
+            {item["reason"] for item in decisions if item.get("observation_id") in {x.id for x in deferred}},
+            {"outside_observation_guardrail"},
+        )
+
     def test_canonicalization_merges_identity_without_selecting_or_limiting(self) -> None:
         first = _observation("first", "src/a.ts", "function:same", ("subject",))
         repeated = replace(

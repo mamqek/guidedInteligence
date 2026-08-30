@@ -7,10 +7,12 @@ from typing import Any, Mapping, Sequence
 from core.models import ConversationState, EvidenceItem, RetrievalResult
 from core.source_policy import SourceCategory
 from services.intent.models import EvidenceSource
+from services.retrieval.config import INITIAL_SELECTION_LEGACY_OBSERVATION_GUARDRAIL
 from services.retrieval.workspace.connected_context import ConnectedSourceContextResult
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
 from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import (
     DiscoveryObservation,
+    aggregate_observations,
     canonicalize_observations,
     merge_observation_pair,
     observation_from_node,
@@ -22,6 +24,8 @@ from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification
     prepare_qualification_request,
 )
 from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import (
+    InitialOwnerComparison,
+    InitialOwnerComparisonAdmission,
     compare_initial_owners,
     fit_initial_owner_comparison_admission,
     select_range_candidate_owners,
@@ -354,34 +358,73 @@ def run_obligation_retrieval(
         },
     )
 
-    source_preparation = prepare_initial_owner_sources(canonical_snippets, config=ctx.config, trace=ctx.trace)
-    canonical_snippets = source_preparation.observations
-    tool_calls += source_preparation.layout_requests
-    admission = fit_initial_owner_comparison_admission(
-        obligation_descriptions={item.id: item.description for item in repository_obligations},
-        observations=canonical_snippets,
-        preferred_input_chars=ctx.config.preferred_initial_owner_comparison_input_chars,
-        max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
-        max_selected=ctx.config.max_discovery_observations,
+    legacy_initial_selection = (
+        ctx.config.initial_selection_mode == INITIAL_SELECTION_LEGACY_OBSERVATION_GUARDRAIL
     )
+    if legacy_initial_selection:
+        legacy_selected, legacy_deferred, legacy_all, legacy_guardrail_decisions = (
+            _legacy_initial_observation_selection(
+                raw_observations,
+                limit=ctx.config.max_discovery_observations,
+            )
+        )
+        admitted_paths = tuple(dict.fromkeys(item.handle.path for item in legacy_selected))
+        excluded_paths = tuple(
+            dict.fromkeys(
+                item.handle.path for item in legacy_deferred
+                if item.handle.path not in admitted_paths
+            )
+        )
+        admission = InitialOwnerComparisonAdmission(
+            admitted_groups=tuple((path, path) for path in admitted_paths),
+            admitted_paths=admitted_paths,
+            excluded_paths=excluded_paths,
+            total_input_chars=0,
+            candidate_count=len(legacy_selected),
+            stopping_reason="legacy_observation_guardrail",
+            stopped_at_path="",
+            path_decisions=legacy_guardrail_decisions,
+            admitted_ids=tuple(item.id for item in legacy_selected),
+            excluded_ids=tuple(item.id for item in legacy_deferred),
+            snippet_decisions=legacy_guardrail_decisions,
+            coverage_reserved_ids=(),
+            coverage_reserved_paths=(),
+        )
+        canonical_snippets = legacy_all
+    else:
+        source_preparation = prepare_initial_owner_sources(canonical_snippets, config=ctx.config, trace=ctx.trace)
+        canonical_snippets = source_preparation.observations
+        tool_calls += source_preparation.layout_requests
+        admission = fit_initial_owner_comparison_admission(
+            obligation_descriptions={item.id: item.description for item in repository_obligations},
+            observations=canonical_snippets,
+            preferred_input_chars=ctx.config.preferred_initial_owner_comparison_input_chars,
+            max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
+            max_selected=ctx.config.max_discovery_observations,
+        )
     admitted_path_keys = {path.casefold() for path in admission.admitted_paths}
     admitted_ids = set(admission.admitted_ids)
     canonical_by_id = {item.id: item for item in canonical_snippets}
     comparison_snippets = tuple(canonical_by_id[value] for value in admission.admitted_ids)
-    file_admission_decisions = tuple(
-        {
-            "observation_id": item.id,
-            "path": item.handle.path,
-            "symbol": item.handle.symbol,
-            "reason": ("same_path_alternative" if item.handle.path.casefold() in admitted_path_keys
-                       else "file_not_admitted"),
-        }
-        for item in canonical_snippets
-        if item.id not in admitted_ids
+    file_admission_decisions = (
+        legacy_guardrail_decisions
+        if legacy_initial_selection
+        else tuple(
+            {
+                "observation_id": item.id,
+                "path": item.handle.path,
+                "symbol": item.handle.symbol,
+                "reason": ("same_path_alternative" if item.handle.path.casefold() in admitted_path_keys
+                           else "file_not_admitted"),
+            }
+            for item in canonical_snippets
+            if item.id not in admitted_ids
+        )
     )
     ctx.trace.record(
         "initial_files_admitted",
         {
+            "initial_selection_mode": ctx.config.initial_selection_mode,
             "input_snippet_count": len(canonical_snippets),
             "input_file_count": len({item.handle.path.casefold() for item in canonical_snippets}),
             "admitted_file_count": len(admission.admitted_paths),
@@ -392,10 +435,20 @@ def run_obligation_retrieval(
             "excluded_paths": list(admission.excluded_paths),
             "participating_candidate_count": admission.candidate_count,
             "comparison_total_input_chars": admission.total_input_chars,
-            "comparison_preferred_input_chars": ctx.config.preferred_initial_owner_comparison_input_chars,
-            "comparison_input_char_budget": ctx.config.max_initial_owner_comparison_input_chars,
+            "comparison_preferred_input_chars": (
+                0 if legacy_initial_selection
+                else ctx.config.preferred_initial_owner_comparison_input_chars
+            ),
+            "comparison_input_char_budget": (
+                0 if legacy_initial_selection
+                else ctx.config.max_initial_owner_comparison_input_chars
+            ),
             "file_limit": 0,
-            "admission_limit": "ranked_individual_snippets_append_crossing_then_stop",
+            "admission_limit": (
+                "legacy_aggregate_observations_guardrail"
+                if legacy_initial_selection
+                else "ranked_individual_snippets_append_crossing_then_stop"
+            ),
             "stopping_reason": admission.stopping_reason,
             "stopped_at_path": admission.stopped_at_path,
             "path_decisions": list(admission.path_decisions),
@@ -406,15 +459,33 @@ def run_obligation_retrieval(
             "nonadmitted_disposition": "deferred",
         },
     )
-    owner_comparison = compare_initial_owners(
-        llm_config=ctx.config.llm_config,
-        obligation_descriptions={item.id: item.description for item in repository_obligations},
-        observations=comparison_snippets,
-        admitted_groups=admission.admitted_groups,
-        max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
-        max_selected=ctx.config.max_discovery_observations,
-        trace=ctx.trace,
-    )
+    if legacy_initial_selection:
+        owner_comparison = InitialOwnerComparison(
+            selected=comparison_snippets,
+            dormant=(),
+            usage={},
+            serialized_chars=0,
+            compared_group_count=0,
+            auto_selected_group_count=0,
+            selected_by_group={},
+        )
+        ctx.trace.record(
+            "initial_owner_comparison_skipped",
+            {
+                "reason": "explicit_legacy_observation_guardrail_mode",
+                "selected_count": len(comparison_snippets),
+            },
+        )
+    else:
+        owner_comparison = compare_initial_owners(
+            llm_config=ctx.config.llm_config,
+            obligation_descriptions={item.id: item.description for item in repository_obligations},
+            observations=comparison_snippets,
+            admitted_groups=admission.admitted_groups,
+            max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
+            max_selected=ctx.config.max_discovery_observations,
+            trace=ctx.trace,
+        )
     initial_observations = owner_comparison.selected
     ctx.trace.record(
         "round_zero_snippets_selected",
@@ -426,22 +497,31 @@ def run_obligation_retrieval(
             "global_limit": ctx.config.max_discovery_observations,
             "per_file_limit": 0,
             "per_file_selection_policy": "grouped_primary_plus_semantically_distinct_additional_owners",
-            "selection_method": "initial_owner_comparison_global_semantic_selection",
+            "selection_method": (
+                "legacy_aggregate_observations_guardrail"
+                if legacy_initial_selection
+                else "initial_owner_comparison_global_semantic_selection"
+            ),
             "post_comparison_reducer_applied": False,
             "owner_comparison_dormant_count": len(owner_comparison.dormant),
             "output_snippets": [item.to_dict(include_text=False) for item in initial_observations],
         },
     )
-    deferred_observations = _deferred_after_initial_owner_comparison(
-        baseline_candidates=canonical_snippets,
-        owner_comparison_selected=owner_comparison.selected,
-        round_zero_selected=initial_observations,
-        owner_comparison_dormant=owner_comparison.dormant,
-        guardrail_decisions=file_admission_decisions,
+    deferred_observations = (
+        legacy_deferred
+        if legacy_initial_selection
+        else _deferred_after_initial_owner_comparison(
+            baseline_candidates=canonical_snippets,
+            owner_comparison_selected=owner_comparison.selected,
+            round_zero_selected=initial_observations,
+            owner_comparison_dormant=owner_comparison.dormant,
+            guardrail_decisions=file_admission_decisions,
+        )
     )
     ctx.trace.record(
         "discovery_observations_created",
         {
+            "initial_selection_mode": ctx.config.initial_selection_mode,
             "raw_count": len(raw_observations),
             "canonical_count": len(canonical_snippets),
             "raw_observations": [item.to_dict(include_text=False) for item in raw_observations],
@@ -699,6 +779,28 @@ def run_obligation_retrieval(
         retrieval_summary=summary,
         failures_or_fallbacks=tuple((*required_unresolved, *unresolved_transitions)),
     )
+
+
+def _legacy_initial_observation_selection(
+    raw_observations: Sequence[DiscoveryObservation],
+    *,
+    limit: int,
+) -> tuple[
+    tuple[DiscoveryObservation, ...],
+    tuple[DiscoveryObservation, ...],
+    tuple[DiscoveryObservation, ...],
+    tuple[dict[str, Any], ...],
+]:
+    """Reproduce the August 15 observation guardrail on current raw inputs."""
+
+    selected, decisions = aggregate_observations(raw_observations, limit=limit)
+    all_observations, _all_decisions = aggregate_observations(
+        raw_observations,
+        limit=max(1, len(raw_observations)),
+    )
+    selected_ids = {item.id for item in selected}
+    deferred = tuple(item for item in all_observations if item.id not in selected_ids)
+    return selected, deferred, all_observations, decisions
 
 
 def _candidate_from_qualified(
