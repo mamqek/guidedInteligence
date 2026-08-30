@@ -1,5 +1,9 @@
 # Mixed-island file-trace representation experiment
 
+> This document is the chronological experiment record. The stable retained behavior,
+> module map, invariants, and thesis-facing interpretation are documented in
+> [`../retained-file-trace-representation-design.md`](../retained-file-trace-representation-design.md).
+
 ## Problem and fixed baseline
 
 TypeScript acceptance runs that constructed the WatchMode-to-Helpers file trace still
@@ -272,3 +276,28 @@ general quality improvement, but they show no Oracle regression relative to the 
 recent recorded Vue/Pandas runs: Vue moved from 0/2 to 1/2 overlap, while Pandas moved
 from 1/3 to 2/3. Input and LLM variability prevent attributing those gains solely to
 this change.
+
+Two additional cases were selected only from the non-held-out corpus. The corpus has
+38 cases; seven verification records are explicitly marked held-out and none of those
+seven was executed. Actual final-selection runs used bundled Node 24 and skipped only
+response generation:
+
+- Pandas `pandas-dev-pandas-35925`, `run-20260829T162616Z`: `partial/false`, one
+  evidence item, 1/25 Oracle overlap (`pandas/core/aggregation.py`, rank 1), and 53,315
+  retrieval tokens. This is a mass Black-formatting cleanup whose Oracle contains 25
+  changed configuration, documentation, test, and implementation files. Earlier valid
+  runs varied from three to five overlaps; the immediately preceding four artifacts
+  were `missing` with no evidence.
+- Vue `vuejs-vue-13052`, `run-20260829T162949Z`: `partial/false`, one evidence item,
+  0/2 Oracle overlap, and 44,079 retrieval tokens. Retrieval selected the affected
+  `packages/compiler-sfc/src/compileTemplate.ts`; the two Oracles are dependency
+  manifests (`packages/compiler-sfc/package.json` and `pnpm-lock.yaml`). Every recorded
+  prior valid run for this case also had 0/2 Oracle overlap.
+
+The new pending scheduler, file-trace source preservation, rejected-endpoint override,
+and file-trace selection were all dormant in both runs. Per-obligation reservation
+marked one observation in each run, but all six obligations deduplicated to the same
+globally first admitted observation, so it displaced nothing. These outcomes therefore
+exercise the unchanged semantic/final-selection behavior more than the TypeScript
+repair. They disclose existing breadth limitations on mass-formatting and manifest-only
+Oracles, but no causal regression from the retained scheduling/representation change.
