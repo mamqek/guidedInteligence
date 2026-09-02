@@ -8,6 +8,8 @@ Workspace retrieval is complete over 35 CodeRepoQA cases: seven issue categories
 
 - Workspace: `configs/testing/statistics-workspace.json`, `gpt-5.6-luna`, qualification-first controller, response generation skipped, final evidence selection enabled.
 - Codex: `gpt-5.6-luna`, `efficient` prompt profile, frozen campaign ledger `2026-08-26-codex-luna-four-runs.json`.
+- Frozen implementation revision: `f2264962de6a3988c8eb827ef19a91074670385a`.
+- Index cost estimate: `text-embedding-3-large` at $0.13/1M input tokens; repository-specific tokens-per-chunk rates come from the three full rebuilds named in the JSON report.
 - Headline selection: the first valid campaign run for every testcase and system; no run was selected or replaced using its score.
 - Four-run stability: calculate every run, average four repetitions within each case, then macro-average the 35 case means.
 - Twenty-one Workspace attempts exited with code 1 before producing required artifacts. They are excluded and remain auditable in the source ledgers; the ledger does not preserve a precise cause for every attempt.
@@ -18,82 +20,82 @@ Files are ranked and deduplicated by repository-relative path. Implementation Or
 
 ## Headline run inventory and cost
 
-Indexing-token totals for Workspace are unavailable because the reused-index build usage was not provider-logged. They are not estimated. Observed build duration is recovered only from an earlier trace with the same case snapshot and exact Qdrant collection identity. `Flow` is the recorded non-indexing retrieval usage.
+Workspace indexing tokens are cold-index estimates because the embedding provider usage was not retained. Each case uses its exact indexed-chunk count and the measured repository-specific average tokens per chunk. Build duration is observed from an exact-snapshot rebuild; `Flow` remains measured non-indexing retrieval usage.
 
-Matching build duration was recovered for 32/35 Workspace cases: mean 153.2s, median 34.2s, range 6.4–829.3s. Codex performs direct repository inspection and has no index-build stage.
+Matching build duration was recovered for 35/35 Workspace cases: mean 152.6s, median 39.7s, range 6.4–829.3s. Codex performs direct repository inspection and has no index-build stage.
 
-| Case | Part. | Category | Topology | System | Run | Seconds | Index build seconds | Build source run | Index tokens | Flow | Cached in | Uncached in | Output |
-| --- | --- | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |
-| `microsoft-TypeScript-10020` | `development` | `feature_enhancement` | `connected_mechanism` | codex | `run-20260826T142635Z` | 58.4 | 0.0 | not applicable | 0 | 190909 | 154368 | 35149 | 1392 |
-| `microsoft-TypeScript-10020` | `development` | `feature_enhancement` | `connected_mechanism` | workspace | `run-20260902T045151Z` | 258.4 | 525.9 | `run-20260829T202351Z` | unavailable | 105662 | — | — | 18537 |
-| `microsoft-TypeScript-10041` | `final` | `compatibility_versioning` | `localized_implementation` | codex | `run-20260826T143004Z` | 56.7 | 0.0 | not applicable | 0 | 167635 | 131072 | 35289 | 1274 |
-| `microsoft-TypeScript-10041` | `final` | `compatibility_versioning` | `localized_implementation` | workspace | `run-20260902T051018Z` | 484.4 | 317.9 | `run-20260902T051018Z` | unavailable | 76445 | — | — | 10353 |
-| `microsoft-TypeScript-10473` | `final` | `bug_regression` | `connected_mechanism` | codex | `run-20260826T143350Z` | 51.6 | 0.0 | not applicable | 0 | 102883 | 83200 | 18729 | 954 |
-| `microsoft-TypeScript-10473` | `final` | `bug_regression` | `connected_mechanism` | workspace | `run-20260902T052852Z` | 423.9 | 212.5 | `run-20260902T052852Z` | unavailable | 110147 | — | — | 17804 |
-| `microsoft-TypeScript-16278` | `development` | `api_behavior_design` | `connected_mechanism` | codex | `run-20260826T143724Z` | 63.9 | 0.0 | not applicable | 0 | 192556 | 154368 | 36123 | 2065 |
-| `microsoft-TypeScript-16278` | `development` | `api_behavior_design` | `connected_mechanism` | workspace | `run-20260902T054834Z` | 552.7 | 288.1 | `run-20260902T054834Z` | unavailable | 114893 | — | — | 21660 |
-| `microsoft-TypeScript-19074` | `final` | `maintenance_refactor` | `connected_mechanism` | codex | `run-20260826T144120Z` | 58.3 | 0.0 | not applicable | 0 | 235477 | 188928 | 44926 | 1623 |
-| `microsoft-TypeScript-19074` | `final` | `maintenance_refactor` | `connected_mechanism` | workspace | `run-20260902T055724Z` | 287.7 | unavailable | unavailable | unavailable | 89067 | — | — | 15940 |
-| `microsoft-TypeScript-24625` | `development` | `api_behavior_design` | `localized_implementation` | codex | `run-20260826T144441Z` | 56.1 | 0.0 | not applicable | 0 | 124300 | 103680 | 19331 | 1289 |
-| `microsoft-TypeScript-24625` | `development` | `api_behavior_design` | `localized_implementation` | workspace | `run-20260902T062454Z` | 309.6 | 327.6 | `run-20260829T235503Z` | unavailable | 99261 | — | — | 15953 |
-| `microsoft-TypeScript-2953` | `development` | `bug_regression` | `localized_declarative` | codex | `run-20260826T144827Z` | 69.8 | 0.0 | not applicable | 0 | 174735 | 137984 | 35410 | 1341 |
-| `microsoft-TypeScript-2953` | `development` | `bug_regression` | `localized_declarative` | workspace | `run-20260902T061916Z` | 160.0 | 277.0 | `run-20260829T185244Z` | unavailable | 55916 | — | — | 9092 |
-| `microsoft-TypeScript-35468` | `development` | `testing_build_tooling` | `connected_mechanism` | codex | `run-20260827T040705Z` | 57.7 | 0.0 | not applicable | 0 | 169984 | 135168 | 33490 | 1326 |
-| `microsoft-TypeScript-35468` | `development` | `testing_build_tooling` | `connected_mechanism` | workspace | `run-20260902T064052Z` | 371.7 | 305.9 | `run-20260830T225414Z` | unavailable | 135996 | — | — | 20518 |
-| `microsoft-TypeScript-45713` | `development` | `feature_enhancement` | `connected_mechanism` | codex | `run-20260827T041035Z` | 69.0 | 0.0 | not applicable | 0 | 141841 | 109568 | 30131 | 2142 |
-| `microsoft-TypeScript-45713` | `development` | `feature_enhancement` | `connected_mechanism` | workspace | `run-20260902T063019Z` | 334.5 | 829.3 | `run-20260829T200407Z` | unavailable | 104432 | — | — | 16087 |
-| `microsoft-TypeScript-46770` | `development` | `compatibility_versioning` | `connected_mechanism` | codex | `run-20260827T041447Z` | 54.4 | 0.0 | not applicable | 0 | 151589 | 114944 | 35537 | 1108 |
-| `microsoft-TypeScript-46770` | `development` | `compatibility_versioning` | `connected_mechanism` | workspace | `run-20260902T070033Z` | 444.4 | 399.7 | `run-20260829T231718Z` | unavailable | 133259 | — | — | 19793 |
-| `microsoft-TypeScript-52695` | `development` | `performance_memory` | `connected_mechanism` | codex | `run-20260827T041835Z` | 54.2 | 0.0 | not applicable | 0 | 150515 | 119808 | 29253 | 1454 |
-| `microsoft-TypeScript-52695` | `development` | `performance_memory` | `connected_mechanism` | workspace | `run-20260902T064744Z` | 411.9 | 808.1 | `run-20260829T204456Z` | unavailable | 125342 | — | — | 20754 |
-| `pandas-dev-pandas-10068` | `development` | `bug_regression` | `localized_implementation` | codex | `run-20260827T042220Z` | 66.7 | 0.0 | not applicable | 0 | 121099 | 74240 | 44810 | 2049 |
-| `pandas-dev-pandas-10068` | `development` | `bug_regression` | `localized_implementation` | workspace | `run-20260902T072929Z` | 183.5 | 28.6 | `run-20260820T005900Z` | unavailable | 78239 | — | — | 13008 |
-| `pandas-dev-pandas-10150` | `final` | `api_behavior_design` | `connected_mechanism` | codex | `run-20260827T042633Z` | 64.0 | 0.0 | not applicable | 0 | 142179 | 106752 | 33566 | 1861 |
-| `pandas-dev-pandas-10150` | `final` | `api_behavior_design` | `connected_mechanism` | workspace | `run-20260902T072114Z` | 226.6 | 6.4 | `run-20260902T072114Z` | unavailable | 112721 | — | — | 17702 |
-| `pandas-dev-pandas-14942` | `development` | `performance_memory` | `connected_mechanism` | codex | `run-20260827T043249Z` | 65.6 | 0.0 | not applicable | 0 | 164470 | 134144 | 28705 | 1621 |
-| `pandas-dev-pandas-14942` | `development` | `performance_memory` | `connected_mechanism` | workspace | `run-20260902T080000Z` | 246.6 | 77.8 | `run-20260829T203552Z` | unavailable | 130285 | — | — | 19437 |
-| `pandas-dev-pandas-16499` | `development` | `testing_build_tooling` | `localized_implementation` | codex | `run-20260827T043942Z` | 75.6 | 0.0 | not applicable | 0 | 204944 | 176896 | 25842 | 2206 |
-| `pandas-dev-pandas-16499` | `development` | `testing_build_tooling` | `localized_implementation` | workspace | `run-20260902T073453Z` | 172.7 | 43.3 | `run-20260823T031156Z` | unavailable | 81258 | — | — | 12323 |
-| `pandas-dev-pandas-16764` | `development` | `performance_memory` | `broad_cross_cutting` | codex | `run-20260827T044409Z` | 59.3 | 0.0 | not applicable | 0 | 161117 | 138752 | 20785 | 1580 |
-| `pandas-dev-pandas-16764` | `development` | `performance_memory` | `broad_cross_cutting` | workspace | `run-20260902T082442Z` | 212.1 | 47.9 | `run-20260829T204041Z` | unavailable | 73630 | — | — | 15053 |
-| `pandas-dev-pandas-22698` | `development` | `compatibility_versioning` | `localized_implementation` | codex | `run-20260827T044804Z` | 59.8 | 0.0 | not applicable | 0 | 153985 | 122880 | 29547 | 1558 |
-| `pandas-dev-pandas-22698` | `development` | `compatibility_versioning` | `localized_implementation` | workspace | `run-20260902T074710Z` | 219.5 | 39.8 | `run-20260829T230808Z` | unavailable | 93395 | — | — | 16222 |
-| `pandas-dev-pandas-22872` | `development` | `maintenance_refactor` | `localized_declarative` | codex | `run-20260827T045311Z` | 59.1 | 0.0 | not applicable | 0 | 156376 | 125952 | 29168 | 1256 |
-| `pandas-dev-pandas-22872` | `development` | `maintenance_refactor` | `localized_declarative` | workspace | `run-20260902T083928Z` | 245.9 | 8.2 | `run-20260902T083928Z` | unavailable | 119458 | — | — | 19797 |
-| `pandas-dev-pandas-25183` | `development` | `api_behavior_design` | `localized_implementation` | codex | `run-20260827T045922Z` | 60.7 | 0.0 | not applicable | 0 | 154505 | 122880 | 30210 | 1415 |
-| `pandas-dev-pandas-25183` | `development` | `api_behavior_design` | `localized_implementation` | workspace | `run-20260902T080213Z` | 317.8 | 8.9 | `run-20260902T080213Z` | unavailable | 142769 | — | — | 21904 |
-| `pandas-dev-pandas-32289` | `development` | `testing_build_tooling` | `localized_implementation` | codex | `run-20260827T050312Z` | 47.4 | 0.0 | not applicable | 0 | 155878 | 123648 | 30886 | 1344 |
-| `pandas-dev-pandas-32289` | `development` | `testing_build_tooling` | `localized_implementation` | workspace | `run-20260902T085507Z` | 202.7 | 10.3 | `run-20260902T085507Z` | unavailable | 71422 | — | — | 12432 |
-| `pandas-dev-pandas-35925` | `development` | `maintenance_refactor` | `broad_cross_cutting` | codex | `run-20260827T050627Z` | 45.0 | 0.0 | not applicable | 0 | 83844 | 66048 | 16956 | 840 |
-| `pandas-dev-pandas-35925` | `development` | `maintenance_refactor` | `broad_cross_cutting` | workspace | `run-20260902T081923Z` | 133.2 | 80.3 | `run-20260829T162616Z` | unavailable | 46005 | — | — | 8251 |
-| `pandas-dev-pandas-36617` | `development` | `maintenance_refactor` | `localized_declarative` | codex | `run-20260827T050948Z` | 72.5 | 0.0 | not applicable | 0 | 134562 | 103424 | 29415 | 1723 |
-| `pandas-dev-pandas-36617` | `development` | `maintenance_refactor` | `localized_declarative` | workspace | `run-20260902T090812Z` | 185.4 | unavailable | unavailable | unavailable | 67770 | — | — | 10224 |
-| `pandas-dev-pandas-4542` | `development` | `feature_enhancement` | `connected_mechanism` | codex | `run-20260827T051413Z` | 44.0 | 0.0 | not applicable | 0 | 123540 | 103424 | 19153 | 963 |
-| `pandas-dev-pandas-4542` | `development` | `feature_enhancement` | `connected_mechanism` | workspace | `run-20260902T082726Z` | 108.0 | 25.8 | `run-20260829T202126Z` | unavailable | 52825 | — | — | 7346 |
-| `vuejs-vue-10004` | `development` | `performance_memory` | `localized_implementation` | codex | `run-20260827T051726Z` | 62.5 | 0.0 | not applicable | 0 | 170474 | 131840 | 37179 | 1455 |
-| `vuejs-vue-10004` | `development` | `performance_memory` | `localized_implementation` | workspace | `run-20260902T092201Z` | 250.8 | unavailable | unavailable | unavailable | 135688 | — | — | 19794 |
-| `vuejs-vue-10519` | `development` | `bug_regression` | `localized_implementation` | codex | `run-20260827T052132Z` | 98.6 | 0.0 | not applicable | 0 | 276440 | 238592 | 33874 | 3974 |
-| `vuejs-vue-10519` | `development` | `bug_regression` | `localized_implementation` | workspace | `run-20260902T084105Z` | 233.7 | 18.1 | `run-20260829T195841Z` | unavailable | 87332 | — | — | 17550 |
-| `vuejs-vue-10803` | `development` | `bug_regression` | `localized_implementation` | codex | `run-20260827T052628Z` | 50.4 | 0.0 | not applicable | 0 | 114756 | 94208 | 19336 | 1212 |
-| `vuejs-vue-10803` | `development` | `bug_regression` | `localized_implementation` | workspace | `run-20260902T093853Z` | 206.5 | 24.6 | `run-20260820T010507Z` | unavailable | 82551 | — | — | 14721 |
-| `vuejs-vue-11718` | `development` | `testing_build_tooling` | `connected_mechanism` | codex | `run-20260827T053101Z` | 48.3 | 0.0 | not applicable | 0 | 87742 | 69120 | 17626 | 996 |
-| `vuejs-vue-11718` | `development` | `testing_build_tooling` | `connected_mechanism` | workspace | `run-20260902T085440Z` | 192.6 | 15.1 | `run-20260902T085440Z` | unavailable | 66747 | — | — | 12642 |
-| `vuejs-vue-11782` | `final` | `testing_build_tooling` | `localized_declarative` | codex | `run-20260827T053412Z` | 61.2 | 0.0 | not applicable | 0 | 185108 | 154112 | 29592 | 1404 |
-| `vuejs-vue-11782` | `final` | `testing_build_tooling` | `localized_declarative` | workspace | `run-20260902T095217Z` | 205.1 | 12.1 | `run-20260902T095217Z` | unavailable | 65379 | — | — | 12513 |
-| `vuejs-vue-13052` | `development` | `compatibility_versioning` | `localized_declarative` | codex | `run-20260827T053820Z` | 70.4 | 0.0 | not applicable | 0 | 173682 | 135936 | 35681 | 2065 |
-| `vuejs-vue-13052` | `development` | `compatibility_versioning` | `localized_declarative` | workspace | `run-20260902T090628Z` | 184.9 | 25.2 | `run-20260829T162949Z` | unavailable | 62611 | — | — | 11321 |
-| `vuejs-vue-5884` | `development` | `api_behavior_design` | `localized_implementation` | codex | `run-20260827T054153Z` | 53.2 | 0.0 | not applicable | 0 | 167165 | 126720 | 39048 | 1397 |
-| `vuejs-vue-5884` | `development` | `api_behavior_design` | `localized_implementation` | workspace | `run-20260902T100700Z` | 222.4 | 15.7 | `run-20260829T234450Z` | unavailable | 90320 | — | — | 15314 |
-| `vuejs-vue-6097` | `final` | `feature_enhancement` | `connected_mechanism` | codex | `run-20260827T054518Z` | 138.3 | 0.0 | not applicable | 0 | 603804 | 545280 | 53738 | 4786 |
-| `vuejs-vue-6097` | `final` | `feature_enhancement` | `connected_mechanism` | workspace | `run-20260902T091823Z` | 250.2 | 19.3 | `run-20260902T091823Z` | unavailable | 102384 | — | — | 17413 |
-| `vuejs-vue-6301` | `development` | `feature_enhancement` | `localized_declarative` | codex | `run-20260827T055110Z` | 44.9 | 0.0 | not applicable | 0 | 145665 | 122624 | 21896 | 1145 |
-| `vuejs-vue-6301` | `development` | `feature_enhancement` | `localized_declarative` | workspace | `run-20260902T102139Z` | 183.7 | 39.7 | `run-20260829T200132Z` | unavailable | 80822 | — | — | 15079 |
-| `vuejs-vue-8528` | `development` | `maintenance_refactor` | `localized_implementation` | codex | `run-20260827T055426Z` | 63.0 | 0.0 | not applicable | 0 | 114963 | 93440 | 19709 | 1814 |
-| `vuejs-vue-8528` | `development` | `maintenance_refactor` | `localized_implementation` | workspace | `run-20260902T093319Z` | 215.4 | 23.4 | `run-20260902T093319Z` | unavailable | 68797 | — | — | 14044 |
-| `vuejs-vue-9042` | `development` | `compatibility_versioning` | `localized_implementation` | codex | `run-20260827T055813Z` | 63.6 | 0.0 | not applicable | 0 | 113933 | 94208 | 18668 | 1057 |
-| `vuejs-vue-9042` | `development` | `compatibility_versioning` | `localized_implementation` | workspace | `run-20260902T103630Z` | 265.5 | 27.9 | `run-20260829T225442Z` | unavailable | 143044 | — | — | 22965 |
-| `vuejs-vue-9842` | `final` | `performance_memory` | `localized_implementation` | codex | `run-20260827T060223Z` | 47.8 | 0.0 | not applicable | 0 | 103214 | 83200 | 19101 | 913 |
-| `vuejs-vue-9842` | `final` | `performance_memory` | `localized_implementation` | workspace | `run-20260902T094458Z` | 226.4 | 12.0 | `run-20260902T094458Z` | unavailable | 123346 | — | — | 18410 |
+| Case | Part. | Category | Topology | System | Run | Seconds | Index build seconds | Build source run | Est. index tokens | Flow | Total incl. est. index | Cached in | Uncached in | Output |
+| --- | --- | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `microsoft-TypeScript-10020` | `development` | `feature_enhancement` | `connected_mechanism` | codex | `run-20260826T142635Z` | 58.4 | 0.0 | not applicable | 0 | 190909 | 190909 | 154368 | 35149 | 1392 |
+| `microsoft-TypeScript-10020` | `development` | `feature_enhancement` | `connected_mechanism` | workspace | `run-20260902T045151Z` | 258.4 | 525.9 | `run-20260829T202351Z` | 6407151 | 105662 | 6512813 | — | — | 18537 |
+| `microsoft-TypeScript-10041` | `final` | `compatibility_versioning` | `localized_implementation` | codex | `run-20260826T143004Z` | 56.7 | 0.0 | not applicable | 0 | 167635 | 167635 | 131072 | 35289 | 1274 |
+| `microsoft-TypeScript-10041` | `final` | `compatibility_versioning` | `localized_implementation` | workspace | `run-20260902T051018Z` | 484.4 | 317.9 | `run-20260902T051018Z` | 4731764 | 76445 | 4808209 | — | — | 10353 |
+| `microsoft-TypeScript-10473` | `final` | `bug_regression` | `connected_mechanism` | codex | `run-20260826T143350Z` | 51.6 | 0.0 | not applicable | 0 | 102883 | 102883 | 83200 | 18729 | 954 |
+| `microsoft-TypeScript-10473` | `final` | `bug_regression` | `connected_mechanism` | workspace | `run-20260902T052852Z` | 423.9 | 212.5 | `run-20260902T052852Z` | 4861201 | 110147 | 4971348 | — | — | 17804 |
+| `microsoft-TypeScript-16278` | `development` | `api_behavior_design` | `connected_mechanism` | codex | `run-20260826T143724Z` | 63.9 | 0.0 | not applicable | 0 | 192556 | 192556 | 154368 | 36123 | 2065 |
+| `microsoft-TypeScript-16278` | `development` | `api_behavior_design` | `connected_mechanism` | workspace | `run-20260902T054834Z` | 552.7 | 288.1 | `run-20260902T054834Z` | 5696827 | 114893 | 5811720 | — | — | 21660 |
+| `microsoft-TypeScript-19074` | `final` | `maintenance_refactor` | `connected_mechanism` | codex | `run-20260826T144120Z` | 58.3 | 0.0 | not applicable | 0 | 235477 | 235477 | 188928 | 44926 | 1623 |
+| `microsoft-TypeScript-19074` | `final` | `maintenance_refactor` | `connected_mechanism` | workspace | `run-20260902T055724Z` | 287.7 | 300.0 | `run-20260902T122601Z` | 9789189 | 89067 | 9878256 | — | — | 15940 |
+| `microsoft-TypeScript-24625` | `development` | `api_behavior_design` | `localized_implementation` | codex | `run-20260826T144441Z` | 56.1 | 0.0 | not applicable | 0 | 124300 | 124300 | 103680 | 19331 | 1289 |
+| `microsoft-TypeScript-24625` | `development` | `api_behavior_design` | `localized_implementation` | workspace | `run-20260902T062454Z` | 309.6 | 327.6 | `run-20260829T235503Z` | 6702278 | 99261 | 6801539 | — | — | 15953 |
+| `microsoft-TypeScript-2953` | `development` | `bug_regression` | `localized_declarative` | codex | `run-20260826T144827Z` | 69.8 | 0.0 | not applicable | 0 | 174735 | 174735 | 137984 | 35410 | 1341 |
+| `microsoft-TypeScript-2953` | `development` | `bug_regression` | `localized_declarative` | workspace | `run-20260902T061916Z` | 160.0 | 277.0 | `run-20260829T185244Z` | 3629356 | 55916 | 3685272 | — | — | 9092 |
+| `microsoft-TypeScript-35468` | `development` | `testing_build_tooling` | `connected_mechanism` | codex | `run-20260827T040705Z` | 57.7 | 0.0 | not applicable | 0 | 169984 | 169984 | 135168 | 33490 | 1326 |
+| `microsoft-TypeScript-35468` | `development` | `testing_build_tooling` | `connected_mechanism` | workspace | `run-20260902T064052Z` | 371.7 | 305.9 | `run-20260830T225414Z` | 10145872 | 135996 | 10281868 | — | — | 20518 |
+| `microsoft-TypeScript-45713` | `development` | `feature_enhancement` | `connected_mechanism` | codex | `run-20260827T041035Z` | 69.0 | 0.0 | not applicable | 0 | 141841 | 141841 | 109568 | 30131 | 2142 |
+| `microsoft-TypeScript-45713` | `development` | `feature_enhancement` | `connected_mechanism` | workspace | `run-20260902T063019Z` | 334.5 | 829.3 | `run-20260829T200407Z` | 11525280 | 104432 | 11629712 | — | — | 16087 |
+| `microsoft-TypeScript-46770` | `development` | `compatibility_versioning` | `connected_mechanism` | codex | `run-20260827T041447Z` | 54.4 | 0.0 | not applicable | 0 | 151589 | 151589 | 114944 | 35537 | 1108 |
+| `microsoft-TypeScript-46770` | `development` | `compatibility_versioning` | `connected_mechanism` | workspace | `run-20260902T070033Z` | 444.4 | 399.7 | `run-20260829T231718Z` | 11649730 | 133259 | 11782989 | — | — | 19793 |
+| `microsoft-TypeScript-52695` | `development` | `performance_memory` | `connected_mechanism` | codex | `run-20260827T041835Z` | 54.2 | 0.0 | not applicable | 0 | 150515 | 150515 | 119808 | 29253 | 1454 |
+| `microsoft-TypeScript-52695` | `development` | `performance_memory` | `connected_mechanism` | workspace | `run-20260902T064744Z` | 411.9 | 808.1 | `run-20260829T204456Z` | 12247769 | 125342 | 12373111 | — | — | 20754 |
+| `pandas-dev-pandas-10068` | `development` | `bug_regression` | `localized_implementation` | codex | `run-20260827T042220Z` | 66.7 | 0.0 | not applicable | 0 | 121099 | 121099 | 74240 | 44810 | 2049 |
+| `pandas-dev-pandas-10068` | `development` | `bug_regression` | `localized_implementation` | workspace | `run-20260902T072929Z` | 183.5 | 28.6 | `run-20260820T005900Z` | 3635569 | 78239 | 3713808 | — | — | 13008 |
+| `pandas-dev-pandas-10150` | `final` | `api_behavior_design` | `connected_mechanism` | codex | `run-20260827T042633Z` | 64.0 | 0.0 | not applicable | 0 | 142179 | 142179 | 106752 | 33566 | 1861 |
+| `pandas-dev-pandas-10150` | `final` | `api_behavior_design` | `connected_mechanism` | workspace | `run-20260902T072114Z` | 226.6 | 6.4 | `run-20260902T072114Z` | 3658437 | 112721 | 3771158 | — | — | 17702 |
+| `pandas-dev-pandas-14942` | `development` | `performance_memory` | `connected_mechanism` | codex | `run-20260827T043249Z` | 65.6 | 0.0 | not applicable | 0 | 164470 | 164470 | 134144 | 28705 | 1621 |
+| `pandas-dev-pandas-14942` | `development` | `performance_memory` | `connected_mechanism` | workspace | `run-20260902T080000Z` | 246.6 | 77.8 | `run-20260829T203552Z` | 5174019 | 130285 | 5304304 | — | — | 19437 |
+| `pandas-dev-pandas-16499` | `development` | `testing_build_tooling` | `localized_implementation` | codex | `run-20260827T043942Z` | 75.6 | 0.0 | not applicable | 0 | 204944 | 204944 | 176896 | 25842 | 2206 |
+| `pandas-dev-pandas-16499` | `development` | `testing_build_tooling` | `localized_implementation` | workspace | `run-20260902T073453Z` | 172.7 | 43.3 | `run-20260823T031156Z` | 4720892 | 81258 | 4802150 | — | — | 12323 |
+| `pandas-dev-pandas-16764` | `development` | `performance_memory` | `broad_cross_cutting` | codex | `run-20260827T044409Z` | 59.3 | 0.0 | not applicable | 0 | 161117 | 161117 | 138752 | 20785 | 1580 |
+| `pandas-dev-pandas-16764` | `development` | `performance_memory` | `broad_cross_cutting` | workspace | `run-20260902T082442Z` | 212.1 | 47.9 | `run-20260829T204041Z` | 4834174 | 73630 | 4907804 | — | — | 15053 |
+| `pandas-dev-pandas-22698` | `development` | `compatibility_versioning` | `localized_implementation` | codex | `run-20260827T044804Z` | 59.8 | 0.0 | not applicable | 0 | 153985 | 153985 | 122880 | 29547 | 1558 |
+| `pandas-dev-pandas-22698` | `development` | `compatibility_versioning` | `localized_implementation` | workspace | `run-20260902T074710Z` | 219.5 | 39.8 | `run-20260829T230808Z` | 5584226 | 93395 | 5677621 | — | — | 16222 |
+| `pandas-dev-pandas-22872` | `development` | `maintenance_refactor` | `localized_declarative` | codex | `run-20260827T045311Z` | 59.1 | 0.0 | not applicable | 0 | 156376 | 156376 | 125952 | 29168 | 1256 |
+| `pandas-dev-pandas-22872` | `development` | `maintenance_refactor` | `localized_declarative` | workspace | `run-20260902T083928Z` | 245.9 | 8.2 | `run-20260902T083928Z` | 5390732 | 119458 | 5510190 | — | — | 19797 |
+| `pandas-dev-pandas-25183` | `development` | `api_behavior_design` | `localized_implementation` | codex | `run-20260827T045922Z` | 60.7 | 0.0 | not applicable | 0 | 154505 | 154505 | 122880 | 30210 | 1415 |
+| `pandas-dev-pandas-25183` | `development` | `api_behavior_design` | `localized_implementation` | workspace | `run-20260902T080213Z` | 317.8 | 8.9 | `run-20260902T080213Z` | 5532862 | 142769 | 5675631 | — | — | 21904 |
+| `pandas-dev-pandas-32289` | `development` | `testing_build_tooling` | `localized_implementation` | codex | `run-20260827T050312Z` | 47.4 | 0.0 | not applicable | 0 | 155878 | 155878 | 123648 | 30886 | 1344 |
+| `pandas-dev-pandas-32289` | `development` | `testing_build_tooling` | `localized_implementation` | workspace | `run-20260902T085507Z` | 202.7 | 10.3 | `run-20260902T085507Z` | 6226976 | 71422 | 6298398 | — | — | 12432 |
+| `pandas-dev-pandas-35925` | `development` | `maintenance_refactor` | `broad_cross_cutting` | codex | `run-20260827T050627Z` | 45.0 | 0.0 | not applicable | 0 | 83844 | 83844 | 66048 | 16956 | 840 |
+| `pandas-dev-pandas-35925` | `development` | `maintenance_refactor` | `broad_cross_cutting` | workspace | `run-20260902T081923Z` | 133.2 | 80.3 | `run-20260829T162616Z` | 6388104 | 46005 | 6434109 | — | — | 8251 |
+| `pandas-dev-pandas-36617` | `development` | `maintenance_refactor` | `localized_declarative` | codex | `run-20260827T050948Z` | 72.5 | 0.0 | not applicable | 0 | 134562 | 134562 | 103424 | 29415 | 1723 |
+| `pandas-dev-pandas-36617` | `development` | `maintenance_refactor` | `localized_declarative` | workspace | `run-20260902T090812Z` | 185.4 | 126.3 | `run-20260902T121513Z` | 6395140 | 67770 | 6462910 | — | — | 10224 |
+| `pandas-dev-pandas-4542` | `development` | `feature_enhancement` | `connected_mechanism` | codex | `run-20260827T051413Z` | 44.0 | 0.0 | not applicable | 0 | 123540 | 123540 | 103424 | 19153 | 963 |
+| `pandas-dev-pandas-4542` | `development` | `feature_enhancement` | `connected_mechanism` | workspace | `run-20260902T082726Z` | 108.0 | 25.8 | `run-20260829T202126Z` | 2349013 | 52825 | 2401838 | — | — | 7346 |
+| `vuejs-vue-10004` | `development` | `performance_memory` | `localized_implementation` | codex | `run-20260827T051726Z` | 62.5 | 0.0 | not applicable | 0 | 170474 | 170474 | 131840 | 37179 | 1455 |
+| `vuejs-vue-10004` | `development` | `performance_memory` | `localized_implementation` | workspace | `run-20260902T092201Z` | 250.8 | 14.2 | `run-20260902T122030Z` | 883435 | 135688 | 1019123 | — | — | 19794 |
+| `vuejs-vue-10519` | `development` | `bug_regression` | `localized_implementation` | codex | `run-20260827T052132Z` | 98.6 | 0.0 | not applicable | 0 | 276440 | 276440 | 238592 | 33874 | 3974 |
+| `vuejs-vue-10519` | `development` | `bug_regression` | `localized_implementation` | workspace | `run-20260902T084105Z` | 233.7 | 18.1 | `run-20260829T195841Z` | 876384 | 87332 | 963716 | — | — | 17550 |
+| `vuejs-vue-10803` | `development` | `bug_regression` | `localized_implementation` | codex | `run-20260827T052628Z` | 50.4 | 0.0 | not applicable | 0 | 114756 | 114756 | 94208 | 19336 | 1212 |
+| `vuejs-vue-10803` | `development` | `bug_regression` | `localized_implementation` | workspace | `run-20260902T093853Z` | 206.5 | 24.6 | `run-20260820T010507Z` | 876585 | 82551 | 959136 | — | — | 14721 |
+| `vuejs-vue-11718` | `development` | `testing_build_tooling` | `connected_mechanism` | codex | `run-20260827T053101Z` | 48.3 | 0.0 | not applicable | 0 | 87742 | 87742 | 69120 | 17626 | 996 |
+| `vuejs-vue-11718` | `development` | `testing_build_tooling` | `connected_mechanism` | workspace | `run-20260902T085440Z` | 192.6 | 15.1 | `run-20260902T085440Z` | 882226 | 66747 | 948973 | — | — | 12642 |
+| `vuejs-vue-11782` | `final` | `testing_build_tooling` | `localized_declarative` | codex | `run-20260827T053412Z` | 61.2 | 0.0 | not applicable | 0 | 185108 | 185108 | 154112 | 29592 | 1404 |
+| `vuejs-vue-11782` | `final` | `testing_build_tooling` | `localized_declarative` | workspace | `run-20260902T095217Z` | 205.1 | 12.1 | `run-20260902T095217Z` | 877190 | 65379 | 942569 | — | — | 12513 |
+| `vuejs-vue-13052` | `development` | `compatibility_versioning` | `localized_declarative` | codex | `run-20260827T053820Z` | 70.4 | 0.0 | not applicable | 0 | 173682 | 173682 | 135936 | 35681 | 2065 |
+| `vuejs-vue-13052` | `development` | `compatibility_versioning` | `localized_declarative` | workspace | `run-20260902T090628Z` | 184.9 | 25.2 | `run-20260829T162949Z` | 856841 | 62611 | 919452 | — | — | 11321 |
+| `vuejs-vue-5884` | `development` | `api_behavior_design` | `localized_implementation` | codex | `run-20260827T054153Z` | 53.2 | 0.0 | not applicable | 0 | 167165 | 167165 | 126720 | 39048 | 1397 |
+| `vuejs-vue-5884` | `development` | `api_behavior_design` | `localized_implementation` | workspace | `run-20260902T100700Z` | 222.4 | 15.7 | `run-20260829T234450Z` | 524621 | 90320 | 614941 | — | — | 15314 |
+| `vuejs-vue-6097` | `final` | `feature_enhancement` | `connected_mechanism` | codex | `run-20260827T054518Z` | 138.3 | 0.0 | not applicable | 0 | 603804 | 603804 | 545280 | 53738 | 4786 |
+| `vuejs-vue-6097` | `final` | `feature_enhancement` | `connected_mechanism` | workspace | `run-20260902T091823Z` | 250.2 | 19.3 | `run-20260902T091823Z` | 766987 | 102384 | 869371 | — | — | 17413 |
+| `vuejs-vue-6301` | `development` | `feature_enhancement` | `localized_declarative` | codex | `run-20260827T055110Z` | 44.9 | 0.0 | not applicable | 0 | 145665 | 145665 | 122624 | 21896 | 1145 |
+| `vuejs-vue-6301` | `development` | `feature_enhancement` | `localized_declarative` | workspace | `run-20260902T102139Z` | 183.7 | 39.7 | `run-20260829T200132Z` | 711785 | 80822 | 792607 | — | — | 15079 |
+| `vuejs-vue-8528` | `development` | `maintenance_refactor` | `localized_implementation` | codex | `run-20260827T055426Z` | 63.0 | 0.0 | not applicable | 0 | 114963 | 114963 | 93440 | 19709 | 1814 |
+| `vuejs-vue-8528` | `development` | `maintenance_refactor` | `localized_implementation` | workspace | `run-20260902T093319Z` | 215.4 | 23.4 | `run-20260902T093319Z` | 798617 | 68797 | 867414 | — | — | 14044 |
+| `vuejs-vue-9042` | `development` | `compatibility_versioning` | `localized_implementation` | codex | `run-20260827T055813Z` | 63.6 | 0.0 | not applicable | 0 | 113933 | 113933 | 94208 | 18668 | 1057 |
+| `vuejs-vue-9042` | `development` | `compatibility_versioning` | `localized_implementation` | workspace | `run-20260902T103630Z` | 265.5 | 27.9 | `run-20260829T225442Z` | 851603 | 143044 | 994647 | — | — | 22965 |
+| `vuejs-vue-9842` | `final` | `performance_memory` | `localized_implementation` | codex | `run-20260827T060223Z` | 47.8 | 0.0 | not applicable | 0 | 103214 | 103214 | 83200 | 19101 | 913 |
+| `vuejs-vue-9842` | `final` | `performance_memory` | `localized_implementation` | workspace | `run-20260902T094458Z` | 226.4 | 12.0 | `run-20260902T094458Z` | 880212 | 123346 | 1003558 | — | — | 18410 |
 
 ## Descriptive headline metrics — Codex condition invalid
 
@@ -242,10 +244,10 @@ The companion four-run report contains all 280 valid executions, per-case hit co
 
 ## Limitations
 
-- Workspace indexing tokens and combined indexing-plus-flow totals are unavailable because no matching provider-logged build artifact was retained.
+- Workspace indexing token/cost values are estimates, not provider-reported usage; exact indexed-chunk counts and observed build durations are retained.
+- TypeScript's evaluated index scope excludes the entire `lib` directory. That also removes declaration-oriented sources such as `extensions.d.ts`; this limitation is preserved in the reported configuration rather than silently changing the benchmark.
 - The Codex condition is invalid for quality comparison: every execution encountered repository-command policy rejection, and 134/140 returned no usable evidence.
 - Workspace response generation was skipped; this report evaluates retrieval through final evidence selection, not prose quality.
-- The Workspace campaign contains a disclosed implementation boundary: final-selection contract handling and coverage-payload budgeting were repaired while the batch was running. Results are retained as the requested campaign, but they are not evidence from one immutable commit.
 - Standard P@k penalizes short result lists because unreturned ranks are nonrelevant.
 
 ## Reproduction

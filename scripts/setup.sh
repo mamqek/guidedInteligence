@@ -78,12 +78,19 @@ PY
 }
 
 step "Checking required tools"
-require_command node "Node.js 22.x is required. Install Node 22, then rerun scripts/setup.sh."
+require_command node "Node.js 22.12 or newer is required. Install Node 24, then rerun scripts/setup.sh."
 require_command npm "npm is required and should be installed with Node.js."
 
-node_major="$(node -p "Number(process.versions.node.split('.')[0])")"
-if [ "$node_major" != "22" ]; then
-  echo "Node.js 22.x is required. Found: $(node --version)." >&2
+node_version="$(node -p 'process.versions.node')"
+node_major="${node_version%%.*}"
+node_rest="${node_version#*.}"
+node_minor="${node_rest%%.*}"
+if [ "$node_major" -lt 22 ] || { [ "$node_major" -eq 22 ] && [ "$node_minor" -lt 12 ]; }; then
+  echo "Node.js 22.12 or newer with node:sqlite is required. Found: $(node --version)." >&2
+  exit 1
+fi
+if ! node -e "require('node:sqlite')" >/dev/null 2>&1; then
+  echo "The selected Node runtime does not provide node:sqlite. Install Node 24, then rerun scripts/setup.sh." >&2
   exit 1
 fi
 

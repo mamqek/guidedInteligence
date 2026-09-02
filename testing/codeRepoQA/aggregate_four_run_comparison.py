@@ -28,6 +28,41 @@ MAIN_REPORT_JSON = RUNS_DIR / "2026-09-02-workspace-vs-codex-main-statistics.jso
 MAIN_REPORT_MD = RUNS_DIR / "2026-09-02-workspace-vs-codex-main-statistics.md"
 K_VALUES = (1, 2, 5, 10)
 METRIC_KEYS = tuple(f"{family}@{k}" for family in ("p", "r", "ndcg") for k in K_VALUES)
+IMPLEMENTATION_REVISION = "f2264962de6a3988c8eb827ef19a91074670385a"
+EMBEDDING_MODEL = "text-embedding-3-large"
+EMBEDDING_PRICE_USD_PER_MILLION_TOKENS = 0.13
+# Cold-index estimates are calibrated from full rebuilds of one snapshot in
+# each benchmark repository. The estimator is the same conservative character
+# estimator used by the embedding rate limiter; provider usage was not logged.
+INDEX_TOKEN_CALIBRATION = {
+    "pandas-dev/pandas": {
+        "case_id": "pandas-dev-pandas-36617",
+        "source_run_id": "run-20260902T121513Z",
+        "indexed_files": 1257,
+        "indexed_chunks": 18178,
+        "embedding_characters": 22216596,
+        "estimated_tokens": 6395140,
+        "observed_total_seconds": 126.333,
+    },
+    "vuejs/vue": {
+        "case_id": "vuejs-vue-10004",
+        "source_run_id": "run-20260902T122030Z",
+        "indexed_files": 487,
+        "indexed_chunks": 4385,
+        "embedding_characters": 3066156,
+        "estimated_tokens": 883435,
+        "observed_total_seconds": 14.246,
+    },
+    "microsoft/TypeScript": {
+        "case_id": "microsoft-TypeScript-19074",
+        "source_run_id": "run-20260902T122601Z",
+        "indexed_files": 14134,
+        "indexed_chunks": 80469,
+        "embedding_characters": 33937501,
+        "estimated_tokens": 9789189,
+        "observed_total_seconds": 300.031,
+    },
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -138,14 +173,12 @@ def index_trace_info(trace_path: Path) -> dict[str, Any]:
 
 
 def matching_index_build(case_id: str, selected_run_id: str) -> dict[str, Any]:
-    """Find the latest exact-collection rebuild at or before a selected run."""
+    """Find the latest exact-collection rebuild, including later measurement runs."""
     selected_dir = TEST_ROOT / case_id / "runs" / selected_run_id
     selected_metadata = load_json(selected_dir / "run-metadata.json")
     selected_trace = index_trace_info(selected_dir / "retrieval-trace.jsonl")
     collection_name = selected_trace["collection_name"]
     for run_dir in sorted((TEST_ROOT / case_id / "runs").glob("run-*"), reverse=True):
-        if run_dir.name > selected_run_id:
-            continue
         metadata_path = run_dir / "run-metadata.json"
         if not metadata_path.is_file():
             continue
@@ -168,6 +201,22 @@ def matching_index_build(case_id: str, selected_run_id: str) -> dict[str, Any]:
         "codegraph_seconds": None,
         "semantic_seconds": None,
         "total_seconds": None,
+    }
+
+
+def estimated_index_usage(repository: str, document_count: object) -> dict[str, Any]:
+    calibration = INDEX_TOKEN_CALIBRATION[repository]
+    chunks = int(document_count or 0)
+    tokens_per_chunk = calibration["estimated_tokens"] / calibration["indexed_chunks"]
+    estimated_tokens = round(chunks * tokens_per_chunk)
+    return {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": EMBEDDING_MODEL,
+        "document_count": chunks,
+        "estimated_tokens": estimated_tokens,
+        "estimated_cost_usd": estimated_tokens * EMBEDDING_PRICE_USD_PER_MILLION_TOKENS / 1_000_000,
+        "tokens_per_chunk": tokens_per_chunk,
+        "calibration": calibration,
     }
 
 
@@ -304,12 +353,24 @@ def write_main_statistics(
         raise RuntimeError("Main statistics require one first-valid run for every case and system")
     for row in workspace:
         row["index_build"] = matching_index_build(str(row["case_id"]), str(row["run_id"]))
+        row["index_usage"] = estimated_index_usage(
+            str(row["repository"]), row["index_build"].get("document_count")
+        )
+        row["total_tokens_with_estimated_index"] = (
+            int(row["flow_tokens"]) + int(row["index_usage"]["estimated_tokens"])
+        )
     for row in codex:
         row["index_build"] = {
             "source_run_id": None,
             "total_seconds": 0.0,
             "status": "not_applicable_direct_repository_inspection",
         }
+        row["index_usage"] = {
+            "method": "not_applicable_direct_repository_inspection",
+            "estimated_tokens": 0,
+            "estimated_cost_usd": 0.0,
+        }
+        row["total_tokens_with_estimated_index"] = int(row["flow_tokens"])
     observed_index_seconds = [
         float(row["index_build"]["total_seconds"])
         for row in workspace
@@ -335,6 +396,12 @@ def write_main_statistics(
         "headline_selection_rule": "First valid campaign run per testcase and system; never selected by score.",
         "headline_run_count_per_system": 35,
         "stability_runs_per_case_per_system": 4,
+        "implementation_revision": IMPLEMENTATION_REVISION,
+        "index_token_estimation": {
+            "embedding_model": EMBEDDING_MODEL,
+            "price_usd_per_million_tokens": EMBEDDING_PRICE_USD_PER_MILLION_TOKENS,
+            "calibrations": INDEX_TOKEN_CALIBRATION,
+        },
         "headline_summaries": headline,
         "workspace_minus_codex": delta,
         "breakdowns": breakdowns,
@@ -351,10 +418,10 @@ def write_main_statistics(
         "per_case_four_run_stability": per_case,
         "source_four_run_report": REPORT_JSON.relative_to(ROOT).as_posix(),
         "limitations": [
-            "Workspace indexing-token usage is not provider-logged; indexing and combined totals are unavailable rather than estimated.",
+            "Workspace provider-reported indexing usage was not retained; cold-index token and cost values are explicitly estimated from exact indexed-chunk counts using one full-build calibration per repository.",
+            "TypeScript indexing excludes the entire lib directory in this evaluated configuration, including declaration files; the intended future policy is to exclude generated bundles individually while retaining authored declarations.",
             "The frozen Codex campaign is invalid for retrieval comparison: all 140 runs had repository commands rejected by execution policy and 134 returned no usable evidence.",
             "Workspace response generation was skipped; final evidence selection remained enabled.",
-            "The Workspace campaign was repaired during execution for final-selection contract handling and coverage-payload budgeting; this is disclosed as a campaign implementation boundary rather than hidden.",
         ],
     }
     MAIN_REPORT_JSON.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -370,6 +437,8 @@ def write_main_statistics(
         "",
         "- Workspace: `configs/testing/statistics-workspace.json`, `gpt-5.6-luna`, qualification-first controller, response generation skipped, final evidence selection enabled.",
         "- Codex: `gpt-5.6-luna`, `efficient` prompt profile, frozen campaign ledger `2026-08-26-codex-luna-four-runs.json`.",
+        f"- Frozen implementation revision: `{IMPLEMENTATION_REVISION}`.",
+        f"- Index cost estimate: `{EMBEDDING_MODEL}` at ${EMBEDDING_PRICE_USD_PER_MILLION_TOKENS:.2f}/1M input tokens; repository-specific tokens-per-chunk rates come from the three full rebuilds named in the JSON report.",
         "- Headline selection: the first valid campaign run for every testcase and system; no run was selected or replaced using its score.",
         "- Four-run stability: calculate every run, average four repetitions within each case, then macro-average the 35 case means.",
         "- Twenty-one Workspace attempts exited with code 1 before producing required artifacts. They are excluded and remain auditable in the source ledgers; the ledger does not preserve a precise cause for every attempt.",
@@ -380,16 +449,16 @@ def write_main_statistics(
         "",
         "## Headline run inventory and cost",
         "",
-        "Indexing-token totals for Workspace are unavailable because the reused-index build usage was not provider-logged. They are not estimated. Observed build duration is recovered only from an earlier trace with the same case snapshot and exact Qdrant collection identity. `Flow` is the recorded non-indexing retrieval usage.",
+        "Workspace indexing tokens are cold-index estimates because the embedding provider usage was not retained. Each case uses its exact indexed-chunk count and the measured repository-specific average tokens per chunk. Build duration is observed from an exact-snapshot rebuild; `Flow` remains measured non-indexing retrieval usage.",
         "",
         f"Matching build duration was recovered for {len(observed_index_seconds)}/35 Workspace cases: mean {mean(observed_index_seconds):.1f}s, median {median(observed_index_seconds):.1f}s, range {min(observed_index_seconds):.1f}–{max(observed_index_seconds):.1f}s. Codex performs direct repository inspection and has no index-build stage.",
         "",
-        "| Case | Part. | Category | Topology | System | Run | Seconds | Index build seconds | Build source run | Index tokens | Flow | Cached in | Uncached in | Output |",
-        "| --- | --- | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Case | Part. | Category | Topology | System | Run | Seconds | Index build seconds | Build source run | Est. index tokens | Flow | Total incl. est. index | Cached in | Uncached in | Output |",
+        "| --- | --- | --- | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in sorted(selected, key=lambda item: (str(item["case_id"]), str(item["system"]))):
         detail = row["token_detail"]
-        indexing = "unavailable" if row["system"] == "workspace" else "0"
+        indexing = str(row["index_usage"]["estimated_tokens"])
         cached = str(detail.get("cached_input_tokens", "—"))
         uncached = str(detail.get("uncached_input_tokens", "—"))
         output = str(detail.get("output_tokens", detail.get("completion_tokens", "—")))
@@ -398,7 +467,7 @@ def write_main_statistics(
         build_seconds_text = f"{build_seconds:.1f}" if isinstance(build_seconds, (int, float)) else "unavailable"
         build_source = f"`{build['source_run_id']}`" if build.get("source_run_id") else "not applicable" if row["system"] == "codex" else "unavailable"
         lines.append(
-            f"| `{row['case_id']}` | `{row['partition']}` | `{row['category']}` | `{row['retrieval_topology']}` | {row['system']} | `{row['run_id']}` | {row['elapsed_seconds']:.1f} | {build_seconds_text} | {build_source} | {indexing} | {row['flow_tokens']} | {cached} | {uncached} | {output} |"
+            f"| `{row['case_id']}` | `{row['partition']}` | `{row['category']}` | `{row['retrieval_topology']}` | {row['system']} | `{row['run_id']}` | {row['elapsed_seconds']:.1f} | {build_seconds_text} | {build_source} | {indexing} | {row['flow_tokens']} | {row['total_tokens_with_estimated_index']} | {cached} | {uncached} | {output} |"
         )
     lines.extend(["", "## Descriptive headline metrics — Codex condition invalid", "", *markdown_metric_table(headline["workspace"], headline["codex"]), "", "No Workspace-minus-Codex quality conclusion is valid from these values. The Codex condition must be rerun with working read-only repository inspection."])
     for dimension, title in (
@@ -428,10 +497,10 @@ def write_main_statistics(
         "",
         "## Limitations",
         "",
-        "- Workspace indexing tokens and combined indexing-plus-flow totals are unavailable because no matching provider-logged build artifact was retained.",
+        "- Workspace indexing token/cost values are estimates, not provider-reported usage; exact indexed-chunk counts and observed build durations are retained.",
+        "- TypeScript's evaluated index scope excludes the entire `lib` directory. That also removes declaration-oriented sources such as `extensions.d.ts`; this limitation is preserved in the reported configuration rather than silently changing the benchmark.",
         "- The Codex condition is invalid for quality comparison: every execution encountered repository-command policy rejection, and 134/140 returned no usable evidence.",
         "- Workspace response generation was skipped; this report evaluates retrieval through final evidence selection, not prose quality.",
-        "- The Workspace campaign contains a disclosed implementation boundary: final-selection contract handling and coverage-payload budgeting were repaired while the batch was running. Results are retained as the requested campaign, but they are not evidence from one immutable commit.",
         "- Standard P@k penalizes short result lists because unreturned ranks are nonrelevant.",
         "",
         "## Reproduction",

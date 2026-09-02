@@ -7,6 +7,40 @@
   "headline_selection_rule": "First valid campaign run per testcase and system; never selected by score.",
   "headline_run_count_per_system": 35,
   "stability_runs_per_case_per_system": 4,
+  "implementation_revision": "f2264962de6a3988c8eb827ef19a91074670385a",
+  "index_token_estimation": {
+    "embedding_model": "text-embedding-3-large",
+    "price_usd_per_million_tokens": 0.13,
+    "calibrations": {
+      "pandas-dev/pandas": {
+        "case_id": "pandas-dev-pandas-36617",
+        "source_run_id": "run-20260902T121513Z",
+        "indexed_files": 1257,
+        "indexed_chunks": 18178,
+        "embedding_characters": 22216596,
+        "estimated_tokens": 6395140,
+        "observed_total_seconds": 126.333
+      },
+      "vuejs/vue": {
+        "case_id": "vuejs-vue-10004",
+        "source_run_id": "run-20260902T122030Z",
+        "indexed_files": 487,
+        "indexed_chunks": 4385,
+        "embedding_characters": 3066156,
+        "estimated_tokens": 883435,
+        "observed_total_seconds": 14.246
+      },
+      "microsoft/TypeScript": {
+        "case_id": "microsoft-TypeScript-19074",
+        "source_run_id": "run-20260902T122601Z",
+        "indexed_files": 14134,
+        "indexed_chunks": 80469,
+        "embedding_characters": 33937501,
+        "estimated_tokens": 9789189,
+        "observed_total_seconds": 300.031
+      }
+    }
+  },
   "headline_summaries": {
     "workspace": {
       "case_count": 35,
@@ -1074,7 +1108,25 @@
         "codegraph_seconds": 0.585,
         "semantic_seconds": 23.973,
         "total_seconds": 24.558
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 4351,
+        "estimated_tokens": 876585,
+        "estimated_cost_usd": 0.11395605,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 959136
     },
     {
       "system": "workspace",
@@ -1131,7 +1183,25 @@
         "codegraph_seconds": 72.574,
         "semantic_seconds": 204.381,
         "total_seconds": 276.955
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 29834,
+        "estimated_tokens": 3629356,
+        "estimated_cost_usd": 0.47181628000000003,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 3685272
     },
     {
       "system": "workspace",
@@ -1193,7 +1263,25 @@
         "codegraph_seconds": 0.59,
         "semantic_seconds": 28.04,
         "total_seconds": 28.63
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 10334,
+        "estimated_tokens": 3635569,
+        "estimated_cost_usd": 0.47262397,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 3713808
     },
     {
       "system": "workspace",
@@ -1263,7 +1351,25 @@
         "codegraph_seconds": 0.642,
         "semantic_seconds": 39.045,
         "total_seconds": 39.687000000000005
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 3533,
+        "estimated_tokens": 711785,
+        "estimated_cost_usd": 0.09253205,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 792607
     },
     {
       "system": "workspace",
@@ -1330,7 +1436,25 @@
         "codegraph_seconds": 268.061,
         "semantic_seconds": 561.236,
         "total_seconds": 829.297
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 94740,
+        "estimated_tokens": 11525280,
+        "estimated_cost_usd": 1.4982864000000002,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 11629712
     },
     {
       "system": "workspace",
@@ -1393,7 +1517,25 @@
         "codegraph_seconds": 0.972,
         "semantic_seconds": 24.782,
         "total_seconds": 25.754
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 6677,
+        "estimated_tokens": 2349013,
+        "estimated_cost_usd": 0.30537169000000003,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 2401838
     },
     {
       "system": "workspace",
@@ -1460,7 +1602,25 @@
         "codegraph_seconds": 1.242,
         "semantic_seconds": 76.521,
         "total_seconds": 77.763
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 14707,
+        "estimated_tokens": 5174019,
+        "estimated_cost_usd": 0.67262247,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 5304304
     },
     {
       "system": "workspace",
@@ -1533,7 +1693,25 @@
         "codegraph_seconds": 1.102,
         "semantic_seconds": 46.764,
         "total_seconds": 47.866
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 13741,
+        "estimated_tokens": 4834174,
+        "estimated_cost_usd": 0.62844262,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 4907804
     },
     {
       "system": "workspace",
@@ -1596,7 +1774,25 @@
         "codegraph_seconds": 10.505,
         "semantic_seconds": 797.556,
         "total_seconds": 808.061
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 100679,
+        "estimated_tokens": 12247769,
+        "estimated_cost_usd": 1.5922099699999999,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 12373111
     },
     {
       "system": "workspace",
@@ -1659,7 +1855,25 @@
         "codegraph_seconds": 3.737,
         "semantic_seconds": 24.13,
         "total_seconds": 27.866999999999997
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 4227,
+        "estimated_tokens": 851603,
+        "estimated_cost_usd": 0.11070839,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 994647
     },
     {
       "system": "workspace",
@@ -1718,7 +1932,25 @@
         "codegraph_seconds": 0.765,
         "semantic_seconds": 38.991,
         "total_seconds": 39.756
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 15873,
+        "estimated_tokens": 5584226,
+        "estimated_cost_usd": 0.72594938,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 5677621
     },
     {
       "system": "workspace",
@@ -1779,7 +2011,25 @@
         "codegraph_seconds": 7.342,
         "semantic_seconds": 392.327,
         "total_seconds": 399.669
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 95763,
+        "estimated_tokens": 11649730,
+        "estimated_cost_usd": 1.5144649000000001,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 11782989
     },
     {
       "system": "workspace",
@@ -1841,7 +2091,25 @@
         "codegraph_seconds": 0.522,
         "semantic_seconds": 15.213,
         "total_seconds": 15.735
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 2604,
+        "estimated_tokens": 524621,
+        "estimated_cost_usd": 0.06820073,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 614941
     },
     {
       "system": "workspace",
@@ -1901,7 +2169,25 @@
         "codegraph_seconds": 92.925,
         "semantic_seconds": 234.709,
         "total_seconds": 327.634
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 55094,
+        "estimated_tokens": 6702278,
+        "estimated_cost_usd": 0.87129614,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 6801539
     },
     {
       "system": "workspace",
@@ -1959,7 +2245,25 @@
         "codegraph_seconds": 0.711,
         "semantic_seconds": 8.223,
         "total_seconds": 8.934000000000001
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 15727,
+        "estimated_tokens": 5532862,
+        "estimated_cost_usd": 0.7192720600000001,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 5675631
     },
     {
       "system": "workspace",
@@ -2018,7 +2322,25 @@
         "codegraph_seconds": 0.874,
         "semantic_seconds": 42.444,
         "total_seconds": 43.318000000000005
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 13419,
+        "estimated_tokens": 4720892,
+        "estimated_cost_usd": 0.6137159600000001,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 4802150
     },
     {
       "system": "workspace",
@@ -2073,7 +2395,25 @@
         "codegraph_seconds": 0.803,
         "semantic_seconds": 9.452,
         "total_seconds": 10.255
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 17700,
+        "estimated_tokens": 6226976,
+        "estimated_cost_usd": 0.80950688,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 6298398
     },
     {
       "system": "workspace",
@@ -2142,7 +2482,25 @@
         "codegraph_seconds": 4.564,
         "semantic_seconds": 301.312,
         "total_seconds": 305.87600000000003
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 83401,
+        "estimated_tokens": 10145872,
+        "estimated_cost_usd": 1.3189633600000001,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 10281868
     },
     {
       "system": "workspace",
@@ -2213,7 +2571,25 @@
         "codegraph_seconds": 1.686,
         "semantic_seconds": 78.568,
         "total_seconds": 80.25399999999999
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 18158,
+        "estimated_tokens": 6388104,
+        "estimated_cost_usd": 0.8304535200000001,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 6434109
     },
     {
       "system": "workspace",
@@ -2273,7 +2649,25 @@
         "codegraph_seconds": 0.674,
         "semantic_seconds": 7.506,
         "total_seconds": 8.18
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 15323,
+        "estimated_tokens": 5390732,
+        "estimated_cost_usd": 0.7007951600000001,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 5510190
     },
     {
       "system": "workspace",
@@ -2325,14 +2719,32 @@
       "index_rebuilt": false,
       "indexing_tokens": null,
       "index_build": {
-        "source_run_id": null,
+        "source_run_id": "run-20260902T121513Z",
         "collection_name": "guided_intelligence_retrieval_role_scoped__pandas_dev_pandas_36617__4ee152d6",
         "document_count": 18178,
-        "rebuilt": false,
-        "codegraph_seconds": null,
-        "semantic_seconds": null,
-        "total_seconds": null
-      }
+        "rebuilt": true,
+        "codegraph_seconds": 10.593,
+        "semantic_seconds": 115.74,
+        "total_seconds": 126.333
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 18178,
+        "estimated_tokens": 6395140,
+        "estimated_cost_usd": 0.8313682000000001,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 6462910
     },
     {
       "system": "workspace",
@@ -2393,7 +2805,25 @@
         "codegraph_seconds": 0.68,
         "semantic_seconds": 17.379,
         "total_seconds": 18.059
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 4350,
+        "estimated_tokens": 876384,
+        "estimated_cost_usd": 0.11392992,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 963716
     },
     {
       "system": "workspace",
@@ -2456,7 +2886,25 @@
         "codegraph_seconds": 196.006,
         "semantic_seconds": 329.866,
         "total_seconds": 525.872
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 52668,
+        "estimated_tokens": 6407151,
+        "estimated_cost_usd": 0.83292963,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 6512813
     },
     {
       "system": "workspace",
@@ -2512,14 +2960,32 @@
       "index_rebuilt": false,
       "indexing_tokens": null,
       "index_build": {
-        "source_run_id": null,
+        "source_run_id": "run-20260902T122030Z",
         "collection_name": "guided_intelligence_retrieval_role_scoped__vuejs_vue_10004__daf3af1b",
         "document_count": 4385,
-        "rebuilt": false,
-        "codegraph_seconds": null,
-        "semantic_seconds": null,
-        "total_seconds": null
-      }
+        "rebuilt": true,
+        "codegraph_seconds": 2.871,
+        "semantic_seconds": 11.375,
+        "total_seconds": 14.246
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 4385,
+        "estimated_tokens": 883435,
+        "estimated_cost_usd": 0.11484655,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 1019123
     },
     {
       "system": "workspace",
@@ -2576,7 +3042,25 @@
         "codegraph_seconds": 3.116,
         "semantic_seconds": 22.076,
         "total_seconds": 25.192
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 4253,
+        "estimated_tokens": 856841,
+        "estimated_cost_usd": 0.11138933000000001,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 919452
     },
     {
       "system": "workspace",
@@ -2647,7 +3131,25 @@
         "codegraph_seconds": 85.885,
         "semantic_seconds": 202.261,
         "total_seconds": 288.146
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 46829,
+        "estimated_tokens": 5696827,
+        "estimated_cost_usd": 0.74058751,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 5811720
     },
     {
       "system": "workspace",
@@ -2711,7 +3213,25 @@
         "codegraph_seconds": 0.532,
         "semantic_seconds": 14.521,
         "total_seconds": 15.053
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 4379,
+        "estimated_tokens": 882226,
+        "estimated_cost_usd": 0.11468938000000001,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 948973
     },
     {
       "system": "workspace",
@@ -2771,7 +3291,25 @@
         "codegraph_seconds": 0.519,
         "semantic_seconds": 22.911,
         "total_seconds": 23.43
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 3964,
+        "estimated_tokens": 798617,
+        "estimated_cost_usd": 0.10382021000000001,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 867414
     },
     {
       "system": "workspace",
@@ -2834,7 +3372,25 @@
         "codegraph_seconds": 72.24,
         "semantic_seconds": 140.259,
         "total_seconds": 212.49899999999997
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 39960,
+        "estimated_tokens": 4861201,
+        "estimated_cost_usd": 0.63195613,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 4971348
     },
     {
       "system": "workspace",
@@ -2900,7 +3456,25 @@
         "codegraph_seconds": 0.558,
         "semantic_seconds": 18.753,
         "total_seconds": 19.311
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 3807,
+        "estimated_tokens": 766987,
+        "estimated_cost_usd": 0.09970831,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 869371
     },
     {
       "system": "workspace",
@@ -2964,7 +3538,25 @@
         "codegraph_seconds": 0.513,
         "semantic_seconds": 11.488,
         "total_seconds": 12.001
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 4369,
+        "estimated_tokens": 880212,
+        "estimated_cost_usd": 0.11442756,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 1003558
     },
     {
       "system": "workspace",
@@ -3021,7 +3613,25 @@
         "codegraph_seconds": 121.429,
         "semantic_seconds": 196.466,
         "total_seconds": 317.895
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 38896,
+        "estimated_tokens": 4731764,
+        "estimated_cost_usd": 0.6151293200000001,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 4808209
     },
     {
       "system": "workspace",
@@ -3085,7 +3695,25 @@
         "codegraph_seconds": 0.612,
         "semantic_seconds": 5.793,
         "total_seconds": 6.405
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 10399,
+        "estimated_tokens": 3658437,
+        "estimated_cost_usd": 0.47559681,
+        "tokens_per_chunk": 351.80657938167013,
+        "calibration": {
+          "case_id": "pandas-dev-pandas-36617",
+          "source_run_id": "run-20260902T121513Z",
+          "indexed_files": 1257,
+          "indexed_chunks": 18178,
+          "embedding_characters": 22216596,
+          "estimated_tokens": 6395140,
+          "observed_total_seconds": 126.333
+        }
+      },
+      "total_tokens_with_estimated_index": 3771158
     },
     {
       "system": "workspace",
@@ -3145,7 +3773,25 @@
         "codegraph_seconds": 0.553,
         "semantic_seconds": 11.56,
         "total_seconds": 12.113000000000001
-      }
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 4354,
+        "estimated_tokens": 877190,
+        "estimated_cost_usd": 0.1140347,
+        "tokens_per_chunk": 201.46750285062714,
+        "calibration": {
+          "case_id": "vuejs-vue-10004",
+          "source_run_id": "run-20260902T122030Z",
+          "indexed_files": 487,
+          "indexed_chunks": 4385,
+          "embedding_characters": 3066156,
+          "estimated_tokens": 883435,
+          "observed_total_seconds": 14.246
+        }
+      },
+      "total_tokens_with_estimated_index": 942569
     },
     {
       "system": "workspace",
@@ -3196,14 +3842,32 @@
       "index_rebuilt": false,
       "indexing_tokens": null,
       "index_build": {
-        "source_run_id": null,
+        "source_run_id": "run-20260902T122601Z",
         "collection_name": "guided_intelligence_retrieval_role_scoped__microsoft_typescript_19074__a52fca94",
         "document_count": 80469,
-        "rebuilt": false,
-        "codegraph_seconds": null,
-        "semantic_seconds": null,
-        "total_seconds": null
-      }
+        "rebuilt": true,
+        "codegraph_seconds": 21.128,
+        "semantic_seconds": 278.903,
+        "total_seconds": 300.031
+      },
+      "index_usage": {
+        "method": "repository_specific_cold_index_estimate_per_indexed_chunk",
+        "embedding_model": "text-embedding-3-large",
+        "document_count": 80469,
+        "estimated_tokens": 9789189,
+        "estimated_cost_usd": 1.27259457,
+        "tokens_per_chunk": 121.65167952876263,
+        "calibration": {
+          "case_id": "microsoft-TypeScript-19074",
+          "source_run_id": "run-20260902T122601Z",
+          "indexed_files": 14134,
+          "indexed_chunks": 80469,
+          "embedding_characters": 33937501,
+          "estimated_tokens": 9789189,
+          "observed_total_seconds": 300.031
+        }
+      },
+      "total_tokens_with_estimated_index": 9878256
     },
     {
       "system": "codex",
@@ -3256,7 +3920,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 114756
     },
     {
       "system": "codex",
@@ -3309,7 +3979,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 174735
     },
     {
       "system": "codex",
@@ -3362,7 +4038,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 121099
     },
     {
       "system": "codex",
@@ -3425,7 +4107,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 145665
     },
     {
       "system": "codex",
@@ -3484,7 +4172,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 141841
     },
     {
       "system": "codex",
@@ -3539,7 +4233,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 123540
     },
     {
       "system": "codex",
@@ -3597,7 +4297,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 164470
     },
     {
       "system": "codex",
@@ -3666,7 +4372,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 161117
     },
     {
       "system": "codex",
@@ -3721,7 +4433,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 150515
     },
     {
       "system": "codex",
@@ -3774,7 +4492,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 113933
     },
     {
       "system": "codex",
@@ -3827,7 +4551,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 153985
     },
     {
       "system": "codex",
@@ -3880,7 +4610,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 151589
     },
     {
       "system": "codex",
@@ -3933,7 +4669,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 167165
     },
     {
       "system": "codex",
@@ -3986,7 +4728,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 124300
     },
     {
       "system": "codex",
@@ -4039,7 +4787,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 154505
     },
     {
       "system": "codex",
@@ -4092,7 +4846,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 204944
     },
     {
       "system": "codex",
@@ -4145,7 +4905,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 155878
     },
     {
       "system": "codex",
@@ -4201,7 +4967,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 169984
     },
     {
       "system": "codex",
@@ -4266,7 +5038,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 83844
     },
     {
       "system": "codex",
@@ -4320,7 +5098,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 156376
     },
     {
       "system": "codex",
@@ -4373,7 +5157,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 134562
     },
     {
       "system": "codex",
@@ -4430,7 +5220,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 276440
     },
     {
       "system": "codex",
@@ -4484,7 +5280,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 190909
     },
     {
       "system": "codex",
@@ -4537,7 +5339,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 170474
     },
     {
       "system": "codex",
@@ -4590,7 +5398,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 173682
     },
     {
       "system": "codex",
@@ -4650,7 +5464,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 192556
     },
     {
       "system": "codex",
@@ -4705,7 +5525,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 87742
     },
     {
       "system": "codex",
@@ -4758,7 +5584,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 114963
     },
     {
       "system": "codex",
@@ -4812,7 +5644,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 102883
     },
     {
       "system": "codex",
@@ -4873,7 +5711,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 603804
     },
     {
       "system": "codex",
@@ -4926,7 +5770,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 103214
     },
     {
       "system": "codex",
@@ -4979,7 +5829,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 167635
     },
     {
       "system": "codex",
@@ -5033,7 +5889,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 142179
     },
     {
       "system": "codex",
@@ -5086,7 +5948,13 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 185108
     },
     {
       "system": "codex",
@@ -5140,14 +6008,20 @@
         "source_run_id": null,
         "total_seconds": 0.0,
         "status": "not_applicable_direct_repository_inspection"
-      }
+      },
+      "index_usage": {
+        "method": "not_applicable_direct_repository_inspection",
+        "estimated_tokens": 0,
+        "estimated_cost_usd": 0.0
+      },
+      "total_tokens_with_estimated_index": 235477
     }
   ],
   "workspace_index_build_duration": {
-    "matched_case_count": 32,
-    "unavailable_case_count": 3,
-    "mean_seconds": 153.18828125,
-    "median_seconds": 34.158500000000004,
+    "matched_case_count": 35,
+    "unavailable_case_count": 0,
+    "mean_seconds": 152.6467142857143,
+    "median_seconds": 39.687000000000005,
     "minimum_seconds": 6.405,
     "maximum_seconds": 829.297
   },
@@ -8096,9 +8970,9 @@
   },
   "source_four_run_report": "testing/codeRepoQA/statistics/runs/2026-09-02-workspace-vs-codex-four-run-comparison.json",
   "limitations": [
-    "Workspace indexing-token usage is not provider-logged; indexing and combined totals are unavailable rather than estimated.",
+    "Workspace provider-reported indexing usage was not retained; cold-index token and cost values are explicitly estimated from exact indexed-chunk counts using one full-build calibration per repository.",
+    "TypeScript indexing excludes the entire lib directory in this evaluated configuration, including declaration files; the intended future policy is to exclude generated bundles individually while retaining authored declarations.",
     "The frozen Codex campaign is invalid for retrieval comparison: all 140 runs had repository commands rejected by execution policy and 134 returned no usable evidence.",
-    "Workspace response generation was skipped; final evidence selection remained enabled.",
-    "The Workspace campaign was repaired during execution for final-selection contract handling and coverage-payload budgeting; this is disclosed as a campaign implementation boundary rather than hidden."
+    "Workspace response generation was skipped; final evidence selection remained enabled."
   ]
 }

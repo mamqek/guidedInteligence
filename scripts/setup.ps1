@@ -57,15 +57,21 @@ function Get-PythonCommand {
 
 Invoke-Step "Checking required tools" {
     if (-not (Test-CommandAvailable "node")) {
-        throw "Node.js 22.x is required. Install Node 22, then rerun scripts/setup.ps1."
+        throw "Node.js 22.12 or newer is required. Install Node 24, then rerun scripts/setup.ps1."
     }
     if (-not (Test-CommandAvailable "npm")) {
         throw "npm is required and should be installed with Node.js."
     }
 
-    $nodeMajor = [int](& node -p "Number(process.versions.node.split('.')[0])")
-    if ($nodeMajor -ne 22) {
-        throw "Node.js 22.x is required. Found: $(& node --version)."
+    $nodeVersion = & node -p "process.versions.node"
+    $nodeParts = $nodeVersion.Split('.')
+    $nodeCompatible = ([int]$nodeParts[0] -gt 22) -or (([int]$nodeParts[0] -eq 22) -and ([int]$nodeParts[1] -ge 12))
+    if (-not $nodeCompatible) {
+        throw "Node.js 22.12 or newer with node:sqlite is required. Found: $(& node --version)."
+    }
+    & node -e "require('node:sqlite')"
+    if ($LASTEXITCODE -ne 0) {
+        throw "The selected Node runtime does not provide node:sqlite. Install Node 24, then rerun scripts/setup.ps1."
     }
 
     $script:PythonCommand = Get-PythonCommand

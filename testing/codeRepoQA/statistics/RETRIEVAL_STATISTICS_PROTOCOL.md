@@ -216,7 +216,7 @@ Use decimal values from 0 to 1 and display three decimal places. Calculate with 
 - [ ] A zero-evidence or failed-coverage retrieval is rejected even when the process exited successfully and wrote all expected artifacts.
 - [ ] Model/profile and run selection are explicit; mixed Codex models are stratified.
 - [ ] Invariant model/retrieval/profile values are declared once rather than repeated on every inventory row.
-- [ ] Every selected testcase/system pair reports its end-to-end elapsed time, indexing tokens, non-indexing flow tokens, and total tokens; any unavailable value is explicitly marked unavailable with its artifact reason.
+- [ ] Every selected testcase/system pair reports its end-to-end elapsed time, indexing tokens, non-indexing flow tokens, and total tokens; any unavailable value is explicitly marked unavailable with its artifact reason. If provider indexing usage was not retained, an explicitly labeled estimate may be used only with its source-build calibration, estimator, and pricing snapshot.
 - [ ] Codex rows also distinguish cached input tokens, uncached input tokens, and output tokens; reasoning output tokens, if reported, are labeled as a subset of output tokens rather than added again.
 - [ ] Every reused-index row names the matching original index-build artifact and signature; any amortization names the exact shared index signature and divisor.
 - [ ] Currency estimates state their provider/model pricing snapshot and price cached Codex inputs separately from uncached inputs and outputs.
