@@ -1,5 +1,33 @@
 # Retrieval Changelog
 
+## 2026-09-02: CodeGraph Node Runtime Resolution — Retained
+
+CodeGraph's bridge previously executed a bare `node` command, so Windows PATH could select the system Node 20 even
+when a compatible Node 24 runtime was present. CodeGraph then failed only after indexing began because Node 20 has no
+`node:sqlite`. The bridge now resolves and probes a runtime before startup: explicit environment override, verified
+PATH runtime, then the bundled Codex Node runtime on Windows. It requires Node 22.5+ and an actual successful
+`require('node:sqlite')`; otherwise it fails immediately with the attempted-runtime diagnostics.
+
+The live regression check deliberately ran from the unchanged Node 20 PATH. It selected bundled Node 24.19.0 and
+completed a CodeGraph Vue index sync (`464` files). The selected executable, version, and source are recorded in the
+structural-index observation metadata. Setup and package engine checks now likewise require Node 22.12+ with
+`node:sqlite` (the project also uses Vite, which needs that higher floor), rather than incorrectly pinning the
+project to Node 22.x.
+
+## 2026-09-02: Codex Read-Only Repository Inspection Restored
+
+The frozen Codex campaign was invalid: `codex exec --ignore-user-config --sandbox read-only` started successfully but
+the Windows command policy rejected every repository inspection (`rg`, `dir`, and `pwd`). The CLI then returned a
+well-formed empty evidence payload with exit code zero, which previously made the failure look like completed
+retrieval. The provider now treats that stderr signature as an explicit retrieval failure, and campaign validation
+rejects zero-evidence/failed-coverage artifacts.
+
+The active Codex testing profiles no longer pass `--ignore-user-config`; they still request `--sandbox read-only`,
+while allowing the installed Codex Windows sandbox backend to execute read-only inspection commands. Focused actual
+run `vuejs-vue-10803/run-20260902T125639Z` produced six line-grounded source items, retained the implementation
+Oracle `src/platforms/web/server/modules/dom-props.js` at rank 3, and completed with strong coverage. This repairs
+future Codex runs; it does not retroactively validate the frozen 140-run Codex campaign.
+
 ## 2026-09-02: Ambiguous Exact Anchors And Admission-Consistent Dormant Recovery — Retained
 
 The previously rejected pre-round-zero admission experiment was restored only after fixing its demonstrated upstream

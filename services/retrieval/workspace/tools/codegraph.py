@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from services.retrieval.config import WorkspaceRetrievalConfig
+from services.retrieval.workspace.node_runtime import CodeGraphNodeRuntime, resolve_codegraph_node_runtime
 from services.retrieval.workspace.codegraph_config import (
     install_temporary_codegraph_excludes,
     restore_codegraph_config,
@@ -31,6 +32,7 @@ class CodeGraphBridge:
         self._responses: queue.Queue[Mapping[str, Any] | None] = queue.Queue()
         self._stderr: list[str] = []
         self._lock = threading.Lock()
+        self._node_runtime: CodeGraphNodeRuntime | None = None
         atexit.register(self.close)
 
     def request(self, operation: str, arguments: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
@@ -95,8 +97,9 @@ class CodeGraphBridge:
         if self._process is not None and self._process.poll() is None:
             return self._process
         workspace_root = Path(self.config.workspace_root).resolve()
+        runtime = resolve_codegraph_node_runtime()
         process = subprocess.Popen(
-            ("node", str(BRIDGE_PATH), str(workspace_root)),
+            (runtime.executable, str(BRIDGE_PATH), str(workspace_root)),
             cwd=str(Path(__file__).resolve().parents[4]),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -106,10 +109,21 @@ class CodeGraphBridge:
             errors="replace",
             bufsize=1,
         )
+        self._node_runtime = runtime
         self._process = process
         threading.Thread(target=self._read_stdout, args=(process,), daemon=True).start()
         threading.Thread(target=self._read_stderr, args=(process,), daemon=True).start()
         return process
+
+    def runtime_metadata(self) -> dict[str, str]:
+        runtime = self._node_runtime
+        if runtime is None:
+            return {}
+        return {
+            "node_executable": runtime.executable,
+            "node_version": runtime.version,
+            "node_runtime_source": runtime.source,
+        }
 
     def _read_stdout(self, process: subprocess.Popen[str]) -> None:
         assert process.stdout is not None
@@ -149,7 +163,11 @@ class CodeGraphIndexRepoTool:
             tool_name=self.name,
             status="ok",
             payload=dict(result),
-            metadata={"result_count": str(stats.get("files") or stats.get("fileCount") or 0), "command": "codegraph embedded sync"},
+            metadata={
+                "result_count": str(stats.get("files") or stats.get("fileCount") or 0),
+                "command": "codegraph embedded sync",
+                **self.bridge.runtime_metadata(),
+            },
         )
 
 

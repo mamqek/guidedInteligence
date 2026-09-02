@@ -11,7 +11,7 @@
   "codex_model": "gpt-5.6-luna",
   "codex_prompt_profile": "efficient",
   "codex_timeout_seconds": 900,
-  "codex_ignore_user_config": true,
+  "codex_ignore_user_config": false,
   "skip_response_generation": true,
   "skip_final_evidence_selection": false,
   "cases": [
