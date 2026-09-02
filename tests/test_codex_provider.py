@@ -18,6 +18,7 @@ from services.retrieval.codex.provider import (
     _classify_artifact_path,
     _codex_path_prefixes,
     _codex_coverage_status,
+    _codex_execution_policy_blocked,
     _codex_prompt,
     _evidence_conversion_from_payload,
     _evidence_from_payload,
@@ -27,6 +28,15 @@ from services.retrieval.codex.provider import (
 
 
 class CodexProviderTests(unittest.TestCase):
+    def test_execution_policy_rejection_is_detected_even_when_cli_exits_successfully(self) -> None:
+        stderr = (
+            'ERROR codex_core::tools::router: error=exec_command failed for "pwsh" '
+            'CreateProcess { message: "Rejected: blocked by policy" }'
+        )
+
+        self.assertTrue(_codex_execution_policy_blocked(stderr))
+        self.assertFalse(_codex_execution_policy_blocked("ordinary diagnostic warning"))
+
     def test_efficient_profile_restores_compact_prompt_and_schema(self) -> None:
         template, schema = load_codex_prompt_profile("efficient")
         prompt = _codex_prompt(

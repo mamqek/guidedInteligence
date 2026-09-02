@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
+from tests.qualification_test_support import QualificationDecision
 from services.retrieval.workspace.pipeline.execution_flow.file_trace_evidence import (
     FileTraceSeed,
     build_file_trace_evidence,
@@ -54,7 +54,7 @@ class FileTraceEvidenceTests(unittest.TestCase):
 
     def test_requires_promoted_source_and_island_provenance_but_not_endpoint_support(self) -> None:
         rejected = QualificationDecision("source", "reject", "insufficient", "irrelevant", ())
-        unsupported = QualificationDecision("source", "promote", "insufficient", "invalid", ())
+        unsupported = QualificationDecision("source", "defer", "insufficient", "incomplete", ())
 
         rejected_endpoint = QualificationDecision("endpoint", "reject", "insufficient", "irrelevant", ())
 

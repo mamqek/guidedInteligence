@@ -25,16 +25,17 @@ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations
 from services.retrieval.workspace.pipeline.execution_flow.snippet_selection import discovery_selection_view, discovery_priority
 from services.retrieval.workspace.pipeline.execution_flow.evidence_islands import build_semantic_islands
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import (
-    QualificationDecision,
     prepare_qualification_request,
     qualify_cards,
 )
+from services.retrieval.workspace.pipeline.execution_flow.qualification_contract import EvidenceKind
+from tests.qualification_test_support import QualificationDecision
 from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_execution import (
     ExpandRelationship,
     InspectOwnerContinuation,
     InspectVerifiedLead,
     SearchNewIsland,
-    SearchWithinFile,
+    ExpandWithinFileHandoff,
     _deduplicate_file_expansions,
     enumerate_actions,
     execute_action,
@@ -516,7 +517,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
                     full_line_start=1, full_line_end=194,
                 ),
                 observed_text="\n".join(lines[99:123]),
-                provenance=(DiscoveryProvenance("within_file_search", "q"),),
+                provenance=(DiscoveryProvenance("within_file_handoff_expansion", "q"),),
             )
             outline = _Tool("structural_file_outline", {"nodes": [{
                 "id": "function:large", "kind": "function", "name": "largeOwner",
@@ -577,12 +578,16 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         response = {
             "decisions": {
                 "obs_a": {
-                    "classification": "promote_direct",
-                    "reason": "Defines the requested behavior.",
-                    "visible_support": ["Defines a()."],
-                    "missing_information": [],
-                    "local_follow_up": "",
-                    "supported_obligation_ids": ["owner"],
+                    "assessment": {
+                        "disposition": "retain", "evidence_kind": "direct_fact",
+                        "contributing_obligation_ids": ["owner"],
+                        "individually_established_obligation_ids": ["owner"],
+                    },
+                    "rationale": {
+                        "reason": "Defines the requested behavior.",
+                        "visible_support": ["Defines a()."], "missing_information": [],
+                        "local_follow_up": "",
+                    },
                 }
             }
         }
@@ -597,9 +602,13 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
                 obligations=(obligation,),
                 max_input_chars=8000,
             )
-        self.assertEqual(batch.decisions[0].support_level, "direct_evidence")
+        self.assertTrue(batch.decisions[0].assessment.is_direct_fact)
 
-        invalid = {"decisions": {"obs_a": {**response["decisions"]["obs_a"], "classification": "invented"}}}
+        invalid_decision = response["decisions"]["obs_a"]
+        invalid = {"decisions": {"obs_a": {
+            **invalid_decision,
+            "assessment": {**invalid_decision["assessment"], "evidence_kind": "invented"},
+        }}}
         with patch(
             "services.retrieval.workspace.pipeline.execution_flow.evidence_qualification.complete_json",
             return_value=invalid,
@@ -673,14 +682,23 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             captured.update(payload)
             return {"decisions": {
                 "obs_first": {
-                    "classification": "promote_direct", "reason": "First is relevant.",
-                    "visible_support": ["Returns one."], "missing_information": [],
-                    "local_follow_up": "", "supported_obligation_ids": ["owner"],
+                    "assessment": {
+                        "disposition": "retain", "evidence_kind": "direct_fact",
+                        "contributing_obligation_ids": ["owner"],
+                        "individually_established_obligation_ids": ["owner"],
+                    },
+                    "rationale": {"reason": "First is relevant.",
+                        "visible_support": ["Returns one."], "missing_information": [],
+                        "local_follow_up": ""},
                 },
                 "obs_second": {
-                    "classification": "reject_insufficient", "reason": "Second is unrelated.",
-                    "visible_support": [], "missing_information": ["relevant behavior"],
-                    "local_follow_up": "", "supported_obligation_ids": [],
+                    "assessment": {
+                        "disposition": "reject", "evidence_kind": "insufficient",
+                        "contributing_obligation_ids": [],
+                        "individually_established_obligation_ids": [],
+                    },
+                    "rationale": {"reason": "Second is unrelated.", "visible_support": [],
+                        "missing_information": ["relevant behavior"], "local_follow_up": ""},
                 },
             }}
 
@@ -701,8 +719,14 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertNotIn("outline_entries", serialized)
         self.assertNotIn("allocated_chars", serialized)
         self.assertNotIn("used_chars", serialized)
-        self.assertEqual([item.support_level for item in batch.decisions], ["direct_evidence", "insufficient"])
-        self.assertEqual(batch.decisions[0].supported_obligation_ids, ("owner",))
+        self.assertEqual(
+            [item.assessment.evidence_kind for item in batch.decisions],
+            [EvidenceKind.DIRECT_FACT, EvidenceKind.INSUFFICIENT],
+        )
+        self.assertEqual(
+            batch.decisions[0].assessment.individually_established_obligation_ids,
+            ("owner",),
+        )
 
     def test_qualification_rejects_unknown_obligation_support(self) -> None:
         card = DisclosureCard(
@@ -713,12 +737,13 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             provenance_summary={"obligation_ids": ["subject"]},
         )
         response = {"decisions": {"obs_a": {
-            "classification": "promote_direct",
-            "reason": "Defines a.",
-            "visible_support": ["Defines a()."],
-            "missing_information": [],
-            "local_follow_up": "",
-            "supported_obligation_ids": ["why"],
+            "assessment": {
+                "disposition": "retain", "evidence_kind": "direct_fact",
+                "contributing_obligation_ids": ["why"],
+                "individually_established_obligation_ids": ["why"],
+            },
+            "rationale": {"reason": "Defines a.", "visible_support": ["Defines a()."],
+                "missing_information": [], "local_follow_up": ""},
         }}}
         with patch(
             "services.retrieval.workspace.pipeline.execution_flow.evidence_qualification.complete_json",
@@ -769,8 +794,13 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
     def test_empty_qualification_source_emits_loud_trace_event(self) -> None:
         card = DisclosureCard("obs_empty", SourceHandle("src/a.ts", 1, 1), "preview", "")
         response = {"decisions": {"obs_empty": {
-            "classification": "reject_insufficient", "reason": "No source is visible.",
-            "visible_support": [], "missing_information": ["source"],
+            "assessment": {
+                "disposition": "reject", "evidence_kind": "insufficient",
+                "contributing_obligation_ids": [],
+                "individually_established_obligation_ids": [],
+            },
+            "rationale": {"reason": "No source is visible.", "visible_support": [],
+                "missing_information": ["source"], "local_follow_up": ""},
         }}}
         trace = _Trace()
         with patch("services.retrieval.workspace.pipeline.execution_flow.evidence_qualification.complete_json",
@@ -1229,12 +1259,12 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(current.islands[0].id, previous.islands[0].id)
 
     def test_action_slots_are_spread_across_scopes_before_returning_to_one(self) -> None:
-        first = SearchWithinFile("first", "owner", "root_a", "src/a.ts", "Find owner", scope_id="island_a")
+        first = ExpandWithinFileHandoff("first", "owner", "root_a", "src/a.ts", "Find owner", scope_id="island_a")
         second_same = ExpandRelationship(
             "second_same", "owner", "root_b", "function:b", "outgoing", ("calls",), "downstream",
             scope_id="island_a",
         )
-        other = SearchWithinFile("other", "state", "root_c", "src/c.ts", "Find state", scope_id="island_b")
+        other = ExpandWithinFileHandoff("other", "state", "root_c", "src/c.ts", "Find state", scope_id="island_b")
 
         selected = _select_actions(
             (first, second_same, other), ("root_a", "root_b", "root_c"), 2,
@@ -1362,7 +1392,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             attempted_fingerprints=set(),
         )
 
-        self.assertFalse(any(isinstance(item, (ExpandRelationship, SearchWithinFile)) for item in catalogue.actions))
+        self.assertFalse(any(isinstance(item, (ExpandRelationship, ExpandWithinFileHandoff)) for item in catalogue.actions))
 
     def test_direct_evidence_can_handoff_from_file_node_when_coverage_and_qualification_agree(self) -> None:
         root = _observation(
@@ -1439,7 +1469,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             observation_to_island={endpoint.id: "island_watch"},
         )
 
-        refinement = next(item for item in catalogue.actions if isinstance(item, SearchWithinFile))
+        refinement = next(item for item in catalogue.actions if isinstance(item, ExpandWithinFileHandoff))
         self.assertEqual(refinement.path, "src/helpers.ts")
         self.assertIn("Bounded unresolved handoff", refinement.dense_query)
         self.assertIn("comparison owner", refinement.handoff_reason)
@@ -1544,7 +1574,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         seed = next(
             item
             for item in catalogue.actions
-            if isinstance(item, SearchWithinFile)
+            if isinstance(item, ExpandWithinFileHandoff)
             and item.purpose is ActionPurpose.DEFERRED_FILE_RESCUE
         )
         self.assertEqual(seed.path, "src/compiler/builderState.ts")
@@ -1557,12 +1587,12 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(test_audit["reason"], "not_implementation_file")
 
     def test_deferred_file_seed_pool_keeps_normal_actions_and_selects_one_seed(self) -> None:
-        normal = SearchWithinFile("normal", "why", "active", "src/builder.ts", "Normal follow-up.", scope_id="island")
-        first_seed = SearchWithinFile(
+        normal = ExpandWithinFileHandoff("normal", "why", "active", "src/builder.ts", "Normal follow-up.", scope_id="island")
+        first_seed = ExpandWithinFileHandoff(
             "seed_a", "why", "deferred_a", "src/compiler/builderState.ts", "Seed A.",
             scope_id="seed_a", purpose=ActionPurpose.DEFERRED_FILE_RESCUE,
         )
-        second_seed = SearchWithinFile(
+        second_seed = ExpandWithinFileHandoff(
             "seed_b", "why", "deferred_b", "src/compiler/otherState.ts", "Seed B.",
             scope_id="seed_b", purpose=ActionPurpose.DEFERRED_FILE_RESCUE,
         )
@@ -1596,7 +1626,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         )
 
         self.assertFalse(any(
-            isinstance(item, SearchWithinFile)
+            isinstance(item, ExpandWithinFileHandoff)
             and item.purpose is ActionPurpose.DEFERRED_FILE_RESCUE
             for item in catalogue.actions
         ))
@@ -1604,7 +1634,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(audit[0]["reason"], "not_an_admission_held_same_file_alternative")
 
     def test_maturation_child_is_not_pruned_as_its_parent_effect(self) -> None:
-        child = SearchWithinFile(
+        child = ExpandWithinFileHandoff(
             "child", "why", "root", "src/compiler/builderState.ts", "Find the omitted update.",
             scope_id="island", handoff_reason="Inspect the missing update.",
             purpose=ActionPurpose.OWNER_MATURATION,
@@ -1858,7 +1888,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
 
         actions = [
             item for item in catalogue.actions
-            if isinstance(item, SearchWithinFile)
+            if isinstance(item, ExpandWithinFileHandoff)
             and item.purpose is ActionPurpose.TEST_SCENARIO_MATURATION
         ]
         self.assertEqual(len(actions), 1)
@@ -1892,7 +1922,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         )
 
         self.assertFalse(any(
-            isinstance(item, SearchWithinFile)
+            isinstance(item, ExpandWithinFileHandoff)
             and item.purpose is ActionPurpose.TEST_SCENARIO_MATURATION
             for item in catalogue.actions
         ))
@@ -1918,7 +1948,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
             attempted_fingerprints=set(),
         )
 
-        refinement = next(item for item in catalogue.actions if isinstance(item, SearchWithinFile))
+        refinement = next(item for item in catalogue.actions if isinstance(item, ExpandWithinFileHandoff))
         self.assertEqual(refinement.path, "tests/watch.ts")
 
     def test_relationship_execution_preserves_exact_direction_kind_and_limit(self) -> None:
@@ -1990,8 +2020,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertIn("binop", arguments["sparse_query"].split())
         self.assertIn("preserve", arguments["sparse_query"].split())
 
-    def test_within_file_search_is_path_scoped_and_bounded(self) -> None:
-        action = SearchWithinFile(
+    def test_within_file_handoff_expansion_is_path_scoped_and_bounded(self) -> None:
+        action = ExpandWithinFileHandoff(
             id="within-owner",
             obligation_id="owner",
             source_observation_id="obs_file",
@@ -2053,8 +2083,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(selected, (inspection, search))
 
     def test_distinct_file_hypotheses_use_both_action_slots(self) -> None:
-        first = SearchWithinFile("first", "owner", "root_a", "src/a.py", "Find owner.", priority=1)
-        second = SearchWithinFile("second", "state", "root_b", "src/b.py", "Find state.", priority=2)
+        first = ExpandWithinFileHandoff("first", "owner", "root_a", "src/a.py", "Find owner.", priority=1)
+        second = ExpandWithinFileHandoff("second", "state", "root_b", "src/b.py", "Find state.", priority=2)
         deferred = replace(
             _inspect_action("deferred", "owner"),
             purpose=ActionPurpose.INSPECT_DEFERRED_DISCOVERY,
@@ -2065,8 +2095,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(selected, (first, second))
 
     def test_same_file_cannot_consume_both_action_slots(self) -> None:
-        first = SearchWithinFile("first", "owner", "root_a", "src/a.py", "Find owner.", priority=1)
-        duplicate = SearchWithinFile("duplicate", "state", "root_b", "src/a.py", "Find state.", priority=2)
+        first = ExpandWithinFileHandoff("first", "owner", "root_a", "src/a.py", "Find owner.", priority=1)
+        duplicate = ExpandWithinFileHandoff("duplicate", "state", "root_b", "src/a.py", "Find state.", priority=2)
         expansion = ExpandRelationship("expand", "state", "root_c", "function:c", "outgoing", ("calls",), "state")
 
         selected = _select_actions((first, duplicate, expansion), ("root_a", "root_b", "root_c"), 2)
@@ -2074,8 +2104,8 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(selected, (first, expansion))
 
     def test_later_round_reserves_one_slot_for_capability_checked_expansion(self) -> None:
-        first = SearchWithinFile("first", "owner", "root_a", "src/a.py", "Find owner.", priority=1)
-        second = SearchWithinFile("second", "state", "root_b", "src/b.py", "Find state.", priority=2)
+        first = ExpandWithinFileHandoff("first", "owner", "root_a", "src/a.py", "Find owner.", priority=1)
+        second = ExpandWithinFileHandoff("second", "state", "root_b", "src/b.py", "Find state.", priority=2)
         expansion = ExpandRelationship("expand", "state", "root_c", "function:c", "outgoing", ("calls",), "state")
 
         selected = _select_actions(
@@ -2088,7 +2118,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(selected, (first, expansion))
 
     def test_later_round_prioritizes_bounded_file_handoff_within_its_island(self) -> None:
-        within = SearchWithinFile("within", "owner", "root_a", "src/a.ts", "Find owner.", priority=1, scope_id="island")
+        within = ExpandWithinFileHandoff("within", "owner", "root_a", "src/a.ts", "Find owner.", priority=1, scope_id="island")
         handoff = ExpandRelationship(
             "handoff", "owner", "root_b", "file:src/b.ts", "outgoing", ("calls",), "downstream",
             scope_id="island", handoff_reason="The downstream helper is missing.", seed_kind="file",
@@ -2106,7 +2136,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(selected, (handoff,))
 
     def test_endpoint_completion_outranks_another_file_handoff(self) -> None:
-        completion = SearchWithinFile(
+        completion = ExpandWithinFileHandoff(
             "completion", "owner", "endpoint", "src/helpers.ts", "Find the implementation.",
             scope_id="island", handoff_reason="The implementation is missing.",
             purpose=ActionPurpose.HANDOFF_COMPLETION,
@@ -2163,7 +2193,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(selected, (fresh,))
 
     def test_generic_exact_search_does_not_displace_relationship_followup(self) -> None:
-        within = SearchWithinFile("within", "owner", "root_a", "src/a.ts", "Find owner.", priority=1)
+        within = ExpandWithinFileHandoff("within", "owner", "root_a", "src/a.ts", "Find owner.", priority=1)
         generic = SearchNewIsland("generic", "owner", "Find owner.", exact_symbol_anchors=("build", "clean"))
         expansion = ExpandRelationship("expand", "owner", "root_b", "function:b", "outgoing", ("calls",), "downstream")
 
@@ -2178,7 +2208,7 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
 
     def test_qualified_file_refinement_outranks_deferred_inspection(self) -> None:
         inspection = _inspect_action("inspect", "owner")
-        within = SearchWithinFile(
+        within = ExpandWithinFileHandoff(
             id="within",
             obligation_id="owner",
             source_observation_id="obs_owner",
@@ -2191,16 +2221,16 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(selected, (within,))
 
     def test_file_refinement_uses_active_source_root_order(self) -> None:
-        active = SearchWithinFile("active", "owner", "root_active", "src/active.py", "Find owner.")
-        inactive = SearchWithinFile("inactive", "owner", "root_inactive", "src/inactive.py", "Find owner.")
+        active = ExpandWithinFileHandoff("active", "owner", "root_active", "src/active.py", "Find owner.")
+        inactive = ExpandWithinFileHandoff("inactive", "owner", "root_inactive", "src/inactive.py", "Find owner.")
 
         selected = _select_actions((inactive, active), ("root_active",), 1)
 
         self.assertEqual(selected, (active,))
 
     def test_file_refinement_does_not_repeat_a_path_across_rounds(self) -> None:
-        repeated = SearchWithinFile("repeat", "owner", "root_a", "src/repeated.py", "Find owner.")
-        fresh = SearchWithinFile("fresh", "owner", "root_b", "src/fresh.py", "Find owner.")
+        repeated = ExpandWithinFileHandoff("repeat", "owner", "root_a", "src/repeated.py", "Find owner.")
+        fresh = ExpandWithinFileHandoff("fresh", "owner", "root_b", "src/fresh.py", "Find owner.")
 
         selected = _select_actions(
             (repeated, fresh),
@@ -2303,6 +2333,36 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
 
         self.assertEqual(result["accepted_candidate_ids"], ["builder", "watch"])
         self.assertEqual(result["preserved_active_island_candidate_ids"], ["watch"])
+
+    def test_island_packet_path_does_not_append_uncompared_active_candidate(self) -> None:
+        from services.retrieval.workspace.pipeline.execution_flow.evidence_islands import EvidenceIsland, IslandSelection
+        from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import GroundedCandidate
+
+        candidates = {
+            "builder": GroundedCandidate("src/builder.ts", 1, 5, "builder", 0.8, "qualified_direct_evidence"),
+            "watch": GroundedCandidate("tests/watch.ts", 1, 5, "watch", 0.5, "qualified_navigation_evidence"),
+        }
+        controller = SimpleNamespace(
+            islands=IslandSelection(
+                islands=(EvidenceIsland("island_builder", ("obs_builder",)), EvidenceIsland("island_watch", ("obs_watch",))),
+                active_root_ids=("obs_builder", "obs_watch"),
+                inactive_promoted_ids=(),
+                edges=(),
+                tool_calls=0,
+            )
+        )
+
+        result = _preserve_active_island_candidates(
+            {"accepted_candidate_ids": ["builder"]},
+            candidates,
+            {"builder": "island_builder", "watch": "island_watch"},
+            controller,
+            preserve_active_islands=False,
+        )
+
+        self.assertEqual(result["accepted_candidate_ids"], ["builder"])
+        self.assertEqual(result["preserved_active_island_candidate_ids"], [])
+        self.assertFalse(result["active_island_preservation_enabled"])
 
     def test_exact_trace_source_is_reserved_in_an_already_represented_mixed_island(self) -> None:
         from services.retrieval.workspace.pipeline.execution_flow.evidence_islands import EvidenceIsland, IslandSelection

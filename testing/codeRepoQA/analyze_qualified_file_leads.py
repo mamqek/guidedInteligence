@@ -89,9 +89,7 @@ def replay_priority(directory: Path):
     from services.retrieval.workspace.pipeline.execution_flow.verified_leads import (
         VerifiedLead, _select_verified_lead_actions, _inspection_request, _verified_lead_to_dict,
     )
-    from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
-    from dataclasses import fields
-    allowed = {field.name for field in fields(QualificationDecision)}
+    from testing.codeRepoQA.qualification_trace_adapter import qualification_decision_from_trace
     ranks, cards, decisions, coverage, comparisons = {}, {}, {}, [], []
     for line, text in enumerate((directory / 'retrieval-trace.jsonl').read_text(encoding='utf-8').splitlines(), 1):
         event = json.loads(text)
@@ -102,7 +100,7 @@ def replay_priority(directory: Path):
             prompt = json.loads(next(item['content'] for item in payload['request_payload']['messages'] if item['role'] == 'user'))
             cards.update({item['observation_id']: item for item in prompt['observations']})
         elif kind == 'qualification_decisions_created':
-            decisions.update({item['observation_id']: QualificationDecision(**{k: v for k, v in item.items() if k in allowed})
+            decisions.update({item['observation_id']: qualification_decision_from_trace(item)
                               for item in payload['decisions']})
         elif kind == 'coverage_evaluated':
             coverage = payload['coverage']
@@ -118,7 +116,10 @@ def replay_priority(directory: Path):
                 if origin == 'qualified_structural_file_lead':
                     decision = decisions[identifier]
                     basis, request = _inspection_request(item['target'], decision,
-                        [row['missing_claim'] for row in coverage if row['obligation_id'] in decision.supported_obligation_ids],
+                        [
+                            row['missing_claim'] for row in coverage
+                            if row['obligation_id'] in decision.assessment.individually_established_obligation_ids
+                        ],
                         cards[identifier]['source_text'])
                 leads.append(VerifiedLead(identifier, item['obligation_id'], item['target'], item['target_node_id'],
                     item['target_path'], *item['target_range'], item['target_symbol'], item['reason'],

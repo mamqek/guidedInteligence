@@ -30,7 +30,51 @@ class InspectOwnerContinuation:
     reason: str
     priority: int = 0
     scope_id: str = ""
+    obligation_ids: tuple[str, ...] = ()
     purpose: ActionPurpose = ActionPurpose.OWNER_CONTINUATION
+
+
+@dataclass(frozen=True)
+class DormantFileHypothesisStrength:
+    title_owner_support: int = 0
+    request_owner_support: int = 0
+    structural_owner_count: int = 0
+
+    def is_no_weaker_than(self, previous: "DormantFileHypothesisStrength") -> bool:
+        return (
+            self.title_owner_support >= previous.title_owner_support
+            and self.request_owner_support >= previous.request_owner_support
+            and self.structural_owner_count >= previous.structural_owner_count
+        )
+
+
+@dataclass(frozen=True)
+class InspectDormantFileAlternatives:
+    """Disclose a bounded set of already-retrieved owners from one zero-qualified file."""
+
+    id: str
+    path: str
+    observation_ids: tuple[str, ...]
+    reason: str
+    priority: int = 0
+    scope_id: str = ""
+    hypothesis_strength: DormantFileHypothesisStrength = DormantFileHypothesisStrength()
+    purpose: ActionPurpose = ActionPurpose.DORMANT_FILE_ALTERNATIVES
+
+
+@dataclass(frozen=True)
+class InspectOwnerChallengers:
+    """Disclose retrieved owners that may improve a qualified file representative."""
+
+    id: str
+    path: str
+    observation_ids: tuple[str, ...]
+    primary_observation_ids: tuple[str, ...]
+    obligation_ids: tuple[str, ...]
+    reason: str
+    priority: int = 0
+    scope_id: str = ""
+    purpose: ActionPurpose = ActionPurpose.DEFERRED_FILE_RESCUE
 
 
 @dataclass(frozen=True)
@@ -54,7 +98,7 @@ class ExpandRelationship:
 
 
 @dataclass(frozen=True)
-class SearchWithinFile:
+class ExpandWithinFileHandoff:
     id: str
     obligation_id: str
     source_observation_id: str
@@ -68,7 +112,7 @@ class SearchWithinFile:
     # This hint can corroborate that a file was retrieved for the request, but
     # never turns a rejected short header into evidence or a graph seed.
     file_trigger_hint_observation_ids: tuple[str, ...] = ()
-    purpose: ActionPurpose = ActionPurpose.WITHIN_FILE_SEARCH
+    purpose: ActionPurpose = ActionPurpose.WITHIN_FILE_HANDOFF_EXPANSION
 
 
 @dataclass(frozen=True)
@@ -113,9 +157,11 @@ class StopRetrieval:
 
 RetrievalAction = (
     InspectDeferredObservation
+    | InspectDormantFileAlternatives
+    | InspectOwnerChallengers
     | InspectOwnerContinuation
     | InspectVerifiedLead
-    | SearchWithinFile
+    | ExpandWithinFileHandoff
     | ExpandRelationship
     | SearchNewIsland
     | StopRetrieval

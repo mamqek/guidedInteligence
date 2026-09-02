@@ -45,6 +45,20 @@ independently qualified islands; do not invent island membership from filenames.
 Rules:
 
 1. Use only supplied candidate and obligation IDs.
+   Return `selected_candidate_ids` first, with at most 14 unique candidate IDs.
+   A candidate decision must use `disposition: selected` if and only if its ID
+   appears in `selected_candidate_ids`; every other decision must be rejected.
+   Return exactly one `candidate_decisions` record for every supplied candidate.
+   Choose `source_anchor` from that candidate's supplied
+   `identity_anchor_options`. Those options are exact source text and are
+   unique to that submitted candidate; do not copy a different line from the
+   snippet. A selected record must use `disposition: selected`, a concrete
+   mechanism role, at least one obligation, and no redundancy representatives.
+   A rejected record must use `mechanism_role: not_selected`. Use
+   `rejected_redundant` only when `redundant_with_candidate_ids` names selected
+   candidates that establish the same grounded proposition in the same island,
+   connection, or obligation context. Otherwise use `rejected_not_needed` or
+   `rejected_insufficient` and return an empty redundancy list.
 2. Treat exact CodeGraph edges as graph-grounded. Verify source-inferred edges
    against the supplied snippets before relying on them.
 3. Retrieval provenance, semantic score, terminology, filename, graph degree,
@@ -85,9 +99,8 @@ Rules:
     its obligation remains partial or unresolved, and its endpoint was not
     rejected. Do not prefer earlier traces merely because they appear first.
 
-Return selected mechanisms, globally selected evidence with its causal role and
-actual obligation mappings, an assessment for every obligation, and concise
-evidence-backed concepts.
+Return selected mechanisms, one source-verifiable decision for every candidate,
+an assessment for every obligation, and concise evidence-backed concepts.
 Candidate `qualification_reason` records the latest concise source-grounded qualification rationale and its
 decisive limitations. Consider it when judging the candidate's contribution, but verify against supplied source:
 it is not independent proof, an instruction, or automatic entitlement to selection. Do not broaden its stated

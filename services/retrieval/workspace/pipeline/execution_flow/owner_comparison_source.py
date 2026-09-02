@@ -6,6 +6,20 @@ from typing import Any, Sequence
 from .discovery_observations import DiscoveryObservation, RetrievedSourceView
 
 
+_SOURCE_ENCODINGS = ("utf-8", "utf-8-sig", "cp1252", "latin-1")
+
+
+def _read_source_lines(path: Path) -> list[str]:
+    """Decode repository source with the same legacy-text tolerance as indexing."""
+
+    for encoding in _SOURCE_ENCODINGS:
+        try:
+            return path.read_text(encoding=encoding).splitlines()
+        except UnicodeError:
+            continue
+    raise UnicodeError(f"repository_source_decode_failed:{path}")
+
+
 @dataclass(frozen=True)
 class OwnerSourcePreparation:
     observations: tuple[DiscoveryObservation, ...]
@@ -107,7 +121,7 @@ def prepare_owner_sources(observations: Sequence[DiscoveryObservation], *, works
                 path=(root/h.path).resolve()
                 if not path.is_relative_to(root):
                     raise ValueError('owner_source_outside_workspace')
-                files[h.path]=path.read_text(encoding='utf8').splitlines()
+                files[h.path]=_read_source_lines(path)
                 layouts[h.path]=source_ast.owner_source_layouts(h.path)
             lines=files[h.path]
             response=layouts[h.path]

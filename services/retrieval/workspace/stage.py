@@ -19,10 +19,7 @@ class WorkspaceRetrievalStage:
         resolved_qdrant = replace(
             config.qdrant_config,
             collection_name=_repo_scoped_collection_name(
-                base_collection_name=_lexical_collection_base_name(
-                    config.qdrant_config.collection_name,
-                    config.lexical_ranking_profile,
-                ),
+                base_collection_name=config.qdrant_config.collection_name,
                 workspace_root=Path(config.workspace_root),
             ),
         )
@@ -34,9 +31,3 @@ class WorkspaceRetrievalStage:
             return run_workspace_retrieval(self.context, state, policy_result)
         finally:
             close_codegraph_bridge(self.config)
-
-
-def _lexical_collection_base_name(base_name: str, lexical_ranking_profile: str) -> str:
-    if lexical_ranking_profile == "flat_bm25":
-        return base_name
-    return f"{base_name}__{lexical_ranking_profile}"

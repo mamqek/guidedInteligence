@@ -321,7 +321,7 @@ could qualify them.
 **Change.** Admit one representative raw observation per path into the first
 qualification set. Keep the other ranges as attached path-local alternatives, not as
 independent roots or hidden evidence. The representative is the existing strongest
-ranked observation. A later qualified `SearchWithinFile` action may still select a
+ranked observation. A later qualified `ExpandWithinFileHandoff` action may still select a
 different attached range when its local follow-up warrants it.
 
 **Guardrails.** Do not merge unrelated owners into one semantic observation; this is

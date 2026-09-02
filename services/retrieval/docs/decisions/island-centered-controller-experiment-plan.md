@@ -180,20 +180,11 @@ evidence.
 
 ## Execution Conclusion
 
-The experiment supports persistent controller memory, but not wholesale queue unification. The retained
-`IslandFrontierLedger` is passive unless `island_frontier_ordinary_scheduling_enabled` is explicitly enabled. It
+The experiment supports persistent controller memory, but not wholesale queue unification. As of 2026-08-31, the
+retained `IslandFrontierLedger` and owner-maturation folding are the default and only controller policy. The ledger
 stores normalized executable effects independently of the 16-node structural request, reconciles their island
-identity across rounds, and records `available`, `attempted_empty`, `produced_gain`, and `expired` state. The default
-scheduler still selects actions when the flag is absent.
-
-Focused CodeRepoQA runs can enable the retained variant with:
-
-```text
---island-frontier-ordinary-scheduling --island-frontier-fold-owner-maturation
-```
-
-The corresponding reusable configuration keys use the same names with underscores. Both default to `false`, and
-owner-maturation folding is rejected by configuration validation unless ordinary frontier scheduling is also enabled.
+identity across rounds, and records `available`, `attempted_empty`, `produced_gain`, and `expired` state. The two
+experiment CLI/config flags were removed rather than preserved as permanent compatibility branches.
 
 Ordinary persistence attempt 1 was rejected because effect-level projection accidentally replaced the current
 catalogue's exact action objects. Attempt 2 is additive: it supplies the untouched current ordinary actions plus only
@@ -205,8 +196,8 @@ Deferred-file rescue cannot yet share the active-island allowance. In `124320Z`,
 active promoted islands always outranked the unresolved rescue frontier. That implementation and switch were removed.
 Owner maturation is different: the existing scheduler has already grounded it inside an active island. Folding only
 that one preselected maturation action produced new source in diagnostic `125058Z`, and both TypeScript acceptances
-retained all four target files. It remains opt-in because the planned Pandas cross-repository check could not reach
-the controller.
+retained all four target files. The later nested qualification contract removed the Pandas round-zero failure, after
+which the behavior was retained as the default without enlarging ordinary capacity.
 
 No test-maturation, verified-lead, or pending-handoff fold was attempted. Their independent safeguards remain intact.
 The experiment therefore rejects the idea that executor families can simply be merged into one queue; comparable

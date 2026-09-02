@@ -44,6 +44,21 @@ class RetrievedSourceView:
 
 
 @dataclass(frozen=True)
+class InitialAdmissionSignal:
+    """Deterministic pre-comparison rank attached to a held owner.
+
+    This is lifecycle provenance, not evidence qualification: it records whether
+    the owner reached the bounded initial comparison request and where it ranked.
+    """
+
+    ranking_position: int
+    decision: str
+    crossed_budget: bool = False
+    budget_crossing_position: int = 0
+    coverage_reserved: bool = False
+
+
+@dataclass(frozen=True)
 class DiscoveryObservation:
     id: str
     handle: SourceHandle
@@ -61,6 +76,7 @@ class DiscoveryObservation:
     # Initial admission can keep one representative per file while retaining a
     # stronger structural alternative for a bounded later rescue.
     admission_reason: str = ""
+    initial_admission: InitialAdmissionSignal | None = None
     # Comparison-only source; original Qdrant views remain unchanged provenance.
     comparison_source_views: tuple[RetrievedSourceView, ...] = ()
 
@@ -483,6 +499,25 @@ def _merge(left: DiscoveryObservation, right: DiscoveryObservation) -> Discovery
         parent_observation_ids=_ordered_unique((*left.parent_observation_ids, *right.parent_observation_ids)),
         relationship_kinds=_ordered_unique((*left.relationship_kinds, *right.relationship_kinds)),
         ambiguity_count=max(left.ambiguity_count, right.ambiguity_count),
+        initial_admission=_stronger_initial_admission(left.initial_admission, right.initial_admission),
+    )
+
+
+def _stronger_initial_admission(
+    left: InitialAdmissionSignal | None,
+    right: InitialAdmissionSignal | None,
+) -> InitialAdmissionSignal | None:
+    if left is None:
+        return right
+    if right is None:
+        return left
+    return min(
+        (left, right),
+        key=lambda item: (
+            0 if item.decision == "admitted" else 1,
+            item.ranking_position or 10_000,
+            0 if item.coverage_reserved else 1,
+        ),
     )
 
 

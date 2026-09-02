@@ -5,9 +5,9 @@ import json
 import math
 import re
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Mapping
 
 from core.source_policy import SourceCategory
 
@@ -78,48 +78,6 @@ IMPLEMENTATION_EXTENSIONS = {
 }
 MAX_INDEXED_FILE_CHARACTERS = 3_000_000
 BM25_INDEX_SCHEMA_VERSION = 3
-BM25F_INDEX_SCHEMA_VERSION = 4
-BM25F_V2_INDEX_SCHEMA_VERSION = 5
-LEXICAL_RANKING_FLAT_BM25 = "flat_bm25"
-LEXICAL_RANKING_BM25F_V1 = "bm25f_v1"
-LEXICAL_RANKING_BM25F_V2 = "bm25f_v2"
-SUPPORTED_LEXICAL_RANKING_PROFILES = (
-    LEXICAL_RANKING_FLAT_BM25,
-    LEXICAL_RANKING_BM25F_V1,
-    LEXICAL_RANKING_BM25F_V2,
-)
-BM25F_FIELD_WEIGHTS: Mapping[str, float] = {
-    "body": 1.0,
-    "directory_path": 2.0,
-    "basename": 5.0,
-    "definitions": 5.0,
-}
-BM25F_V2_FIELD_WEIGHTS: Mapping[str, float] = {
-    "body": 1.0,
-    "directory_path": 1.5,
-    "basename": 3.0,
-    "definitions": 3.0,
-    "comment_phrases": 1.0,
-}
-BM25F_FIELD_LENGTH_NORMALIZATION: Mapping[str, float] = {
-    "body": 0.75,
-    "directory_path": 0.0,
-    "basename": 0.0,
-    "definitions": 0.0,
-}
-BM25F_V2_FIELD_LENGTH_NORMALIZATION: Mapping[str, float] = {
-    "body": 0.75,
-    "directory_path": 0.0,
-    "basename": 0.0,
-    "definitions": 0.0,
-    "comment_phrases": 0.0,
-}
-COMMENT_PHRASE_PREFIX = "__comment_phrase__"
-COMMENT_PHRASE_QUERY_WEIGHT = 0.25
-COMMENT_PHRASE_STOPWORDS = {
-    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "if", "in", "into",
-    "is", "it", "of", "on", "or", "that", "the", "this", "to", "was", "we", "when", "with",
-}
 TEST_DIRECTORY_TOKENS = {
     "test",
     "tests",
@@ -175,7 +133,6 @@ class IndexedChunk:
 class BM25Document:
     chunk: IndexedChunk
     tokens: tuple[str, ...]
-    fields: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -190,16 +147,10 @@ class BM25Index:
     documents: tuple[BM25Document, ...]
     average_document_length: float
     document_frequency: Mapping[str, int]
-    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25
-    average_field_lengths: Mapping[str, float] = field(default_factory=dict)
 
     def search(self, query: str, *, limit: int = 20) -> tuple[BM25SearchResult, ...]:
-        query_weights = (
-            sparse_query_term_weights(query, self.lexical_ranking_profile)
-            if self.lexical_ranking_profile == LEXICAL_RANKING_BM25F_V2
-            else {term: 1.0 for term in tokenize(query)}
-        )
-        if not query_weights or not self.documents:
+        query_terms = tokenize(query)
+        if not query_terms or not self.documents:
             return ()
 
         results: list[BM25SearchResult] = []
@@ -212,30 +163,17 @@ class BM25Index:
             document_length = len(document.tokens)
             score = 0.0
             matched_terms: list[str] = []
-            for term, query_weight in query_weights.items():
-                frequency = (
-                    _bm25f_term_frequency(
-                        document,
-                        term,
-                        self.average_field_lengths,
-                        self.lexical_ranking_profile,
-                    )
-                    if is_bm25f_profile(self.lexical_ranking_profile)
-                    else float(frequencies.get(term, 0))
-                )
+            for term in query_terms:
+                frequency = float(frequencies.get(term, 0))
                 if frequency == 0:
                     continue
                 matched_terms.append(term)
                 doc_frequency = self.document_frequency.get(term, 0)
                 idf = math.log(1 + (document_count - doc_frequency + 0.5) / (doc_frequency + 0.5))
-                denominator = (
-                    frequency + k1
-                    if is_bm25f_profile(self.lexical_ranking_profile)
-                    else frequency + k1 * (
-                        1 - b + b * document_length / max(self.average_document_length, 1.0)
-                    )
+                denominator = frequency + k1 * (
+                    1 - b + b * document_length / max(self.average_document_length, 1.0)
                 )
-                score += query_weight * idf * (frequency * (k1 + 1)) / denominator
+                score += idf * (frequency * (k1 + 1)) / denominator
 
             if score > 0:
                 results.append(
@@ -250,15 +188,12 @@ class BM25Index:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "lexical_ranking_profile": self.lexical_ranking_profile,
             "average_document_length": self.average_document_length,
-            "average_field_lengths": dict(self.average_field_lengths),
             "document_frequency": dict(self.document_frequency),
             "documents": [
                 {
                     "chunk": document.chunk.to_dict(),
                     "tokens": list(document.tokens),
-                    "fields": {name: list(tokens) for name, tokens in document.fields.items()},
                 }
                 for document in self.documents
             ],
@@ -268,19 +203,11 @@ class BM25Index:
     def from_dict(cls, data: Mapping[str, Any]) -> "BM25Index":
         return cls(
             average_document_length=float(data["average_document_length"]),
-            lexical_ranking_profile=str(data.get("lexical_ranking_profile") or LEXICAL_RANKING_FLAT_BM25),
-            average_field_lengths={
-                str(key): float(value) for key, value in dict(data.get("average_field_lengths", {})).items()
-            },
             document_frequency={str(key): int(value) for key, value in data["document_frequency"].items()},
             documents=tuple(
                 BM25Document(
                     chunk=IndexedChunk.from_dict(item["chunk"]),
                     tokens=tuple(str(token) for token in item["tokens"]),
-                    fields={
-                        str(name): tuple(str(token) for token in tokens)
-                        for name, tokens in dict(item.get("fields", {})).items()
-                    },
                 )
                 for item in data["documents"]
             ),
@@ -289,33 +216,6 @@ class BM25Index:
 
 def tokenize(text: str) -> list[str]:
     return [match.group(0).lower() for match in TOKEN_PATTERN.finditer(text)]
-
-
-def is_bm25f_profile(lexical_ranking_profile: str) -> bool:
-    return lexical_ranking_profile in {LEXICAL_RANKING_BM25F_V1, LEXICAL_RANKING_BM25F_V2}
-
-
-def bm25f_field_weights(lexical_ranking_profile: str) -> Mapping[str, float]:
-    if lexical_ranking_profile == LEXICAL_RANKING_BM25F_V2:
-        return BM25F_V2_FIELD_WEIGHTS
-    return BM25F_FIELD_WEIGHTS
-
-
-def bm25f_field_length_normalization(lexical_ranking_profile: str) -> Mapping[str, float]:
-    if lexical_ranking_profile == LEXICAL_RANKING_BM25F_V2:
-        return BM25F_V2_FIELD_LENGTH_NORMALIZATION
-    return BM25F_FIELD_LENGTH_NORMALIZATION
-
-
-def sparse_query_term_weights(query: str, lexical_ranking_profile: str) -> Mapping[str, float]:
-    tokens = tuple(tokenize(query))
-    if lexical_ranking_profile != LEXICAL_RANKING_BM25F_V2:
-        # Preserve the existing Qdrant policy for flat BM25 and BM25F v1.
-        return {term: float(count) for term, count in Counter(tokens).items()}
-    weights: dict[str, float] = {term: 1.0 for term in tokens}
-    for phrase in _meaningful_phrase_features(tokens):
-        weights[phrase] = COMMENT_PHRASE_QUERY_WEIGHT
-    return weights
 
 
 def build_index_from_repo(
@@ -328,7 +228,6 @@ def build_index_from_repo(
     visibility: str = "visible_initial",
     origin: str = "repo_index",
     exclude_paths: tuple[str, ...] | None = None,
-    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> BM25Index:
     root = Path(repo_path).resolve()
     if not root.exists() or not root.is_dir():
@@ -339,8 +238,6 @@ def build_index_from_repo(
         raise ValueError("chunk_line_overlap must be zero or greater.")
     if chunk_line_overlap >= chunk_line_count:
         raise ValueError("chunk_line_overlap must be smaller than chunk_line_count.")
-    if lexical_ranking_profile not in SUPPORTED_LEXICAL_RANKING_PROFILES:
-        raise ValueError(f"Unsupported lexical ranking profile: {lexical_ranking_profile}.")
 
     chunks: list[IndexedChunk] = []
     for file_path in sorted(_iter_source_files(root, exclude_paths=exclude_paths)):
@@ -363,161 +260,29 @@ def build_index_from_repo(
             )
         )
 
-    documents = tuple(_bm25_document(chunk, lexical_ranking_profile) for chunk in chunks)
+    documents = tuple(_bm25_document(chunk) for chunk in chunks)
     document_frequency: dict[str, int] = {}
     for document in documents:
         vocabulary = set(document.tokens)
-        if lexical_ranking_profile == LEXICAL_RANKING_BM25F_V2:
-            vocabulary.update(token for tokens in document.fields.values() for token in tokens)
         for token in vocabulary:
             document_frequency[token] = document_frequency.get(token, 0) + 1
     average_document_length = (
         sum(len(document.tokens) for document in documents) / len(documents) if documents else 0.0
     )
-    field_weights = bm25f_field_weights(lexical_ranking_profile)
-    average_field_lengths = {
-        name: sum(len(document.fields.get(name, ())) for document in documents) / len(documents)
-        for name in field_weights
-    } if documents and is_bm25f_profile(lexical_ranking_profile) else {}
     return BM25Index(
         documents=documents,
         average_document_length=average_document_length,
         document_frequency=document_frequency,
-        lexical_ranking_profile=lexical_ranking_profile,
-        average_field_lengths=average_field_lengths,
     )
 
 
-def bm25_index_schema_version(lexical_ranking_profile: str) -> int:
-    if lexical_ranking_profile == LEXICAL_RANKING_BM25F_V2:
-        return BM25F_V2_INDEX_SCHEMA_VERSION
-    if lexical_ranking_profile == LEXICAL_RANKING_BM25F_V1:
-        return BM25F_INDEX_SCHEMA_VERSION
+def bm25_index_schema_version() -> int:
     return BM25_INDEX_SCHEMA_VERSION
 
 
-def _bm25_document(chunk: IndexedChunk, lexical_ranking_profile: str) -> BM25Document:
+def _bm25_document(chunk: IndexedChunk) -> BM25Document:
     tokens = tuple(tokenize(_document_text(chunk)))
-    if not is_bm25f_profile(lexical_ranking_profile):
-        return BM25Document(chunk=chunk, tokens=tokens)
-    path = Path(chunk.path)
-    definitions = chunk.symbols
-    if lexical_ranking_profile == LEXICAL_RANKING_BM25F_V2:
-        definitions = tuple(symbol for symbol in definitions if _is_specific_definition(symbol))
-    fields = {
-        "body": tuple(tokenize(chunk.text)),
-        "directory_path": tuple(tokenize(path.parent.as_posix())) if path.parent.as_posix() != "." else (),
-        "basename": tuple(tokenize(path.name)),
-        "definitions": tuple(token for symbol in definitions for token in tokenize(symbol)),
-    }
-    if lexical_ranking_profile == LEXICAL_RANKING_BM25F_V2:
-        body_tokens = tuple(tokenize(chunk.text))
-        fields["comment_phrases"] = (
-            _meaningful_phrase_features(body_tokens) if _is_comment_only_chunk(chunk.text) else ()
-        )
-    return BM25Document(chunk=chunk, tokens=tokens, fields=fields)
-
-
-def _bm25f_term_frequency(
-    document: BM25Document,
-    term: str,
-    average_field_lengths: Mapping[str, float],
-    lexical_ranking_profile: str,
-) -> float:
-    frequency = 0.0
-    field_weights = bm25f_field_weights(lexical_ranking_profile)
-    length_normalization = bm25f_field_length_normalization(lexical_ranking_profile)
-    for name, weight in field_weights.items():
-        tokens = document.fields.get(name, ())
-        term_frequency = tokens.count(term)
-        if not term_frequency:
-            continue
-        b = length_normalization[name]
-        average_length = max(average_field_lengths.get(name, 0.0), 1.0)
-        normalization = 1.0 - b + b * len(tokens) / average_length
-        frequency += weight * term_frequency / max(normalization, 0.01)
-    return frequency
-
-
-def bm25f_field_match_trace(
-    document: BM25Document,
-    query: str,
-    *,
-    average_field_lengths: Mapping[str, float],
-    lexical_ranking_profile: str,
-) -> Mapping[str, Mapping[str, Any]]:
-    if lexical_ranking_profile != LEXICAL_RANKING_BM25F_V2:
-        return {}
-    query_weights = sparse_query_term_weights(query, lexical_ranking_profile)
-    field_weights = bm25f_field_weights(lexical_ranking_profile)
-    length_normalization = bm25f_field_length_normalization(lexical_ranking_profile)
-    trace: dict[str, Mapping[str, Any]] = {}
-    for name, field_weight in field_weights.items():
-        tokens = document.fields.get(name, ())
-        counts = Counter(tokens)
-        matched = tuple(sorted(term for term in counts if term in query_weights))
-        if not matched:
-            continue
-        b = length_normalization[name]
-        average_length = max(average_field_lengths.get(name, 0.0), 1.0)
-        normalization = 1.0 - b + b * len(tokens) / average_length
-        weighted_frequency = sum(
-            query_weights[term] * field_weight * counts[term] / max(normalization, 0.01)
-            for term in matched
-        )
-        trace[name] = {
-            "matched_terms": [
-                term.removeprefix(COMMENT_PHRASE_PREFIX).replace("__", " ")
-                if term.startswith(COMMENT_PHRASE_PREFIX)
-                else term
-                for term in matched
-            ],
-            "weighted_frequency": round(weighted_frequency, 6),
-        }
-    return trace
-
-
-def _is_specific_definition(symbol: str) -> bool:
-    return bool(
-        re.search(r"[a-z0-9][A-Z]", symbol)
-        or "_" in symbol
-        or re.search(r"\d", symbol)
-    )
-
-
-def _meaningful_phrase_features(tokens: Iterable[str]) -> tuple[str, ...]:
-    values = tuple(tokens)
-    return tuple(
-        f"{COMMENT_PHRASE_PREFIX}{left}__{right}"
-        for left, right in zip(values, values[1:])
-        if len(left) > 2
-        and len(right) > 2
-        and left not in COMMENT_PHRASE_STOPWORDS
-        and right not in COMMENT_PHRASE_STOPWORDS
-    )
-
-
-def _is_comment_only_chunk(text: str) -> bool:
-    in_block_comment = False
-    saw_comment = False
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        if in_block_comment:
-            saw_comment = True
-            if "*/" in line:
-                in_block_comment = False
-            continue
-        if line.startswith(("//", "#")):
-            saw_comment = True
-            continue
-        if line.startswith("/*"):
-            saw_comment = True
-            in_block_comment = "*/" not in line
-            continue
-        return False
-    return saw_comment
+    return BM25Document(chunk=chunk, tokens=tokens)
 
 
 def estimate_indexing_scope(

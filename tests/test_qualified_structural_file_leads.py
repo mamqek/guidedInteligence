@@ -8,7 +8,7 @@ from services.retrieval.workspace.pipeline.execution_flow.verified_leads import 
     discover_qualified_file_leads, _select_verified_lead_actions,
     retain_verified_lead, _inspection_request,
 )
-from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
+from tests.qualification_test_support import QualificationDecision, replace_qualification_decision
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard
 from services.retrieval.workspace.pipeline.execution_flow.coverage_evaluation import ObligationCoverage
 from services.retrieval.workspace.pipeline.execution_flow.actions.scheduler import schedule_round_actions
@@ -88,7 +88,9 @@ class QualifiedFileLeadTests(unittest.TestCase):
         self.assertEqual(len(leads), 1)
         self.assertTrue(audit[-1]['target_previously_canonical'])
         self.assertEqual(self.run_discovery(observations=observations, decisions={
-            'source': self.decision, 'target': replace(self.decision, observation_id='target', disposition='reject'),
+            'source': self.decision, 'target': replace_qualification_decision(
+                self.decision, observation_id='target', disposition='reject', support_level='insufficient'
+            ),
         })[0], ())
 
     def test_ambiguous_or_saturated_symbol_results_are_not_unique(self):
@@ -104,9 +106,13 @@ class QualifiedFileLeadTests(unittest.TestCase):
         self.assertEqual(self.run_discovery()[1][-1]['reason'], 'utility_metrics_unavailable')
 
     def test_only_qualified_semantic_support_and_unresolved_obligations(self):
-        for decision in (replace(self.decision, support_level='navigation_only'),
-                         replace(self.decision, disposition='reject'),
-                         replace(self.decision, supported_obligation_ids=('retrieval_only',))):
+        for decision in (replace_qualification_decision(self.decision, support_level='navigation_only'),
+                         replace_qualification_decision(
+                             self.decision, disposition='reject', support_level='insufficient'
+                         ),
+                         replace_qualification_decision(
+                             self.decision, supported_obligation_ids=('retrieval_only',)
+                         )):
             self.assertEqual(self.run_discovery(decisions={'source': decision})[2], 0)
         self.assertEqual(self.run_discovery(coverage=(ObligationCoverage('semantic', 'covered', (), '', 'implementation'),))[2], 0)
         self.assertEqual(len(self.run_discovery(observations={'source': replace(self.obs, artifact_role='test')})[0]), 1)
@@ -147,10 +153,13 @@ class QualifiedFileLeadTests(unittest.TestCase):
 
     def test_qualified_source_can_itself_request_target(self):
         for text in ('Inspect State.update to establish invalidation.', 'Inspect update next.'):
-            lead = self.run_discovery(decisions={'source': replace(self.decision, local_follow_up=text)})[0][0]
+            lead = self.run_discovery(decisions={
+                'source': replace_qualification_decision(self.decision, local_follow_up=text)
+            })[0][0]
             self.assertEqual(lead.inspection_basis, 'qualification_followup')
             self.assertEqual(lead.request_text, text)
-        self.assertEqual(_inspection_request('State.update', replace(self.decision, local_follow_up='Inspect Other.update'),
+        self.assertEqual(_inspection_request('State.update', replace_qualification_decision(
+                                                 self.decision, local_follow_up='Inspect Other.update'),
                                              (), self.source)[0], 'incidental_visible_call')
         self.assertEqual(_inspection_request('State.update', self.decision, ('Missing State.update behavior.',), self.source)[0],
                          'missing_information')
@@ -159,14 +168,16 @@ class QualifiedFileLeadTests(unittest.TestCase):
         old = self.run_discovery()[0][0]
         pending = {old.target_node_id: old}
         leads, audit, _ = self.run_discovery(pending_node_ids=set(pending), pending_leads=pending,
-            decisions={'source': replace(self.decision, local_follow_up='Inspect State.update.')})
+            decisions={'source': replace_qualification_decision(
+                self.decision, local_follow_up='Inspect State.update.')})
         self.assertEqual(audit[-1]['reason'], 'pending_lead_priority_upgraded')
         retain_verified_lead(pending, leads[0])
         retain_verified_lead(pending, old)
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[old.target_node_id].inspection_basis, 'qualification_followup')
         self.assertEqual(self.run_discovery(pending_node_ids=set(pending), pending_leads=pending,
-            executed_node_ids=set(pending), decisions={'source': replace(self.decision, local_follow_up='Inspect State.update.')})[0], ())
+            executed_node_ids=set(pending), decisions={'source': replace_qualification_decision(
+                self.decision, local_follow_up='Inspect State.update.')})[0], ())
 
 
 if __name__ == '__main__':

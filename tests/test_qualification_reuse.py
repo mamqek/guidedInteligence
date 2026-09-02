@@ -27,9 +27,15 @@ class QualificationReuseTests(unittest.TestCase):
     def answer(self, config, messages, **kwargs):
         payload = json.loads(messages[1]["content"])
         return {"decisions": {card["observation_id"]: {
-            "classification": "promote_direct", "reason": "Visible reverse lookup",
-            "visible_support": ["reverseMap()"], "missing_information": [],
-            "local_follow_up": "", "supported_obligation_ids": ["subject"],
+            "assessment": {
+                "disposition": "retain", "evidence_kind": "direct_fact",
+                "contributing_obligation_ids": ["subject"],
+                "individually_established_obligation_ids": ["subject"],
+            },
+            "rationale": {
+                "reason": "Visible reverse lookup", "visible_support": ["reverseMap()"],
+                "missing_information": [], "local_follow_up": "",
+            },
         } for card in payload["observations"]}}
 
     def qualify(self, cards, **overrides):
@@ -130,7 +136,11 @@ class QualificationReuseTests(unittest.TestCase):
         def weak(config, messages, **kwargs):
             result = self.answer(config, messages, **kwargs)
             for decision in result["decisions"].values():
-                decision.update(classification="promote_navigation", supported_obligation_ids=[])
+                decision["assessment"] = {
+                    "disposition": "retain", "evidence_kind": "navigation_lead",
+                    "contributing_obligation_ids": [],
+                    "individually_established_obligation_ids": [],
+                }
             return result
         with patch(MODULE + ".complete_json", side_effect=weak):
             self.qualify((self.card,))
@@ -138,7 +148,7 @@ class QualificationReuseTests(unittest.TestCase):
         with patch(MODULE + ".complete_json", side_effect=self.answer) as llm:
             result = self.qualify((self.card,))
         self.assertEqual(llm.call_count, 1)
-        self.assertEqual(result.decisions[0].support_level, "direct_evidence")
+        self.assertTrue(result.decisions[0].assessment.is_direct_fact)
 
     def test_budget_crop_retains_actual_qualified_source_not_just_label(self):
         source = "\n".join(f"line_{i} = evaluate();" for i in range(70))

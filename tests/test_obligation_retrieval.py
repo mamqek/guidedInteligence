@@ -14,10 +14,12 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     AnchorConfirmation,
     ObligationProgress,
     _apply_duplicate_provenance_ranking,
+    _allocate_ranked_optional_evidence,
     _append_semantic_candidates,
     _best_bridge_nodes_in_files,
     _best_overlapping_nodes,
     _candidate_connections,
+    _candidate_identity_anchors,
     _candidate_observation_id,
     _candidate_from_node,
     _candidate_provenance_tier,
@@ -27,6 +29,9 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _consolidation_response_format,
     _consolidate_obligation_evidence,
     _select_unresolved_file_trace_evidence,
+    _validate_ranked_file_trace_response,
+    _validate_ranked_optional_evidence_response,
+    _validate_candidate_local_decisions,
     _candidate_overlap_relations,
     _connected_candidate_shortlists,
     _confirmed_obligation_paths,
@@ -46,6 +51,7 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _global_candidate_id,
     _overlap_selection_records,
     _ground_semantic_root_neighbors,
+    _ground_request_anchors,
     _has_usable_exact_graph_ranges,
     _is_visible_direct_target,
     _remove_generated_candidates,
@@ -798,23 +804,86 @@ class ObligationRetrievalTests(unittest.TestCase):
         self.assertFalse(already_over[0])
 
     def test_consolidation_schema_has_one_global_evidence_budget(self) -> None:
-        schema = _consolidation_response_format(("state", "why"), ("candidate:a", "candidate:b"))
-        properties = schema["json_schema"]["schema"]["properties"]
-
-        self.assertEqual(properties["selected_evidence"]["maxItems"], 14)
-        self.assertNotIn("maxItems", properties["obligation_assessments"]["items"]["properties"]["supporting_candidate_ids"])
-        self.assertNotIn(
-            "enum",
-            properties["selected_evidence"]["items"]["properties"]["candidate_id"],
+        schema = _consolidation_response_format(
+            ("state", "why"),
+            ("candidate:a", "candidate:b"),
+            identity_anchors={"candidate:a": ("anchor a",), "candidate:b": ("anchor b",)},
         )
+        properties = schema["json_schema"]["schema"]["properties"]
+        decision_variants = properties["candidate_decisions"]["items"]["anyOf"]
+
+        self.assertEqual(properties["candidate_decisions"]["minItems"], 2)
+        self.assertEqual(properties["candidate_decisions"]["maxItems"], 2)
+        self.assertNotIn("maxItems", properties["obligation_assessments"]["items"]["properties"]["supporting_candidate_ids"])
+        self.assertEqual(
+            [item["properties"]["candidate_id"]["enum"] for item in decision_variants],
+            [["candidate:a"], ["candidate:b"]],
+        )
+        self.assertEqual(decision_variants[0]["properties"]["source_anchor"]["enum"], ["anchor a"])
+        self.assertEqual(properties["selected_candidate_ids"]["maxItems"], 14)
+        self.assertIn("selected_candidate_ids", schema["json_schema"]["schema"]["required"])
         self.assertNotIn(
             "enum",
             properties["mechanisms"]["items"]["properties"]["candidate_ids"]["items"],
         )
         self.assertIn(
             "exclusive_contribution",
-            properties["selected_evidence"]["items"]["required"],
+            decision_variants[0]["required"],
         )
+        self.assertIn("source_anchor", decision_variants[0]["required"])
+
+    def test_candidate_identity_anchors_are_unique_and_strict_schema_safe(self) -> None:
+        first = _candidate_with_text(
+            "first",
+            "src/first.ts",
+            'const escaped = "unsafe";\nconst firstValue = computeFirst();',
+        )
+        second = _candidate_with_text(
+            "second",
+            "src/second.ts",
+            "const shared = common();\nconst secondValue = computeSecond();",
+        )
+
+        anchors = _candidate_identity_anchors({"first": first, "second": second})
+
+        self.assertIn("const firstValue = computeFirst();", anchors["first"])
+        self.assertTrue(all('"' not in value and "\\" not in value for values in anchors.values() for value in values))
+
+    def test_candidate_identity_anchors_use_grounded_locator_for_contained_source(self) -> None:
+        parent = _candidate_with_text(
+            "parent",
+            "src/services/organizeImports.ts",
+            "function removeUnusedImports() {\nfunction isDeclarationUsed() { return true; }\n}",
+        )
+        child = _candidate_with_text(
+            "isDeclarationUsed",
+            "src/services/organizeImports.ts",
+            "function isDeclarationUsed() { return true; }",
+        )
+        child = replace(child, line_start=106, line_end=109)
+
+        anchors = _candidate_identity_anchors({"parent": parent, "child": child})
+
+        self.assertEqual(
+            anchors["child"],
+            ("src/services/organizeImports.ts:L106-L109 | isDeclarationUsed",),
+        )
+
+    def test_consolidation_schema_only_allows_pregrounded_redundancy_targets(self) -> None:
+        schema = _consolidation_response_format(
+            ("mechanism",),
+            ("candidate:a", "candidate:b"),
+            identity_anchors={"candidate:a": ("anchor a",), "candidate:b": ("anchor b",)},
+            redundancy_options={"candidate:a": ("candidate:b",), "candidate:b": ()},
+        )
+        variants = schema["json_schema"]["schema"]["properties"]["candidate_decisions"]["items"]["anyOf"]
+
+        self.assertIn("rejected_redundant", variants[0]["properties"]["disposition"]["enum"])
+        self.assertEqual(
+            variants[0]["properties"]["redundant_with_candidate_ids"]["items"]["enum"],
+            ["candidate:b"],
+        )
+        self.assertNotIn("rejected_redundant", variants[1]["properties"]["disposition"]["enum"])
 
     def test_candidate_overlap_relations_expose_parent_child_containment(self) -> None:
         parent = GroundedCandidate("src/watch.ts", 10, 100, "parent", 1.0, "test", node_id="function:parent")
@@ -852,6 +921,170 @@ class ObligationRetrievalTests(unittest.TestCase):
                 ),
             )
 
+    def test_ranked_file_trace_response_preserves_explicit_semantic_order(self) -> None:
+        response = {
+            "ranked_selected_trace_ids": ["trace_c", "trace_a", "trace_d"],
+            "ranked_optional_evidence_ids": ["trace_c", "trace_a", "trace_d"],
+            "decisions": [
+                {"trace_id": "trace_a", "disposition": "select", "reason": "Useful A."},
+                {"trace_id": "trace_b", "disposition": "reject", "reason": "Redundant B."},
+                {"trace_id": "trace_c", "disposition": "select", "reason": "Useful C."},
+                {"trace_id": "trace_d", "disposition": "select", "reason": "Useful D."},
+            ],
+        }
+
+        ranked = _validate_ranked_file_trace_response(
+            response,
+            eligible_trace_ids=("trace_a", "trace_b", "trace_c", "trace_d"),
+        )
+
+        self.assertEqual(ranked, ("trace_c", "trace_a", "trace_d"))
+
+    def test_ranked_file_trace_response_rejects_decision_ranking_mismatch(self) -> None:
+        response = {
+            "ranked_selected_trace_ids": ["trace_a"],
+            "ranked_optional_evidence_ids": ["trace_a"],
+            "decisions": [
+                {"trace_id": "trace_a", "disposition": "select", "reason": "Useful A."},
+                {"trace_id": "trace_b", "disposition": "select", "reason": "Useful B."},
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, "exactly match"):
+            _validate_ranked_file_trace_response(
+                response,
+                eligible_trace_ids=("trace_a", "trace_b"),
+            )
+
+    def test_joint_optional_evidence_allocation_protects_exact_seeds(self) -> None:
+        candidates, traces = _allocate_ranked_optional_evidence(
+            accepted_candidate_ids=("direct", "seed", "source", "sibling_a", "sibling_b"),
+            protected_candidate_ids=("direct", "seed", "source"),
+            ranked_optional_evidence_ids=("helpers", "sibling_a", "watch_system", "sibling_b"),
+            selected_trace_ids=("helpers", "watch_system"),
+            capacity=5,
+        )
+
+        self.assertEqual(candidates, ("direct", "seed", "source", "sibling_a"))
+        self.assertEqual(traces, ("helpers",))
+
+    def test_joint_optional_ranking_requires_every_replaceable_item(self) -> None:
+        response = {"ranked_optional_evidence_ids": ["helpers", "sibling_a"]}
+        self.assertEqual(
+            _validate_ranked_optional_evidence_response(
+                response,
+                replaceable_candidate_ids=("sibling_a",),
+                selected_trace_ids=("helpers",),
+            ),
+            ("helpers", "sibling_a"),
+        )
+        with self.assertRaisesRegex(ValueError, "each optional item"):
+            _validate_ranked_optional_evidence_response(
+                {"ranked_optional_evidence_ids": ["helpers"]},
+                replaceable_candidate_ids=("sibling_a",),
+                selected_trace_ids=("helpers",),
+            )
+
+    def test_file_trace_can_replace_only_redundant_navigation_at_full_capacity(self) -> None:
+        source = replace(
+            _candidate_with_text(
+                "function:watchScenario", "tests/watch.ts", "verifyHelper(input);"
+            ),
+            origin="qualified_direct_evidence",
+            provenance_origins=("qualified_direct_evidence",),
+            obligation_ids=("why",),
+        )
+        protected = [source]
+        for index in range(12):
+            protected.append(
+                replace(
+                    _candidate_with_text(
+                        f"function:direct{index}",
+                        f"src/direct{index}.ts",
+                        f"function direct{index}() {{ return {index}; }}",
+                    ),
+                    origin="qualified_direct_evidence",
+                    provenance_origins=("qualified_direct_evidence",),
+                    obligation_ids=("why",),
+                )
+            )
+        optional = replace(
+            _candidate_with_text(
+                "function:optionalNavigation",
+                "src/optional.ts",
+                "function optionalNavigation() {}",
+            ),
+            origin="qualified_navigation_evidence",
+            provenance_origins=("qualified_navigation_evidence",),
+        )
+        candidates = {
+            _global_candidate_id(candidate): candidate
+            for candidate in (*protected, optional)
+        }
+        source_id = _global_candidate_id(source)
+        optional_id = _global_candidate_id(optional)
+        accepted_ids = list(candidates)
+        trace_id = "file_trace:island_watch:src/helpers.ts"
+        consolidation = {
+            "accepted_candidate_ids": accepted_ids,
+            "accepted_ids_by_obligation": {"why": [source_id]},
+            "selection_records": [],
+            "selected_mechanisms": [
+                {"id": "watch", "candidate_ids": [source_id], "status": "partial"}
+            ],
+            "obligation_assessments": [
+                {
+                    "obligation_id": "why",
+                    "status": "partial",
+                    "supporting_candidate_ids": [source_id],
+                    "reason": "The destination remains unresolved.",
+                    "missing_handoff": "Helper implementation.",
+                }
+            ],
+            "obligation_statuses": {"why": "partial"},
+            "concepts": [],
+            "rejected_candidate_ids": [],
+            "llm_calls": 1,
+            "usage": {},
+        }
+        trace = {
+            "path": "src/helpers.ts",
+            "source_path": source.path,
+            "source_observation_id": _candidate_observation_id(source),
+            "source_island_id": "island_watch",
+            "obligation_id": "why",
+            "obligation_ids": ("why",),
+            "endpoint_qualification": "promote/navigation_only",
+        }
+        response = {
+            "ranked_selected_trace_ids": [trace_id],
+            "ranked_optional_evidence_ids": [trace_id, optional_id],
+            "decisions": [
+                {
+                    "trace_id": trace_id,
+                    "disposition": "select",
+                    "reason": "The trace preserves the missing handoff.",
+                }
+            ],
+        }
+        ctx = SimpleNamespace(
+            config=SimpleNamespace(llm_config=SimpleNamespace()),
+            trace=SimpleNamespace(record=lambda *args, **kwargs: None),
+        )
+
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval.complete_json",
+            return_value=response,
+        ):
+            result = _select_unresolved_file_trace_evidence(
+                ctx, consolidation, candidates, (trace,)
+            )
+
+        self.assertEqual(result["accepted_file_trace_ids"], [trace_id])
+        self.assertNotIn(optional_id, result["accepted_candidate_ids"])
+        self.assertIn(optional_id, result["rejected_candidate_ids"])
+        self.assertEqual(len(result["accepted_candidate_ids"]), 13)
+
     def test_consolidation_selects_independent_file_trace_after_source_snippet(self) -> None:
         source = replace(
             _candidate_with_text(
@@ -885,6 +1118,7 @@ class ObligationRetrievalTests(unittest.TestCase):
             "reason": "The selected watch scenario reaches the helper file; the exact owner remains unresolved.",
         }
         consolidation_response = {
+            "selected_candidate_ids": [source_id],
             "mechanisms": [
                 {
                     "id": "watch_flow",
@@ -893,13 +1127,16 @@ class ObligationRetrievalTests(unittest.TestCase):
                     "description": "The selected scenario enters the watch helper flow.",
                 }
             ],
-            "selected_evidence": [
+            "candidate_decisions": [
                 {
                     "candidate_id": source_id,
+                    "disposition": "selected",
                     "mechanism_role": "entry_or_trigger",
                     "obligation_ids": ["mechanism"],
                     "reason": "Visible watch entry point.",
                     "exclusive_contribution": "Establishes the selected source side of the handoff.",
+                    "source_anchor": "function watchScenario() { verifyTscWatch(input); }",
+                    "redundant_with_candidate_ids": [],
                 }
             ],
             "selected_file_traces": [],
@@ -915,6 +1152,12 @@ class ObligationRetrievalTests(unittest.TestCase):
             "concepts": [],
         }
         file_response = {
+            "ranked_selected_trace_ids": [
+                "file_trace:island_watch:src/testRunner/unittests/tscWatch/helpers.ts"
+            ],
+            "ranked_optional_evidence_ids": [
+                "file_trace:island_watch:src/testRunner/unittests/tscWatch/helpers.ts"
+            ],
             "decisions": [
                 {
                     "trace_id": "file_trace:island_watch:src/testRunner/unittests/tscWatch/helpers.ts",
@@ -965,6 +1208,8 @@ class ObligationRetrievalTests(unittest.TestCase):
                 "src/testRunner/unittests/tsbuild/watchMode.ts",
                 "function otherWatchScenario() { verifyTscWatch(other); }",
             ),
+            line_start=4,
+            line_end=5,
             origin="qualified_direct_evidence",
             provenance_origins=("qualified_direct_evidence",),
             obligation_ids=("mechanism",),
@@ -987,8 +1232,30 @@ class ObligationRetrievalTests(unittest.TestCase):
             "reason": "The source reaches the helper file.",
         }
         response = {
+            "selected_candidate_ids": [alternate_id],
             "mechanisms": [{"id": "watch_flow", "status": "partial", "candidate_ids": [alternate_id], "description": "Another island candidate."}],
-            "selected_evidence": [{"candidate_id": alternate_id, "mechanism_role": "entry", "obligation_ids": ["mechanism"], "reason": "Different source.", "exclusive_contribution": "Different entry."}],
+            "candidate_decisions": [
+                {
+                    "candidate_id": alternate_id,
+                    "disposition": "selected",
+                    "mechanism_role": "entry_or_trigger",
+                    "obligation_ids": ["mechanism"],
+                    "reason": "Different source.",
+                    "exclusive_contribution": "Different entry.",
+                    "source_anchor": "function otherWatchScenario() { verifyTscWatch(other); }",
+                    "redundant_with_candidate_ids": [],
+                },
+                {
+                    "candidate_id": source_id,
+                    "disposition": "rejected_not_needed",
+                    "mechanism_role": "not_selected",
+                    "obligation_ids": [],
+                    "reason": "The alternate is sufficient for this fixture.",
+                    "exclusive_contribution": "",
+                    "source_anchor": "function watchScenario() { verifyTscWatch(input); }",
+                    "redundant_with_candidate_ids": [],
+                },
+            ],
             "selected_file_traces": [],
             "obligation_assessments": [{"obligation_id": "mechanism", "status": "partial", "supporting_candidate_ids": [alternate_id], "reason": "Still unresolved.", "missing_handoff": "Helper."}],
             "concepts": [],
@@ -999,6 +1266,7 @@ class ObligationRetrievalTests(unittest.TestCase):
                 ctx,
                 (state,),
                 candidate_islands={source_id: "island_watch", alternate_id: "island_watch"},
+                representation="island_packets",
             )
             result = _select_unresolved_file_trace_evidence(
                 ctx, result, {source_id: source, alternate_id: alternate}, (trace,)
@@ -1042,6 +1310,12 @@ class ObligationRetrievalTests(unittest.TestCase):
             "usage": {},
         }
         response = {
+            "ranked_selected_trace_ids": [
+                "file_trace:island_watch:src/testRunner/unittests/tscWatch/helpers.ts"
+            ],
+            "ranked_optional_evidence_ids": [
+                "file_trace:island_watch:src/testRunner/unittests/tscWatch/helpers.ts"
+            ],
             "decisions": [{
                 "trace_id": "file_trace:island_watch:src/testRunner/unittests/tscWatch/helpers.ts",
                 "disposition": "select",
@@ -1108,6 +1382,7 @@ class ObligationRetrievalTests(unittest.TestCase):
         record = result["file_trace_decision_records"][0]
         self.assertTrue(record["endpoint_blocked"])
         self.assertEqual(record["decision"], "endpoint_rejected")
+        self.assertEqual(result["accepted_candidate_ids"], [source_id])
 
     def test_prompt_relevant_callee_localization_continues_named_flow(self) -> None:
         with TemporaryDirectory() as root:
@@ -1746,6 +2021,7 @@ class ObligationRetrievalTests(unittest.TestCase):
                 trace=SimpleNamespace(record=lambda *args, **kwargs: None),
             )
             response = {
+                "selected_candidate_ids": [direct_id],
                 "mechanisms": [
                     {
                         "id": "signature_invalidation",
@@ -1754,18 +2030,16 @@ class ObligationRetrievalTests(unittest.TestCase):
                         "description": "The builder-state function owns signature invalidation.",
                     }
                 ],
-                "selected_evidence": [
+                "candidate_decisions": [
                     {
                         "candidate_id": direct_id,
+                        "disposition": "selected",
                         "mechanism_role": "state_owner",
                         "obligation_ids": ["cause"],
                         "reason": "The signature code directly establishes the mechanism.",
-                    },
-                    {
-                        "candidate_id": "wrong:candidate-1",
-                        "mechanism_role": "state_owner",
-                        "obligation_ids": ["cause"],
-                        "reason": "Invalid test ID.",
+                        "exclusive_contribution": "Owns the declaration signature update.",
+                        "source_anchor": "latestSignature = computeHash(firstDts.text); updateExportedModules(sourceFile);",
+                        "redundant_with_candidate_ids": [],
                     },
                 ],
                 "obligation_assessments": [
@@ -1793,8 +2067,257 @@ class ObligationRetrievalTests(unittest.TestCase):
                 result = _consolidate_obligation_evidence(ctx, (state,))
 
         self.assertEqual(tuple(candidate.path for candidate in state.candidates), ("src/compiler/builderState.ts",))
-        self.assertIn("wrong:candidate-1", result["invalid_candidate_ids"])
+        self.assertEqual(result["invalid_candidate_ids"], [])
         self.assertEqual(result["concepts"][0]["id"], "declaration_signature_change")
+
+    def test_final_candidate_identity_rejects_swapped_source_anchor(self) -> None:
+        implementation = _candidate_with_text(
+            "renderDOMProps", "src/dom-props.js",
+            "function renderDOMProps(node) { return setText(node); }",
+        )
+        test_helper = _candidate_with_text(
+            "renderVmWithOptions", "test/ssr.spec.js",
+            "function renderVmWithOptions(options) { return render(options); }",
+        )
+        implementation_id = _global_candidate_id(implementation)
+        test_id = _global_candidate_id(test_helper)
+        response = {
+            "selected_candidate_ids": [test_id],
+            "candidate_decisions": [
+                {
+                    "candidate_id": test_id,
+                    "disposition": "selected",
+                    "mechanism_role": "controller",
+                    "obligation_ids": ["mechanism"],
+                    "reason": "Wrongly attributed implementation behavior.",
+                    "exclusive_contribution": "",
+                    "source_anchor": "renderDOMProps(node)",
+                    "redundant_with_candidate_ids": [],
+                },
+                {
+                    "candidate_id": implementation_id,
+                    "disposition": "rejected_not_needed",
+                    "mechanism_role": "not_selected",
+                    "obligation_ids": [],
+                    "reason": "Rejected under the swapped ID.",
+                    "exclusive_contribution": "",
+                    "source_anchor": "renderVmWithOptions(options)",
+                    "redundant_with_candidate_ids": [],
+                },
+            ]
+        }
+
+        with self.assertRaisesRegex(RuntimeError, "source anchor ambiguous_or_wrong_owner"):
+            _validate_candidate_local_decisions(
+                response,
+                candidates={implementation_id: implementation, test_id: test_helper},
+                candidate_islands={implementation_id: "implementation", test_id: "test"},
+                candidate_connections=(),
+                candidate_obligations={implementation_id: {"mechanism"}, test_id: {"mechanism"}},
+            )
+
+    def test_final_candidate_identity_requires_selected_decisions_but_ignores_duplicate_rejection_metadata(self) -> None:
+        first = _candidate_with_text("first", "src/first.ts", "function first() { return 1; }")
+        second = _candidate_with_text("second", "src/second.ts", "function second() { return 2; }")
+        first_id = _global_candidate_id(first)
+        second_id = _global_candidate_id(second)
+        first_decision = {
+            "candidate_id": first_id,
+            "disposition": "selected",
+            "mechanism_role": "producer",
+            "obligation_ids": ["mechanism"],
+            "reason": "Produces the value.",
+            "exclusive_contribution": "The first producer.",
+            "source_anchor": "function first() { return 1; }",
+            "redundant_with_candidate_ids": [],
+        }
+        kwargs = {
+            "candidates": {first_id: first, second_id: second},
+            "candidate_islands": {first_id: "first", second_id: "second"},
+            "candidate_connections": (),
+            "candidate_obligations": {first_id: {"mechanism"}, second_id: {"mechanism"}},
+        }
+
+        decisions = _validate_candidate_local_decisions(
+            {"selected_candidate_ids": [first_id], "candidate_decisions": [first_decision]},
+            **kwargs,
+        )
+        self.assertEqual([item["candidate_id"] for item in decisions], [first_id])
+
+        decisions = _validate_candidate_local_decisions(
+            {"selected_candidate_ids": [first_id], "candidate_decisions": [first_decision, first_decision]},
+            **kwargs,
+        )
+        self.assertEqual([item["candidate_id"] for item in decisions], [first_id])
+
+        rejected_first_decision = {
+            **first_decision,
+            "disposition": "rejected_not_needed",
+            "mechanism_role": "not_selected",
+            "obligation_ids": [],
+            "exclusive_contribution": "",
+        }
+        decisions = _validate_candidate_local_decisions(
+            {"selected_candidate_ids": [second_id], "candidate_decisions": [rejected_first_decision]},
+            **kwargs,
+        )
+        self.assertEqual([item["candidate_id"] for item in decisions], [first_id])
+
+        rejected_second_decision = {
+            **rejected_first_decision,
+            "candidate_id": second_id,
+            "source_anchor": "function second() { return 2; }",
+        }
+        decisions = _validate_candidate_local_decisions(
+            {"selected_candidate_ids": [second_id], "candidate_decisions": [rejected_second_decision]},
+            **kwargs,
+        )
+        self.assertEqual(decisions, [])
+
+    def test_final_candidate_identity_rejects_ambiguous_source_anchor(self) -> None:
+        first = _candidate_with_text("first", "src/first.ts", "function first() { return shared(); }")
+        second = _candidate_with_text("second", "src/second.ts", "function second() { return shared(); }")
+        first_id = _global_candidate_id(first)
+        second_id = _global_candidate_id(second)
+        decisions = [
+            {
+                "candidate_id": candidate_id,
+                "disposition": "rejected_not_needed",
+                "mechanism_role": "not_selected",
+                "obligation_ids": [],
+                "reason": "Not needed.",
+                "exclusive_contribution": "",
+                "source_anchor": "shared()",
+                "redundant_with_candidate_ids": [],
+            }
+            for candidate_id in (first_id, second_id)
+        ]
+
+        with self.assertRaisesRegex(RuntimeError, "source anchor ambiguous_or_wrong_owner"):
+            _validate_candidate_local_decisions(
+                {"selected_candidate_ids": [], "candidate_decisions": decisions},
+                candidates={first_id: first, second_id: second},
+                candidate_islands={first_id: "first", second_id: "second"},
+                candidate_connections=(),
+                candidate_obligations={first_id: {"mechanism"}, second_id: {"mechanism"}},
+            )
+
+    def test_final_candidate_identity_accepts_grounded_redundancy_representative(self) -> None:
+        selected = _candidate_with_text(
+            "selected", "src/selected.ts", "function selected() { return computePrimary(); }",
+        )
+        redundant = _candidate_with_text(
+            "redundant", "src/redundant.ts", "function redundant() { return computeAlternate(); }",
+        )
+        selected_id = _global_candidate_id(selected)
+        redundant_id = _global_candidate_id(redundant)
+        response = {
+            "selected_candidate_ids": [selected_id],
+            "candidate_decisions": [
+                {
+                    "candidate_id": selected_id,
+                    "disposition": "selected",
+                    "mechanism_role": "producer",
+                    "obligation_ids": ["mechanism"],
+                    "reason": "Primary implementation.",
+                    "exclusive_contribution": "Shows the producer.",
+                    "source_anchor": "function selected() { return computePrimary(); }",
+                    "redundant_with_candidate_ids": [],
+                },
+                {
+                    "candidate_id": redundant_id,
+                    "disposition": "rejected_redundant",
+                    "mechanism_role": "not_selected",
+                    "obligation_ids": ["mechanism"],
+                    "reason": "The selected producer represents the same obligation.",
+                    "exclusive_contribution": "",
+                    "source_anchor": "function redundant() { return computeAlternate(); }",
+                    "redundant_with_candidate_ids": [selected_id],
+                },
+            ]
+        }
+
+        decisions = _validate_candidate_local_decisions(
+            response,
+            candidates={selected_id: selected, redundant_id: redundant},
+            candidate_islands={selected_id: "producer", redundant_id: "alternative"},
+            candidate_connections=(),
+            candidate_obligations={selected_id: {"mechanism"}, redundant_id: {"mechanism"}},
+        )
+
+        self.assertEqual(decisions[1]["redundant_with_candidate_ids"], (selected_id,))
+
+    def test_final_candidate_identity_downgrades_unselected_redundancy_representative(self) -> None:
+        selected = _candidate_with_text(
+            "selected", "src/selected.ts", "function selected() { return computePrimary(); }",
+        )
+        rejected = _candidate_with_text(
+            "rejected", "src/rejected.ts", "function rejected() { return computeAlternate(); }",
+        )
+        redundant = _candidate_with_text(
+            "redundant", "src/redundant.ts", "function redundant() { return computeFallback(); }",
+        )
+        selected_id = _global_candidate_id(selected)
+        rejected_id = _global_candidate_id(rejected)
+        redundant_id = _global_candidate_id(redundant)
+        response = {
+            "selected_candidate_ids": [selected_id],
+            "candidate_decisions": [
+                {
+                    "candidate_id": selected_id,
+                    "disposition": "selected",
+                    "mechanism_role": "producer",
+                    "obligation_ids": ["mechanism"],
+                    "reason": "Primary implementation.",
+                    "exclusive_contribution": "Shows the producer.",
+                    "source_anchor": "function selected() { return computePrimary(); }",
+                    "redundant_with_candidate_ids": [],
+                },
+                {
+                    "candidate_id": rejected_id,
+                    "disposition": "rejected_not_needed",
+                    "mechanism_role": "not_selected",
+                    "obligation_ids": [],
+                    "reason": "Not needed.",
+                    "exclusive_contribution": "",
+                    "source_anchor": "function rejected() { return computeAlternate(); }",
+                    "redundant_with_candidate_ids": [],
+                },
+                {
+                    "candidate_id": redundant_id,
+                    "disposition": "rejected_redundant",
+                    "mechanism_role": "not_selected",
+                    "obligation_ids": ["mechanism"],
+                    "reason": "Duplicates the alternate.",
+                    "exclusive_contribution": "",
+                    "source_anchor": "function redundant() { return computeFallback(); }",
+                    "redundant_with_candidate_ids": [rejected_id],
+                },
+            ],
+        }
+
+        decisions = _validate_candidate_local_decisions(
+            response,
+            candidates={
+                selected_id: selected,
+                rejected_id: rejected,
+                redundant_id: redundant,
+            },
+            candidate_islands={
+                selected_id: "primary",
+                rejected_id: "alternative",
+                redundant_id: "alternative",
+            },
+            candidate_connections=(),
+            candidate_obligations={
+                selected_id: {"mechanism"},
+                rejected_id: {"mechanism"},
+                redundant_id: {"mechanism"},
+            },
+        )
+
+        self.assertEqual(decisions[2]["disposition"], "rejected_not_needed")
+        self.assertEqual(decisions[2]["redundant_with_candidate_ids"], ())
 
     def test_specific_single_source_qualified_call_enters_frontier(self) -> None:
         _relevance, productive = _qualified_reference_priority(
@@ -2339,6 +2862,73 @@ class ObligationRetrievalTests(unittest.TestCase):
         )
 
         self.assertEqual(tuple(node["id"] for node in selected), ("source",))
+
+    def test_ambiguous_structural_symbol_is_searchable_but_not_an_exact_anchor(self) -> None:
+        nodes = tuple(
+            {
+                "id": f"method:add_{index}",
+                "path": f"pandas/module_{index}.py",
+                "name": "add",
+                "qualified_name": f"Owner{index}::add",
+                "line_start": index + 1,
+                "line_end": index + 5,
+            }
+            for index in range(3)
+        )
+        structural = SimpleNamespace(run=lambda request: ToolObservation(
+            tool_name=request.tool_name,
+            status="ok",
+            payload={"nodes": list(nodes), "match_count": len(nodes)},
+        ))
+        ctx = SimpleNamespace(
+            config=SimpleNamespace(workspace_root="."),
+            trace=SimpleNamespace(record_tool=lambda *args, **kwargs: None),
+        )
+
+        confirmations, anchor_nodes, unresolved, ambiguous, calls = _ground_request_anchors(
+            ctx,
+            anchors={"primary_symbols": ("add",)},
+            additional_paths=(),
+            additional_symbols=(),
+            qdrant_tool=SimpleNamespace(index=SimpleNamespace(documents=())),
+            structural_tools={"structural_find_exact_symbol": structural},
+        )
+
+        self.assertEqual(calls, 1)
+        self.assertEqual(unresolved, [])
+        self.assertEqual(ambiguous, ["add"])
+        self.assertEqual(anchor_nodes, [])
+        self.assertEqual(confirmations[0].match_type, "ambiguous_symbol")
+
+    def test_unique_structural_symbol_keeps_exact_anchor_authority(self) -> None:
+        node = {
+            "id": "method:series_binop",
+            "path": "pandas/core/series.py",
+            "name": "_binop",
+            "qualified_name": "Series::_binop",
+            "line_start": 10,
+            "line_end": 20,
+        }
+        structural = SimpleNamespace(run=lambda request: ToolObservation(
+            tool_name=request.tool_name, status="ok", payload={"nodes": [node], "match_count": 1},
+        ))
+        ctx = SimpleNamespace(
+            config=SimpleNamespace(workspace_root="."),
+            trace=SimpleNamespace(record_tool=lambda *args, **kwargs: None),
+        )
+
+        confirmations, anchor_nodes, _unresolved, ambiguous, _calls = _ground_request_anchors(
+            ctx,
+            anchors={"primary_symbols": ("_binop",)},
+            additional_paths=(),
+            additional_symbols=(),
+            qdrant_tool=SimpleNamespace(index=SimpleNamespace(documents=())),
+            structural_tools={"structural_find_exact_symbol": structural},
+        )
+
+        self.assertEqual(ambiguous, [])
+        self.assertEqual(len(anchor_nodes), 1)
+        self.assertEqual(confirmations[0].match_type, "exact_symbol")
 
     def test_visible_direct_call_target_survives_without_obligation_term_overlap(self) -> None:
         seed = replace(

@@ -14,6 +14,16 @@ from services.intent.contracts import INTENT_CONTRACTS
 from services.llm.json_completion import complete_json
 from services.retrieval.workspace.bm25 import file_role
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
+from services.retrieval.workspace.pipeline.execution_flow.island_evidence_packets import (
+    ISLAND_PACKET_REPRESENTATION,
+    MECHANISM_FLOW_REPRESENTATION,
+    IslandPacketCandidate,
+    select_island_evidence_packets,
+)
+from services.retrieval.workspace.pipeline.execution_flow.qualification_contract import (
+    EvidenceAssessment,
+    QualificationRationale,
+)
 from services.retrieval.workspace.connected_context import ConnectedSourceContextResult
 from services.retrieval.resource_references import resource_reference_between_files
 from services.retrieval.workspace.tools import ToolRequest
@@ -175,6 +185,8 @@ class GroundedCandidate:
     obligation_ids: tuple[str, ...] = ()
     facts: CandidateFacts = field(default_factory=CandidateFacts)
     qualification_reason: str = ""
+    qualification_assessment: EvidenceAssessment | None = None
+    qualification_rationale: QualificationRationale | None = None
 
 
 @dataclass(frozen=True)
@@ -1028,7 +1040,7 @@ def run_obligation_retrieval(
         "preselection_candidate_pool": preselection_inventory,
         "final_selection_llm_calls": consolidation.get("llm_calls", 0),
         "stop_reason": "all_required_obligations_supported" if sufficient else "required_obligations_unresolved",
-        "structural_graph_provider": "codegraph",
+        "structural_graph_provider": "codegraph" if ctx.config.structural_graph_enabled else "disabled",
         "anchor_query_count": len(confirmations),
         "anchor_confirmations": [item.to_dict() for item in confirmations],
         "prompt_only_anchors": [
@@ -1647,11 +1659,25 @@ def _candidate_support_graph(
             candidate_id = _global_candidate_id(candidate)
             current = candidates.get(candidate_id)
             candidates[candidate_id] = candidate if current is None else _merge_candidate_provenance(current, candidate)
-            mapped_obligations = {
-                value for value in (*candidate.obligation_ids, state.obligation.id) if value in valid_obligations
-            }
+            assessment = candidate.qualification_assessment
+            if assessment is not None:
+                mapped_obligations = {
+                    value
+                    for value in assessment.individually_established_obligation_ids
+                    if value in valid_obligations
+                }
+            else:
+                mapped_obligations = {
+                    value for value in (*candidate.obligation_ids, state.obligation.id) if value in valid_obligations
+                }
             provenance = set(candidate.provenance_origins or (candidate.origin,))
-            target = direct_support if provenance & DIRECT_OBLIGATION_PROVENANCE else inherited_support
+            target = (
+                direct_support
+                if assessment is not None and assessment.is_coverage_bearing
+                else direct_support
+                if assessment is None and provenance & DIRECT_OBLIGATION_PROVENANCE
+                else inherited_support
+            )
             target.setdefault(candidate_id, set()).update(mapped_obligations)
     for candidate_id in candidates:
         direct_support.setdefault(candidate_id, set())
@@ -2599,6 +2625,8 @@ def _select_mechanism_flows(
     *,
     expanded_edges: Sequence[Mapping[str, Any]],
     input_char_budget: int | None = MAX_EXPLANATION_INPUT_CHARS,
+    candidate_islands: Mapping[str, str] | None = None,
+    representation: str = MECHANISM_FLOW_REPRESENTATION,
 ) -> tuple[
     dict[str, GroundedCandidate],
     dict[str, set[str]],
@@ -2607,6 +2635,7 @@ def _select_mechanism_flows(
     list[dict[str, str]],
     dict[str, Any],
 ]:
+    candidate_islands = candidate_islands or {}
     candidates, direct_support, inherited_support = _candidate_support_graph(states)
     if not candidates:
         return {}, direct_support, inherited_support, [], [], {
@@ -2874,10 +2903,16 @@ def _select_mechanism_flows(
     # hypotheses so the global comparison can retain a trigger or observable
     # boundary alongside the implementation mechanism.
     for candidate_id in sorted(candidates):
-        if not direct_support.get(candidate_id):
+        candidate = candidates[candidate_id]
+        if not direct_support.get(candidate_id) and not (
+            candidate.qualification_assessment is not None
+            and candidate.qualification_assessment.is_direct_fact
+        ):
             continue
         path = (candidate_id,)
         flow = flow_payload(path, ())
+        if not direct_support.get(candidate_id):
+            flow["supporting_only"] = True
         existing = raw_flows.get(path)
         if existing is None or float(flow["score"]) > float(existing["score"]):
             raw_flows[path] = flow
@@ -3016,6 +3051,137 @@ def _select_mechanism_flows(
             or (selected_source_paths & flow_paths)
         )
         return candidate_connected, file_connected
+
+    if representation == ISLAND_PACKET_REPRESENTATION:
+        (
+            baseline_candidate_map,
+            _baseline_direct,
+            _baseline_inherited,
+            baseline_flows,
+            baseline_connections,
+            baseline_ledger,
+        ) = _select_mechanism_flows(
+            states,
+            expanded_edges=expanded_edges,
+            input_char_budget=input_char_budget,
+            candidate_islands=candidate_islands,
+            representation=MECHANISM_FLOW_REPRESENTATION,
+        )
+        mandatory_ids = tuple(baseline_candidate_map)
+        mandatory_chars = sum(candidate_request_chars(candidate_id) for candidate_id in mandatory_ids)
+        mandatory_flow_chars = sum(
+            len(json.dumps(flow, sort_keys=True)) for flow in baseline_flows
+        )
+        packet_selection = select_island_evidence_packets(
+            candidates=tuple(
+                IslandPacketCandidate(
+                    candidate_id=candidate_id,
+                    island_id=candidate_islands.get(candidate_id, ""),
+                    request_chars=candidate_request_chars(candidate_id),
+                    score=node_score(candidate_id),
+                    direct=bool(
+                        direct_support.get(candidate_id)
+                        or (
+                            candidate.qualification_assessment is not None
+                            and candidate.qualification_assessment.is_direct_fact
+                        )
+                    ),
+                    obligation_bearing=bool(direct_support.get(candidate_id)),
+                    navigation=candidate.origin == "qualified_navigation_evidence",
+                    roles=tuple(sorted(roles_by_candidate[candidate_id])),
+                    path=candidate.path,
+                    handoff_grounded=bool(
+                        candidate.qualification_rationale is not None
+                        and candidate.qualification_rationale.local_follow_up.strip()
+                    ),
+                )
+                for candidate_id, candidate in candidates.items()
+            ),
+            raw_flows=tuple(raw_flows.values()),
+            connections=connections,
+            input_char_budget=input_char_budget,
+            initial_used_chars=used_chars + mandatory_chars + mandatory_flow_chars,
+            mandatory_candidate_ids=mandatory_ids,
+            mandatory_flows=baseline_flows,
+        )
+        selected_candidates = set(packet_selection.candidate_ids)
+        selected_candidate_map = {
+            candidate_id: candidates[candidate_id]
+            for candidate_id in sorted(selected_candidates)
+        }
+        selected_connection_items = [
+            connection
+            for connection in connections
+            if connection["from_candidate_id"] in selected_candidates
+            and connection["to_candidate_id"] in selected_candidates
+        ]
+        selected_connection_items.sort(
+            key=lambda item: (
+                -_mechanism_edge_weight(item),
+                str(item.get("from_candidate_id") or ""),
+                str(item.get("to_candidate_id") or ""),
+                str(item.get("relationship") or ""),
+            )
+        )
+        packet_used_chars = packet_selection.used_chars + sum(
+            len(json.dumps(connection, sort_keys=True)) + 2
+            for connection in selected_connection_items
+        )
+        return (
+            selected_candidate_map,
+            direct_support,
+            inherited_support,
+            list(packet_selection.flows),
+            selected_connection_items,
+            {
+                "candidate_inventory": [
+                    {
+                        **_candidate_trace_item(candidate, candidate_id=candidate_id),
+                        "direct_obligation_ids": sorted(direct_support.get(candidate_id, ())),
+                        "inherited_obligation_ids": sorted(inherited_support.get(candidate_id, ())),
+                        "node_score": round(node_score(candidate_id), 4),
+                        "outgoing_transition_count": len(adjacency.get(candidate_id, ())),
+                        "matched_request_terms": sorted(
+                            terms_by_candidate[candidate_id] & request_terms
+                        ),
+                        "causal_roles": sorted(roles_by_candidate[candidate_id]),
+                        "qualified_call_neighbor_ids": sorted(
+                            qualified_connectors.get(candidate_id, ())
+                        ),
+                        "selected_for_final_request": candidate_id in selected_candidates,
+                        "discovery_island_id": candidate_islands.get(candidate_id, ""),
+                    }
+                    for candidate_id, candidate in candidates.items()
+                ],
+                "connection_decisions": connection_decisions,
+                "flow_decisions": list(packet_selection.decisions),
+                "island_packets": list(packet_selection.packets),
+                "input_char_budget": input_char_budget,
+                "used_chars": packet_used_chars,
+                "budget_policy": "mandatory_baseline_seed_then_alternating_island_and_singleton",
+                "budget_overshoot_chars": (
+                    max(0, packet_used_chars - input_char_budget)
+                    if input_char_budget is not None
+                    else 0
+                ),
+                "eligible_connection_count": len(selected_connection_items),
+                "selected_connection_count": len(selected_connection_items),
+                "budget_excluded_connection_count": 0,
+                "unselected_flow_count": sum(
+                    item.get("decision", "").startswith("rejected_")
+                    for item in packet_selection.decisions
+                ),
+                "source_inferred_connection_count": sum(
+                    str(item.get("provenance") or "").startswith("source_inferred_")
+                    for item in connections
+                ),
+                "representation": ISLAND_PACKET_REPRESENTATION,
+                "mandatory_seed_candidate_ids": list(mandatory_ids),
+                "mandatory_seed_count": len(mandatory_ids),
+                "mandatory_seed_preserved": set(mandatory_ids).issubset(selected_candidates),
+                "baseline_used_chars": baseline_ledger.get("used_chars", 0),
+            },
+        )
 
     while remaining:
         if input_char_budget is not None and used_chars > input_char_budget:
@@ -3262,6 +3428,7 @@ def _consolidate_obligation_evidence(
     expanded_edges: Sequence[Mapping[str, Any]] = (),
     input_char_budget: int | None = MAX_EXPLANATION_INPUT_CHARS,
     candidate_islands: Mapping[str, str] | None = None,
+    representation: str = MECHANISM_FLOW_REPRESENTATION,
 ) -> dict[str, Any]:
     candidate_islands = candidate_islands or {}
     (
@@ -3279,6 +3446,8 @@ def _consolidate_obligation_evidence(
             if input_char_budget is not None
             else None
         ),
+        candidate_islands=candidate_islands,
+        representation=representation,
     )
     candidate_ids_by_obligation = {
         state.obligation.id: [
@@ -3290,6 +3459,7 @@ def _consolidate_obligation_evidence(
         for state in states
     }
     overlap_relations = _candidate_overlap_relations(candidate_by_id)
+    identity_anchors = _candidate_identity_anchors(candidate_by_id)
     payload_obligations = [
         {
             "obligation_id": state.obligation.id,
@@ -3302,6 +3472,11 @@ def _consolidate_obligation_evidence(
     payload_candidates = [
         {
             "candidate_id": candidate_id,
+            "display_label": (
+                f"{candidate_id} | {candidate.path}:{candidate.line_start}-{candidate.line_end}"
+                f" | {candidate.symbol or '<range>'}"
+            ),
+            "identity_anchor_options": list(identity_anchors[candidate_id]),
             "path": candidate.path,
             "line_start": candidate.line_start,
             "line_end": candidate.line_end,
@@ -3384,6 +3559,18 @@ def _consolidate_obligation_evidence(
 
     obligation_ids = [state.obligation.id for state in states]
     candidate_ids = list(candidate_by_id)
+    candidate_obligation_context = {
+        candidate_id: set(
+            (*direct_support.get(candidate_id, ()), *inherited_support.get(candidate_id, ()))
+        )
+        for candidate_id in candidate_by_id
+    }
+    redundancy_options = _candidate_redundancy_options(
+        candidate_ids,
+        candidate_islands=candidate_islands,
+        candidate_connections=candidate_connections,
+        candidate_obligations=candidate_obligation_context,
+    )
     consolidation_payload = {
         "obligations": payload_obligations,
         "candidates": payload_candidates,
@@ -3421,14 +3608,29 @@ def _consolidate_obligation_evidence(
             obligation_ids,
             candidate_ids,
             [str(item["trace_id"]) for item in consolidation_payload["file_traces"]],
+            identity_anchors=identity_anchors,
+            redundancy_options=redundancy_options,
         ),
         log_event=log_event,
     )
 
-    selected_evidence = (
-        response.get("selected_evidence")
-        if isinstance(response.get("selected_evidence"), list)
-        else []
+    candidate_decisions = _validate_candidate_local_decisions(
+        response,
+        candidates=candidate_by_id,
+        candidate_islands=candidate_islands,
+        candidate_connections=candidate_connections,
+        candidate_obligations=candidate_obligation_context,
+    )
+    ctx.trace.record(
+        "final_candidate_identity_validated",
+        {
+            "candidate_count": len(candidate_by_id),
+            "decision_count": len(candidate_decisions),
+            "selected_count": sum(
+                item["disposition"] == "selected" for item in candidate_decisions
+            ),
+            "status": "valid",
+        },
     )
     assessments = (
         response.get("obligation_assessments")
@@ -3444,13 +3646,10 @@ def _consolidate_obligation_evidence(
     accepted_ids_by_obligation: dict[str, list[str]] = {}
     invalid_ids: list[str] = []
     selection_records: list[dict[str, Any]] = []
-    for item in selected_evidence:
-        if not isinstance(item, Mapping):
+    for item in candidate_decisions:
+        if item["disposition"] != "selected":
             continue
         candidate_id = str(item.get("candidate_id") or "")
-        if candidate_id not in candidate_by_id:
-            invalid_ids.append(candidate_id)
-            continue
         mapped_obligations = list(
             ordered_unique(
                 tuple(
@@ -3472,8 +3671,49 @@ def _consolidate_obligation_evidence(
                     "obligation_ids": mapped_obligations,
                     "reason": str(item.get("reason") or ""),
                     "exclusive_contribution": str(item.get("exclusive_contribution") or ""),
+                    "source_anchor": str(item.get("source_anchor") or ""),
                 }
             )
+        for obligation_id in mapped_obligations:
+            accepted_ids_by_obligation.setdefault(obligation_id, []).append(candidate_id)
+
+    # selected_candidate_ids is the final LLM choice. Candidate-local records
+    # are explanatory sealing metadata, and structured-output arrays can still
+    # duplicate one record while omitting another. Preserve an explicitly
+    # selected candidate in that case using only provenance already supplied to
+    # the selector; do not rerun the complete retrieval for malformed metadata.
+    selected_candidate_ids = tuple(
+        str(value)
+        for value in response.get("selected_candidate_ids", ())
+        if str(value) in candidate_by_id
+    )
+    recorded_decision_ids = {
+        str(item.get("candidate_id") or "") for item in candidate_decisions
+    }
+    for candidate_id in selected_candidate_ids:
+        if candidate_id in accepted_ids or candidate_id in recorded_decision_ids:
+            continue
+        candidate = candidate_by_id[candidate_id]
+        mapped_obligations = list(
+            ordered_unique(
+                tuple(candidate_obligation_context.get(candidate_id, set()))
+                + tuple(candidate.obligation_ids)
+            )
+        )
+        if not mapped_obligations:
+            invalid_ids.append(candidate_id)
+            continue
+        accepted_ids.append(candidate_id)
+        selection_records.append(
+            {
+                "candidate_id": candidate_id,
+                "mechanism_role": "llm_selected_without_local_decision",
+                "obligation_ids": mapped_obligations,
+                "reason": "Selected by the final LLM's authoritative selected_candidate_ids list; auxiliary candidate-local metadata was omitted.",
+                "exclusive_contribution": "",
+                "source_anchor": identity_anchors[candidate_id][0],
+            }
+        )
         for obligation_id in mapped_obligations:
             accepted_ids_by_obligation.setdefault(obligation_id, []).append(candidate_id)
 
@@ -3601,6 +3841,9 @@ def _consolidate_obligation_evidence(
         "usage": usage,
         "candidate_connection_count": len(candidate_connections),
         "mechanism_flow_count": len(mechanism_flows),
+        "mandatory_seed_candidate_ids": list(
+            mechanism_flow_ledger.get("mandatory_seed_candidate_ids", ())
+        ),
     }
     ctx.trace.record(
         "evidence_consolidation_decision_ledger",
@@ -3757,6 +4000,23 @@ def _select_unresolved_file_trace_evidence(
                     "exclusive_contribution": "Preserves a represented repository source for unresolved handoff evaluation.",
                 }
             )
+        protection_reasons = _file_trace_allocation_protection_reasons(
+            consolidation,
+            candidates,
+            eligible,
+        )
+        replaceable_candidate_ids = tuple(
+            candidate_id
+            for candidate_id in accepted_ids
+            if candidate_id not in protection_reasons
+        )
+        for record in selection_records:
+            candidate_id = str(record.get("candidate_id") or "")
+            reasons = protection_reasons.get(candidate_id, ())
+            record["allocation"] = {
+                "protected": bool(reasons),
+                "protection_reasons": list(reasons),
+            }
         response = complete_json(
             ctx.config.llm_config,
             (
@@ -3766,6 +4026,8 @@ def _select_unresolved_file_trace_evidence(
                     "content": json.dumps(
                         {
                             "selected_snippets": selection_records,
+                            "protected_selected_candidate_ids": list(protection_reasons),
+                            "replaceable_selected_candidate_ids": list(replaceable_candidate_ids),
                             "obligation_assessments": list(consolidation.get("obligation_assessments", ())),
                             "eligible_file_traces": eligible,
                         },
@@ -3774,7 +4036,8 @@ def _select_unresolved_file_trace_evidence(
                 },
             ),
             response_format=_file_trace_selection_response_format(
-                [str(item["trace_id"]) for item in eligible]
+                [str(item["trace_id"]) for item in eligible],
+                replaceable_candidate_ids,
             ),
             log_event=log_file_trace_event,
         )
@@ -3783,21 +4046,54 @@ def _select_unresolved_file_trace_evidence(
             for item in response.get("decisions", ())
             if isinstance(item, Mapping)
         ]
+        ranked_selected_trace_ids = _validate_ranked_file_trace_response(
+            response,
+            eligible_trace_ids=tuple(str(item["trace_id"]) for item in eligible),
+        )
+        ranked_optional_evidence_ids = _validate_ranked_optional_evidence_response(
+            response,
+            replaceable_candidate_ids=replaceable_candidate_ids,
+            selected_trace_ids=ranked_selected_trace_ids,
+        )
+    else:
+        ranked_selected_trace_ids = ()
+        ranked_optional_evidence_ids = ()
+        protection_reasons = {}
+        replaceable_candidate_ids = ()
 
     llm_by_id = {str(item.get("trace_id") or ""): item for item in llm_decisions}
-    accepted_trace_ids: list[str] = []
-    selection_records: list[dict[str, Any]] = []
+    if eligible:
+        accepted_ids, accepted_trace_ids = _allocate_ranked_optional_evidence(
+            accepted_candidate_ids=accepted_ids,
+            protected_candidate_ids=tuple(protection_reasons),
+            ranked_optional_evidence_ids=ranked_optional_evidence_ids,
+            selected_trace_ids=ranked_selected_trace_ids,
+            capacity=MAX_EVIDENCE,
+        )
+        accepted_ids = list(accepted_ids)
+        accepted_trace_ids = list(accepted_trace_ids)
+    else:
+        # Joint allocation is a file-trace substage. With no eligible trace
+        # there is no cross-type comparison and the preceding exact-evidence
+        # decision must pass through unchanged.
+        accepted_trace_ids = []
+    accepted_trace_set = set(accepted_trace_ids)
+    selection_records = [
+        {
+            "trace_id": trace_id,
+            "reason": str(llm_by_id[trace_id].get("reason") or ""),
+            "rank": rank,
+        }
+        for rank, trace_id in enumerate(accepted_trace_ids, 1)
+    ]
     decision_records: list[dict[str, Any]] = []
     for trace in trace_payloads:
         trace_id = str(trace["trace_id"])
         eligibility = eligibility_by_id[trace_id]
         decision = llm_by_id.get(trace_id, {})
         llm_selected = str(decision.get("disposition") or "") == "select"
-        selected = bool(eligibility["eligible"] and llm_selected and len(accepted_trace_ids) < 2)
+        selected = bool(eligibility["eligible"] and trace_id in accepted_trace_set)
         reason = str(decision.get("reason") or "")
-        if selected:
-            accepted_trace_ids.append(trace_id)
-            selection_records.append({"trace_id": trace_id, "reason": reason})
         decision_records.append(
             {
                 **eligibility,
@@ -3817,15 +4113,21 @@ def _select_unresolved_file_trace_evidence(
                     if not eligibility["eligible_obligation_ids"]
                     else "llm_rejected_file_trace"
                     if not llm_selected
-                    else "file_trace_selection_cap"
+                    else "file_trace_joint_allocation_capacity"
                 ),
             }
         )
+    optional_capacity = max(0, MAX_EVIDENCE - len(protection_reasons))
     ctx.trace.record(
         "file_trace_selection_evaluated",
         {
             "input_trace_count": len(trace_payloads),
             "selected_trace_count": len(accepted_trace_ids),
+            "ranked_selected_trace_ids": list(ranked_selected_trace_ids),
+            "ranked_optional_evidence_ids": list(ranked_optional_evidence_ids),
+            "protected_candidate_ids": list(protection_reasons),
+            "replaceable_candidate_ids": list(replaceable_candidate_ids),
+            "optional_capacity": optional_capacity,
             "records": decision_records,
         },
     )
@@ -3836,11 +4138,231 @@ def _select_unresolved_file_trace_evidence(
     for key, value in trace_usage.items():
         usage[key] = int(usage.get(key, 0) or 0) + value
     result["usage"] = usage
+    accepted_set = set(accepted_ids)
+    result["accepted_candidate_ids"] = accepted_ids
+    result["accepted_ids_by_obligation"] = {
+        str(obligation_id): [
+            str(candidate_id)
+            for candidate_id in candidate_ids
+            if str(candidate_id) in accepted_set
+        ]
+        for obligation_id, candidate_ids in dict(
+            consolidation.get("accepted_ids_by_obligation", {})
+        ).items()
+    }
+    result["selection_records"] = [
+        dict(item)
+        for item in consolidation.get("selection_records", ())
+        if isinstance(item, Mapping)
+        and str(item.get("candidate_id") or "") in accepted_set
+    ]
+    result["selected_mechanisms"] = [
+        {
+            **dict(item),
+            "candidate_ids": [
+                str(candidate_id)
+                for candidate_id in item.get("candidate_ids", ())
+                if str(candidate_id) in accepted_set
+            ],
+        }
+        for item in consolidation.get("selected_mechanisms", ())
+        if isinstance(item, Mapping)
+        and any(
+            str(candidate_id) in accepted_set
+            for candidate_id in item.get("candidate_ids", ())
+        )
+    ]
+    result["obligation_assessments"] = [
+        {
+            **dict(item),
+            "supporting_candidate_ids": [
+                str(candidate_id)
+                for candidate_id in item.get("supporting_candidate_ids", ())
+                if str(candidate_id) in accepted_set
+            ],
+        }
+        for item in consolidation.get("obligation_assessments", ())
+        if isinstance(item, Mapping)
+    ]
+    result["concepts"] = [
+        {
+            **dict(item),
+            "supporting_candidate_ids": [
+                str(candidate_id)
+                for candidate_id in item.get("supporting_candidate_ids", ())
+                if str(candidate_id) in accepted_set
+            ],
+        }
+        for item in consolidation.get("concepts", ())
+        if isinstance(item, Mapping)
+        and any(
+            str(candidate_id) in accepted_set
+            for candidate_id in item.get("supporting_candidate_ids", ())
+        )
+    ]
+    result["rejected_candidate_ids"] = list(ordered_unique(tuple((
+        *(str(value) for value in consolidation.get("rejected_candidate_ids", ())),
+        *(
+            candidate_id
+            for candidate_id in consolidation.get("accepted_candidate_ids", ())
+            if str(candidate_id) not in accepted_set
+        ),
+    ))))
     result["accepted_file_trace_ids"] = accepted_trace_ids
+    result["ranked_selected_file_trace_ids"] = list(ranked_selected_trace_ids)
+    result["ranked_optional_evidence_ids"] = list(ranked_optional_evidence_ids)
+    result["file_trace_capacity"] = optional_capacity
+    result["file_trace_allocation_protection_reasons"] = {
+        candidate_id: list(reasons)
+        for candidate_id, reasons in protection_reasons.items()
+    }
+    result["replaceable_file_trace_allocation_candidate_ids"] = list(
+        replaceable_candidate_ids
+    )
     result["file_trace_selection_records"] = selection_records
     result["file_trace_decision_records"] = decision_records
     ctx.trace.record("file_trace_evidence_consolidated", result)
     return result
+
+
+def _file_trace_allocation_protection_reasons(
+    consolidation: Mapping[str, Any],
+    candidates: Mapping[str, GroundedCandidate],
+    eligible_file_traces: Sequence[Mapping[str, Any]],
+) -> dict[str, tuple[str, ...]]:
+    """Identify exact evidence that a supportive file trace may never displace."""
+
+    accepted = tuple(
+        str(value)
+        for value in consolidation.get("accepted_candidate_ids", ())
+        if str(value) in candidates
+    )
+    accepted_set = set(accepted)
+    reasons: dict[str, set[str]] = {candidate_id: set() for candidate_id in accepted}
+
+    for candidate_id in accepted:
+        if candidates[candidate_id].origin == "qualified_direct_evidence":
+            reasons[candidate_id].add("direct_evidence")
+    for field, reason in (
+        ("mandatory_seed_candidate_ids", "mandatory_baseline_seed"),
+        ("preserved_file_trace_source_candidate_ids", "preserved_file_trace_source"),
+        ("preserved_active_island_candidate_ids", "active_island_preservation"),
+    ):
+        for candidate_id in consolidation.get(field, ()):
+            candidate_id = str(candidate_id)
+            if candidate_id in accepted_set:
+                reasons[candidate_id].add(reason)
+    for trace in eligible_file_traces:
+        for candidate_id in trace.get("source_candidate_ids", ()):
+            candidate_id = str(candidate_id)
+            if candidate_id in accepted_set:
+                reasons[candidate_id].add("eligible_file_trace_source")
+
+    support_groups: list[tuple[str, Sequence[Any]]] = []
+    support_groups.extend(
+        (f"obligation:{obligation_id}", candidate_ids)
+        for obligation_id, candidate_ids in dict(
+            consolidation.get("accepted_ids_by_obligation", {})
+        ).items()
+    )
+    support_groups.extend(
+        (f"mechanism:{item.get('id', '')}", item.get("candidate_ids", ()))
+        for item in consolidation.get("selected_mechanisms", ())
+        if isinstance(item, Mapping)
+    )
+    support_groups.extend(
+        (f"concept:{item.get('id', '')}", item.get("supporting_candidate_ids", ()))
+        for item in consolidation.get("concepts", ())
+        if isinstance(item, Mapping)
+    )
+    for label, candidate_ids in support_groups:
+        retained = [str(value) for value in candidate_ids if str(value) in accepted_set]
+        if len(retained) == 1:
+            reasons[retained[0]].add(f"sole_{label}")
+
+    return {
+        candidate_id: tuple(sorted(candidate_reasons))
+        for candidate_id, candidate_reasons in reasons.items()
+        if candidate_reasons
+    }
+
+
+def _allocate_ranked_optional_evidence(
+    *,
+    accepted_candidate_ids: Sequence[str],
+    protected_candidate_ids: Sequence[str],
+    ranked_optional_evidence_ids: Sequence[str],
+    selected_trace_ids: Sequence[str],
+    capacity: int,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Jointly admit replaceable snippets and traces under one fixed output cap."""
+
+    accepted = tuple(str(value) for value in accepted_candidate_ids)
+    protected = set(str(value) for value in protected_candidate_ids)
+    trace_ids = set(str(value) for value in selected_trace_ids)
+    optional_capacity = max(0, capacity - sum(value in protected for value in accepted))
+    admitted_optional = tuple(
+        str(value) for value in ranked_optional_evidence_ids[:optional_capacity]
+    )
+    admitted_optional_set = set(admitted_optional)
+    retained_candidates = tuple(
+        candidate_id
+        for candidate_id in accepted
+        if candidate_id in protected or candidate_id in admitted_optional_set
+    )
+    retained_traces = tuple(
+        evidence_id for evidence_id in admitted_optional if evidence_id in trace_ids
+    )
+    return retained_candidates, retained_traces
+
+
+def _validate_ranked_file_trace_response(
+    response: Mapping[str, Any],
+    *,
+    eligible_trace_ids: Sequence[str],
+) -> tuple[str, ...]:
+    """Require ranked trace IDs to agree exactly with candidate-local decisions."""
+
+    eligible = tuple(str(value) for value in eligible_trace_ids)
+    eligible_set = set(eligible)
+    decisions = [dict(item) for item in response.get("decisions", ()) if isinstance(item, Mapping)]
+    decision_ids = [str(item.get("trace_id") or "") for item in decisions]
+    if len(decision_ids) != len(eligible) or len(set(decision_ids)) != len(decision_ids):
+        raise ValueError("File-trace selection must return exactly one decision per eligible trace.")
+    if set(decision_ids) != eligible_set:
+        raise ValueError("File-trace selection decisions do not match the eligible trace IDs.")
+
+    ranked = tuple(str(value) for value in response.get("ranked_selected_trace_ids", ()))
+    if len(set(ranked)) != len(ranked) or not set(ranked).issubset(eligible_set):
+        raise ValueError("Ranked file-trace IDs must be unique eligible trace IDs.")
+    selected = {
+        str(item.get("trace_id") or "")
+        for item in decisions
+        if str(item.get("disposition") or "") == "select"
+    }
+    if set(ranked) != selected:
+        raise ValueError("Ranked file-trace IDs must exactly match decisions marked select.")
+    return ranked
+
+
+def _validate_ranked_optional_evidence_response(
+    response: Mapping[str, Any],
+    *,
+    replaceable_candidate_ids: Sequence[str],
+    selected_trace_ids: Sequence[str],
+) -> tuple[str, ...]:
+    """Require a complete semantic ordering of every genuinely optional item."""
+
+    expected = {
+        *(str(value) for value in replaceable_candidate_ids),
+        *(str(value) for value in selected_trace_ids),
+    }
+    ranked = tuple(str(value) for value in response.get("ranked_optional_evidence_ids", ()))
+    if len(ranked) != len(expected) or len(set(ranked)) != len(ranked):
+        raise ValueError("Joint optional-evidence ranking must contain each optional item exactly once.")
+    if set(ranked) != expected:
+        raise ValueError("Joint optional-evidence ranking does not match replaceable snippets and selected traces.")
+    return ranked
 
 
 def _connected_candidate_shortlists(
@@ -4132,6 +4654,60 @@ def _file_trace_payload(trace: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _candidate_identity_anchors(
+    candidates: Mapping[str, GroundedCandidate],
+    *,
+    max_options: int = 12,
+) -> dict[str, tuple[str, ...]]:
+    """Return bounded exact source lines that uniquely identify each submitted candidate."""
+
+    snippets = {
+        candidate_id: candidate.text[:MAX_CONSOLIDATION_SNIPPET_CHARS]
+        for candidate_id, candidate in candidates.items()
+    }
+    result: dict[str, tuple[str, ...]] = {}
+    for candidate_id, snippet in snippets.items():
+        lines = tuple(
+            dict.fromkeys(
+                line.strip()
+                for line in snippet.splitlines()
+                if 4 <= len(line.strip()) <= 200
+                and "\\" not in line
+                and '"' not in line
+            )
+        )
+        unique = [
+            line
+            for line in lines
+            if all(
+                line not in other_snippet
+                for other_id, other_snippet in snippets.items()
+                if other_id != candidate_id
+            )
+        ]
+        unique.sort(
+            key=lambda line: (
+                0 if any(char.isalnum() for char in line) else 1,
+                0 if any(token in line for token in ("function ", "class ", "def ", "it('", 'it("')) else 1,
+                -len(set(line.split())),
+                -len(line),
+                line,
+            )
+        )
+        if unique:
+            result[candidate_id] = tuple(unique[:max_options])
+            continue
+        candidate = candidates[candidate_id]
+        locator = (
+            f"{candidate.path}:L{candidate.line_start}-L{candidate.line_end}"
+            f" | {candidate.symbol or candidate.node_id or candidate_id}"
+        )
+        if any(locator in anchors for anchors in result.values()):
+            locator = f"{locator} | {candidate.node_id or candidate_id}"
+        result[candidate_id] = (locator,)
+    return result
+
+
 def _candidate_observation_id(candidate: GroundedCandidate) -> str:
     from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import SourceHandle, observation_id
 
@@ -4149,7 +4725,82 @@ def _consolidation_response_format(
     obligation_ids: Sequence[str],
     _candidate_ids: Sequence[str],
     file_trace_ids: Sequence[str] = (),
+    *,
+    identity_anchors: Mapping[str, Sequence[str]] | None = None,
+    redundancy_options: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, Any]:
+    identity_anchors = identity_anchors or {
+        candidate_id: (candidate_id,) for candidate_id in _candidate_ids
+    }
+    redundancy_options = redundancy_options or {
+        candidate_id: tuple(value for value in _candidate_ids if value != candidate_id)
+        for candidate_id in _candidate_ids
+    }
+
+    def candidate_decision_schema(candidate_id: str) -> dict[str, Any]:
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "candidate_id": {"type": "string", "enum": [candidate_id]},
+                "disposition": {
+                    "type": "string",
+                    "enum": [
+                        "selected",
+                        *(
+                            ["rejected_redundant"]
+                            if redundancy_options.get(candidate_id)
+                            else []
+                        ),
+                        "rejected_not_needed",
+                        "rejected_insufficient",
+                    ],
+                },
+                "mechanism_role": {
+                    "type": "string",
+                    "enum": [
+                        "issue_anchor",
+                        "entry_or_trigger",
+                        "producer",
+                        "controller",
+                        "state_owner",
+                        "handoff",
+                        "consumer",
+                        "observer",
+                        "validation",
+                        "not_selected",
+                    ],
+                },
+                "obligation_ids": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": list(obligation_ids)},
+                },
+                "reason": {"type": "string"},
+                "exclusive_contribution": {"type": "string"},
+                "source_anchor": {
+                    "type": "string",
+                    "enum": list(identity_anchors[candidate_id]),
+                },
+                "redundant_with_candidate_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": list(redundancy_options.get(candidate_id, ())),
+                    },
+                },
+            },
+            "required": [
+                "candidate_id",
+                "disposition",
+                "mechanism_role",
+                "obligation_ids",
+                "reason",
+                "exclusive_contribution",
+                "source_anchor",
+                "redundant_with_candidate_ids",
+            ],
+        }
+
     return {
         "type": "json_schema",
         "json_schema": {
@@ -4159,6 +4810,14 @@ def _consolidation_response_format(
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
+                    "selected_candidate_ids": {
+                        "type": "array",
+                        "maxItems": MAX_EVIDENCE,
+                        "items": {
+                            "type": "string",
+                            "enum": list(_candidate_ids),
+                        },
+                    },
                     "mechanisms": {
                         "type": "array",
                         "maxItems": 8,
@@ -4178,43 +4837,15 @@ def _consolidation_response_format(
                             "required": ["id", "status", "candidate_ids", "description"],
                         },
                     },
-                    "selected_evidence": {
+                    "candidate_decisions": {
                         "type": "array",
-                        "maxItems": MAX_EVIDENCE,
+                        "minItems": len(_candidate_ids),
+                        "maxItems": len(_candidate_ids),
                         "items": {
-                            "type": "object",
-                            "additionalProperties": False,
-                            "properties": {
-                                "candidate_id": {"type": "string", "minLength": 1},
-                                "mechanism_role": {
-                                    "type": "string",
-                                    "enum": [
-                                        "issue_anchor",
-                                        "entry_or_trigger",
-                                        "producer",
-                                        "controller",
-                                        "state_owner",
-                                        "handoff",
-                                        "consumer",
-                                        "observer",
-                                        "validation",
-                                    ],
-                                },
-                                "obligation_ids": {
-                                    "type": "array",
-                                    "minItems": 1,
-                                    "items": {"type": "string", "enum": list(obligation_ids)},
-                                },
-                                "reason": {"type": "string"},
-                                "exclusive_contribution": {"type": "string", "minLength": 1},
-                            },
-                            "required": [
-                                "candidate_id",
-                                "mechanism_role",
-                                "obligation_ids",
-                                "reason",
-                                "exclusive_contribution",
-                            ],
+                            "anyOf": [
+                                candidate_decision_schema(candidate_id)
+                                for candidate_id in _candidate_ids
+                            ]
                         },
                     },
                     "selected_file_traces": {
@@ -4289,13 +4920,220 @@ def _consolidation_response_format(
                         },
                     },
                 },
-                "required": ["mechanisms", "selected_evidence", "selected_file_traces", "obligation_assessments", "concepts"],
+                "required": ["selected_candidate_ids", "mechanisms", "candidate_decisions", "selected_file_traces", "obligation_assessments", "concepts"],
             },
         },
     }
 
 
-def _file_trace_selection_response_format(trace_ids: Sequence[str]) -> dict[str, Any]:
+def _validate_candidate_local_decisions(
+    response: Mapping[str, Any],
+    *,
+    candidates: Mapping[str, GroundedCandidate],
+    candidate_islands: Mapping[str, str],
+    candidate_connections: Sequence[Mapping[str, str]],
+    candidate_obligations: Mapping[str, set[str]],
+) -> list[dict[str, Any]]:
+    """Validate final decisions against the exact source owned by each candidate ID."""
+
+    raw = response.get("candidate_decisions")
+    if not isinstance(raw, list):
+        raise RuntimeError("final_selection_identity_invalid: candidate_decisions required")
+    expected = set(candidates)
+    raw_selected_ids = response.get("selected_candidate_ids")
+    if not isinstance(raw_selected_ids, list):
+        raise RuntimeError("final_selection_identity_invalid: selected_candidate_ids required")
+    selected_ids = tuple(str(value) for value in raw_selected_ids)
+    if len(selected_ids) != len(set(selected_ids)):
+        raise RuntimeError("final_selection_identity_invalid: duplicate selected candidate")
+    if any(candidate_id not in expected for candidate_id in selected_ids):
+        raise RuntimeError("final_selection_identity_invalid: unknown selected candidate")
+    if len(selected_ids) > MAX_EVIDENCE:
+        raise RuntimeError("final_selection_identity_invalid: selected evidence exceeds global limit")
+    selected_id_set = set(selected_ids)
+    decisions: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    snippets = {
+        candidate_id: candidate.text[:MAX_CONSOLIDATION_SNIPPET_CHARS]
+        for candidate_id, candidate in candidates.items()
+    }
+    identity_anchors = _candidate_identity_anchors(candidates)
+    for value in raw:
+        if not isinstance(value, Mapping):
+            raise RuntimeError("final_selection_identity_invalid: decision must be an object")
+        candidate_id = str(value.get("candidate_id") or "")
+        if candidate_id not in expected:
+            raise RuntimeError(f"final_selection_identity_invalid: unknown candidate {candidate_id}")
+        if candidate_id in seen:
+            # Candidate-local decisions explain the authoritative global
+            # selected_candidate_ids list.  Repeating an explanation for an
+            # already-seen candidate must not invalidate that global choice.
+            # Ignore the duplicate; the fixed-length response schema means a
+            # rejected candidate may consequently have no explanation record.
+            continue
+        seen.add(candidate_id)
+        source_anchor = str(value.get("source_anchor") or "").strip()
+        anchor_owners = [
+            owner_id
+            for owner_id, anchors in identity_anchors.items()
+            if source_anchor and source_anchor in anchors
+        ]
+        if anchor_owners != [candidate_id]:
+            snippet_owners = [
+                owner_id for owner_id, snippet in snippets.items() if source_anchor and source_anchor in snippet
+            ]
+            detail = "missing" if not snippet_owners and not anchor_owners else "ambiguous_or_wrong_owner"
+            raise RuntimeError(
+                f"final_selection_identity_invalid: source anchor {detail} for {candidate_id}"
+            )
+        disposition = str(value.get("disposition") or "")
+        mechanism_role = str(value.get("mechanism_role") or "")
+        obligations = tuple(
+            dict.fromkeys(str(item) for item in value.get("obligation_ids", ()) if str(item))
+        )
+        redundant_with = tuple(
+            dict.fromkeys(
+                str(item) for item in value.get("redundant_with_candidate_ids", ()) if str(item)
+            )
+        )
+        if disposition == "selected":
+            if candidate_id not in selected_id_set:
+                # selected_candidate_ids is authoritative; discard a local
+                # record that contradicts the global selection instead of
+                # failing the completed retrieval.
+                seen.discard(candidate_id)
+                continue
+            if mechanism_role == "not_selected" or not obligations:
+                raise RuntimeError(
+                    f"final_selection_identity_invalid: selected candidate lacks role/obligation {candidate_id}"
+                )
+            if redundant_with:
+                raise RuntimeError(
+                    f"final_selection_identity_invalid: selected candidate names redundancy {candidate_id}"
+                )
+        else:
+            if candidate_id in selected_id_set:
+                # Let consolidation materialize this globally selected item
+                # from its already-grounded candidate metadata.
+                seen.discard(candidate_id)
+                continue
+            if mechanism_role != "not_selected":
+                raise RuntimeError(
+                    f"final_selection_identity_invalid: rejected candidate has selected role {candidate_id}"
+                )
+        decisions.append({
+            "candidate_id": candidate_id,
+            "disposition": disposition,
+            "mechanism_role": mechanism_role,
+            "obligation_ids": obligations,
+            "reason": str(value.get("reason") or ""),
+            "exclusive_contribution": str(value.get("exclusive_contribution") or ""),
+            "source_anchor": source_anchor,
+            "redundant_with_candidate_ids": redundant_with,
+        })
+    selected = selected_id_set
+    connected_pairs = {
+        frozenset((
+            str(item.get("from_candidate_id") or ""),
+            str(item.get("to_candidate_id") or ""),
+        ))
+        for item in candidate_connections
+    }
+    for item in decisions:
+        representatives = item["redundant_with_candidate_ids"]
+        if item["disposition"] != "rejected_redundant":
+            if representatives:
+                raise RuntimeError(
+                    f"final_selection_identity_invalid: nonredundant rejection names representatives {item['candidate_id']}"
+                )
+            continue
+        if not representatives:
+            raise RuntimeError(
+                f"final_selection_identity_invalid: invalid redundancy representative {item['candidate_id']}"
+            )
+        if any(value not in selected for value in representatives):
+            # selected_candidate_ids is the authoritative global decision.  A
+            # redundant rejection that points only at another rejected item is
+            # harmless explanatory metadata, not a reason to discard the
+            # otherwise valid final selection.  Keep the rejection while
+            # removing the unsupported redundancy claim.
+            item["disposition"] = "rejected_not_needed"
+            item["redundant_with_candidate_ids"] = ()
+            continue
+        source_id = item["candidate_id"]
+        if not any(
+            _candidate_decisions_share_context(
+                source_id,
+                representative_id,
+                candidate_islands=candidate_islands,
+                connected_pairs=connected_pairs,
+                candidate_obligations=candidate_obligations,
+            )
+            for representative_id in representatives
+        ):
+            raise RuntimeError(
+                f"final_selection_identity_invalid: ungrounded redundancy claim {source_id}"
+            )
+    return decisions
+
+
+def _candidate_redundancy_options(
+    candidate_ids: Sequence[str],
+    *,
+    candidate_islands: Mapping[str, str],
+    candidate_connections: Sequence[Mapping[str, str]],
+    candidate_obligations: Mapping[str, set[str]],
+) -> dict[str, tuple[str, ...]]:
+    """Return candidate-local representatives grounded before final LLM judgment."""
+
+    connected_pairs = {
+        frozenset((
+            str(item.get("from_candidate_id") or ""),
+            str(item.get("to_candidate_id") or ""),
+        ))
+        for item in candidate_connections
+    }
+    return {
+        candidate_id: tuple(
+            other_id
+            for other_id in candidate_ids
+            if other_id != candidate_id
+            and _candidate_decisions_share_context(
+                candidate_id,
+                other_id,
+                candidate_islands=candidate_islands,
+                connected_pairs=connected_pairs,
+                candidate_obligations=candidate_obligations,
+            )
+        )
+        for candidate_id in candidate_ids
+    }
+
+
+def _candidate_decisions_share_context(
+    left_id: str,
+    right_id: str,
+    *,
+    candidate_islands: Mapping[str, str],
+    connected_pairs: set[frozenset[str]],
+    candidate_obligations: Mapping[str, set[str]],
+) -> bool:
+    left_island = candidate_islands.get(left_id, "")
+    right_island = candidate_islands.get(right_id, "")
+    if left_island and left_island == right_island:
+        return True
+    if frozenset((left_id, right_id)) in connected_pairs:
+        return True
+    left_obligations = set(candidate_obligations.get(left_id, set()))
+    right_obligations = set(candidate_obligations.get(right_id, set()))
+    return bool(left_obligations & right_obligations)
+
+
+def _file_trace_selection_response_format(
+    trace_ids: Sequence[str],
+    replaceable_candidate_ids: Sequence[str] = (),
+) -> dict[str, Any]:
+    optional_ids = [*replaceable_candidate_ids, *trace_ids]
     return {
         "type": "json_schema",
         "json_schema": {
@@ -4305,6 +5143,16 @@ def _file_trace_selection_response_format(trace_ids: Sequence[str]) -> dict[str,
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
+                    "ranked_selected_trace_ids": {
+                        "type": "array",
+                        "maxItems": len(trace_ids),
+                        "items": {"type": "string", "enum": list(trace_ids)},
+                    },
+                    "ranked_optional_evidence_ids": {
+                        "type": "array",
+                        "maxItems": len(optional_ids),
+                        "items": {"type": "string", "enum": optional_ids},
+                    },
                     "decisions": {
                         "type": "array",
                         "minItems": len(trace_ids),
@@ -4321,7 +5169,11 @@ def _file_trace_selection_response_format(trace_ids: Sequence[str]) -> dict[str,
                         },
                     }
                 },
-                "required": ["decisions"],
+                "required": [
+                    "ranked_selected_trace_ids",
+                    "ranked_optional_evidence_ids",
+                    "decisions",
+                ],
             },
         },
     }
@@ -4413,17 +5265,13 @@ def _ground_request_anchors(
                         {"path": str(node.get("path") or ""), "line": int(node.get("line_start") or 0), "node_id": str(node.get("id") or "")}
                         for node in nodes[:4]
                     ),
-                    "exact_symbol",
+                    "exact_symbol" if match_count == 1 else "ambiguous_symbol",
                 )
             )
         if match_count == 1 and len(nodes) == 1:
             anchor_nodes.append({**nodes[0], "anchor_query": symbol, "anchor_match_count": 1})
         elif match_count > 1:
             ambiguous_symbols.append(symbol)
-            anchor_nodes.extend(
-                {**node, "anchor_query": symbol, "anchor_match_count": match_count}
-                for node in nodes[:12]
-            )
         else:
             unresolved_symbols.append(symbol)
 

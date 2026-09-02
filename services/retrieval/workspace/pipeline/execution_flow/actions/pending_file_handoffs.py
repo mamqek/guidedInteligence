@@ -56,7 +56,7 @@ def reconcile_pending_file_handoffs(
             source is None
             or source.artifact_role != "test"
             or decision is None
-            or decision.disposition != "promote"
+            or not decision.assessment.is_retained
             or action.obligation_id not in unresolved
             or not island_id
             or island_id not in active_islands

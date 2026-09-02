@@ -67,8 +67,8 @@ def build_file_trace_evidence(
             not path
             or not island_id
             or decision is None
-            or decision.disposition != "promote"
-            or decision.support_level not in {"direct_evidence", "navigation_only"}
+            or not decision.assessment.is_retained
+            or not (decision.assessment.is_direct_fact or decision.assessment.is_navigation)
         ):
             continue
         key = (path.casefold(), island_id)
@@ -78,7 +78,7 @@ def build_file_trace_evidence(
         kinds = tuple(dict.fromkeys(value for value in seed.relationship_kinds if value))
         relationship = "/".join(kinds) or "structural"
         endpoint_qualification = (
-            f"{endpoint_decision.disposition}/{endpoint_decision.support_level}"
+            f"{endpoint_decision.assessment.disposition.value}/{endpoint_decision.assessment.evidence_kind.value}"
             if endpoint_decision is not None
             else "not_qualified"
         )

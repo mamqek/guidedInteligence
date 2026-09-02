@@ -41,7 +41,7 @@ def run_workspace_retrieval(
 
     tools = build_structural_tools(ctx)
     tool_calls = 0
-    if ctx.config.enable_indexing:
+    if ctx.config.enable_indexing and ctx.config.structural_graph_enabled:
         stage_started = ctx.trace.start_stage(
             "index_codegraph",
             "Synchronizing the structural repository graph",

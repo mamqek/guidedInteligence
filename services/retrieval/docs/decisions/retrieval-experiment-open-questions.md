@@ -1,5 +1,41 @@
 # Retrieval Experiment Open Questions
 
+## BCI-1 — Boundary coverage and final-selection identity integrity
+
+- Plan: [retrieval boundary coverage and selection integrity](retrieval-boundary-coverage-and-selection-integrity-plan.md).
+- The 2026-09-01 cohort audit separates four boundaries that must not be repaired as one heuristic: graphless
+  zero-qualified file hypotheses, starved navigation continuations, final candidate-ID/source mismatches, and packet
+  sibling allocation.
+- TypeScript 46770 `run-20260901T075900Z` enumerated the correct `moduleNameResolver.ts` owner continuation in every
+  round but never scheduled it. Vue 10803 `run-20260901T082309Z` submitted `renderDOMProps`, while consolidation
+  attributed its behavior to the `renderVmWithOptions` candidate ID and rejected the real implementation ID.
+- Status: Change 2 scheduling is a retained experiment generalized to grounded ordinary continuations after two
+  complete scheduling losses. The one-round variant is rejected by 35468 `run-20260901T162238Z` (1/4 focal files).
+  The final two-round variant retained 4/4 and 3/4 in `run-20260901T162844Z` / `run-20260901T163358Z`; 46770
+  `run-20260901T164005Z` retained `moduleNameResolver.ts`. The separate order-sensitive two-file trace cap is now
+  closed: ranked semantic traces and genuinely replaceable navigation/supporting snippets now share a joint
+  optional-evidence ordering under the global 14-item cap. Direct evidence, mandatory packet seeds, trace sources,
+  active-island preservation, and sole obligation/mechanism/concept support cannot be displaced. Immediate-capacity
+  runs `run-20260901T175328Z` / `run-20260901T175753Z` retained Helpers with 4/4 / 3/4 focal overlap; completed-joint
+  runs `run-20260901T183939Z` / `run-20260901T184539Z` both retained Helpers at 3/4, with zero replaceable exact
+  items and BuilderState absent upstream. The navigation final-comparison route and Changes 1, 3, and 4 remain
+  unimplemented. Do not add a broad artifact/file preservation rule, infer candidate ownership from free-form
+  prose, retry the LLM, or combine variants before their individual boundaries pass.
+
+## QAC-1 — Partial direct qualification is now representable; pandas selection remains variable
+
+- [Qualification assessment contract](qualification-assessment-contract-experiment.md) replaces
+  the flat qualification tuple with nested disposition/kind/contribution/establishment semantics.
+  Coverage sees partial direct facts, while only individually established IDs enter direct support.
+- The exact pandas 10068 round-zero failure is closed without retry or fallback: actual runs
+  `191824Z` and `193112Z` both completed. Their Oracle overlap varied from 0/3 to 2/3, so this does
+  not close downstream pandas owner/action/final-selection quality.
+- Consecutive TypeScript runs `192105Z` and `192716Z` retained all four focused implementation
+  Oracles, including the 18-call Helpers file trace. Vue run `193506Z` retained `exp-parser.js`.
+- Status: contract retained; qualification completeness question closed. Any attempt to stabilize
+  pandas file selection must start from its now-valid post-qualification traces and be measured as
+  a separate experiment.
+
 ## IOG-1 — Historical initial guardrail does not recover cohort all-zero cases
 
 - Actual-pipeline diagnostics `run-20260830T131540Z` (pandas 22698) and
@@ -227,6 +263,7 @@ map it to an entry here before treating it as a new regression or inventing anot
 ## DIC-1 — Dormant completion final value and activation stability
 
 - Experiment: [`../dormant-island-completion-experiment.md`](../dormant-island-completion-experiment.md).
+- Proposed generalization: [`general-post-action-continuation-harvest-plan.md`](general-post-action-continuation-harvest-plan.md).
 - Status: candidate handoff restored as best-effort on 2026-08-26. Two TypeScript acceptance runs activated the stage
   without reducing their three implementation-Oracle overlaps; one activation produced a useful downstream handoff,
   while the other remained navigation-only. Pandas selected no dormant owner and retained its complete causal chain.
@@ -505,8 +542,9 @@ map it to an entry here before treating it as a new regression or inventing anot
 ## IFC-1 — Persistent island continuations and pool comparability
 
 - Experiment: [island-centered controller](island-centered-controller-experiment-plan.md).
-- Status: ordinary persistence and owner-maturation folding are best-effort opt-in; broad pool unification is not
-  accepted.
+- Final-selection representation experiment: [island evidence packets](island-evidence-packet-final-selection-experiment.md).
+- Status: ordinary persistence and owner-maturation folding became the default controller policy on 2026-08-31;
+  broad pool unification is not accepted. The two experiment flags were removed.
 - Proven boundary: the controller can retain a normalized ordinary continuation after it disappears from the current
   graph-capability catalogue and later execute it without increasing the productive ordinary-slot cap. TypeScript
   `run-20260830T123601Z` naturally exercised this path, but the retained file expansion returned empty.
@@ -514,12 +552,70 @@ map it to an entry here before treating it as a new regression or inventing anot
   `run-20260830T124320Z` selected zero rescues, so that fold was removed.
 - Promising boundary: owner maturation can compete within its already-grounded active island. TypeScript
   `125440Z` / `125843Z` retained all four target files and Vue `130338Z` retained its implementation Oracle.
-- Still unresolved: Pandas regression could not reach controller execution because two runs failed the same strict
-  round-zero qualification contract. Do not promote the opt-in flags or fold test maturation, verified leads, or
-  pending handoffs until a valid Pandas comparison and a productive persisted-continuation activation exist.
+- The nested qualification contract later removed the Pandas round-zero response failure. Do not fold test
+  maturation, verified leads, deferred rescue, or pending handoffs into the ordinary pool without a new isolated
+  experiment; only the measured ordinary persistence and owner-maturation behavior was promoted.
 - Symptoms that map here: a known normalized action disappears solely because a later capability request omits its
   node; an auxiliary family adds work outside the described ordinary allowance; folding a family reduces its
   selection rate to zero.
+
+## BSI-1 — Baseline-seeded island packet representation
+
+- Experiment: [baseline-seeded island packets](baseline-seeded-island-packet-experiment-plan.md).
+- Status: default representation. Mandatory-seed preservation, source-verifiable candidate decisions, and
+  independent-island-first residual allocation were accepted on 2026-09-01. The old mechanism-flow representation
+  is no longer the production selection path.
+- Required invariant: every candidate selected by the unchanged mechanism-flow reducer must remain in the packet
+  request. Packet logic may add seeded-island context and qualified singletons only from residual capacity.
+- Measured result: final combined TypeScript 35468 runs preserved 13/13 and 11/11 mandatory seeds and returned 3/4
+  and 4/4 focal files; final Vue runs retained `renderDOMProps`; TypeScript 46770 retained
+  `moduleNameResolver.ts`. Residual allocation now considers obligation-bearing independent islands before seeded
+  siblings, while a separately bounded grounded-navigation route may contribute one non-proving candidate. The
+  remaining open issue is upstream discovery: packet ordering cannot recover an owner that never reaches its pool,
+  as pandas 10068 `run-20260901T233458Z` demonstrates.
+
+## DFA-1 — Dormant file alternative inspection
+
+- Experiment: [dormant file alternatives](dormant-file-alternatives-experiment-plan.md).
+- Status: retained as default bounded behavior. Title/request owner overlap is no longer a hard gate for a file with
+  at least three independently retrieved named structural owners; it remains a grounding/disambiguation signal for
+  smaller two-owner hypotheses. The one-file and five-owner execution bounds remain unchanged.
+- Motivating evidence: pandas 10068 `run-20260831T121739Z` retrieved the complete `Series._binop` owner but kept it
+  deferred because `series.py` had no qualified source from which same-file expansion could start.
+- Retained boundary: inspect one zero-qualified file per run, batching at most five already-retrieved structural
+  owners into one normal qualification request. Three named owners can ground the file without literal issue-title
+  knowledge; a smaller two-owner hypothesis still needs owner-level lexical support. The current
+  qualified-source local action is separately named `ExpandWithinFileHandoff`.
+- Evidence: pandas `run-20260831T163654Z` promoted `Series::_binop`; final TypeScript runs `171235Z` / `171810Z`
+  retained all four target files, but the latter spent the dormant slot on rejected `server/project.ts` evidence.
+  The title-independent correction retained 3/4 and 4/4 in TypeScript 35468 `204825Z` / `205528Z`; the second made
+  seven BuilderState owners eligible without lexical owner support, while ordinary deferred inspection ultimately
+  recovered the selected BuilderState owner.
+- Rejected extension: unowned/graphless file ranges are not accepted as dormant-file hypotheses. Three TypeScript
+  2953 variants repeatedly preferred broad `core.d.ts` ranges over the relevant `extensions.d.ts` declaration, so
+  the adapter was removed. Graph-poor declaration and manifest recovery remains open and must not be described as
+  solved by DFA-1.
+- Rejected extension: batching the top two title-ambiguous eligible files into one action qualified
+  `core/series.py::_binop` in one pandas run, but the next run ranked `core/groupby.py` first so the intended pair was
+  never formed; TypeScript 35468 also fell to 2/4 focal files. The original one-file/five-owner boundary remains.
+- Retained dependent extension: carrying pre-round-zero admission position initially failed because owner-comparison
+  dormants were private and ambiguous exact symbol `add` promoted unrelated `comment_eater.py`. The grounding contract
+  now keeps multi-match identifiers as search leads without exact authority. Private dormants are exposed only to this
+  action, and a narrow admission-consistency correction produced repeatable pandas 10068 implementation overlap in
+  `run-20260902T033436Z` / `run-20260902T033821Z`; TypeScript safety remained at 3/4 in `034225Z`.
+
+## ORR-1 — Qualified owner representation reevaluation
+
+- Experiment: [owner representation reevaluation](owner-representation-reevaluation-experiment.md).
+- Status: accepted bounded implementation. After every qualification boundary, retained owners are deterministically
+  regrouped by file and obligation; the strongest qualified owner becomes primary, other qualified roles remain
+  complementary, and undisclosed owners can only challenge after normal source qualification.
+- Evidence: pandas `run-20260902T005759Z` improved the `core/ops.py` representative and retained `na_op` as a
+  complement. TypeScript `run-20260902T010157Z` preserved `getFilesAffectedBy` while adding three strong
+  BuilderState complements; final runs `010629Z` / `011114Z` retained all four focal files.
+- Remaining boundary: semantically coherent same-file challengers can still be unnecessary and consume
+  qualification tokens. Measure usefulness across more repositories before increasing the batch, per-round, or
+  eligibility limits. Zero-qualified files are outside this stage and remain DFA-1's responsibility.
 
 ## ISL-1 — Mechanism fragmentation through an unobserved connector
 

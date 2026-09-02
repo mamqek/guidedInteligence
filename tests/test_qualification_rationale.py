@@ -8,9 +8,10 @@ from services.intent.models import EvidenceObligation
 from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import DiscoveryObservation, SourceHandle
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import (
-    QualificationDecision, QualificationReuseCache, qualify_cards, _validate_decisions, _response_format,
+    QualificationReuseCache, qualify_cards, _validate_decisions, _response_format,
     prepare_qualification_request,
 )
+from tests.qualification_test_support import QualificationDecision
 from services.retrieval.workspace.pipeline.execution_flow.qualification_first_retrieval import (
     _candidate_from_qualified, _controller_candidate_payload,
 )
@@ -19,6 +20,7 @@ from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval i
     _select_mechanism_flows,
 )
 from services.retrieval.workspace.pipeline.execution_flow.coverage_evaluation import _bounded_candidates
+from testing.codeRepoQA.qualification_trace_adapter import qualification_decision_from_trace
 
 MODULE = 'services.retrieval.workspace.pipeline.execution_flow.evidence_qualification'
 
@@ -35,9 +37,21 @@ class QualificationRationaleTests(unittest.TestCase):
                           supported_obligation_ids=['state'])
 
     def response(self, classification='promote_direct', reason=None):
-        return {'decisions': {'owner': dict(classification=classification, reason=reason or self.reason,
-            visible_support=['cache.clear()'], missing_information=[], local_follow_up='',
-            supported_obligation_ids=['state'] if classification == 'promote_direct' else [])}}
+        direct = classification == 'promote_direct'
+        return {'decisions': {'owner': {
+            'assessment': {
+                'disposition': 'retain',
+                'evidence_kind': 'direct_fact' if direct else 'navigation_lead',
+                'contributing_obligation_ids': ['state'] if direct else [],
+                'individually_established_obligation_ids': ['state'] if direct else [],
+            },
+            'rationale': {
+                'reason': reason or self.reason,
+                'visible_support': ['cache.clear()'],
+                'missing_information': [],
+                'local_follow_up': '',
+            },
+        }}}
 
     def qualify(self, card, cache):
         return qualify_cards(llm_config=SimpleNamespace(model='fixed'), user_request='Explain invalidation',
@@ -48,10 +62,14 @@ class QualificationRationaleTests(unittest.TestCase):
         return _candidate_from_qualified(observation, self.decision, self.card)
 
     def test_reason_bound_is_schema_and_runtime_enforced_without_truncation(self):
-        schema = _response_format(('owner',))['json_schema']['schema']['$defs']['decision']['properties']['reason']
+        schema = (_response_format(('owner',))['json_schema']['schema']['$defs']['decision']
+                  ['properties']['rationale']['properties']['reason'])
         self.assertEqual(schema['maxLength'], 400)
         valid = self.response(reason='x' * 400)
-        self.assertEqual(len(_validate_decisions(valid, ('owner',), {'owner': ('state',)})[0].reason), 400)
+        self.assertEqual(
+            len(_validate_decisions(valid, ('owner',), {'owner': ('state',)})[0].rationale.reason),
+            400,
+        )
         for reason in [' ', 'x' * 401]:
             with self.assertRaises(RuntimeError):
                 _validate_decisions(self.response(reason=reason), ('owner',), {'owner': ('state',)})
@@ -73,15 +91,52 @@ class QualificationRationaleTests(unittest.TestCase):
                                          previous_qualification=self.prior), cache)
         payload = json.loads(llm.call_args.args[1][1]['content'])
         self.assertEqual(payload['observations'][0]['previous_qualification'], self.prior)
-        self.assertEqual(result.decisions[0].support_level, 'navigation_only')
+        self.assertTrue(result.decisions[0].assessment.is_navigation)
 
     def test_previous_negative_judgment_is_not_frozen(self):
         prior = {**self.prior, 'support_level': 'insufficient', 'disposition': 'reject',
                  'reason': 'No state transition was visible.', 'supported_obligation_ids': []}
         with patch(MODULE + '.complete_json', return_value=self.response()) as llm:
             result = self.qualify(replace(self.card, previous_qualification=prior), QualificationReuseCache())
-        self.assertEqual(result.decisions[0].support_level, 'direct_evidence')
+        self.assertTrue(result.decisions[0].assessment.is_direct_fact)
         self.assertEqual(json.loads(llm.call_args.args[1][1]['content'])['observations'][0]['previous_qualification'], prior)
+
+    def test_partial_direct_fact_is_retained_without_manufacturing_complete_obligation_support(self):
+        response = self.response()
+        assessment = response['decisions']['owner']['assessment']
+        assessment['individually_established_obligation_ids'] = []
+        decision = _validate_decisions(response, ('owner',), {'owner': ('state',)})[0]
+        observation = DiscoveryObservation(
+            'owner', self.card.handle, self.card.source_text, (), artifact_role='implementation'
+        )
+        candidate = _candidate_from_qualified(observation, decision, self.card)
+        states = (ObligationProgress(self.obligations[0], candidates=[candidate]),)
+
+        candidate_by_id, direct, inherited, flows, _, ledger = _select_mechanism_flows(
+            states, expanded_edges=()
+        )
+        candidate_id = next(iter(candidate_by_id))
+
+        self.assertTrue(decision.assessment.is_direct_fact)
+        self.assertEqual(decision.assessment.contributing_obligation_ids, ('state',))
+        self.assertEqual(decision.assessment.individually_established_obligation_ids, ())
+        self.assertEqual(direct[candidate_id], set())
+        self.assertEqual(inherited[candidate_id], set())
+        self.assertTrue(any(candidate_id in flow['candidate_ids'] for flow in flows))
+        inventory = next(item for item in ledger['candidate_inventory'] if item['candidate_id'] == candidate_id)
+        self.assertTrue(inventory['selected_for_final_request'])
+
+    def test_offline_trace_adapter_reads_nested_and_historical_decisions(self):
+        self.assertEqual(qualification_decision_from_trace(self.decision.to_dict()), self.decision)
+        historical = {
+            'observation_id': 'owner', 'disposition': 'promote',
+            'support_level': 'direct_evidence', 'reason': self.reason,
+            'visible_support': ['Clears cache.'], 'missing_information': ['Emission is not shown.'],
+            'local_follow_up': '', 'supported_obligation_ids': ['state'],
+        }
+        restored = qualification_decision_from_trace(historical)
+        self.assertEqual(restored.assessment.individually_established_obligation_ids, ('state',))
+        self.assertEqual(restored.rationale.reason, self.reason)
 
     def test_prior_metadata_is_accounted_in_qualification_budget(self):
         args = dict(user_request='Explain invalidation', max_input_chars=40000, obligations=self.obligations)
@@ -97,6 +152,22 @@ class QualificationRationaleTests(unittest.TestCase):
         self.assertEqual(_bounded_candidates((payload,), max_input_chars=40000)[0]['qualification_reason'], self.reason)
         self.assertEqual(_candidate_trace_item(candidate)['qualification_reason'], self.reason)
         self.assertEqual(_evidence_item(candidate, obligation_id='state', rank=1).metadata['qualification_reason'], self.reason)
+
+    def test_coverage_candidates_fit_metadata_and_source_inside_the_supplied_budget(self):
+        candidate = self.candidate()
+        payloads = []
+        for index in range(40):
+            payload = _controller_candidate_payload(candidate)
+            payload['candidate_id'] = f'candidate:{index}'
+            payload['observation_id'] = f'observation:{index}'
+            payload['snippet'] = 'source line\n' * 1000
+            payloads.append(payload)
+
+        bounded = _bounded_candidates(tuple(payloads), max_input_chars=24000)
+
+        self.assertEqual(len(bounded), 40)
+        self.assertLessEqual(len(json.dumps(bounded, sort_keys=True)), 24000)
+        self.assertNotIn('observation_id', bounded[0])
 
     def test_final_payload_and_budget_include_reason(self):
         candidate = self.candidate()

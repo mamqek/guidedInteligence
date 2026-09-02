@@ -222,7 +222,7 @@ The current action contract is not itself arbitrary. It gives the executor bound
 | `InspectDeferredObservation` | disclose a retrieved observation that did not receive an initial decision |
 | `InspectOwnerContinuation` | inspect a later omitted range of a known large owner |
 | `ExpandRelationship` | traverse represented CodeGraph relationships from an owner or file |
-| `SearchWithinFile` | refine an unresolved question inside one known path |
+| `ExpandWithinFileHandoff` | expand a qualified source through an explicit missing handoff inside the same path |
 | `SearchNewIsland` | seek a separate mechanism outside represented evidence islands |
 | `InspectVerifiedLead` | inspect an exact repository node visibly named by newly grounded source |
 | `StopRetrieval` | express that no further bounded native action is available |

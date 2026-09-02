@@ -159,7 +159,7 @@ Proof: [033557Z admission](C:/Programming/guidedInteligence_testcases/microsoft-
   assigned navigation-only support, and requested the missing wildcard/interface-edit scenario. The missing final
   watch Oracle therefore was not caused by those owners being removed by the shortlist. See
   [qualification](C:/Programming/guidedInteligence_testcases/microsoft-TypeScript-35468/runs/run-20260827T033557Z/retrieval-trace.jsonl:87).
-- All 57 omissions reached deferred auditing. A shortlisted-out `FileInfo` seeded a round-1 `SearchWithinFile`
+- All 57 omissions reached deferred auditing. A shortlisted-out `FileInfo` seeded a round-1 `ExpandWithinFileHandoff`
   returning three snippets. The also-omitted `getNextInvalidatedProject` was inspected only in round 3 and eventually
   reached final rank 2. This demonstrates real recovery, but also delayed access to a useful mechanism owner. See
   [seed execution](C:/Programming/guidedInteligence_testcases/microsoft-TypeScript-35468/runs/run-20260827T033557Z/retrieval-trace.jsonl:456),

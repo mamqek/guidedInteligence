@@ -25,7 +25,6 @@ from core.source_policy import SourceCategory, SourcePolicy
 from services.logging.store import JsonlLogger
 from services.retrieval.workspace.bm25 import (
     DEFAULT_EXCLUDED_PATHS,
-    LEXICAL_RANKING_FLAT_BM25,
     build_index_from_repo,
     bm25_index_schema_version,
     indexable_content_signature,
@@ -35,10 +34,13 @@ from services.retrieval.workspace.pipeline.index_flow import save_sync_manifest
 from services.retrieval.cases import HiddenCodeRepoQACase, VisibleCodeRepoQACase, load_coderepoqa_case
 from services.retrieval.config import (
     DEFAULT_CODEX_PROMPT_PROFILE,
+    FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS,
+    FINAL_SELECTION_REPRESENTATION_MECHANISM_FLOWS,
     INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     RETRIEVAL_MODE_CODEX,
     RETRIEVAL_MODE_WORKSPACE,
     SUPPORTED_CODEX_PROMPT_PROFILES,
+    SUPPORTED_FINAL_SELECTION_REPRESENTATIONS,
     SUPPORTED_INITIAL_SELECTION_MODES,
     SUPPORTED_RETRIEVAL_MODES,
     RetrievalEmbeddingConfig,
@@ -116,7 +118,6 @@ def prepare_index(
     chunk_line_count: int = 40,
     chunk_line_overlap: int = 10,
     exclude_paths: Sequence[str] | None = None,
-    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> None:
     workspace_root = Path(repo_pre_path).resolve()
     effective_exclude_paths = DEFAULT_EXCLUDED_PATHS if exclude_paths is None else tuple(exclude_paths)
@@ -129,14 +130,13 @@ def prepare_index(
         visibility="visible_initial",
         origin="coderepoqa_snapshot",
         exclude_paths=exclude_paths,
-        lexical_ranking_profile=lexical_ranking_profile,
     )
     save_index(index, index_dir)
     save_sync_manifest(
         Path(index_dir) / "bm25-scope-manifest.json",
         {
-            "index_schema_version": bm25_index_schema_version(lexical_ranking_profile),
-            "lexical_ranking_profile": lexical_ranking_profile,
+            "index_schema_version": bm25_index_schema_version(),
+            "lexical_ranking": "bm25",
             "workspace_root": str(workspace_root),
             "content_signature": indexable_content_signature(
                 workspace_root,
@@ -176,16 +176,16 @@ def run_case(
     index_exclude_paths: Sequence[str] | None = None,
     skip_response_generation: bool = False,
     skip_final_evidence_selection: bool = False,
+    final_evidence_selection_representation: str = FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS,
     stop_before_round_zero_qualification: bool = False,
     dormant_island_completion_enabled: bool = False,
-    island_frontier_ordinary_scheduling_enabled: bool = False,
-    island_frontier_fold_owner_maturation_enabled: bool = False,
+    dormant_file_alternatives_enabled: bool = True,
+    structural_graph_enabled: bool = True,
     initial_selection_mode: str = INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
     embedding_cache_path: str | Path | None = None,
-    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> OrchestrationResult:
     visible_case, hidden_case = load_coderepoqa_case(
         issue_json,
@@ -221,16 +221,16 @@ def run_case(
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
         final_evidence_selection_enabled=not skip_final_evidence_selection,
+        final_evidence_selection_representation=final_evidence_selection_representation,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
-        island_frontier_ordinary_scheduling_enabled=island_frontier_ordinary_scheduling_enabled,
-        island_frontier_fold_owner_maturation_enabled=island_frontier_fold_owner_maturation_enabled,
+        dormant_file_alternatives_enabled=dormant_file_alternatives_enabled,
+        structural_graph_enabled=structural_graph_enabled,
         initial_selection_mode=initial_selection_mode,
         semantic_island_beam_size=semantic_island_beam_size,
         embedding_batch_size=embedding_batch_size,
         embedding_concurrency=embedding_concurrency,
         embedding_cache_path=str(embedding_cache_path) if embedding_cache_path is not None else None,
-        lexical_ranking_profile=lexical_ranking_profile,
     )
     retrieval_stage = CodexRetrievalStage(retrieval_config) if retrieval_config.retrieval_mode == RETRIEVAL_MODE_CODEX else WorkspaceRetrievalStage(retrieval_config)
     control_layer = ControlLayer(
@@ -299,16 +299,16 @@ def evaluate_case(
     index_exclude_paths: Sequence[str] | None = None,
     skip_response_generation: bool = False,
     skip_final_evidence_selection: bool = False,
+    final_evidence_selection_representation: str = FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS,
     stop_before_round_zero_qualification: bool = False,
     dormant_island_completion_enabled: bool = False,
-    island_frontier_ordinary_scheduling_enabled: bool = False,
-    island_frontier_fold_owner_maturation_enabled: bool = False,
+    dormant_file_alternatives_enabled: bool = True,
+    structural_graph_enabled: bool = True,
     initial_selection_mode: str = INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
     shared_embedding_cache_root: str | Path | None = None,
-    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> Path:
     issue_path = Path(issue_json)
     verification_path = Path(verification_json) if verification_json is not None else _default_verification_path(issue_path)
@@ -340,7 +340,7 @@ def evaluate_case(
         _materialize_snapshot(origin_repo_dir, resolution.repo_pre_commit, snapshot_dir)
 
     _remove_legacy_snapshot_index(snapshot_dir)
-    index_dir = _workspace_index_dir(snapshot_dir, lexical_ranking_profile=lexical_ranking_profile)
+    index_dir = _workspace_index_dir(snapshot_dir)
     if rebuild_index:
         _remove_structural_index_artifacts(snapshot_dir)
     if retrieval_mode != RETRIEVAL_MODE_CODEX and (rebuild_index or not (index_dir / "bm25-index.json").exists()):
@@ -351,7 +351,6 @@ def evaluate_case(
             chunk_line_count=chunk_line_count,
             chunk_line_overlap=chunk_line_overlap,
             exclude_paths=exclude_paths,
-            lexical_ranking_profile=lexical_ranking_profile,
         )
 
     visible_case, _hidden = load_coderepoqa_case(
@@ -384,16 +383,16 @@ def evaluate_case(
         index_exclude_paths=exclude_paths,
         skip_response_generation=skip_response_generation,
         skip_final_evidence_selection=skip_final_evidence_selection,
+        final_evidence_selection_representation=final_evidence_selection_representation,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
-        island_frontier_ordinary_scheduling_enabled=island_frontier_ordinary_scheduling_enabled,
-        island_frontier_fold_owner_maturation_enabled=island_frontier_fold_owner_maturation_enabled,
+        dormant_file_alternatives_enabled=dormant_file_alternatives_enabled,
+        structural_graph_enabled=structural_graph_enabled,
         initial_selection_mode=initial_selection_mode,
         semantic_island_beam_size=semantic_island_beam_size,
         embedding_batch_size=embedding_batch_size,
         embedding_concurrency=embedding_concurrency,
         embedding_cache_path=embedding_cache_path,
-        lexical_ranking_profile=lexical_ranking_profile,
     )
     _write_run_metadata(
         run_dir=run_dir,
@@ -412,13 +411,13 @@ def evaluate_case(
         codex_prompt_profile=codex_prompt_profile,
         skip_response_generation=skip_response_generation,
         skip_final_evidence_selection=skip_final_evidence_selection,
+        final_evidence_selection_representation=final_evidence_selection_representation,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
-        island_frontier_ordinary_scheduling_enabled=island_frontier_ordinary_scheduling_enabled,
-        island_frontier_fold_owner_maturation_enabled=island_frontier_fold_owner_maturation_enabled,
+        dormant_file_alternatives_enabled=dormant_file_alternatives_enabled,
+        structural_graph_enabled=structural_graph_enabled,
         initial_selection_mode=initial_selection_mode,
         embedding_cache_path=embedding_cache_path,
-        lexical_ranking_profile=lexical_ranking_profile,
     )
     return run_dir
 
@@ -534,6 +533,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_parser.add_argument("--exclude-path", action="append", default=[])
     run_parser.add_argument("--skip-response-generation", action="store_true")
     run_parser.add_argument("--skip-final-evidence-selection", action="store_true")
+    run_parser.add_argument(
+        "--final-evidence-selection-representation",
+        choices=SUPPORTED_FINAL_SELECTION_REPRESENTATIONS,
+    )
     run_parser.add_argument("--stop-before-round-zero-qualification", action="store_true")
     run_parser.add_argument(
         "--dormant-island-completion",
@@ -542,14 +545,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
     )
     run_parser.add_argument(
-        "--island-frontier-ordinary-scheduling",
-        dest="island_frontier_ordinary_scheduling_enabled",
+        "--dormant-file-alternatives",
+        dest="dormant_file_alternatives_enabled",
         action=argparse.BooleanOptionalAction,
         default=None,
     )
     run_parser.add_argument(
-        "--island-frontier-fold-owner-maturation",
-        dest="island_frontier_fold_owner_maturation_enabled",
+        "--structural-graph",
+        dest="structural_graph_enabled",
         action=argparse.BooleanOptionalAction,
         default=None,
     )
@@ -573,6 +576,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     evaluate_parser.add_argument("--exclude-path", action="append", default=[])
     evaluate_parser.add_argument("--skip-response-generation", action="store_true")
     evaluate_parser.add_argument("--skip-final-evidence-selection", action="store_true")
+    evaluate_parser.add_argument(
+        "--final-evidence-selection-representation",
+        choices=SUPPORTED_FINAL_SELECTION_REPRESENTATIONS,
+    )
     evaluate_parser.add_argument("--stop-before-round-zero-qualification", action="store_true")
     evaluate_parser.add_argument(
         "--dormant-island-completion",
@@ -581,14 +588,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
     )
     evaluate_parser.add_argument(
-        "--island-frontier-ordinary-scheduling",
-        dest="island_frontier_ordinary_scheduling_enabled",
+        "--dormant-file-alternatives",
+        dest="dormant_file_alternatives_enabled",
         action=argparse.BooleanOptionalAction,
         default=None,
     )
     evaluate_parser.add_argument(
-        "--island-frontier-fold-owner-maturation",
-        dest="island_frontier_fold_owner_maturation_enabled",
+        "--structural-graph",
+        dest="structural_graph_enabled",
         action=argparse.BooleanOptionalAction,
         default=None,
     )
@@ -605,14 +612,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     batch_parser.add_argument("--semantic-island-beam-size", type=int)
     batch_parser.add_argument("--initial-selection-mode", choices=SUPPORTED_INITIAL_SELECTION_MODES)
     batch_parser.add_argument(
-        "--island-frontier-ordinary-scheduling",
-        dest="island_frontier_ordinary_scheduling_enabled",
+        "--final-evidence-selection-representation",
+        choices=SUPPORTED_FINAL_SELECTION_REPRESENTATIONS,
+    )
+    batch_parser.add_argument(
+        "--dormant-file-alternatives",
+        dest="dormant_file_alternatives_enabled",
         action=argparse.BooleanOptionalAction,
         default=None,
     )
     batch_parser.add_argument(
-        "--island-frontier-fold-owner-maturation",
-        dest="island_frontier_fold_owner_maturation_enabled",
+        "--structural-graph",
+        dest="structural_graph_enabled",
         action=argparse.BooleanOptionalAction,
         default=None,
     )
@@ -687,18 +698,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "dormant_island_completion_enabled",
                 False,
             ),
-            island_frontier_ordinary_scheduling_enabled=_config_bool_override(
+            dormant_file_alternatives_enabled=_config_bool_override(
                 args,
                 run_config,
-                "island_frontier_ordinary_scheduling_enabled",
-                False,
+                "dormant_file_alternatives_enabled",
+                True,
             ),
-            island_frontier_fold_owner_maturation_enabled=_config_bool_override(
+            structural_graph_enabled=_config_bool_override(
                 args,
                 run_config,
-                "island_frontier_fold_owner_maturation_enabled",
-                False,
+                "structural_graph_enabled",
+                True,
             ),
+            final_evidence_selection_representation=str(_config_value(
+                args,
+                run_config,
+                "final_evidence_selection_representation",
+                FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS,
+            )),
             initial_selection_mode=str(_config_value(
                 args,
                 run_config,
@@ -711,7 +728,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             embedding_batch_size=_config_optional_int(run_config, "embedding_batch_size"),
             embedding_concurrency=_config_optional_int(run_config, "embedding_concurrency"),
             embedding_cache_path=run_config.get("embedding_cache_path"),
-            lexical_ranking_profile=str(run_config.get("lexical_ranking_profile") or LEXICAL_RANKING_FLAT_BM25),
         )
         return 0
 
@@ -754,18 +770,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "dormant_island_completion_enabled",
                 False,
             ),
-            island_frontier_ordinary_scheduling_enabled=_config_bool_override(
+            dormant_file_alternatives_enabled=_config_bool_override(
                 args,
                 run_config,
-                "island_frontier_ordinary_scheduling_enabled",
-                False,
+                "dormant_file_alternatives_enabled",
+                True,
             ),
-            island_frontier_fold_owner_maturation_enabled=_config_bool_override(
+            structural_graph_enabled=_config_bool_override(
                 args,
                 run_config,
-                "island_frontier_fold_owner_maturation_enabled",
-                False,
+                "structural_graph_enabled",
+                True,
             ),
+            final_evidence_selection_representation=str(_config_value(
+                args,
+                run_config,
+                "final_evidence_selection_representation",
+                FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS,
+            )),
             initial_selection_mode=str(_config_value(
                 args,
                 run_config,
@@ -778,7 +800,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             embedding_batch_size=_config_optional_int(run_config, "embedding_batch_size"),
             embedding_concurrency=_config_optional_int(run_config, "embedding_concurrency"),
             shared_embedding_cache_root=run_config.get("shared_embedding_cache_root"),
-            lexical_ranking_profile=str(run_config.get("lexical_ranking_profile") or LEXICAL_RANKING_FLAT_BM25),
         )
         print(str(run_dir))
         return 0
@@ -1050,6 +1071,7 @@ def _evaluate_case_subprocess_command(args: argparse.Namespace, issue_json: str)
         ("codex_timeout_seconds", "--codex-timeout-seconds"),
         ("semantic_island_beam_size", "--semantic-island-beam-size"),
         ("initial_selection_mode", "--initial-selection-mode"),
+        ("final_evidence_selection_representation", "--final-evidence-selection-representation"),
     )
     for attribute, option in value_options:
         value = getattr(args, attribute, None)
@@ -1059,20 +1081,16 @@ def _evaluate_case_subprocess_command(args: argparse.Namespace, issue_json: str)
         command.extend(("--codex-command", str(token)))
     if getattr(args, "rebuild_index", False):
         command.append("--rebuild-index")
-    frontier_override = getattr(args, "island_frontier_ordinary_scheduling_enabled", None)
-    if frontier_override is not None:
+    dormant_file_override = getattr(args, "dormant_file_alternatives_enabled", None)
+    if dormant_file_override is not None:
         command.append(
-            "--island-frontier-ordinary-scheduling"
-            if frontier_override
-            else "--no-island-frontier-ordinary-scheduling"
+            "--dormant-file-alternatives"
+            if dormant_file_override
+            else "--no-dormant-file-alternatives"
         )
-    owner_fold_override = getattr(args, "island_frontier_fold_owner_maturation_enabled", None)
-    if owner_fold_override is not None:
-        command.append(
-            "--island-frontier-fold-owner-maturation"
-            if owner_fold_override
-            else "--no-island-frontier-fold-owner-maturation"
-        )
+    structural_graph_override = getattr(args, "structural_graph_enabled", None)
+    if structural_graph_override is not None:
+        command.append("--structural-graph" if structural_graph_override else "--no-structural-graph")
     return command
 
 
@@ -1206,13 +1224,8 @@ def _remove_legacy_snapshot_index(snapshot_dir: Path) -> None:
         shutil.rmtree(legacy_index_dir, ignore_errors=True)
 
 
-def _workspace_index_dir(
-    workspace_root: Path,
-    *,
-    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
-) -> Path:
-    suffix = "index" if lexical_ranking_profile == LEXICAL_RANKING_FLAT_BM25 else f"index-{lexical_ranking_profile.replace('_', '-')}"
-    return workspace_root / WORKSPACE_STATE_DIR / suffix
+def _workspace_index_dir(workspace_root: Path) -> Path:
+    return workspace_root / WORKSPACE_STATE_DIR / "index"
 
 
 def _write_run_metadata(
@@ -1233,13 +1246,13 @@ def _write_run_metadata(
     codex_prompt_profile: str,
     skip_response_generation: bool,
     skip_final_evidence_selection: bool,
+    final_evidence_selection_representation: str,
     stop_before_round_zero_qualification: bool,
     dormant_island_completion_enabled: bool,
-    island_frontier_ordinary_scheduling_enabled: bool,
-    island_frontier_fold_owner_maturation_enabled: bool,
+    dormant_file_alternatives_enabled: bool,
+    structural_graph_enabled: bool,
     initial_selection_mode: str,
     embedding_cache_path: Path | None = None,
-    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> None:
     metadata = {
         "case_id": visible_case.case_id,
@@ -1256,13 +1269,14 @@ def _write_run_metadata(
         "codex_prompt_profile": codex_prompt_profile if retrieval_mode == RETRIEVAL_MODE_CODEX else "",
         "skip_response_generation": skip_response_generation,
         "skip_final_evidence_selection": skip_final_evidence_selection,
+        "final_evidence_selection_representation": final_evidence_selection_representation,
         "stop_before_round_zero_qualification": stop_before_round_zero_qualification,
         "dormant_island_completion_enabled": dormant_island_completion_enabled,
-        "island_frontier_ordinary_scheduling_enabled": island_frontier_ordinary_scheduling_enabled,
-        "island_frontier_fold_owner_maturation_enabled": island_frontier_fold_owner_maturation_enabled,
+        "dormant_file_alternatives_enabled": dormant_file_alternatives_enabled,
+        "structural_graph_enabled": structural_graph_enabled,
         "initial_selection_mode": initial_selection_mode,
         "embedding_cache_path": str(embedding_cache_path) if embedding_cache_path is not None else "",
-        "lexical_ranking_profile": lexical_ranking_profile,
+        "lexical_ranking": "bm25",
         "intent_system": "request_analysis_obligations_v1",
         "resolution": {
             "strategy": resolution.strategy,
@@ -1611,16 +1625,16 @@ def _workspace_retrieval_config_for_case(
     codex_timeout_seconds: int,
     codex_ignore_user_config: bool,
     final_evidence_selection_enabled: bool = True,
+    final_evidence_selection_representation: str = FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS,
     stop_before_round_zero_qualification: bool = False,
     dormant_island_completion_enabled: bool = False,
-    island_frontier_ordinary_scheduling_enabled: bool = False,
-    island_frontier_fold_owner_maturation_enabled: bool = False,
+    dormant_file_alternatives_enabled: bool = True,
+    structural_graph_enabled: bool = True,
     initial_selection_mode: str = INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     semantic_island_beam_size: int = 4,
     embedding_batch_size: int | None = None,
     embedding_concurrency: int | None = None,
     embedding_cache_path: str | None = None,
-    lexical_ranking_profile: str = LEXICAL_RANKING_FLAT_BM25,
 ) -> WorkspaceRetrievalConfig:
     # Shared boundary: both testcase retrieval modes receive the same sanitized
     # ConversationState.user_input built by _user_prompt(title, initial_body).
@@ -1656,7 +1670,6 @@ def _workspace_retrieval_config_for_case(
         embedding_config=embedding_config,
         qdrant_config=qdrant_config,
         embedding_cache_path=embedding_cache_path,
-        lexical_ranking_profile=lexical_ranking_profile,
         retrieval_mode=retrieval_mode,
         codex_command=tuple(codex_command) or ("codex",),
         codex_model=codex_model,
@@ -1664,10 +1677,11 @@ def _workspace_retrieval_config_for_case(
         codex_timeout_seconds=codex_timeout_seconds,
         codex_ignore_user_config=codex_ignore_user_config,
         final_evidence_selection_enabled=final_evidence_selection_enabled,
+        final_evidence_selection_representation=final_evidence_selection_representation,
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
-        island_frontier_ordinary_scheduling_enabled=island_frontier_ordinary_scheduling_enabled,
-        island_frontier_fold_owner_maturation_enabled=island_frontier_fold_owner_maturation_enabled,
+        dormant_file_alternatives_enabled=dormant_file_alternatives_enabled,
+        structural_graph_enabled=structural_graph_enabled,
         initial_selection_mode=initial_selection_mode,
         semantic_island_beam_size=semantic_island_beam_size,
         enable_indexing=load_retrieval_enable_indexing(TOOL_ENV_PATH) if retrieval_mode != RETRIEVAL_MODE_CODEX else False,

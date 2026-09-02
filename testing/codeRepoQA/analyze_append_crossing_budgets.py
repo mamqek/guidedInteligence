@@ -5,7 +5,7 @@ import argparse
 import json
 from pathlib import Path
 
-from analyze_qualified_file_leads import analyze
+from testing.codeRepoQA.analyze_qualified_file_leads import analyze
 
 
 def audit(directory: Path):

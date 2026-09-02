@@ -14,7 +14,7 @@ import urllib.request
 import uuid
 from collections import Counter
 from contextlib import closing
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
@@ -22,11 +22,6 @@ from services.retrieval.workspace.bm25 import (
     BM25Document,
     BM25Index,
     IndexedChunk,
-    bm25f_field_length_normalization,
-    bm25f_field_match_trace,
-    bm25f_field_weights,
-    is_bm25f_profile,
-    sparse_query_term_weights,
     tokenize,
 )
 from services.retrieval.config import RetrievalEmbeddingConfig, RetrievalQdrantConfig
@@ -127,7 +122,6 @@ class QdrantSearchResult:
     score: float
     matched_terms: tuple[str, ...]
     retrieval_path: str = "qdrant_hybrid_search"
-    lexical_field_matches: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -136,8 +130,6 @@ class SparseSchema:
     idf_by_token: Mapping[str, float]
     average_document_length: float
     document_count: int
-    lexical_ranking_profile: str
-    average_field_lengths: Mapping[str, float]
 
 
 class QdrantHybridBackend:
@@ -189,14 +181,6 @@ class QdrantHybridBackend:
     def index_signature(self) -> str:
         digest = hashlib.sha256()
         digest.update(self.embedding_config.model.encode("utf-8"))
-        digest.update(b"\n")
-        digest.update(self.index.lexical_ranking_profile.encode("utf-8"))
-        digest.update(b"\n")
-        digest.update(json.dumps(dict(bm25f_field_weights(self.index.lexical_ranking_profile)), sort_keys=True).encode("utf-8"))
-        digest.update(b"\n")
-        digest.update(json.dumps(dict(bm25f_field_length_normalization(self.index.lexical_ranking_profile)), sort_keys=True).encode("utf-8"))
-        digest.update(b"\n")
-        digest.update(json.dumps(dict(self.index.average_field_lengths), sort_keys=True).encode("utf-8"))
         digest.update(b"\n")
         for document in self.index.documents:
             chunk = document.chunk
@@ -287,8 +271,6 @@ class QdrantHybridBackend:
                     document,
                     token_to_index=self._sparse_schema.token_to_index,
                     average_document_length=self._sparse_schema.average_document_length,
-                    lexical_ranking_profile=self._sparse_schema.lexical_ranking_profile,
-                    average_field_lengths=self._sparse_schema.average_field_lengths,
                 )
                 points.append(
                     {
@@ -461,22 +443,11 @@ class QdrantHybridBackend:
             if score < min_score:
                 continue
             matched_terms = tuple(sorted(query_terms.intersection(tokenize(chunk.text))))
-            field_matches = (
-                bm25f_field_match_trace(
-                    document,
-                    lexical_query,
-                    average_field_lengths=self.index.average_field_lengths,
-                    lexical_ranking_profile=self.index.lexical_ranking_profile,
-                )
-                if lexical_query
-                else {}
-            )
             results.append(
                 QdrantSearchResult(
                     chunk=chunk,
                     score=score,
                     matched_terms=matched_terms,
-                    lexical_field_matches=field_matches,
                 )
             )
         return tuple(results)
@@ -854,8 +825,6 @@ def _build_sparse_schema(index: BM25Index) -> SparseSchema:
         idf_by_token=idf_by_token,
         average_document_length=index.average_document_length,
         document_count=document_count,
-        lexical_ranking_profile=index.lexical_ranking_profile,
-        average_field_lengths=index.average_field_lengths,
     )
 
 
@@ -864,35 +833,15 @@ def _document_sparse_vector(
     *,
     token_to_index: Mapping[str, int],
     average_document_length: float,
-    lexical_ranking_profile: str,
-    average_field_lengths: Mapping[str, float],
 ) -> dict[str, list[float] | list[int]]:
-    frequencies: Mapping[str, float]
-    if is_bm25f_profile(lexical_ranking_profile):
-        weighted: dict[str, float] = {}
-        field_weights = bm25f_field_weights(lexical_ranking_profile)
-        length_normalization = bm25f_field_length_normalization(lexical_ranking_profile)
-        for field_name, field_weight in field_weights.items():
-            field_tokens = document.fields.get(field_name, ())
-            field_counts = Counter(field_tokens)
-            b = length_normalization[field_name]
-            average_length = max(average_field_lengths.get(field_name, 0.0), 1.0)
-            normalization = 1.0 - b + b * len(field_tokens) / average_length
-            for token, count in field_counts.items():
-                weighted[token] = weighted.get(token, 0.0) + field_weight * count / max(normalization, 0.01)
-        frequencies = weighted
-        document_length = 0
-    else:
-        frequencies = Counter(document.tokens)
-        document_length = len(document.tokens)
+    frequencies = Counter(document.tokens)
+    document_length = len(document.tokens)
     indices: list[int] = []
     values: list[float] = []
     for token in sorted(frequencies):
         frequency = frequencies[token]
-        denominator = (
-            frequency + _BM25_K1
-            if is_bm25f_profile(lexical_ranking_profile)
-            else frequency + _BM25_K1 * (1 - _BM25_B + _BM25_B * document_length / max(average_document_length, 1.0))
+        denominator = frequency + _BM25_K1 * (
+            1 - _BM25_B + _BM25_B * document_length / max(average_document_length, 1.0)
         )
         weight = (frequency * (_BM25_K1 + 1)) / denominator
         indices.append(token_to_index[token])
@@ -901,7 +850,7 @@ def _document_sparse_vector(
 
 
 def _query_sparse_vector(query: str, schema: SparseSchema) -> dict[str, list[float] | list[int]]:
-    query_weights = sparse_query_term_weights(query, schema.lexical_ranking_profile)
+    query_weights = Counter(tokenize(query))
     indices: list[int] = []
     values: list[float] = []
     for token, query_weight in sorted(query_weights.items()):

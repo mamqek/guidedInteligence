@@ -27,7 +27,7 @@ def failed_result(
         retrieval_summary={
             "retriever": "workspace",
             "source_registry": [entry.to_dict() for entry in ctx.config.source_registry()],
-            "structural_graph_provider": "codegraph",
+            "structural_graph_provider": "codegraph" if ctx.config.structural_graph_enabled else "disabled",
             "failure": failure,
             "failure_reason": str(observation.payload.get("reason", "")),
         },

@@ -36,7 +36,7 @@ def case_ids(report_path: Path) -> list[str]:
     return sorted({str(row["case_id"]) for row in report["rows"]})
 
 
-def historical_luna_runs(case_id: str) -> list[str]:
+def historical_runs(case_id: str, *, retrieval_mode: str, config: dict[str, Any]) -> list[str]:
     result: list[str] = []
     runs = TEST_ROOT / case_id / "runs"
     if not runs.is_dir():
@@ -46,13 +46,14 @@ def historical_luna_runs(case_id: str) -> list[str]:
         if not metadata_path.is_file():
             continue
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-        if (
-            metadata.get("retrieval_mode") == "codex"
-            and metadata.get("codex_model") == "gpt-5.6-luna"
-            and metadata.get("codex_prompt_profile") == "efficient"
-            and (run_dir / "orchestration-result.json").is_file()
-            and (run_dir / "evaluator-comparison.json").is_file()
-        ):
+        matches_mode = metadata.get("retrieval_mode") == retrieval_mode
+        matches_profile = retrieval_mode != "codex" or (
+            metadata.get("codex_model") == config.get("codex_model")
+            and metadata.get("codex_prompt_profile") == config.get("codex_prompt_profile")
+        )
+        if matches_mode and matches_profile and (run_dir / "orchestration-result.json").is_file() and (
+            run_dir / "evaluator-comparison.json"
+        ).is_file():
             result.append(run_dir.name)
     return result
 
@@ -60,10 +61,12 @@ def historical_luna_runs(case_id: str) -> list[str]:
 def initialize(args: argparse.Namespace) -> dict[str, Any]:
     if args.ledger.is_file():
         return json.loads(args.ledger.read_text(encoding="utf-8"))
+    config = json.loads(args.run_config.read_text(encoding="utf-8"))
+    retrieval_mode = str(config["retrieval_mode"])
     cases = {
         case_id: {
             "status": "pending",
-            "historical_luna_runs": historical_luna_runs(case_id),
+            "historical_runs": historical_runs(case_id, retrieval_mode=retrieval_mode, config=config),
             "campaign_runs": [],
             "failed_attempts": [],
         }
@@ -71,12 +74,12 @@ def initialize(args: argparse.Namespace) -> dict[str, Any]:
     }
     return {
         "schema_version": 1,
-        "campaign": "2026-08-26-codex-luna-four-runs",
+        "campaign": f"{datetime.now(timezone.utc).date().isoformat()}-{retrieval_mode}-four-runs",
         "created_at": now(),
         "updated_at": now(),
-        "retrieval_mode": "codex",
-        "codex_model": "gpt-5.6-luna",
-        "codex_prompt_profile": "efficient",
+        "retrieval_mode": retrieval_mode,
+        "codex_model": config.get("codex_model", ""),
+        "codex_prompt_profile": config.get("codex_prompt_profile", ""),
         "run_config": str(args.run_config.relative_to(ROOT)).replace("\\", "/"),
         "target_valid_runs_per_case": args.repetitions,
         "historical_runs_are_reference_only": True,
@@ -86,20 +89,34 @@ def initialize(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def is_valid_run(run_dir: Path) -> tuple[bool, str]:
+def is_valid_run(run_dir: Path, ledger: dict[str, Any]) -> tuple[bool, str]:
     required = ("run-metadata.json", "orchestration-result.json", "evaluator-comparison.json")
     missing = [name for name in required if not (run_dir / name).is_file()]
     if missing:
         return False, "missing artifacts: " + ", ".join(missing)
     metadata = json.loads((run_dir / "run-metadata.json").read_text(encoding="utf-8"))
-    expected = {
-        "retrieval_mode": "codex",
-        "codex_model": "gpt-5.6-luna",
-        "codex_prompt_profile": "efficient",
-    }
+    expected = {"retrieval_mode": ledger["retrieval_mode"]}
+    if ledger["retrieval_mode"] == "codex":
+        expected.update(
+            codex_model=ledger["codex_model"],
+            codex_prompt_profile=ledger["codex_prompt_profile"],
+        )
     mismatches = [f"{key}={metadata.get(key)!r}" for key, value in expected.items() if metadata.get(key) != value]
     if mismatches:
         return False, "configuration mismatch: " + ", ".join(mismatches)
+    orchestration = json.loads((run_dir / "orchestration-result.json").read_text(encoding="utf-8"))
+    retrieval = orchestration.get("retrieval_result")
+    if not isinstance(retrieval, dict):
+        return False, "orchestration result has no retrieval_result"
+    coverage_status = str(retrieval.get("coverage_status") or "unknown")
+    evidence = retrieval.get("evidence")
+    if coverage_status == "failed":
+        return False, "retrieval coverage_status=failed"
+    if not isinstance(evidence, list) or not evidence:
+        summary = retrieval.get("retrieval_summary")
+        stop_reason = str(summary.get("stop_reason") or "") if isinstance(summary, dict) else ""
+        suffix = f", stop_reason={stop_reason}" if stop_reason else ""
+        return False, f"retrieval returned no usable evidence (coverage_status={coverage_status}{suffix})"
     return True, ""
 
 
@@ -111,14 +128,14 @@ def write_ledger(path: Path, ledger: dict[str, Any]) -> None:
     target = int(ledger["target_valid_runs_per_case"])
     completed = sum(len(value["campaign_runs"]) for value in ledger["cases"].values())
     lines = [
-        "# Codex GPT-5.6 Luna Four-Run Campaign",
+        f"# {ledger['retrieval_mode'].title()} Four-Run Campaign",
         "",
-        f"- Configuration: `codex` / `gpt-5.6-luna` / `efficient`",
+        f"- Configuration: `{ledger['retrieval_mode']}` / `{ledger.get('codex_model') or 'workspace pipeline'}` / `{ledger.get('codex_prompt_profile') or 'current defaults'}`",
         f"- Campaign target: {len(ledger['cases'])} cases × {target} valid runs = {len(ledger['cases']) * target}",
         f"- Completed valid runs: {completed}",
         f"- Active testcase: `{ledger.get('active_case') or 'none'}`",
         f"- Stop reason: `{ledger.get('stop_reason') or 'none'}`",
-        "- Historical Luna runs are references only and are not included in the four-run campaign average.",
+        "- Historical runs are references only and are not included in the four-run campaign average.",
         "",
         "| Testcase | Status | Campaign run IDs | Failed attempts | Historical Luna reference | Remaining |",
         "|---|---|---|---|---|---:|",
@@ -128,7 +145,7 @@ def write_ledger(path: Path, ledger: dict[str, Any]) -> None:
         failures = "<br>".join(
             f"{item.get('run_id') or 'no run'}: {item['reason']}" for item in value["failed_attempts"]
         )
-        historical = "<br>".join(value["historical_luna_runs"])
+        historical = "<br>".join(value.get("historical_runs", value.get("historical_luna_runs", [])))
         remaining = max(0, target - len(value["campaign_runs"]))
         lines.append(
             f"| `{case_id}` | {value['status']} | {campaign} | {failures} | {historical} | {remaining} |"
@@ -175,7 +192,7 @@ def main() -> int:
             started_at = now()
             completed = subprocess.run(command, cwd=ROOT, check=False)
             run_dir = newest_new_run(case_id, before)
-            valid, reason = (False, "run directory was not created") if run_dir is None else is_valid_run(run_dir)
+            valid, reason = (False, "run directory was not created") if run_dir is None else is_valid_run(run_dir, ledger)
             if completed.returncode == 0 and valid and run_dir is not None:
                 state["campaign_runs"].append({
                     "run_id": run_dir.name,

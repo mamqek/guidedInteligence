@@ -1456,14 +1456,18 @@ class RuntimeState:
             codex_evidence_organizer_enabled=bool(
                 _experiments_settings(self.config).get("codex_evidence_organizer_enabled", True)
             ),
+            final_evidence_selection_representation=str(
+                retrieval_settings.get("final_evidence_selection_representation")
+                or "island_packets"
+            ).strip().lower(),
             dormant_island_completion_enabled=bool(
                 retrieval_settings.get("dormant_island_completion_enabled", False)
             ),
-            island_frontier_ordinary_scheduling_enabled=bool(
-                retrieval_settings.get("island_frontier_ordinary_scheduling_enabled", False)
+            dormant_file_alternatives_enabled=bool(
+                retrieval_settings.get("dormant_file_alternatives_enabled", True)
             ),
-            island_frontier_fold_owner_maturation_enabled=bool(
-                retrieval_settings.get("island_frontier_fold_owner_maturation_enabled", False)
+            structural_graph_enabled=bool(
+                retrieval_settings.get("structural_graph_enabled", True)
             ),
             max_exploration_rounds=int(retrieval_settings.get("max_exploration_rounds") or 4),
             max_controller_actions_per_round=int(
