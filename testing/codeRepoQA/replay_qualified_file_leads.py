@@ -17,7 +17,7 @@ from services.retrieval.workspace.tools.codegraph import (
 from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import (
     DiscoveryObservation, SourceHandle, DiscoveryProvenance,
 )
-from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
+from testing.codeRepoQA.qualification_trace_adapter import qualification_decision_from_trace
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard
 from services.retrieval.workspace.pipeline.execution_flow.coverage_evaluation import ObligationCoverage
 from services.retrieval.workspace.pipeline.execution_flow.verified_leads import discover_qualified_file_leads, _verified_lead_to_dict
@@ -53,7 +53,10 @@ def main():
         cards[identifier] = DisclosureCard(identifier, handle, row['mode'], row.get('source_text', ''),
             owner_kind=owner.get('kind', ''), owner_name=owner.get('name', ''),
             owner_line_start=owner.get('line_start', 0), owner_line_end=owner.get('line_end', 0))
-    decisions = {row['observation_id']: QualificationDecision(**row) for row in first('qualification_decisions_created')['decisions']}
+    decisions = {
+        row['observation_id']: qualification_decision_from_trace(row)
+        for row in first('qualification_decisions_created')['decisions']
+    }
     coverage = tuple(ObligationCoverage(**row) for row in first('coverage_evaluated')['coverage'])
     config = WorkspaceRetrievalConfig(args.workspace_root, '', None, None, None)
     bridge = CodeGraphBridge(config)

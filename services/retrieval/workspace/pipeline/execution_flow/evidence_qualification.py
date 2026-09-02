@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 import json
 import hashlib
 from pathlib import Path
@@ -9,23 +9,15 @@ from typing import Any, Mapping, Sequence
 from services.llm.json_completion import complete_json
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import fit_cards_to_source_capacity
+from services.retrieval.workspace.pipeline.execution_flow.qualification_contract import (
+    EvidenceAssessment,
+    EvidenceDisposition,
+    EvidenceKind,
+    QualificationRationale,
+)
 
 
 PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "evidence_qualification.md"
-VALID_COMBINATIONS = {
-    ("promote", "direct_evidence"),
-    ("promote", "navigation_only"),
-    ("defer", "navigation_only"),
-    ("defer", "insufficient"),
-    ("reject", "insufficient"),
-}
-CLASSIFICATION_TO_DECISION = {
-    "promote_direct": ("promote", "direct_evidence"),
-    "promote_navigation": ("promote", "navigation_only"),
-    "defer_navigation": ("defer", "navigation_only"),
-    "defer_insufficient": ("defer", "insufficient"),
-    "reject_insufficient": ("reject", "insufficient"),
-}
 INPUT_SAFETY_RESERVE_CHARS = 512
 MAX_QUALIFICATION_REASON_CHARS = 400
 
@@ -33,16 +25,15 @@ MAX_QUALIFICATION_REASON_CHARS = 400
 @dataclass(frozen=True)
 class QualificationDecision:
     observation_id: str
-    disposition: str
-    support_level: str
-    reason: str
-    visible_support: tuple[str, ...] = ()
-    missing_information: tuple[str, ...] = ()
-    local_follow_up: str = ""
-    supported_obligation_ids: tuple[str, ...] = ()
+    assessment: EvidenceAssessment
+    rationale: QualificationRationale
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return {
+            "observation_id": self.observation_id,
+            "assessment": self.assessment.to_dict(),
+            "rationale": self.rationale.to_dict(),
+        }
 
 
 class QualificationReuseCache:
@@ -329,7 +320,7 @@ def _qualify_card_batch(
     if reuse_cache is not None:
         for decision in decisions:
             fingerprint = fingerprints.get(decision.observation_id)
-            if fingerprint is not None and decision.support_level == "direct_evidence":
+            if fingerprint is not None and decision.assessment.is_direct_fact:
                 reuse_cache.entries[(decision.observation_id, fingerprint)] = (decision, round_index)
                 card = next(card for card in all_cards if card.observation_id == decision.observation_id)
                 reuse_cache.proofs[(decision.observation_id, proof_keys[decision.observation_id])] = (
@@ -513,49 +504,37 @@ def _validate_decisions(
         value = raw.get(observation_id)
         if not isinstance(value, Mapping):
             raise RuntimeError("qualification_response_invalid: decision must be an object")
-        classification = str(value.get("classification") or "")
-        disposition, support_level = CLASSIFICATION_TO_DECISION.get(classification, ("", ""))
-        if (disposition, support_level) not in VALID_COMBINATIONS:
-            raise RuntimeError(f"qualification_response_invalid: invalid decision for {observation_id}")
-        reason = str(value.get("reason") or "").strip()
-        if not reason:
-            raise RuntimeError(f"qualification_response_invalid: missing reason for {observation_id}")
-        if len(reason) > MAX_QUALIFICATION_REASON_CHARS:
-            raise RuntimeError(f"qualification_response_invalid: reason exceeds {MAX_QUALIFICATION_REASON_CHARS} characters for {observation_id}")
-        visible_support = _strings(value.get("visible_support"), limit=6)
-        if disposition == "promote" and not visible_support:
-            raise RuntimeError(f"qualification_response_invalid: promotion lacks visible support for {observation_id}")
-        supported_obligation_ids = _strings(value.get("supported_obligation_ids"), limit=12)
+        assessment_value = value.get("assessment")
+        rationale_value = value.get("rationale")
+        if not isinstance(assessment_value, Mapping) or not isinstance(rationale_value, Mapping):
+            raise RuntimeError(f"qualification_response_invalid: nested assessment and rationale required for {observation_id}")
+        try:
+            assessment = EvidenceAssessment.from_mapping(assessment_value)
+            rationale = QualificationRationale.from_mapping(
+                rationale_value, max_reason_chars=MAX_QUALIFICATION_REASON_CHARS
+            )
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(f"qualification_response_invalid: {observation_id}: {exc}") from exc
+        if assessment.is_retained and not rationale.visible_support:
+            raise RuntimeError(f"qualification_response_invalid: retained evidence lacks visible support for {observation_id}")
         allowed = set((allowed_obligations or {}).get(observation_id, ()))
-        unknown_obligations = set(supported_obligation_ids) - allowed
+        claimed_obligations = set(assessment.contributing_obligation_ids) | set(
+            assessment.individually_established_obligation_ids
+        )
+        unknown_obligations = claimed_obligations - allowed
         if unknown_obligations:
             raise RuntimeError(
                 "qualification_response_invalid: unsupported obligation IDs for "
                 f"{observation_id}: {sorted(unknown_obligations)}"
             )
-        if support_level == "direct_evidence" and not supported_obligation_ids:
-            raise RuntimeError(
-                f"qualification_response_invalid: direct evidence lacks supported obligations for {observation_id}"
-            )
         decisions.append(
             QualificationDecision(
                 observation_id=observation_id,
-                disposition=disposition,
-                support_level=support_level,
-                reason=reason,
-                visible_support=visible_support,
-                missing_information=_strings(value.get("missing_information"), limit=6),
-                local_follow_up=str(value.get("local_follow_up") or "").strip()[:500],
-                supported_obligation_ids=supported_obligation_ids,
+                assessment=assessment,
+                rationale=rationale,
             )
         )
     return tuple(decisions)
-
-
-def _strings(value: object, *, limit: int) -> tuple[str, ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    return tuple(str(item).strip() for item in value[:limit] if str(item).strip())
 
 
 def _response_format(ids: Sequence[str]) -> dict[str, Any]:
@@ -563,21 +542,35 @@ def _response_format(ids: Sequence[str]) -> dict[str, Any]:
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "classification": {"type": "string", "enum": list(CLASSIFICATION_TO_DECISION)},
-            "reason": {"type": "string", "minLength": 1, "maxLength": MAX_QUALIFICATION_REASON_CHARS},
-            "visible_support": {"type": "array", "items": {"type": "string"}},
-            "missing_information": {"type": "array", "items": {"type": "string"}},
-            "local_follow_up": {"type": "string"},
-            "supported_obligation_ids": {"type": "array", "items": {"type": "string"}},
+            "assessment": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "disposition": {"type": "string", "enum": [item.value for item in EvidenceDisposition]},
+                    "evidence_kind": {"type": "string", "enum": [item.value for item in EvidenceKind]},
+                    "contributing_obligation_ids": {"type": "array", "items": {"type": "string"}},
+                    "individually_established_obligation_ids": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": [
+                    "disposition",
+                    "evidence_kind",
+                    "contributing_obligation_ids",
+                    "individually_established_obligation_ids",
+                ],
+            },
+            "rationale": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "reason": {"type": "string", "minLength": 1, "maxLength": MAX_QUALIFICATION_REASON_CHARS},
+                    "visible_support": {"type": "array", "items": {"type": "string"}},
+                    "missing_information": {"type": "array", "items": {"type": "string"}},
+                    "local_follow_up": {"type": "string"},
+                },
+                "required": ["reason", "visible_support", "missing_information", "local_follow_up"],
+            },
         },
-        "required": [
-            "classification",
-            "reason",
-            "visible_support",
-            "missing_information",
-            "local_follow_up",
-            "supported_obligation_ids",
-        ],
+        "required": ["assessment", "rationale"],
     }
     return {
         "type": "json_schema",

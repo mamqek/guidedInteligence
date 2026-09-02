@@ -21,8 +21,9 @@ class ActionPurpose(str, Enum):
     INSPECT_DEFERRED_DISCOVERY = "inspect_deferred_discovery"
     DISCLOSE_DEFERRED_OWNER = "disclose_deferred_owner"
     OWNER_CONTINUATION = "owner_continuation"
+    DORMANT_FILE_ALTERNATIVES = "dormant_file_alternatives"
     RELATIONSHIP_EXPANSION = "relationship_expansion"
-    WITHIN_FILE_SEARCH = "within_file_search"
+    WITHIN_FILE_HANDOFF_EXPANSION = "within_file_handoff_expansion"
     HANDOFF_COMPLETION = "handoff_completion"
     DEFERRED_FILE_RESCUE = "deferred_file_rescue"
     OWNER_MATURATION = "owner_maturation"
@@ -43,10 +44,12 @@ ACTION_POOLS: dict[ActionPurpose, ActionPool] = {
     ActionPurpose.DISCLOSE_DEFERRED_OWNER: ActionPool.ORDINARY,
     # Reveal a later omitted section of an already identified large owner.
     ActionPurpose.OWNER_CONTINUATION: ActionPool.ORDINARY,
+    # Batch known owners from one file that has no qualified observation.
+    ActionPurpose.DORMANT_FILE_ALTERNATIVES: ActionPool.ORDINARY,
     # Follow represented calls/imports/inheritance from an active observation.
     ActionPurpose.RELATIONSHIP_EXPANSION: ActionPool.ORDINARY,
     # Search a known useful file for a more precise unresolved mechanism.
-    ActionPurpose.WITHIN_FILE_SEARCH: ActionPool.ORDINARY,
+    ActionPurpose.WITHIN_FILE_HANDOFF_EXPANSION: ActionPool.ORDINARY,
     # Continue locally after a cross-file handoff stayed incomplete.
     ActionPurpose.HANDOFF_COMPLETION: ActionPool.ORDINARY,
     # Search for a distinct unresolved mechanism outside represented islands.

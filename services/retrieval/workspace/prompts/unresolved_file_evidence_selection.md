@@ -17,7 +17,29 @@ in this specific selected flow from one thin link. It is not proof of behavior
 inside the destination, and it must not override the other gates or be treated
 as a generic graph-degree score.
 
-For every trace, return exactly one `select` or `reject` decision.
+For every trace, return exactly one `select` or `reject` decision. Also return
+`ranked_selected_trace_ids`: every trace marked `select`, exactly once, ordered
+from most to least valuable for the final evidence set. Do not include rejected
+trace IDs in that list. The runtime may have less output capacity than the
+number of useful traces, so this ordering—not input order—controls admission.
+
+The request also distinguishes protected selected snippets from replaceable
+selected snippets. Protected snippets are already-established direct evidence,
+mandatory baseline seeds, unique support for a selected obligation/mechanism,
+or grounded sources needed to interpret a file trace. They cannot be removed.
+Replaceable snippets remain relevant, but are redundant supporting context.
+
+Return `ranked_optional_evidence_ids` as one joint semantic ordering containing:
+
+- every ID in `replaceable_selected_candidate_ids`, exactly once; and
+- every trace ID marked `select`, exactly once.
+
+Do not include protected snippet IDs or rejected trace IDs. Rank a selected
+trace above a replaceable snippet only when preserving that unresolved file
+participant contributes more distinct explanatory value than the redundant
+snippet. The runtime fills the capacity left after protected snippets from this
+joint ordering. This is a comparison of optional evidence, not permission to
+weaken already-established direct support.
 
 Select a trace when it honestly preserves a distinct file participant or next
 owner in the selected mechanism, even though retrieval failed to localize the
@@ -28,6 +50,11 @@ pretending that an inadequate snippet proves behavior.
 Reject a trace when the selected snippets already establish the same file
 handoff indirectly, the trace does not add a useful unresolved participant, or
 its relationship is too generic to help explain or continue the mechanism.
+
+Rank selected traces primarily by distinct participation in the selected
+mechanism, contribution to an unresolved handoff, absence of another selected
+representation of the same file or role, and nonredundancy with higher-ranked
+traces. Treat structural call count only as a secondary strength signal.
 
 Do not infer a mutation, rebuild, diagnostic, or other implementation fact
 inside the destination. Selection means only: the accepted source reaches this

@@ -135,6 +135,11 @@ class CodexRetrievalStage:
         if completed.returncode != 0:
             detail = (completed.stderr or completed.stdout or "").strip()[:1200]
             raise CodexRetrievalError(f"Codex retrieval failed with exit code {completed.returncode}: {detail}")
+        if _codex_execution_policy_blocked(completed.stderr or ""):
+            raise CodexRetrievalError(
+                "Codex retrieval could not inspect the repository because local command execution was blocked "
+                "by policy. The CLI exited successfully, but this is not a valid retrieval result."
+            )
         try:
             payload = json.loads(output_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
@@ -231,6 +236,11 @@ class CodexRetrievalStage:
         }
         with (run_dir / "retrieval-trace.jsonl").open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True) + "\n")
+
+
+def _codex_execution_policy_blocked(stderr: str) -> bool:
+    lowered = stderr.lower()
+    return "exec_command failed" in lowered and "rejected: blocked by policy" in lowered
 
 
 def load_codex_prompt_profile(

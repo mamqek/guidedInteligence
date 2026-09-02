@@ -27,6 +27,35 @@ The repository mix is therefore as even as possible while preserving the 21 exis
 | Testing/build/tooling | 3 | 1 | 1 | 5 |
 | Maintenance/refactor | 3 | 1 | 1 | 5 |
 
+## Secondary retrieval topology
+
+The seven categories above describe issue intent, not repository evidence shape. Statistics must additionally use
+the reporting-only `retrieval_topology` axis defined by the
+[statistics protocol](RETRIEVAL_STATISTICS_PROTOCOL.md#secondary-retrieval-topology-axis):
+
+- `localized_declarative`
+- `localized_implementation`
+- `connected_mechanism`
+- `broad_cross_cutting`
+
+This axis is not balanced and must not affect case selection, retrieval, ranking, or Oracle membership. Its purpose
+is to make results interpretable: a system based heavily on callable relationships should not be expected to fail
+or succeed for the same reasons on a manifest-only correction, a focused runtime owner, a multi-file mechanism, and
+a repository-wide cleanup.
+
+Examples already audited in the development partition are:
+
+| Case | Issue category | Retrieval topology | Reason |
+| --- | --- | --- | --- |
+| `microsoft-TypeScript-2953` | `bug_regression` | `localized_declarative` | The implementation Oracle is an authored standard-library declaration file with no useful callable graph owner. |
+| `vuejs-vue-6301` | `feature_enhancement` | `localized_declarative` | The relevant resolution includes declarations and package metadata, so literal/artifact retrieval matters more than call flow. |
+| `vuejs-vue-10803` | `bug_regression` | `localized_implementation` | `renderDOMProps` is one focused runtime implementation owner; CodeGraph resolves it normally. |
+| `microsoft-TypeScript-46770` | `compatibility_versioning` | `connected_mechanism` | The issue requires following NodeNext configuration through package resolution and format interpretation. |
+| `pandas-dev-pandas-16764` | `performance_memory` | `broad_cross_cutting` | The import-time resolution changes a broad startup/import surface rather than one operation owner. |
+
+Freeze the remaining assignments from existing case metadata before the next declared statistics campaign. Do not
+inspect held-out retrieval output or use final-partition results to revise an assignment.
+
 ## New Development Candidates
 
 These cases may be materialized, run, inspected, and used for tuning.

@@ -30,6 +30,28 @@ The target corpus has 35 retrieval-grounded cases, five in each category:
 
 All seven final cases must be frozen before system-level evaluation. Eligibility screening—checking issue quality, resolution availability, and snapshot feasibility—is allowed. Retrieval runs, tuning against outputs, and manual inspection of system results are not allowed until final evaluation begins. The selected expansion and split are recorded in [RETRIEVAL_STATISTICS_CORPUS_SPLIT.md](RETRIEVAL_STATISTICS_CORPUS_SPLIT.md).
 
+### Secondary retrieval-topology axis
+
+Issue category describes what kind of request the issue represents. It does not describe how the hidden resolution
+is distributed through the repository. Every case must therefore also receive one frozen, reporting-only
+`retrieval_topology` value:
+
+| Value | Meaning |
+| --- | --- |
+| `localized_declarative` | The resolution is centered on a declaration, manifest, configuration, build-data, or other artifact whose responsibility is mainly established lexically rather than through callable graph edges. |
+| `localized_implementation` | One focused implementation owner, or a very small local owner set, is sufficient; a cross-file causal flow is not necessary to identify the responsibility. |
+| `connected_mechanism` | Explaining the resolution requires a handoff or state/control/data flow across multiple owners or files. |
+| `broad_cross_cutting` | The resolution is intentionally distributed across many weakly connected files, such as import-surface cleanup, mechanical refactoring, or repository-wide tooling maintenance. |
+
+Assign topology from the frozen issue and resolution/Oracle metadata, never from a retrieval system's output. It is
+not an input feature, relevance boost, exclusion rule, or justification for changing an Oracle after scores are
+known. Freeze it before a case enters an evaluation campaign. If a resolution mixes shapes, choose the topology
+that describes the evidence needed to identify the central implementation responsibility and record the ambiguity
+in the case notes.
+
+This secondary axis is intentionally orthogonal to the seven balanced issue categories. It is not required to be
+balanced, and weak performance in one topology must be reported rather than hidden by deleting those cases.
+
 ## Compared Conditions
 
 The two conditions are:
@@ -112,7 +134,7 @@ Do not report @20 in the headline comparison unless both systems were configured
 
 ## Runs And Repetitions
 
-The headline evaluation uses **exactly one valid run per testcase and system per campaign**. This keeps every case equally measured and makes the result easy to audit. Infrastructure failures—such as API rate limits, unavailable Qdrant, or an incomplete artifact—do not count as runs; retry until one valid run is obtained. Once a valid run has been selected, do not replace it because another valid run scores better.
+The headline evaluation uses **exactly one valid run per testcase and system per campaign**. This keeps every case equally measured and makes the result easy to audit. Infrastructure and retrieval-execution failures—such as API rate limits, unavailable Qdrant, an incomplete artifact, `coverage_status=failed`, or a completed process that returns no usable evidence—do not count as valid runs; retry until one valid run is obtained. Artifact existence and process exit code are necessary but not sufficient validity checks. The campaign runner must inspect `retrieval_result`, require a nonempty evidence list, and record the retrieval stop reason when rejecting an attempt. Once a valid run has been selected, do not replace it because another valid run scores better.
 
 Additional valid executions under the same condition are not pooled into the headline result. They may be retained as a separately labelled indexing check, diagnostic run, or stability analysis. Their original purpose does not make them invalid; the one-run campaign selection rule alone determines whether they enter headline metrics.
 
@@ -130,6 +152,7 @@ Headline aggregation order is:
 The required headline value for every metric is the macro-average across case-level scores. Also report:
 
 - one row per category;
+- one row per retrieval topology;
 - one row per repository;
 - the development and final partitions separately;
 - the number of cases and individual runs behind every aggregate.
@@ -170,9 +193,9 @@ Each statistics report must contain, in this order:
 1. **Status and scope:** pilot/development/final, case count, categories, repositories, and cutoff date.
 2. **Conditions:** retrieval mode, prompt/profile, model, configuration identifier, run selection rule, index reuse/signature, and pricing snapshot when currency estimates are reported.
 3. **Plain-language metric note:** files are ranked; implementation files define P/R; supporting files receive partial NDCG relevance; missing ranks are nonrelevant.
-4. **Run inventory:** case, partition, category, system, selected run ID, model/profile, campaign selection rule, end-to-end elapsed time, and token accounting. Report time and tokens for every selected testcase/system pair; do not provide aggregates alone. Token accounting must separately show indexing tokens, non-indexing flow tokens, and their total. For Codex runs, additionally show cached input tokens, uncached input tokens, and output tokens; reasoning output tokens may be shown as a non-additive subset of output tokens.
+4. **Run inventory:** case, partition, category, retrieval topology, system, selected run ID, campaign selection rule, end-to-end elapsed time, and token accounting. Declare invariant model, retrieval-system, and profile/config values once in the Conditions section instead of repeating them on every run row. Report time and tokens for every selected testcase/system pair; do not provide aggregates alone. Token accounting must separately show indexing tokens, non-indexing flow tokens, and their total. Also report observed indexing duration and the matching source build run when an exact reusable index-build trace exists. For Codex runs, additionally show cached input tokens, uncached input tokens, and output tokens; reasoning output tokens may be shown as a non-additive subset of output tokens.
 5. **Headline metrics:** the complete P/R/NDCG table at 1, 2, 5, and 10.
-6. **Breakdowns:** per category and per repository, with counts.
+6. **Breakdowns:** per category, per retrieval topology, and per repository, with counts.
 7. **Per-case results:** enough detail to audit the averages.
 8. **Limitations:** missing cases, mixed models, single-run stochasticity, output limits, failed attempts, or Oracle concerns.
 9. **Reproduction note:** source files, calculation version/script or exact formula, and the original index-build artifact or declared amortization treatment for every cost comparison.
@@ -190,11 +213,14 @@ Use decimal values from 0 to 1 and display three decimal places. Calculate with 
 - [ ] NDCG uses grades 2/1/0 and the documented gain formula.
 - [ ] Exactly one valid run is selected per case/system for the headline campaign.
 - [ ] Failed infrastructure attempts are excluded, and no successful run was replaced based on its score.
+- [ ] A zero-evidence or failed-coverage retrieval is rejected even when the process exited successfully and wrote all expected artifacts.
 - [ ] Model/profile and run selection are explicit; mixed Codex models are stratified.
+- [ ] Invariant model/retrieval/profile values are declared once rather than repeated on every inventory row.
 - [ ] Every selected testcase/system pair reports its end-to-end elapsed time, indexing tokens, non-indexing flow tokens, and total tokens; any unavailable value is explicitly marked unavailable with its artifact reason.
 - [ ] Codex rows also distinguish cached input tokens, uncached input tokens, and output tokens; reasoning output tokens, if reported, are labeled as a subset of output tokens rather than added again.
 - [ ] Every reused-index row names the matching original index-build artifact and signature; any amortization names the exact shared index signature and divisor.
 - [ ] Currency estimates state their provider/model pricing snapshot and price cached Codex inputs separately from uncached inputs and outputs.
 - [ ] Counts accompany all aggregates.
+- [ ] Every case has one frozen reporting-only retrieval topology, and the report includes the topology breakdown.
 - [ ] The report itself repeats the definitions needed by a reader.
 - [ ] Final cases remained untouched until the declared final evaluation.

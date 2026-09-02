@@ -48,12 +48,24 @@ def evaluate_coverage(
 ) -> CoverageBatch:
     if not obligations:
         return CoverageBatch(coverage=(), usage={})
-    candidate_ids = tuple(str(item.get("candidate_id") or "") for item in candidates if item.get("candidate_id"))
-    payload = {
+    fixed_payload = {
         "request": user_request,
         "obligations": [item.to_dict() for item in obligations],
-        "direct_evidence": _bounded_candidates(candidates, max_input_chars=max_input_chars),
+        "direct_evidence": [],
     }
+    fixed_chars = len(json.dumps(fixed_payload, sort_keys=True))
+    if fixed_chars >= max_input_chars:
+        raise RuntimeError("coverage_input_budget_too_small_for_request")
+    bounded_candidates = _bounded_candidates(
+        candidates,
+        max_input_chars=max_input_chars - fixed_chars,
+    )
+    candidate_ids = tuple(
+        str(item.get("candidate_id") or "")
+        for item in bounded_candidates
+        if item.get("candidate_id")
+    )
+    payload = {**fixed_payload, "direct_evidence": bounded_candidates}
     if len(json.dumps(payload, sort_keys=True)) > max_input_chars:
         raise RuntimeError("coverage_input_budget_too_small_for_metadata")
     usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
@@ -87,14 +99,39 @@ def evaluate_coverage(
 
 
 def _bounded_candidates(candidates: Sequence[Mapping[str, Any]], *, max_input_chars: int) -> list[dict[str, Any]]:
-    fixed_allowance = 8000
-    per_candidate = max(400, (max_input_chars - fixed_allowance) // max(1, len(candidates)))
+    per_candidate = max(0, (max_input_chars - 2) // max(1, len(candidates)))
     values: list[dict[str, Any]] = []
     for candidate in candidates:
-        value = dict(candidate)
-        snippet = str(value.get("snippet") or "")
+        snippet = str(candidate.get("snippet") or "")
+        assessment = candidate.get("qualification_assessment")
+        compact_assessment = (
+            {
+                "evidence_kind": str(assessment.get("evidence_kind") or ""),
+                "contributing_obligation_ids": list(
+                    assessment.get("contributing_obligation_ids") or ()
+                ),
+                "individually_established_obligation_ids": list(
+                    assessment.get("individually_established_obligation_ids") or ()
+                ),
+            }
+            if isinstance(assessment, Mapping)
+            else None
+        )
+        # Coverage needs identity, location, qualification, and visible source.
+        # Controller-only handles and line metadata add no coverage semantics
+        # and previously allowed metadata alone to exceed the request budget.
+        value = {
+            "candidate_id": str(candidate.get("candidate_id") or ""),
+            "path": str(candidate.get("path") or ""),
+            "symbol": str(candidate.get("symbol") or ""),
+            "qualification_reason": str(candidate.get("qualification_reason") or "")[:240],
+            "qualification_assessment": compact_assessment,
+            "obligation_ids": list(candidate.get("obligation_ids") or ()),
+            "snippet": "",
+        }
         metadata_chars = len(json.dumps({**value, "snippet": ""}, sort_keys=True))
-        snippet_budget = max(0, per_candidate - metadata_chars)
+        truncation_marker_reserve = 48
+        snippet_budget = max(0, per_candidate - metadata_chars - truncation_marker_reserve)
         value["snippet"] = snippet[:snippet_budget]
         if len(snippet) > snippet_budget:
             value["coverage_truncated"] = True

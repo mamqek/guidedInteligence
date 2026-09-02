@@ -23,12 +23,20 @@ from services.retrieval.workspace.pipeline.execution_flow.actions.models import 
     ActionExecution,
     ExpandRelationship,
     InspectDeferredObservation,
+    InspectDormantFileAlternatives,
+    InspectOwnerChallengers,
     InspectOwnerContinuation,
     InspectVerifiedLead,
     RetrievalAction,
     SearchNewIsland,
-    SearchWithinFile,
+    ExpandWithinFileHandoff,
     StopRetrieval,
+)
+from services.retrieval.workspace.pipeline.execution_flow.actions.dormant_file_alternatives import (
+    build_dormant_file_alternatives_action,
+)
+from services.retrieval.workspace.pipeline.execution_flow.owner_representation import (
+    OwnerRepresentationSelection,
 )
 from services.retrieval.workspace.tools import ToolRequest
 
@@ -39,13 +47,16 @@ def enumerate_actions(
     obligations: Sequence[EvidenceObligation],
     coverage: Sequence[ObligationCoverage],
     observations: Sequence[DiscoveryObservation],
+    dormant_file_observations: Sequence[DiscoveryObservation] = (),
     decisions: Sequence[QualificationDecision],
     cards: Sequence[Any],
     active_root_ids: Sequence[str],
     edge_capabilities_tool: Any,
     attempted_fingerprints: set[str],
+    dormant_file_alternatives_enabled: bool = False,
     file_nodes_tool: Any | None = None,
     observation_to_island: Mapping[str, str] | None = None,
+    owner_representations: OwnerRepresentationSelection | None = None,
     trace: Any | None = None,
     round_index: int = 0,
 ) -> ActionCatalogue:
@@ -59,9 +70,9 @@ def enumerate_actions(
     represented_paths = {
         observation_by_id[observation_id].handle.path.casefold()
         for observation_id, decision in decision_by_id.items()
-        if decision.disposition == "promote" and observation_id in observation_by_id
+        if decision.assessment.is_retained and observation_id in observation_by_id
     }
-    deferred_seed_candidates: dict[str, list[tuple[SearchWithinFile, dict[str, Any]]]] = {}
+    deferred_seed_candidates: dict[str, list[tuple[ExpandWithinFileHandoff, dict[str, Any]]]] = {}
     deferred_seed_audit: list[dict[str, Any]] = []
     bounded_handoff_pairs = {
         (root.id, gap.obligation_id)
@@ -122,6 +133,22 @@ def enumerate_actions(
 
     actions: list[RetrievalAction] = []
     unavailable: list[dict[str, Any]] = []
+    if owner_representations is not None:
+        for batch in owner_representations.challenger_batches:
+            action = InspectOwnerChallengers(
+                id=_action_id(
+                    "owner_challengers", batch.path.casefold(), *batch.challenger_observation_ids
+                ),
+                path=batch.path,
+                observation_ids=batch.challenger_observation_ids,
+                primary_observation_ids=batch.primary_observation_ids,
+                obligation_ids=batch.obligation_ids,
+                reason="Disclose held owners that may improve the qualified file/obligation representative.",
+                priority=batch.priority,
+                scope_id=_scope_id("owner_representation", batch.path.casefold()),
+            )
+            if action.id not in attempted_fingerprints:
+                actions.append(action)
     qualified_paths = {
         observation.handle.path.casefold()
         for observation in observations
@@ -132,14 +159,14 @@ def enumerate_actions(
         observation = observation_by_id.get(observation_id)
         if (
             observation is None
-            or decision.disposition != "promote"
-            or not decision.local_follow_up.strip()
+            or not decision.assessment.is_retained
+            or not decision.rationale.local_follow_up.strip()
             or not observation.handle.path
         ):
             continue
         path = observation.handle.path.casefold()
         promoted_followups_by_path[path] = tuple(dict.fromkeys(
-            (*promoted_followups_by_path.get(path, ()), decision.local_follow_up.strip())
+            (*promoted_followups_by_path.get(path, ()), decision.rationale.local_follow_up.strip())
         ))
     for gap in coverage:
         if gap.status in {"covered", "external"} or gap.obligation_id not in obligation_by_id:
@@ -193,20 +220,20 @@ def enumerate_actions(
                     scope_id=island_by_observation.get(observation.id, ""),
                     purpose=(
                         ActionPurpose.OWNER_MATURATION
-                        if decision.local_follow_up
+                        if decision.rationale.local_follow_up
                         else ActionPurpose.OWNER_CONTINUATION
                     ),
                 )
                 if action.id not in attempted_fingerprints:
                     actions.append(action)
-            if decision.disposition == "promote" and observation.id not in active_root_set:
+            if decision.assessment.is_retained and observation.id not in active_root_set:
                 continue
             bounded_followup = (observation.id, gap.obligation_id) in bounded_handoff_pairs
             source_anchors = _source_call_identifiers(
                 str(getattr(card_by_id.get(observation.id), "source_text", "") or "")
             )
             if handle.path and (
-                decision.support_level == "navigation_only"
+                decision.assessment.is_navigation
                 or _is_strong_navigation_observation(observation)
                 or (bounded_followup and bool(handle.symbol or observation.exact_anchor_matches or source_anchors))
             ):
@@ -220,27 +247,27 @@ def enumerate_actions(
                 completing_handoff = bounded_followup or bool(observation.parent_observation_ids)
                 handoff_reason = _handoff_reason(decision, gap) if completing_handoff else ""
                 owner_maturation = (
-                    decision.disposition == "promote"
-                    and decision.support_level == "navigation_only"
-                    and bool(decision.local_follow_up)
+                    decision.assessment.is_retained
+                    and decision.assessment.is_navigation
+                    and bool(decision.rationale.local_follow_up)
                     and not (observation.artifact_role == "test" and not handle.node_id)
                     and gap.status not in {"covered", "external"}
                 )
-                action = SearchWithinFile(
+                action = ExpandWithinFileHandoff(
                     id=_action_id("within_file", gap.obligation_id, observation.id, handle.path, *anchors),
                     obligation_id=gap.obligation_id,
                     source_observation_id=observation.id,
                     path=handle.path,
                     dense_query=(
                         _test_maturation_query(decision, gap)
-                        if observation.artifact_role == "test" and not handle.node_id and decision.local_follow_up.strip()
+                        if observation.artifact_role == "test" and not handle.node_id and decision.rationale.local_follow_up.strip()
                         else _handoff_query(user_request, gap, decision) if completing_handoff else user_request
                     ),
                     sparse_anchors=anchors,
                     priority=_navigation_priority(observation, decision),
                     scope_id=(
                         island_by_observation.get(observation.id, "")
-                        if decision.disposition == "promote"
+                        if decision.assessment.is_retained
                         else _scope_id("unresolved_obligation", gap.obligation_id)
                     ),
                     handoff_reason=handoff_reason,
@@ -249,12 +276,12 @@ def enumerate_actions(
                         if owner_maturation
                         else ActionPurpose.HANDOFF_COMPLETION
                         if observation.parent_observation_ids
-                        else ActionPurpose.WITHIN_FILE_SEARCH
+                        else ActionPurpose.WITHIN_FILE_HANDOFF_EXPANSION
                     ),
                 )
                 if action.id not in attempted_fingerprints:
                     actions.append(action)
-            if decision.disposition != "defer":
+            if not decision.assessment.is_deferred:
                 continue
             full_range = (handle.full_line_start or handle.line_start, handle.full_line_end or handle.line_end)
             if full_range == (handle.line_start, handle.line_end) and observation.disclosure_status != "fold":
@@ -287,7 +314,7 @@ def enumerate_actions(
         handle = observation.handle
         if (
             decision is None
-            or decision.disposition != "reject"
+            or not decision.assessment.is_rejected
             or observation.artifact_role != "test"
             or handle.node_id
             or handle.symbol
@@ -308,9 +335,9 @@ def enumerate_actions(
                 decision is None
                 or observation.artifact_role != "test"
                 or handle.node_id
-                or decision.disposition != "promote"
-                or decision.support_level != "navigation_only"
-                or not decision.local_follow_up.strip()
+                or not decision.assessment.is_retained
+                or not decision.assessment.is_navigation
+                or not decision.rationale.local_follow_up.strip()
                 or not handle.path
                 or not observation.obligation_ids
             ):
@@ -327,15 +354,18 @@ def enumerate_actions(
                 continue
             hint_ids = short_rejected_headers_by_path.get(handle.path.casefold(), ())
             source_obligation_id = observation.obligation_ids[0]
-            action = SearchWithinFile(
-                id=_action_id("test_maturation", source_obligation_id, observation.id, handle.path, decision.local_follow_up),
+            action = ExpandWithinFileHandoff(
+                id=_action_id(
+                    "test_maturation", source_obligation_id, observation.id, handle.path,
+                    decision.rationale.local_follow_up,
+                ),
                 obligation_id=source_obligation_id,
                 source_observation_id=observation.id,
                 path=handle.path,
                 dense_query=_test_maturation_query(decision),
                 priority=_navigation_priority(observation, decision) - (200 if hint_ids else 0),
                 scope_id=island_by_observation.get(observation.id, ""),
-                handoff_reason=decision.local_follow_up.strip(),
+                handoff_reason=decision.rationale.local_follow_up.strip(),
                 file_trigger_hint_observation_ids=hint_ids,
                 purpose=ActionPurpose.TEST_SCENARIO_MATURATION,
             )
@@ -351,7 +381,7 @@ def enumerate_actions(
                 str(getattr(card_by_id.get(root.id), "source_text", "") or "")
             )
             bounded_followup = (root.id, gap.obligation_id) in bounded_handoff_pairs
-            if decision.support_level == "direct_evidence" and not bounded_followup:
+            if decision.assessment.is_direct_fact and not bounded_followup:
                 continue
             seeds: list[tuple[str, str]] = []
             if root.handle.node_id:
@@ -463,6 +493,19 @@ def enumerate_actions(
         for other_seed, other_audit in candidates_for_obligation:
             if other_seed.id != seed.id:
                 other_audit["reason"] = "lower_ranked_eligible_seed_for_same_obligation"
+    dormant_file_audit: tuple[dict[str, Any], ...] = ()
+    if dormant_file_alternatives_enabled:
+        dormant_file_action, dormant_file_audit = build_dormant_file_alternatives_action(
+            user_request=user_request,
+            observations=tuple(dict.fromkeys((*dormant_file_observations, *observations))),
+            decisions=decisions,
+            coverage=coverage,
+            attempted_action_ids=attempted_fingerprints,
+            action_id_factory=_action_id,
+        )
+        if dormant_file_action is not None:
+            actions.append(dormant_file_action)
+    actions = _deduplicate_owner_continuations(actions)
     actions = _deduplicate_file_expansions(actions)
     actions = list(dict.fromkeys(actions))
     raw_action_count = len(actions)
@@ -479,9 +522,52 @@ def enumerate_actions(
                 "scope_count": len({item.scope_id or item.id for item in actions}),
                 "frontier_pruning": frontier_pruning,
                 "deferred_file_seed_audit": deferred_seed_audit,
+                "dormant_file_alternatives_audit": list(dormant_file_audit),
             },
         )
     return ActionCatalogue(actions=tuple(actions), unavailable=tuple(unavailable), tool_calls=tool_calls)
+
+
+def _deduplicate_owner_continuations(actions: Sequence[RetrievalAction]) -> list[RetrievalAction]:
+    """Collapse obligation clones of one physical owner disclosure."""
+
+    grouped: dict[
+        tuple[str, tuple[int, int], tuple[int, int], ActionPurpose],
+        list[InspectOwnerContinuation],
+    ] = {}
+    retained: list[RetrievalAction] = []
+    for action in actions:
+        if not isinstance(action, InspectOwnerContinuation):
+            retained.append(action)
+            continue
+        key = (
+            action.observation_id,
+            action.requested_range,
+            action.owner_range,
+            action.purpose,
+        )
+        grouped.setdefault(key, []).append(action)
+    for key, variants in grouped.items():
+        primary = min(variants, key=lambda item: (item.obligation_id, item.id))
+        obligation_ids = tuple(sorted({
+            obligation_id
+            for item in variants
+            for obligation_id in (item.obligation_ids or (item.obligation_id,))
+            if obligation_id
+        }))
+        retained.append(replace(
+            primary,
+            id=_action_id(
+                "owner_continuation",
+                key[0],
+                str(key[1]),
+                str(key[2]),
+                key[3].value,
+                *obligation_ids,
+            ),
+            obligation_ids=obligation_ids,
+        ))
+    return retained
 
 
 def _deduplicate_file_expansions(actions: Sequence[RetrievalAction]) -> list[RetrievalAction]:
@@ -582,6 +668,56 @@ def execute_action(
             tool_calls=0,
             status="ok",
         )
+    if isinstance(action, InspectDormantFileAlternatives):
+        selected = []
+        observation_by_id = {item.id: item for item in observations}
+        for observation_id in action.observation_ids:
+            observation = observation_by_id.get(observation_id)
+            if observation is None:
+                continue
+            selected.append(replace(
+                observation,
+                handle=replace(
+                    observation.handle,
+                    line_start=observation.handle.full_line_start or observation.handle.line_start,
+                    line_end=observation.handle.full_line_end or observation.handle.line_end,
+                    adapter="dormant_file_alternatives",
+                ),
+                disclosure_status="undisclosed",
+                ambiguity_count=1,
+            ))
+        return ActionExecution(
+            action_id=action.id,
+            observations=tuple(selected),
+            edges=(),
+            tool_calls=0,
+            status="ok" if selected else "empty",
+        )
+    if isinstance(action, InspectOwnerChallengers):
+        selected = []
+        observation_by_id = {item.id: item for item in observations}
+        for observation_id in action.observation_ids:
+            observation = observation_by_id.get(observation_id)
+            if observation is None:
+                continue
+            selected.append(replace(
+                observation,
+                handle=replace(
+                    observation.handle,
+                    line_start=observation.handle.full_line_start or observation.handle.line_start,
+                    line_end=observation.handle.full_line_end or observation.handle.line_end,
+                    adapter="owner_representation_challenger",
+                ),
+                disclosure_status="undisclosed",
+                ambiguity_count=1,
+            ))
+        return ActionExecution(
+            action_id=action.id,
+            observations=tuple(selected),
+            edges=(),
+            tool_calls=0,
+            status="ok" if selected else "empty",
+        )
     if isinstance(action, InspectOwnerContinuation):
         observation = next((item for item in observations if item.id == action.observation_id), None)
         if observation is None:
@@ -642,7 +778,7 @@ def execute_action(
             tool_calls=1,
             status="ok",
         )
-    if isinstance(action, SearchWithinFile):
+    if isinstance(action, ExpandWithinFileHandoff):
         return _execute_search(
             action_id=action.id,
             obligation_id=action.obligation_id,
@@ -653,7 +789,7 @@ def execute_action(
             retriever=(
                 "deferred_file_seed_search"
                 if action.purpose is ActionPurpose.DEFERRED_FILE_RESCUE
-                else "within_file_search"
+                else "within_file_handoff_expansion"
             ),
             parent_observation_ids=(action.source_observation_id,),
             exact_symbol_anchors=(),
@@ -687,6 +823,8 @@ def action_to_dict(action: RetrievalAction) -> dict[str, Any]:
     value = {"type": type(action).__name__, **asdict(action)}
     value["purpose"] = action.purpose.value
     value["pool"] = action_pool(action.purpose).value
+    if isinstance(action, InspectOwnerContinuation):
+        value["obligation_recurrence"] = len(action.obligation_ids or (action.obligation_id,))
     if isinstance(action, ExpandRelationship) and action.seed_kind == "file":
         value["obligation_recurrence"] = len(action.obligation_ids or (action.obligation_id,))
     return value
@@ -713,9 +851,9 @@ def _bounded_followup_allowed(
     gap: ObligationCoverage,
 ) -> bool:
     return (
-        decision.disposition == "promote"
-        and decision.support_level in {"direct_evidence", "navigation_only"}
-        and bool(decision.missing_information)
+        decision.assessment.is_retained
+        and (decision.assessment.is_direct_fact or decision.assessment.is_navigation)
+        and bool(decision.rationale.missing_information)
         and bool(gap.missing_claim.strip())
         and gap.status not in {"covered", "external"}
     )
@@ -728,9 +866,9 @@ def _owner_continuation_allowed(
 ) -> bool:
     """A navigation result may get one new view only when its owner was incomplete."""
     if (
-        decision.disposition != "promote"
-        or decision.support_level != "navigation_only"
-        or not decision.missing_information
+        not decision.assessment.is_retained
+        or not decision.assessment.is_navigation
+        or not decision.rationale.missing_information
         or not gap.missing_claim.strip()
         or gap.status in {"covered", "external"}
         or card is None
@@ -754,9 +892,11 @@ def _later_owner_range(owner_start: int, owner_end: int) -> tuple[int, int]:
 
 
 def _handoff_reason(decision: QualificationDecision, gap: ObligationCoverage) -> str:
-    if decision.local_follow_up:
-        return decision.local_follow_up
-    details = "; ".join(value.strip() for value in decision.missing_information if value.strip())
+    if decision.rationale.local_follow_up:
+        return decision.rationale.local_follow_up
+    details = "; ".join(
+        value.strip() for value in decision.rationale.missing_information if value.strip()
+    )
     return " | ".join(value for value in (gap.missing_claim.strip(), details) if value)
 
 
@@ -779,7 +919,7 @@ def _handoff_terms(
         "issue", "missing", "repository", "required", "showing", "source", "that", "this", "through",
         "where", "which", "with", "without",
     }
-    text = " ".join((user_request, gap.missing_claim, *decision.missing_information))
+    text = " ".join((user_request, gap.missing_claim, *decision.rationale.missing_information))
     terms = (
         match.group(0).casefold()
         for match in re.finditer(r"[A-Za-z_][A-Za-z0-9_]{3,}", text)
@@ -802,7 +942,7 @@ def _deferred_file_seed_action(
     represented_paths: set[str],
     qualified_paths: set[str],
     promoted_followups: Sequence[str],
-) -> tuple[SearchWithinFile | None, dict[str, Any]]:
+) -> tuple[ExpandWithinFileHandoff | None, dict[str, Any]]:
     path = observation.handle.path
     overlap_terms = _deferred_seed_overlap_terms(observation, obligation, gap)
     mechanism_anchors = _deferred_seed_mechanism_anchors(observation, obligation, gap)
@@ -853,7 +993,7 @@ def _deferred_file_seed_action(
     if len(overlap_terms) < 2:
         audit["reason"] = "insufficient_concrete_overlap_with_unresolved_claim"
         return None, audit
-    action = SearchWithinFile(
+    action = ExpandWithinFileHandoff(
         id=_action_id("deferred_file_seed", obligation.id, observation.id, path),
         obligation_id=obligation.id,
         source_observation_id=observation.id,
@@ -885,7 +1025,7 @@ def _test_maturation_query(decision: QualificationDecision, gap: ObligationCover
     return "\n\n".join(
         value
         for value in (
-            decision.local_follow_up.strip(),
+            decision.rationale.local_follow_up.strip(),
             gap.missing_claim.strip() if gap is not None else "",
         )
         if value
@@ -978,7 +1118,7 @@ def _navigation_priority(
         (0 if observation.exact_anchor_matches else 10_000)
         - min(observation.recurrence, 20) * 100
         + max(0, observation.best_rank)
-        + (0 if decision.support_level == "navigation_only" else 25)
+        + (0 if decision.assessment.is_navigation else 25)
     )
 
 
@@ -1006,7 +1146,7 @@ def _bound_discovery_frontiers(
             "inspect"
             if isinstance(action, InspectDeferredObservation)
             else "within_file"
-            if isinstance(action, SearchWithinFile)
+            if isinstance(action, ExpandWithinFileHandoff)
             else "new_island"
             if isinstance(action, SearchNewIsland)
             else type(action).__name__

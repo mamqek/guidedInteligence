@@ -10,9 +10,10 @@ from typing import Any, Mapping, Sequence
 from services.llm.json_completion import complete_json
 from services.retrieval.workspace.pipeline.execution_flow.coverage_evaluation import ObligationCoverage
 from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import DiscoveryObservation
-from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import (
-    CLASSIFICATION_TO_DECISION,
-    QualificationDecision,
+from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
+from services.retrieval.workspace.pipeline.execution_flow.qualification_contract import (
+    EvidenceAssessment,
+    QualificationRationale,
 )
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import (
     DisclosureCard,
@@ -49,14 +50,14 @@ def announce_dormant_completion_promotion(
     round_index: int,
     source_observation_id: str,
     target_observation_id: str,
-    support_level: str,
+    evidence_kind: str,
 ) -> None:
     """Make an experiment-created evidence promotion visible to operators."""
 
     print(
         "[DORMANT-ISLAND-COMPLETION] EXTRA PROMOTION "
         f"round={round_index} source={source_observation_id} "
-        f"target={target_observation_id} support={support_level}",
+        f"target={target_observation_id} evidence_kind={evidence_kind}",
         file=sys.stderr,
         flush=True,
     )
@@ -126,7 +127,7 @@ def select_dormant_island_completions(
         source = observations.get(source_id)
         decision = decisions.get(source_id)
         island_id = _source_island(source_id, observations, observation_to_island)
-        if source is None or decision is None or decision.disposition != "promote":
+        if source is None or decision is None or not decision.assessment.is_retained:
             rejected.append({"source_observation_id": source_id, "reason": "source_not_promoted"})
             continue
         if not island_id:
@@ -135,7 +136,9 @@ def select_dormant_island_completions(
         if successes_by_island.get(island_id, 0) >= MAX_COMPLETIONS_PER_ISLAND:
             rejected.append({"source_observation_id": source_id, "reason": "island_completion_cap_reached"})
             continue
-        missing_text = " ".join((decision.local_follow_up, *decision.missing_information)).strip()
+        missing_text = " ".join(
+            (decision.rationale.local_follow_up, *decision.rationale.missing_information)
+        ).strip()
         if not missing_text:
             rejected.append({"source_observation_id": source_id, "reason": "no_specific_missing_information"})
             continue
@@ -280,7 +283,7 @@ def qualify_dormant_island_completion(
     decision = _decision(
         response,
         target_card.observation_id,
-        supported_obligation_ids=source_decision.supported_obligation_ids,
+        eligible_obligation_ids=source_decision.assessment.contributing_obligation_ids,
     )
     if trace is not None:
         trace.record(
@@ -446,8 +449,10 @@ def _payload(
         "request": user_request,
         "relationship_kind": relationship_kind,
         "promoted_source": card(source_card),
-        "source_missing_information": list(source_decision.missing_information),
-        "source_local_follow_up": source_decision.local_follow_up,
+        "source_missing_information": list(source_decision.rationale.missing_information),
+        "source_local_follow_up": source_decision.rationale.local_follow_up,
+        "source_assessment": source_decision.assessment.to_dict(),
+        "eligible_obligation_ids": list(source_decision.assessment.contributing_obligation_ids),
         "dormant_candidate": card(target_card),
     }
 
@@ -461,13 +466,39 @@ def _response_format() -> dict[str, Any]:
             "schema": {
                 "type": "object",
                 "properties": {
-                    "classification": {"type": "string", "enum": list(CLASSIFICATION_TO_DECISION)},
-                    "reason": {"type": "string"},
-                    "visible_support": {"type": "array", "items": {"type": "string"}},
-                    "missing_information": {"type": "array", "items": {"type": "string"}},
-                    "local_follow_up": {"type": "string"},
+                    "assessment": {
+                        "type": "object",
+                        "properties": {
+                            "disposition": {"type": "string", "enum": ["retain", "defer", "reject"]},
+                            "evidence_kind": {
+                                "type": "string",
+                                "enum": ["direct_fact", "navigation_lead", "insufficient"],
+                            },
+                            "contributing_obligation_ids": {"type": "array", "items": {"type": "string"}},
+                            "individually_established_obligation_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                        },
+                        "required": [
+                            "disposition", "evidence_kind", "contributing_obligation_ids",
+                            "individually_established_obligation_ids",
+                        ],
+                        "additionalProperties": False,
+                    },
+                    "rationale": {
+                        "type": "object",
+                        "properties": {
+                            "reason": {"type": "string"},
+                            "visible_support": {"type": "array", "items": {"type": "string"}},
+                            "missing_information": {"type": "array", "items": {"type": "string"}},
+                            "local_follow_up": {"type": "string"},
+                        },
+                        "required": ["reason", "visible_support", "missing_information", "local_follow_up"],
+                        "additionalProperties": False,
+                    },
                 },
-                "required": ["classification", "reason", "visible_support", "missing_information", "local_follow_up"],
+                "required": ["assessment", "rationale"],
                 "additionalProperties": False,
             },
         },
@@ -478,19 +509,18 @@ def _decision(
     response: Mapping[str, Any],
     observation_id: str,
     *,
-    supported_obligation_ids: Sequence[str] = (),
+    eligible_obligation_ids: Sequence[str] = (),
 ) -> QualificationDecision:
-    classification = str(response.get("classification") or "")
-    if classification not in CLASSIFICATION_TO_DECISION:
+    assessment_payload = response.get("assessment")
+    rationale_payload = response.get("rationale")
+    if not isinstance(assessment_payload, Mapping) or not isinstance(rationale_payload, Mapping):
         raise RuntimeError("dormant_island_completion_invalid_response")
-    disposition, support = CLASSIFICATION_TO_DECISION[classification]
+    assessment = EvidenceAssessment.from_mapping(assessment_payload)
+    eligible = {str(item) for item in eligible_obligation_ids if str(item)}
+    if not set(assessment.contributing_obligation_ids).issubset(eligible):
+        raise RuntimeError("dormant_island_completion_unknown_obligation")
     return QualificationDecision(
         observation_id=observation_id,
-        disposition=disposition,
-        support_level=support,
-        reason=str(response.get("reason") or "").strip(),
-        visible_support=tuple(str(item) for item in response.get("visible_support", ()) if str(item)),
-        missing_information=tuple(str(item) for item in response.get("missing_information", ()) if str(item)),
-        local_follow_up=str(response.get("local_follow_up") or "").strip(),
-        supported_obligation_ids=tuple(str(item) for item in supported_obligation_ids if str(item)),
+        assessment=assessment,
+        rationale=QualificationRationale.from_mapping(rationale_payload, max_reason_chars=400),
     )

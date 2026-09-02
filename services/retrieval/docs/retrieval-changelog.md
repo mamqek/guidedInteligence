@@ -1,5 +1,372 @@
 # Retrieval Changelog
 
+## 2026-09-02: Ambiguous Exact Anchors And Admission-Consistent Dormant Recovery — Retained
+
+The previously rejected pre-round-zero admission experiment was restored only after fixing its demonstrated upstream
+dependency. Structural symbol resolution had two contradictory meanings for a multi-match identifier: `add` was
+reported in `ambiguous_symbol_anchors` for search, but every matching CodeGraph node was also emitted as an
+`exact_anchor` and the confirmation was labelled `exact_symbol`. This gave unrelated implementations a hard exact
+priority in initial admission and dormant-file ranking.
+
+The grounding contract now distinguishes authority from discoverability:
+
+- one authored structural match remains `exact_symbol` and produces an exact-anchor observation;
+- multiple authored matches become `ambiguous_symbol`, remain query-expansion leads, and produce no exact-anchor
+  observations or exact sparse-anchor authority.
+
+With that dependency corrected, initial admission is retained as one structured lifecycle signal on each observation:
+ranking position, admitted/excluded decision, crossing position, and coverage reservation travel together. Initial
+owner-comparison dormants are visible only to `InspectDormantFileAlternatives` candidate construction and execution;
+they do not become ordinary roots, islands, deferred actions, or evidence. Dormant ranking otherwise remains intact.
+A narrow consistency correction may replace a zero-admitted winner with an earlier admitted challenger only when the
+challenger has at least as much structural grounding, is not weaker on title/request owner support, and is strictly
+stronger on one of those lexical dimensions.
+
+Focused grounding, qualification-first, and dormant-action coverage passed 186 tests. Actual pipeline results kept
+final evidence selection enabled and response generation disabled:
+
+| Run | Result | Coverage / sufficient | Retrieval tokens |
+|---|---|---|---:|
+| pandas `run-20260902T033436Z` | Core Series implementation 1/1; Oracle test also retained; 2/3 overall | partial / false | 92,277 |
+| pandas `run-20260902T033821Z` | Core Series implementation 1/1; Oracle test also retained; 2/3 overall | partial / false | 112,034 |
+| TypeScript `run-20260902T034225Z` | Builder, WatchMode, Helpers retained; BuilderState missing; 3/4 focal files | partial / false | 130,826 |
+
+Diagnostic `run-20260902T033100Z` confirmed the causal boundary: CodeGraph returned three authored `add` methods,
+the trace recorded `match_type=ambiguous_symbol`, and Comment Eater produced no exact observation and disappeared
+from dormant eligibility. Core Series was already represented by qualified evidence in that population, so dormant
+inspection correctly chose a different zero-qualified file; the controller independently recovered `_binop`.
+TypeScript stayed at its established three-file safety floor, and the saved replay correction changes none of five
+TypeScript dormant populations. This change therefore fixes illegitimate exact authority and makes admission
+consistency usable; it does not claim to solve the separate BuilderState upstream instability.
+
+## 2026-09-02: Pre-Round-Zero Rank For Dormant Recovery — Rejected And Reverted
+
+This replay-first experiment tested whether the deterministic snippet order that controls the approximately
+60,000-character initial comparison boundary could stabilize dormant-file selection. Dormant ranking currently
+reuses raw rank, score, and recurrence but not the actual initial ranking position or admission decision.
+
+Saved replay initially looked promising: a narrow contradiction rule changed known bad Base and GroupBy winners to
+`core/series.py`, preserved existing Core Series wins, left the SparseSeries ambiguity visible, and changed none of
+five TypeScript populations. A global ordinal-voting variant was rejected before implementation because it promoted
+Index and test files.
+
+Live diagnostics exposed two deeper boundaries:
+
+| Run | Boundary result |
+|---|---|
+| pandas `run-20260902T030853Z` | Four Core Series owners ranked 40–43 and were admitted, but owner comparison placed them in a private dormant pool unavailable to the dormant-file action; five `tseries/base.py` owners were inspected and all rejected. |
+| pandas `run-20260902T031413Z` | After isolated private-pool exposure, ambiguous exact symbol `add` made `comment_eater.py` rank 6 with ten admitted owners; Core Series ranked 20 with four. Five comment-processing owners were inspected and all rejected. |
+
+Both were diagnostic runs with final selection and response generation skipped; they are not acceptance results. The
+experiment was reverted before acceptance because the early rank repeatedly encoded an upstream ambiguous-symbol
+error. Reusing it would make that error more authoritative. A future fix belongs at exact-anchor ambiguity and
+provenance—not as another dormant ranking weight or exception. The retained dormant-file implementation is unchanged.
+
+## 2026-09-02: Two-File Dormant Ambiguity Batch — Rejected And Reverted
+
+A scoped variant represented two similarly named, eligible zero-qualified files inside one
+`InspectDormantFileAlternatives` action. It preserved one ordinary action and one qualification call while disclosing
+three already-retrieved owners per file instead of five owners from one file. The companion was allowed only when
+neither file was an exact/test anchor and both paths shared an issue-title term.
+
+The focused boundary and pandas diagnostic `run-20260902T022450Z` worked: Core Series and SparseSeries were disclosed
+together and `Series::_binop` qualified as direct evidence. Actual acceptance was not repeatable:
+
+| Run | Result | Coverage / sufficient | Retrieval tokens |
+|---|---|---|---:|
+| pandas `run-20260902T022741Z` | `_binop` selected; 1 implementation overlap | partial / false | 87,454 |
+| pandas `run-20260902T023451Z` | `core/groupby.py` won upstream; `_binop` undisclosed; 0 implementation overlap | partial / false | 53,235 |
+| TypeScript `run-20260902T023735Z` | Builder + BuilderState only; 2/4 focal files | partial / false | 130,993 |
+
+The failed `run-20260902T023324Z` artifact is excluded: Node 20 could not initialize CodeGraph's `node:sqlite`; valid
+runs used the bundled Node 24 runtime. The variant was reverted because it only helps after the intended pair already
+occupies the first two ranked positions, and the TypeScript safety run fell below its established three-file floor.
+The original one-file/five-owner action contract remains active.
+
+### Thesis material: central limitation of dormant recovery
+
+This experiment exposed a central limitation, not merely a bad choice of ranking weights. Dormant-file inspection is
+one of the controller's principal recovery mechanisms for relevant source that was retrieved but received zero
+qualified evidence in round zero. Once the correct file is chosen, the mechanism works: it discloses already-known
+owners, runs normal semantic qualification, and can recover central implementation evidence such as
+`Series::_binop`. The unresolved problem is choosing *which file to revive before its source has been qualified*.
+
+At that boundary the controller has only retrieval metadata: owner counts, query provenance, recurrence, ranks,
+scores, lexical overlap, and unresolved-obligation associations. The Pandas runs demonstrate that these signals do
+not reliably distinguish the ordinary `core/series.py` implementation from plausible alternatives such as
+`sparse/series.py` or `core/groupby.py`. Qualification would provide the semantic distinction, but qualification is
+exactly the expensive operation for which the controller is selecting a bounded candidate. Consequently, neither
+additive reweighting nor batching the first two candidates produced repeatable recovery.
+
+The retained changes should not be interpreted as a solution to this ambiguity. Title-independent structural
+grounding remains because it removes an incorrect lexical veto, and the original bounded dormant action remains
+because it has demonstrated successful recovery. The balanced-ranking and two-file batching extensions were
+reverted. A future experiment should test a separately bounded second dormant opportunity when a central mechanism
+remains unresolved after the first inspection; it should not claim that metadata can identify the exact dormant file
+reliably in advance.
+
+## 2026-09-01: Title-Independent Dormant Structural Grounding — Retained
+
+The default `InspectDormantFileAlternatives` action previously required an owner symbol to match the issue title or
+at least two request terms. That safety condition became a hard semantic veto: TypeScript 35468
+`run-20260901T183939Z` rejected six named BuilderState owners across two unresolved obligations, and
+`run-20260901T184539Z` rejected seven across three, while generic `server/project.ts` became eligible through the word
+`project`.
+
+Three or more distinct named structural owners now ground a zero-qualified file independently of title knowledge. A
+smaller two-owner hypothesis still requires lexical owner support, preserving the earlier Vue false-positive guard.
+For self-grounded structural clusters, semantic retrieval strength precedes title/request/path bonuses. The existing
+one-file-per-run and five-disclosed-owner limits are unchanged; eligibility does not guarantee execution.
+
+Focused controller and retrieval coverage passes 224 tests. Actual TypeScript 35468 acceptance kept final evidence
+selection enabled and skipped response generation:
+
+| Run | Focal files | BuilderState dormant shape | Dormant winner | Coverage / sufficient | Retrieval tokens |
+|---|---:|---|---|---|---:|
+| `run-20260901T204825Z` | 3/4 | 5 owners, 1 obligation; ineligible | `compiler/watch.ts` | partial / false | 122,868 |
+| `run-20260901T205528Z` | 4/4 | 7 owners, 2 obligations; eligible without lexical support | `server/project.ts` | partial / false | 113,633 |
+
+In the second run BuilderState was excluded after the initial 60,050-character comparison crossing. The ordinary
+round-three `InspectDeferredObservation` action nevertheless disclosed and qualified
+`getFilesAffectedByUpdatedShapeWhenNonModuleEmit`, which survived final selection at focal file rank 4. This both
+validates the corrected dormant eligibility and demonstrates that controller recovery remains possible through an
+independent grounded continuation when the dormant file does not win its single slot.
+
+## 2026-09-01: Ranked File Traces And Joint Optional-Evidence Allocation — Retained
+
+The unresolved-file trace substage previously asked its LLM to select or reject every eligible trace, then ignored
+semantic preference and accepted the first two selected entries in construction order. TypeScript 35468
+`run-20260901T145629Z` made the defect explicit: the LLM selected four traces, but `tsserver/helpers.ts` and
+`editorServices.ts` occupied the hardcoded positions while the 18-call `tscWatch/helpers.ts` and 59-call
+`virtualFileSystemWithWatch.ts` traces were labelled `file_trace_selection_cap`.
+
+The response contract now requires `ranked_selected_trace_ids`: every trace marked `select`, exactly once, in
+descending final-evidence value. Runtime validation requires one decision per eligible ID, unique ranked IDs, and
+exact set equality between ranked IDs and `select` decisions. Invalid output fails explicitly; there is no semantic
+fallback. The prompt states that ordering controls admission and ranks distinct mechanism participation,
+unresolved-handoff value, unique representation, and nonredundancy ahead of structural call count.
+
+The hardcoded two-trace cap is removed. The first retained correction let ranked traces fill only genuine remaining
+capacity under the unchanged `MAX_EVIDENCE=14` limit, so no accepted exact snippet could be evicted. The completed
+design now distinguishes protected exact evidence from genuinely optional exact context and asks for one
+`ranked_optional_evidence_ids` ordering over replaceable snippets plus LLM-selected traces. Protected evidence is:
+
+- qualified direct evidence;
+- a mandatory baseline packet seed;
+- an exact trace source or active-island preservation candidate; or
+- the sole selected support for an obligation, mechanism, or concept.
+
+Only redundant navigation/supporting snippets outside those categories may compete with a file trace. The allocator
+fills the capacity left after protected snippets from the joint semantic order, filters every consolidation view to
+the retained exact IDs, and emits traces in that semantic order. A selected trace that loses this competition is
+labelled `file_trace_joint_allocation_capacity`. Invalid or incomplete joint rankings fail explicitly; there is no
+fallback, retry, repository-specific filename rule, or increase to the evidence cap.
+
+The exact saved `run-20260901T145629Z` request was initially replayed three times without rerunning retrieval, qualification,
+CodeGraph, or controller stages. Rankings placed `tscWatch/helpers.ts` at positions 1/1/3. That frozen state had 11
+accepted exact snippets and therefore three free positions; the capacity allocator retains Helpers in all three
+replays while preserving all exact snippets. Replay calls used 6,671 / 6,740 / 6,991 tokens.
+
+The same frozen four-trace payload was then replayed with the completed joint contract. All saved exact snippets
+were protected direct or mandatory evidence, so the joint list correctly contained only the four selected traces.
+It ranked `tscWatch/helpers.ts` third; the historical three available positions therefore still retain Helpers.
+A focused full-capacity test separately exercises the activation boundary: 13 protected snippets remain intact,
+one trace outranks and replaces one redundant navigation snippet, and all obligation/mechanism bookkeeping is
+filtered consistently.
+
+Focused final-selection, qualification, controller, and packet tests pass (219 tests). Initial actual pipeline acceptance
+kept final selection enabled and skipped response generation:
+
+| Run | Focused implementation files | Final items | Exact / accepted traces | Coverage / sufficient | Retrieval tokens |
+|---|---:|---:|---:|---|---:|
+| `run-20260901T175328Z` | 4/4 | 10 | 9 / 1 | partial / false | 118,189 |
+| `run-20260901T175753Z` | 3/4 | 10 | 9 / 1 | partial / false | 114,675 |
+
+Both actual runs ranked and retained the 18-call Helpers trace with five unused trace positions and removed no exact
+candidate. The first retained Builder, BuilderState, WatchMode, and Helpers; the repeat retained Builder, WatchMode,
+and Helpers, with BuilderState absent upstream. The change is retained: it removes order bias, respects the existing
+global evidence cap, stabilizes Helpers in the measured pair, and does not claim deterministic 4/4 retrieval.
+
+Completed-joint-design acceptance used the same actual command and settings:
+
+| Run | Focused implementation files | Final items | Exact / accepted traces | Replaceable exact | Coverage / sufficient | Retrieval tokens |
+|---|---:|---:|---:|---:|---|---:|
+| `run-20260901T183939Z` | 3/4 | 9 | 8 / 1 | 0 | partial / false | 117,703 |
+| `run-20260901T184539Z` | 3/4 | 9 | 8 / 1 | 0 | partial / false | 107,914 |
+
+Both retained Builder, WatchMode, and the 18-call Helpers trace. BuilderState disappeared before file-trace
+selection in both runs. Every exact item was direct evidence (and all ordinary exact selections were mandatory
+packet seeds), so the joint eviction path was dormant: it removed and reordered zero exact candidates. These runs
+therefore validate contract integration and non-interference, not an empirical benefit from optional competition.
+The completed allocator is retained because it provides the intended semantic behavior when redundant navigation
+context exists, while its protected-evidence contract makes the preceding accepted behavior an exact special case.
+
+Follow-up acceptance on TypeScript 46770 exposed and corrected the allocator's empty-input boundary. In
+`run-20260901T185747Z`, final consolidation selected six exact candidates, including
+`moduleNameResolver.ts::resolveModuleName`, but there were no eligible file traces. The joint allocator nevertheless
+ran with an empty optional ranking and filtered all six accepted IDs, producing an invalid 0/1 result. The file-trace
+substage now passes the preceding exact selection through unchanged when no eligible trace exists. A regression test
+asserts this behavior, and the 219-test focused retrieval suite passes.
+
+Two actual-pipeline reruns after that correction both retained the TypeScript 46770 implementation Oracle:
+
+| Run | Implementation overlap | Oracle file rank | Final items / files | Coverage / sufficient | Retrieval tokens |
+|---|---:|---:|---:|---|---:|
+| `run-20260901T190455Z` | 1/1 | 1 | 6 / 3 | partial / false | 100,168 |
+| `run-20260901T191117Z` | 1/1 | 2 | 6 / 3 | partial / false | 105,536 |
+
+Both reruns admitted useful `moduleNameResolver.ts` evidence during round-zero qualification, so neither needed the
+bounded waiting-age rule to recover the file. They validate the empty-trace correction and current end-to-end result,
+but are not counted as direct evidence that waiting-age promotion executed. The original scheduling symptom remains
+covered deterministically by focused tests and documented separately below.
+
+## 2026-09-01: Grounded-Continuation Deduplication And Bounded Waiting Age — Experimental
+
+TypeScript 46770 `run-20260901T075900Z` had represented one physical owner continuation as four
+obligation-specific `InspectOwnerContinuation` actions. The same four action IDs remained available across rounds,
+but recurrence did not improve scheduling priority and none used either ordinary slot. The catalogue now folds
+those clones by observation, requested range, owner range, and purpose into one normalized action carrying all
+obligation IDs. The island-frontier ledger preserves its first-seen round and exposes bounded wait/recurrence
+signals to the ordinary scheduler.
+
+The first implementation applied the guarantee only to owner continuations. It was then generalized to grounded,
+bounded ordinary continuations: owner disclosure, verified relationship expansion, explicit within-file handoff,
+and deferred-observation inspection. Broad new-island search and separately budgeted actions are excluded. The
+one-round generalized variant was rejected after 35468 `run-20260901T162238Z` retained only Builder (1/4): an owner
+continuation was force-promoted in round two. The retained experimental variant leaves rounds one and two unchanged.
+Only after surviving two complete scheduling losses may one grounded continuation use the second existing ordinary
+slot in round three. Neither waiting age nor recurrence adds a slot or duplicates execution.
+
+Focused tests cover four obligation clones, three competing verified relationships, ordinary-scope competition,
+unchanged rounds one/two, round-three promotion, and exclusion of broad search from age promotion. The broader
+focused retrieval suite passes all 134 tests. Final-variant actual runs kept final selection enabled and skipped
+response generation:
+
+| Case / run | Implementation overlap | Final files | Coverage / sufficient | Retrieval tokens |
+|---|---:|---:|---|---:|
+| TypeScript 46770 / `run-20260901T164005Z` | 1 | 3 | partial / false | 101,191 |
+| TypeScript 35468 / `run-20260901T162844Z` | 4 | 5 | partial / false | 115,578 |
+| TypeScript 35468 / `run-20260901T163358Z` | 3 | 4 | partial / false | 130,184 |
+
+The final 46770 run retained `moduleNameResolver.ts::resolveModuleName`. The 35468 pair met the established
+three-of-four floor: the first retained Builder, BuilderState, WatchMode, and Helpers; the repeat retained Builder,
+WatchMode, and Helpers. This is not a claim of deterministic 4/4 behavior. The navigation-only final-comparison
+fallback described in the experiment plan remains unimplemented.
+
+The missing Helpers case in earlier 35468 `run-20260901T145629Z` exposed a separate hard cap. The trace LLM selected
+four eligible destinations, but `_select_unresolved_file_trace_evidence` accepted only the first two entries in
+`trace_payloads`: `tsserver/helpers.ts` and `editorServices.ts`. It then labelled the equally LLM-selected
+`tscWatch/helpers.ts` (18 direct calls) and `virtualFileSystemWithWatch.ts` (59 calls) as
+`file_trace_selection_cap`. The prompt explicitly said not to favor earlier traces, yet the post-LLM cap did exactly
+that. The ranked-capacity experiment documented above replaces this behavior.
+
+## 2026-08-31: Frontier Defaults, Qualification Cleanup, And BM25F Removal
+
+The two retained island-frontier behaviors are now the single controller policy rather than an
+experiment selected by two flags. Every round keeps ordinary continuations in the
+`IslandFrontierLedger`, admits still-valid persisted continuations independently of the 16-node
+capability request, and lets the already-selected owner-maturation continuation compete inside the
+existing ordinary two-action capacity. The CLI, reusable config, server config, run metadata, and
+runtime booleans for `island-frontier-ordinary-scheduling` and
+`island-frontier-fold-owner-maturation` were removed. This does not add a slot or an LLM call.
+
+The nested qualification contract is now also the only runtime API. Production consumers inspect
+`decision.assessment` and `decision.rationale` directly; the old flat proxy properties and the
+redundant `qualification_support` candidate field were removed. Old trace support remains only in
+the explicitly offline `qualification_trace_adapter.py`, because saved experiment artifacts still
+contain the historical flat schema. The disabled-by-default dormant-island qualification stage now
+uses the same nested response contract instead of retaining its own flat classification mapper.
+
+The rejected BM25F experiment was removed from maintained code rather than kept as a dormant
+profile. Field extraction/weights, profile selection, profile-specific index and collection names,
+BM25F Qdrant vectors and trace payloads, the npm command, config, and profile tests are gone. The
+workspace has one flat BM25 implementation and one canonical index directory. Historical BM25F
+measurements below remain intact as experiment records; they no longer describe an available
+runtime mode. Existing flat BM25 index JSON remains readable because unknown historical fields are
+ignored. A narrow flat-manifest migration accepts the old disk/Qdrant identity and writes the new
+Qdrant signature without rebuilding unchanged indexes; it does not accept former BM25F collections.
+
+Focused controller, qualification, BM25/Qdrant, and CodeRepoQA tests pass (171 tests). Full unit
+discovery passes all 483 tests when run with the bundled Node v24 runtime. The system Node v20 still
+cannot run CodeGraph because it lacks `node:sqlite`.
+
+Actual default-command TypeScript acceptance used no frontier flags. Valid run
+`run-20260830T225414Z` retained Builder, BuilderState, WatchMode, and the Helpers file trace (4/4
+focused implementation files). Consecutive run `run-20260830T230420Z` reused both indexes and
+retained Builder, BuilderState, and WatchMode (3/4) at 116,069 retrieval tokens. In the repeat,
+WatchMode had no active round-zero island, its file expansion was never scheduled, and final trace
+construction had zero seeds; this first loss precedes the now-default scheduler and is not a
+different flag implementation. The result is therefore behaviorally compatible but not a claim of
+four-file determinism.
+
+Cross-case default runs reused their flat BM25 and Qdrant indexes through manifest migration. Pandas
+10068 `run-20260830T231052Z` used 53,251 retrieval tokens and retained one test Oracle but missed the
+sole implementation Oracle (1/3 total, 0/1 implementation). Vue 242
+`run-20260830T231051Z` used 70,849 tokens and retained `src/exp-parser.js` at position 4 (1/2 total,
+1/1 implementation). These preserve the earlier qualitative pattern: the nested contract no
+longer crashes pandas, while pandas selection remains weak and Vue's key parser survives.
+
+The requested dormant-island opt-in comparison produced no dormant completion in either case.
+Pandas 10068 `run-20260830T234551Z` exposed 79 dormant candidates in each of four rounds, but had
+zero matured source observations, zero selections, zero dormant LLM calls, and zero dormant tokens.
+It remained 1/3 total and 0/1 implementation overlap at 83,772 retrieval tokens. Vue 242
+`run-20260830T234551Z` likewise exposed 127 dormant candidates across three rounds but had zero
+matured sources, selections, calls, and dormant tokens; it retained `src/exp-parser.js` (1/2 total,
+1/1 implementation) at 79,616 tokens. Both indexes were reused. Because the experimental stage did
+no work, differences from the immediately preceding disabled runs are ordinary LLM/controller-run
+variance and cannot be credited to dormant completion.
+
+## 2026-08-30: Nested Qualification Assessment Contract — Retained
+
+Record: [qualification assessment contract experiment](decisions/qualification-assessment-contract-experiment.md).
+
+Replaced the flat qualification response (`classification` plus a coupled support label and one
+obligation list) with two immutable values: `EvidenceAssessment` and `QualificationRationale`.
+The assessment now independently records disposition, evidence kind, obligations to which the
+visible source contributes, and the stricter subset that the source individually establishes.
+This makes a concrete partial fact representable without either downgrading it to navigation or
+claiming that it completes a coarse obligation. The LLM response schema is nested and strict; no
+retry and no runtime legacy-response fallback were added.
+
+The contract is carried on each grounded candidate. Coverage receives all `direct_fact`
+candidates, including partial facts, while the support graph credits only
+`individually_established_obligation_ids`. Final mechanism construction retains a bounded
+supporting-only singleton for a direct fact with no individually established obligation. This
+replaces the previous origin-string inference that would have manufactured direct support from
+the candidate's current obligation-state bucket.
+
+The motivating pandas 10068 runs `130550Z` / `130714Z` had failed during round-zero
+qualification because the model returned direct evidence with an empty supported-obligation
+list. Both new actual runs completed controller execution and final selection. The first was
+partial/false with 0/3 Oracle overlap; the repeat was partial/false with `series.py` and
+`test_series.py` (2/3 total, 1/1 implementation) selected. The contract fixes the deterministic
+failure, but pandas selection quality remains variable.
+
+| Case / run | Implementation Oracle overlap | Retrieved files | Coverage / sufficient | Retrieval tokens |
+|---|---:|---:|---|---:|
+| pandas 10068 / `run-20260830T191824Z` | 0 / 1 | 2 | partial / false | 64,501 |
+| pandas 10068 / `run-20260830T193112Z` | 1 / 1 | 4 | partial / false | 97,062 |
+| TypeScript 35468 / `run-20260830T192105Z` | 4 / 4 | 8 | partial / false | 119,288 |
+| TypeScript 35468 / `run-20260830T192716Z` | 4 / 4 | 7 | partial / false | 109,858 |
+| Vue 242 / `run-20260830T193506Z` | 1 / 2 | 4 | partial / false | 74,380 |
+
+Both consecutive TypeScript runs retained Builder, BuilderState, WatchMode, and Helpers. The
+second trace demonstrates the new state directly: many source owners contribute direct facts
+while individually establishing no complete coarse obligation, and the 18-call WatchMode-to-
+Helpers file trace is still selected. Vue retained `src/exp-parser.js` at rank 2. The change is
+therefore retained: it removes the qualification failure without regressing the focused four-file
+TypeScript result or the important Vue implementation file.
+
+Two follow-up current-mode runs targeted the recent all-zero campaign outliers. Pandas 22698
+`run-20260830T200532Z` remained 0/2, partial/false, at 49,547 tokens; it selected
+`internals/construction.py` and `dtypes/cast.py`. The Oracle implementation `indexes/base.py` was
+admitted initially but disappeared at owner comparison, while the Oracle test was absent before
+admission. Vue 10004 `run-20260830T200802Z` also remained 0/2, partial/false, at 124,785 tokens.
+Both Oracle files were admitted, but neither survived the global owner comparison into round-zero
+selection. These runs reinforce the scoped conclusion: the nested contract fixes invalid
+qualification representation, not the separate responsibility-owner selection problem already
+tracked in IOG-1.
+
 ## 2026-08-30: Historical Initial Guardrail on Cohort All-Zero Cases — Rejected
 
 Tested the opt-in `legacy_observation_guardrail` initial-selection mode on the two
@@ -4278,7 +4645,7 @@ coverage or stable final LLM acceptance of every visible owner node.
 
 # Deferred implementation-file seed diagnostic (2026-08-18, unaccepted)
 
-- Experimental stage boundary: a deferred raw observation may contribute one file-scoped `SearchWithinFile` action when it is an unrepresented implementation file and has concrete overlap with the unresolved obligation. The action is limited to that path and can create an island only after ordinary qualification; it does not promote the file by itself. The controller is intended to select at most one such seed per round.
+- Experimental stage boundary: a deferred raw observation may contribute one file-scoped `ExpandWithinFileHandoff` action when it is an unrepresented implementation file and has concrete overlap with the unresolved obligation. The action is limited to that path and can create an island only after ordinary qualification; it does not promote the file by itself. The controller is intended to select at most one such seed per round.
 - Focused controller tests pass (52 tests): a BuilderState-like deferred implementation observation receives a separate seed despite another deferred observation sharing its obligation frontier, and no more than one seed is selected in a round.
 - Diagnostic workspace run `run-20260818T172713Z` reused the existing indexes and intentionally skipped response generation and final selection. It is not an acceptance run: its trace ended after round-3 action selection and wrote no result artifact.
 - The diagnostic exposed two blocking behaviors. First, five seeds were enumerated in round 1 but none executed: two active-island scopes consumed both action slots before the reordered seed could be chosen. Second, the preliminary lexical gate admitted noise, including `lib/lib.dom.d.ts` (`event`, `interface`) and `lib/lib.webworker.d.ts` (`reaching`, `than`, `which`, `while`). The run did retrieve `src/compiler/builderState.ts::updateSignaturesFromCache` (lines 290-300) and qualification promoted it directly, so its path was already represented and correctly did not receive a seed. It did not retrieve the desired `updateShapeSignature` owner, so the seed behavior for that particular missed-owner case remains unexercised.
@@ -5467,3 +5834,316 @@ different boundaries. The retained change repairs each boundary at the stage tha
   qualification (`direct evidence lacks supported obligations for obs_9dfbb74673408833`) before the controller ran.
   The explicit failure was retained; no deterministic fallback or qualification change was introduced. Consequently
   owner-maturation folding remains opt-in and later auxiliary-family folds were not attempted.
+
+## 2026-08-31 — Island-packet final-comparison experiment
+
+- Added an isolated `final_evidence_selection_representation` boundary. The default `mechanism_flows` path is
+  unchanged; `island_packets` groups qualified candidates by their existing semantic island before the final LLM.
+  Connected islands receive an atomic, role-diverse base packet, while singleton islands remain independently
+  comparable even when they support an obligation already represented by another island. The experimental path
+  does not append active-island candidates after the LLM; exact file-trace source preservation remains unchanged.
+- Packet construction preserves the existing 45,000-character selector-input allowance and adds no LLM call.
+  Connected packets may reserve one navigation member only when an internal connection or the best known flow
+  grounds it. This is a generic representation rule, with no repository, testcase, filename, or symbol exception.
+  Focused packet/qualification/retrieval/server verification passed all 221 tests.
+- TypeScript `run-20260831T114956Z` produced all four target implementation files (Builder, BuilderState, WatchMode,
+  Helpers) at 122,099 retrieval tokens. Packet construction made BuilderState part of a coherent comparison and the
+  final LLM selected it. Immediate repeat `115754Z` produced three target files at 129,142 tokens. BuilderState was
+  present in raw retrieval but became a dormant initial owner; eight deferred observations were never inspected, so
+  it never entered the final pool. This loss occurred before the experimental boundary.
+- Unchanged-selector comparison `run-20260831T120950Z` used 132,511 tokens. Its final pool did contain BuilderState,
+  but the LLM rejected it and returned Builder, WatchMode, and Helpers. Thus packets demonstrated a real possible
+  final-boundary improvement, but not stable upstream availability. Revised packet runs `122654Z` / `123214Z`
+  again returned those three files at 124,758 / 118,596 tokens because BuilderState was absent from their final
+  pools. Both respected the character cap with zero overshoot; neither naturally contained navigation-qualified
+  candidates, so grounded-navigation reservation has only focused-test evidence.
+- Cross-repository runs did not justify default promotion. Pandas 10068 `run-20260831T121739Z` returned 0
+  implementation Oracles at 104,609 tokens, within its prior 0/1 variability. Vue 242
+  `run-20260831T122149Z` retained `src/exp-parser.js` at 91,660 tokens, matching recent successful runs. All runs
+  remained `partial/false`.
+- Decision: retain `island_packets` only as an explicit experimental comparison mode. Do not make it the default or
+  claim four-file stability. The repeated TypeScript loss is an upstream dormant-owner scheduling problem and must
+  be evaluated separately from final-comparison representation.
+
+## 2026-08-31 — Baseline-seeded packets and dormant-file alternatives
+
+- Strengthened the opt-in `island_packets` representation so it first runs the unchanged mechanism-flow reducer and
+  treats every baseline-selected candidate and flow as mandatory. Packet completion can add connected companions
+  and independently qualified singletons from residual character capacity, but cannot remove a baseline seed. The
+  trace ledger records the mandatory set and whether preservation was exact. This adds deterministic preparation,
+  not an LLM call.
+- Renamed the qualified-source local action from `SearchWithinFile` to `ExpandWithinFileHandoff`, matching its actual
+  role: expand an explicit missing local handoff rooted at qualified evidence. Added a separate opt-in
+  `InspectDormantFileAlternatives` action for a zero-qualified file with multiple already-retrieved owners. It
+  discloses at most five owners in one normal qualification call, consumes one existing ordinary slot, records the
+  attempted file effect, and can execute only once per run.
+- Live adjustment evidence was treated as part of the experiment rather than hidden:
+  - initial dormant actions were enumerated but scheduler-starved;
+  - a reservation correction then inspected three pandas files across rounds, so the bound was changed from
+    per-path to one dormant-file effect per run;
+  - title-aware file ranking corrected `Index` comparison text outranking the actual `Series` subject;
+  - Vue `165814Z` showed that a shared path word could select unrelated `directives/repeat.js`;
+  - TypeScript `170259Z` showed that inherited exact-anchor metadata with no owner semantic match could select
+    `compiler/utilities.ts`, consume a slot, and reduce the result to one implementation Oracle.
+  The retained gate therefore requires owner-level title support or at least two owner/request terms. Exact metadata
+  and path overlap alone are insufficient.
+- Final measured actual-pipeline runs (final selection enabled, response generation skipped):
+  - pandas `run-20260831T163654Z`: one dormant action on `pandas/core/series.py`; `Series::_binop` promoted; 8/8
+    baseline seeds preserved; no qualified packet omission; 2/3 Oracle overlap including the sole implementation
+    Oracle and regression test; 98,651 retrieval tokens; `partial/false`;
+  - TypeScript `run-20260831T171235Z`: no dormant action; 8/8 seeds preserved; zero qualified omissions; Builder,
+    BuilderState, WatchMode, and Helpers all selected; 113,575 tokens; `partial/false`;
+  - TypeScript `run-20260831T171810Z`: one grounded `server/project.ts` batch whose candidates were later rejected;
+    13/13 seeds preserved; four target files selected; four omitted additions were redundant with already represented
+    Builder/WatchMode files; 135,105 tokens; `partial/false`;
+  - Vue `run-20260831T172444Z`: no dormant action; 6/6 seeds preserved; zero qualified omissions; implementation
+    Oracle `src/exp-parser.js` retained with both parser functions; unrelated `binding.js` from prior normal-flow
+    `run-20260830T231051Z` absent; 66,114 tokens; `partial/false`.
+- One pandas attempt, `run-20260831T163247Z`, failed explicitly when the qualification LLM returned an invalid nested
+  disposition/evidence-kind combination. No LLM retry or deterministic fallback was added, and the run is excluded
+  from acceptance evidence.
+- Omission audit: the final pandas, first TypeScript, and Vue packet requests omitted no qualified candidate. The
+  second TypeScript request omitted four additions at the fixed character boundary, but each affected file already
+  had a stronger sent representative; no unique file role or Oracle file was erased. Helpers remained a separate
+  structural file trace rather than a low-confidence internal snippet. The missing Vue parser test and pandas
+  release-note TXT were absent upstream, not displaced by packet ordering.
+- Decision: keep both changes explicit experiments. Baseline-seeded packets satisfied their preservation invariant
+  and improved flow coherence in the measured cases. Dormant-file inspection fixes the pandas failure shape but is
+  not ready as a default because even grounded candidates can spend an ordinary slot without surviving final
+  selection. Focused verification passes all 246 tests.
+
+## 2026-08-31 — Rejected round-three dormant-file scheduling
+
+- Tested postponing `InspectDormantFileAlternatives` to a single reserved ordinary slot in round 3. Eligibility,
+  title support, owner selection, disclosure, qualification, action limits, and prompts were held fixed.
+- The naïve scheduler was not semantically complete. Pandas `run-20260831T205339Z` stopped after round 1 for
+  `no_evidence_gain`, so the promised round-3 action never ran (1/3 Oracle files, 48,357 tokens). In
+  `run-20260831T204443Z`, the action did run in round 3 but inspected five irrelevant `pandas/core/series.py` owners,
+  all were rejected, and no fourth round opened (1/3, 89,734 tokens).
+- The lifecycle was then corrected for measurement: an eligible delayed action counted as pending controller work
+  through round 2, and a productive round-3 dormant action could open the existing fourth round. No retry, fallback,
+  extra action slot, or title/ranking change was introduced.
+- Corrected pandas runs were unstable. `run-20260831T205925Z` recovered 2/3 Oracles including
+  `pandas/core/series.py` at 102,917 tokens, but `run-20260831T210407Z` returned only 1/3 at 81,018 tokens. In the
+  latter, observations introduced before round 3 made `pandas/computation/ops.py` the dormant winner, and its
+  round-4 continuation stayed in that non-Oracle file.
+- TypeScript `run-20260831T211039Z` returned Builder, WatchMode, and Helpers but lost BuilderState from the focused
+  four-file set. It spent 133,704 tokens, and its delayed dormant action inspected `src/compiler/watchPublic.ts`,
+  which did not survive final selection. All measured runs remained `partial/false`.
+- Decision: reject and revert round-three scheduling. Delaying did protect early ordinary slots, but later-state
+  candidate drift changed which dormant file was inspected, and keeping the controller alive to honor the delayed
+  opportunity forced additional work. The existing immediate, opt-in dormant action and its title support remain
+  unchanged.
+
+## 2026-09-01 — Baseline-seeded island-packet controlled comparison
+
+- Compared only final-selection representation with dormant-file alternatives disabled in every actual run. Response
+  generation was skipped and final evidence selection stayed enabled. The alternating schedule was TypeScript
+  baseline/packet/packet/baseline, pandas baseline/packet/packet/baseline, and Vue baseline/packet.
+- Packet construction preserved every mandatory mechanism-flow seed in every packet request: TypeScript 14/14 and
+  12/12, pandas 3/3 and 4/4, Vue 8/8. This directly verifies the non-displacement invariant on the same
+  controller pool; independent runs still vary upstream due to live qualification and controller decisions.
+- TypeScript baseline runs `214651Z` and `005654Z` achieved 3 and 4 implementation Oracle files; packet runs
+  `215438Z` and `215941Z` achieved 4 and 3. The first packet run retained all four focused files: Builder,
+  BuilderState, WatchMode, and Helpers.
+- pandas baseline `010423Z`/`011740Z` and packet `011207Z`/`011424Z` all remained 0/1 implementation overlap.
+  The missing `core/series.py::_binop` owner was absent before final-pool construction in all runs, while packet
+  payloads remained focused on the arithmetic/test path. Packet attempt `010828Z` is excluded because the remote
+  LLM disconnected during qualification and returned no retrieval result.
+- Vue packet `012458Z` retained implementation Oracle `src/exp-parser.js`, whereas baseline `012208Z` did not.
+  Its selected evidence formed the coherent compiler → directive → expression-parser path.
+- Final consolidation did not show a systematic token increase (TypeScript packet 17,636/16,914 vs baseline
+  18,955/17,725; pandas 7,738/9,062 vs 11,675/12,229; Vue 13,345 vs 10,236). Total retrieval-token variation
+  remained dominated by upstream controller work, so it is not attributed to representation alone.
+- Decision: packet mode passes the default-promotion gate. It is safe to make it the default representation while
+  retaining `mechanism_flows` as an explicit diagnostic override. This does not change or solve the separate
+  dormant-owner / pandas upstream-retrieval problem.
+
+## 2026-09-01 — Packet and dormant defaults; graphless ablation
+
+- Promoted `island_packets` and `dormant_file_alternatives_enabled` to the default core, server, and CodeRepoQA
+  configuration resolution paths. `mechanism_flows` and `--no-dormant-file-alternatives` remain explicit diagnostic
+  overrides; dormant-island completion remains disabled by default.
+- Added the explicit `structural_graph_enabled` ablation. `--no-structural-graph` skips CodeGraph startup/indexing
+  and supplies deterministic empty structural results, while retaining Qdrant/BM25 ranges, owner comparison,
+  qualification, non-graph controller behavior, and final selection. It introduces no AST/name-matching replacement.
+  Graphless run metadata and retrieval summaries record this mode, and the trace uses
+  `initial_ranges_without_codegraph` rather than claiming range resolution occurred.
+- Actual TypeScript 35468 graphless run `run-20260901T064425Z` completed `partial/false` with 1 implementation
+  Oracle and six selected range-level items. It submitted 374 initial ranges, resolved zero owners, and emitted no
+  CodeGraph index stage. A preceding attempt failed explicitly on an invalid external initial-owner LLM response and
+  is excluded. Focused packet, dormant-action, graphless-tool, and server verification passed 63 tests.
+
+## 2026-09-01 — Retrieval-boundary coverage and final-selection integrity
+
+- Completed the four-step experiment in
+  [retrieval-boundary-coverage-and-selection-integrity-plan.md](decisions/retrieval-boundary-coverage-and-selection-integrity-plan.md).
+- Rejected graphless dormant range hypotheses after three variants. TypeScript 2953 repeatedly selected
+  `src/lib/core.d.ts` rather than `src/lib/extensions.d.ts` (`211830Z`, `212617Z`, `213102Z`, `213433Z`). Production
+  graphless-range admission was removed. A separate actual-pipeline crash fix remains: owner source disclosure now
+  decodes UTF-8/UTF-8-SIG and legacy cp1252/latin-1 source deterministically.
+- Retained a bounded unique-navigation comparison route. It admits at most one navigation-only candidate when the
+  qualification rationale contains a concrete local handoff and no direct candidate represents that path. It does
+  not grant obligation credit or sufficiency. TypeScript 46770 `232545Z` / `233029Z` retained
+  `moduleNameResolver.ts`; both pools already contained it as a mandatory seed, while focused tests exercise the
+  fallback. Attempt `232201Z` failed explicitly before the controller in initial-owner response validation.
+- Replaced ambiguous final selected-evidence records with one source-verifiable decision per submitted candidate.
+  Candidate-specific schema variants bind each ID to safe exact source lines unique among the submitted snippets.
+  Candidate-local redundancy arrays can name only pre-grounded same-island, connected, or shared-obligation peers.
+  Runtime validation rejects missing/duplicate IDs, wrong/ambiguous anchors, invented redundancy, and selection
+  overflow. There is no LLM retry, ID reassignment, or deterministic relevance fallback.
+- Intermediate failures were kept as evidence rather than hidden: Vue `221751Z` exposed an overlapping source
+  anchor; `222309Z` / `222849Z` exposed strict-schema-unsafe anchor strings; `230507Z` exposed an ungrounded
+  redundancy claim. The final contract prevents all three classes before response generation.
+- Changed island-packet residual allocation to: mandatory normal-flow seeds; one obligation-bearing representative
+  per otherwise unrepresented island; seeded base-packet completion; role-diverse round-robin sibling enrichment.
+  Duplicate obligation coverage in another island is not an exclusion. A zero-credit supporting fact cannot consume
+  the independent reservation. This final refinement followed Vue `230946Z`, where a supporting-only
+  `vue-template-compiler/browser.js::genSSRNode` candidate was admitted and selected.
+- Actual combined acceptance (final selection enabled, response generation skipped):
+  - TypeScript 35468 `225105Z` / `225612Z`: 3/4 and 4/4 focal files; all 13/13 and 11/11 mandatory candidates
+    preserved; 136,293 / 137,202 retrieval tokens; `partial/false`.
+  - Vue 10803 `231436Z` / `231748Z`: `dom-props.js::renderDOMProps` retained under its correct ID in both; 1
+    implementation overlap; 74,602 / 96,331 tokens; `partial/false`.
+  - TypeScript 46770 `232545Z` / `233029Z`: `moduleNameResolver.ts` retained in both; 1 implementation overlap;
+    119,079 / 102,643 tokens; `partial/false`.
+  - pandas 10068 `233458Z`: 0 implementation overlap; 50,874 tokens; `partial/false`. Final comparison received only
+    `core/ops.py::add_flex_arithmetic_methods` and the exact regression test. `core/series.py::_binop` was absent
+    before packet construction, so the failure remains upstream.
+- Focused final verification passes 230 tests across packet construction, dormant-file behavior, file traces,
+  qualification-first retrieval, and final consolidation. Candidate-local decisions increase final-output work
+  (for example, TypeScript final-consolidation
+  tokens were 28,083–31,399 in the combined runs versus 18,267–18,460 in the nearby pre-contract runs), but they
+  close a demonstrated wrong-ID selection boundary and add no LLM call.
+
+## 2026-09-02 — Dormant-file grounding/ranking separation
+
+- Kept dormant-file eligibility and ranking inside the `InspectDormantFileAlternatives` action module and separated
+  their semantics. Exact anchors rank first, independently grounded structural-owner clusters rank ahead of small
+  lexically grounded hypotheses, and all candidates within a tier retain obligation breadth, bounded owner
+  recurrence, retrieval rank/score, and lexical support. This removes the defect in pandas `233458Z` where the
+  two-owner `core/index.py` hypothesis received a categorical lexical advantage over the six-owner
+  `core/series.py` cluster.
+- Added a focused reconstruction of that six-owner Series versus two-owner Index state. It selects
+  `core/series.py`, includes `_binop` in the bounded owner batch, and preserves the earlier title-independent
+  BuilderState cluster behavior; all seven dormant-file action tests pass.
+- Actual-pipeline checks show that this corrects the specific comparison but does not make the one-file global
+  dormant reservation stable across changing initial retrieval inputs. `002401Z` qualified
+  `core/series.py::Series::_binop` and sent it to final comparison (1 implementation / 2 total overlap), although a
+  sparse-Series dormant action ran first. With a different candidate population, `002808Z` chose `core/base.py`
+  and finished with 0 implementation / 1 total overlap. The first attempt `001959Z` failed before retrieval because
+  the shell exposed Node 20 without `node:sqlite`; it is excluded. Remaining question: replace one global dormant
+  winner with bounded per-file challenger/representative maintenance rather than further path-specific ranking.
+
+## 2026-09-02 — Qualified owner representation reevaluation
+
+- Added a separate deterministic `owner_representation` stage after round-zero qualification and after every
+  productive controller qualification update. It groups retained evidence per normalized file and obligation,
+  elects one qualified primary, preserves other qualified owners as complements, records rejected owners, and
+  nominates bounded undisclosed challengers. Initial admission is therefore the first qualified representative,
+  not a permanent winner.
+- Raw retrieval metadata cannot replace qualified evidence. A challenger must use an existing disclosed-source
+  qualification call and only then participates in deterministic reelection; this adds no comparison LLM call.
+  Challenger disclosure uses the existing deferred-file-rescue allowance and does not add rounds, retries, or a
+  new action slot.
+- Live supervision rejected the first broad nomination rule: one generic arithmetic token admitted PANEL and FRAME
+  factories beside a Series owner. The retained rule excludes test owners and generic factory terms and requires an
+  exact anchor or distinctive overlap with the qualified owner/follow-up. Focused tests prove the Series/PANEL/FRAME
+  distinction and all 225 neighboring retrieval tests pass.
+- Pandas diagnostic `run-20260902T005759Z` replaced `_flex_method_SERIES` with the qualified
+  `_arith_method_SERIES::wrapper`, then retained `_arith_method_SERIES::na_op` as complementary mechanism evidence.
+  Coherent but unnecessary SparseSeries batches expose a remaining token-risk boundary. This stage cannot recover
+  `core/series.py::_binop` without a qualified owner in that file; DFA-1 remains responsible for zero-qualified
+  files.
+- TypeScript diagnostic `run-20260902T010157Z` preserved `builderState.ts::getFilesAffectedBy` as primary while
+  adding both updated-shape branches and `updateSignaturesFromCache` as qualified complements. Acceptance runs
+  `010629Z` and `011114Z` both returned all four focal files (Builder, BuilderState, WatchMode, Helpers), selected
+  14/10 evidence items, used 127,396/121,753 retrieval tokens, and remained `partial/false`.
+- Decision: accept the bounded representation stage. Do not broaden challenger disclosure until the useful versus
+  coherent-but-unnecessary rate is measured across more repositories.
+
+## 2026-09-02 — Rejected balanced dormant-file score
+
+- Tested three scoped replacements for the lexicographic dormant-file winner ordering. Eligibility, source
+  disclosure, scheduling, qualification, and final selection were unchanged. The score capped structural strength,
+  unresolved-obligation breadth, recurrence, retrieval quality, and lexical support so one raw provenance field
+  could not decide the winner.
+- Variant 1 broke the title-independent BuilderState fixture. Variant 2 passed focused tests but selected
+  `core/index.py` in pandas diagnostic `014213Z`; qualification rejected all five owners. Variant 3 selected
+  `core/series.py::_binop` in diagnostic `014620Z`, where `_binop` qualified as direct evidence.
+- Final behavior was not repeatable: in pandas acceptance `014931Z`, eligible `core/series.py` scored 60 while
+  eligible `sparse/series.py` scored 68 on stronger retrieval/recurrence metadata; SparseSeries was inspected and
+  the run returned 0 implementation overlap. `015256Z` inspected `core/series.py` and returned 1 implementation
+  overlap.
+- Decision: revert the score. It directly preferred the wrong eligible file in one acceptance run, so the failure
+  was not solely upstream admission. More weight tuning would continue trading unqualified metadata signals without
+  a repeatable semantic advantage.
+
+## 2026-09-02 — Conditional second dormant-file opportunity
+
+- Added a bounded second `InspectDormantFileAlternatives` opportunity rather than batching the first two metadata
+  hypotheses. The first action is qualified normally. A second file may execute only when the first action does not
+  produce a retained owner that individually establishes a currently unresolved obligation; it must also be at
+  least as strong as the first hypothesis in title-owner support, request-owner support, and independent structural
+  owner count. The same file cannot execute twice, and the run remains capped at two dormant-file attempts.
+- The trigger is deterministic and reuses the ordinary qualification result. It adds no retry or separate LLM
+  decision. The second action, when admitted, still incurs its normal source-disclosure and qualification cost.
+- Rejected the first trigger variant because it treated merely contributing obligation IDs as proof of productive
+  recovery. Pandas diagnostic `run-20260902T035903Z` therefore stopped after qualifying SparseSeries even though it
+  did not establish the missing ordinary-Series mechanism.
+- With individual establishment as the trigger, pandas diagnostic `run-20260902T040310Z` inspected SparseSeries in
+  round 1 and `pandas/core/series.py` in round 2, exposing `_binop`. Pandas acceptance
+  `run-20260902T040611Z` recovered the 1/1 implementation Oracle but then spent the second attempt on the much weaker
+  `doc/source/conf.py`; the comparative-strength floor was added to prevent that form of opportunistic overflow.
+- In the final focused pandas diagnostic `run-20260902T041051Z`, SparseSeries was inspected first and ordinary
+  controller work recovered `core/series.py` before a second dormant action was needed. The conditional opportunity
+  remained open but did not force a weaker file. TypeScript acceptance `run-20260902T041813Z` returned all four focal
+  implementation files (`builderState.ts`, `builder.ts`, `watchMode.ts`, and `tscWatch/helpers.ts`). It did use a
+  second dormant attempt (`watchPublic.ts`) without credited gain, demonstrating that the two-attempt ceiling is a
+  quality-preserving but potentially expensive recovery margin, not a free improvement.
+- Focused verification: 112 dormant-file, scheduling, and qualification-first tests pass. Decision: retain the
+  bounded conditional opportunity for now; measure its productive-action rate and token cost in the next batch.
+
+## 2026-09-02 — Complete 35-case retrieval statistics campaign
+
+- Completed the requested four-run Workspace campaign over all 35 frozen retrieval-grounded CodeRepoQA cases:
+  140 valid Workspace runs, exactly four per case. The frozen Codex Luna `efficient` ledger contains 140
+  artifact-complete executions, but retrospective health validation found that it is not a valid retrieval
+  condition: all 140 runs had repository shell commands rejected by execution policy and 134 returned no usable
+  evidence. Those Codex rows are retained for failure audit only and must not support a quality comparison.
+- Added a reporting-only retrieval-topology assignment for every case (`localized_declarative`,
+  `localized_implementation`, `connected_mechanism`, or `broad_cross_cutting`). Assignments use frozen issue and
+  Oracle structure and are not retrieval inputs or post-result Oracle changes.
+- Protocol headline selection uses the first valid campaign run per testcase and system, never a best-looking
+  repetition. Workspace achieved P@5 0.206, R@5 0.550, and NDCG@5 0.460; 68.6% of cases had at least one
+  implementation hit and 45.7% reached full implementation-file recall. The broken Codex harness produced
+  descriptive P@5 0.017, R@5 0.057, and NDCG@5 0.042, but these are failure-audit values rather than measurements
+  of functioning Codex retrieval.
+- The separately labelled four-run stability macro-average was Workspace P@5 0.191, R@5 0.508, and NDCG@5
+  0.401, versus Codex P@5 0.011, R@5 0.025, and NDCG@5 0.022. Workspace returned an implementation Oracle in
+  67.9% of executions and reached full implementation recall in 40.7%.
+- The topology view confirms the intended strength and remaining boundary: Workspace four-run R@5 was 0.661 for
+  localized implementation and 0.571 for connected mechanisms, but 0.167 for localized declarative cases and
+  0.046 for broad cross-cutting cases. These weak classes remain visible rather than being removed from the corpus.
+- Mean recorded non-indexing flow usage across four runs was 95,315 tokens for Workspace. Workspace indexing-token
+  usage remains unavailable because no provider-logged build usage was retained, so token totals are not estimated.
+  Exact-collection historical traces provide observed build duration for 32/35 cases: mean 153.2 seconds, median
+  34.2 seconds, and range 6.4–829.3 seconds. Each inventory row names its matching build run; three unmatched cases
+  remain explicitly unavailable. Codex directly inspects a repository and has no index-build stage.
+- Two genuine execution defects were repaired while supervising the campaign. First, final-selection redundancy
+  metadata was made auxiliary to the grounded global selected-ID list, preventing structurally valid selections
+  from failing on duplicate or contradictory per-candidate bookkeeping. Second, coverage serialization now
+  subtracts request/obligation metadata before allocating its 40K candidate budget and omits controller-only
+  candidate fields. The Pandas 14942 post-fix payloads were 36,910, 36,535, and 31,853 characters, and 190 focused
+  retrieval tests passed. The campaign report explicitly discloses this mid-campaign implementation boundary; the
+  requested executions are retained, but they are not represented as one immutable-commit experiment.
+- Artifacts: `testing/codeRepoQA/statistics/runs/2026-09-02-workspace-vs-codex-main-statistics.md` is the
+  protocol-ordered headline report; `2026-09-02-workspace-vs-codex-four-run-comparison.md` is the complete
+  stability report; adjacent JSON files retain full-precision metrics and the complete 280-run inventory.
+- Root cause of the false Codex completion: `run_repetition_campaign.py` previously validated only process exit,
+  artifact existence, and configuration fields. It did not inspect retrieval coverage or require nonempty evidence,
+  so a normal Codex CLI exit containing `codex_returned_no_usable_evidence` counted toward four repetitions. The
+  shared validator now rejects failed coverage and zero-evidence results and records their stop reason.
+- Codex provider execution now also treats `exec_command failed` plus `rejected: blocked by policy` as an explicit
+  retrieval error even when the CLI process exits zero and emits schema-valid uncertainty output. The batch cannot
+  silently accumulate that failure again. Twenty focused Codex-provider and campaign-validity tests pass.

@@ -11,6 +11,37 @@ from services.retrieval.workspace.source_ast.router import SourceAstRouter
 
 
 class OwnerSourceTests(unittest.TestCase):
+    def test_preparation_decodes_legacy_cp1252_source_consistently(self):
+        source='function f() {\n  // legacy “quote”\n  return answer();\n}\n'
+        with tempfile.TemporaryDirectory() as folder:
+            Path(folder,'a.ts').write_bytes(source.encode('cp1252'))
+            observation=DiscoveryObservation(
+                'id',
+                SourceHandle(
+                    'a.ts', 1, 2, node_id='function:x',
+                    full_line_start=1, full_line_end=4,
+                ),
+                'function f() {\n  // legacy “quote”',
+                (DiscoveryProvenance('dense','query'),),
+                source_views=(RetrievedSourceView(
+                    'a.ts', 1, 2, 'function f() {\n  // legacy “quote”',
+                ),),
+            )
+            source_ast=SimpleNamespace(owner_source_layouts=lambda _: {
+                'status': 'ok',
+                'owners': [{
+                    'line_start': 1, 'line_end': 4,
+                    'signature_end': 1, 'body_ranges': [[2, 3]],
+                }],
+            })
+
+            result=prepare_owner_sources(
+                (observation,), workspace_root=folder, source_ast=source_ast,
+                mode='consistent', max_chars=512,
+            )
+
+        self.assertIn('return answer()', result.observations[0].comparison_source_views[0].text)
+
     def test_preparation_preserves_identity_provenance_and_repairs_renderer(self):
         from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import _source_view_payloads
         source='def f():\n    """Documentation."""\n    return answer()\n'

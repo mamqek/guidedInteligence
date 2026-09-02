@@ -2,6 +2,16 @@
 
 This table is generated from `selection_manifest.json`. Each case directory contains `issue.json` and `verification.json`.
 
+## Reporting axes
+
+The headings below are the primary issue-intent categories used to balance the 35-case retrieval corpus. Statistics
+also report the orthogonal retrieval topology of each case: `localized_declarative`,
+`localized_implementation`, `connected_mechanism`, or `broad_cross_cutting`. Topology describes how the frozen
+resolution evidence is distributed in the repository; it is never supplied to retrieval and does not change Oracle
+membership. Definitions, assignment rules, and audited development examples are recorded in
+[`RETRIEVAL_STATISTICS_PROTOCOL.md`](../statistics/RETRIEVAL_STATISTICS_PROTOCOL.md#secondary-retrieval-topology-axis)
+and [`RETRIEVAL_STATISTICS_CORPUS_SPLIT.md`](../statistics/RETRIEVAL_STATISTICS_CORPUS_SPLIT.md#secondary-retrieval-topology).
+
 ## bug_regression
 
 | Case ID | Partition | Repository | Issue | Original Issue File | Case Directory | Rationale |

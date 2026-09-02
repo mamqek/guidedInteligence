@@ -13,17 +13,20 @@ from services.retrieval.workspace.pipeline.execution_flow.actions.policy import 
 from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_execution import (
     ExpandRelationship,
     InspectDeferredObservation,
+    InspectDormantFileAlternatives,
     InspectOwnerContinuation,
     InspectVerifiedLead,
     SearchNewIsland,
-    SearchWithinFile,
+    ExpandWithinFileHandoff,
     StopRetrieval,
+    _deduplicate_owner_continuations,
     action_to_dict,
 )
 from services.retrieval.workspace.pipeline.execution_flow.actions.scheduler import (
     schedule_round_actions,
     select_ordinary_backfill_action,
 )
+from services.retrieval.workspace.pipeline.execution_flow.actions.models import DormantFileHypothesisStrength
 from services.retrieval.workspace.pipeline.execution_flow.actions.pending_file_handoffs import (
     PendingFileHandoff,
     reconcile_pending_file_handoffs,
@@ -35,7 +38,7 @@ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations
     DiscoveryProvenance,
     SourceHandle,
 )
-from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
+from tests.qualification_test_support import QualificationDecision
 from services.retrieval.workspace.pipeline.execution_flow.action_novelty import (
     RequestMemoizer,
     normalized_action_effect,
@@ -49,6 +52,11 @@ def _action_for(purpose: ActionPurpose):
         ActionPurpose.DISCLOSE_DEFERRED_OWNER,
     }:
         return InspectDeferredObservation("inspect", "obs", (1, 2), "Inspect.", purpose=purpose)
+    if purpose is ActionPurpose.DORMANT_FILE_ALTERNATIVES:
+        return InspectDormantFileAlternatives(
+            "dormant", "src/a.ts", ("obs_a", "obs_b"),
+            "Inspect dormant file.", purpose=purpose
+        )
     if purpose in {ActionPurpose.OWNER_CONTINUATION, ActionPurpose.OWNER_MATURATION}:
         return InspectOwnerContinuation(
             "continuation", "why", "obs", (3, 4), (1, 10), "Continue.", purpose=purpose
@@ -58,12 +66,12 @@ def _action_for(purpose: ActionPurpose):
             "expand", "why", "obs", "function:owner", "outgoing", ("calls",), "downstream"
         )
     if purpose in {
-        ActionPurpose.WITHIN_FILE_SEARCH,
+        ActionPurpose.WITHIN_FILE_HANDOFF_EXPANSION,
         ActionPurpose.HANDOFF_COMPLETION,
         ActionPurpose.DEFERRED_FILE_RESCUE,
         ActionPurpose.TEST_SCENARIO_MATURATION,
     }:
-        return SearchWithinFile("search", "why", "obs", "src/a.ts", "Find code.", purpose=purpose)
+        return ExpandWithinFileHandoff("search", "why", "obs", "src/a.ts", "Find code.", purpose=purpose)
     if purpose is ActionPurpose.NEW_ISLAND_SEARCH:
         return SearchNewIsland("new", "why", "Find another mechanism.")
     if purpose in {ActionPurpose.VERIFIED_SOURCE_LEAD, ActionPurpose.STRUCTURAL_CHILD_HANDOFF}:
@@ -106,6 +114,188 @@ class RetrievalActionPolicyTests(unittest.TestCase):
     def test_every_action_purpose_has_one_runtime_pool(self) -> None:
         self.assertEqual(set(ACTION_POOLS), set(ActionPurpose))
 
+    def test_owner_continuation_obligation_clones_fold_to_one_effect(self) -> None:
+        variants = tuple(
+            InspectOwnerContinuation(
+                f"continuation-{obligation}",
+                obligation,
+                "resolver-cache",
+                (827, 835),
+                (813, 839),
+                "Continue the resolver owner.",
+                scope_id="island_resolver",
+                purpose=ActionPurpose.OWNER_MATURATION,
+            )
+            for obligation in ("subject", "trigger", "ordered", "why")
+        )
+
+        folded = _deduplicate_owner_continuations(variants)
+
+        self.assertEqual(len(folded), 1)
+        action = folded[0]
+        self.assertIsInstance(action, InspectOwnerContinuation)
+        self.assertEqual(action.obligation_ids, ("ordered", "subject", "trigger", "why"))
+        self.assertEqual(action_to_dict(action)["obligation_recurrence"], 4)
+
+    def test_waiting_grounded_continuation_can_reach_second_existing_slot(self) -> None:
+        first = ExpandWithinFileHandoff(
+            "first", "why", "first-root", "src/first.ts", "Inspect first.",
+            scope_id="island_first",
+        )
+        second = ExpandWithinFileHandoff(
+            "second", "why", "second-root", "src/second.ts", "Inspect second.",
+            scope_id="island_second",
+        )
+        continuation = InspectOwnerContinuation(
+            "resolver-continuation",
+            "subject",
+            "resolver-cache",
+            (827, 835),
+            (813, 839),
+            "Continue the resolver owner.",
+            scope_id="island_resolver",
+            obligation_ids=("subject", "trigger", "ordered", "why"),
+            purpose=ActionPurpose.OWNER_MATURATION,
+        )
+        independent = SearchNewIsland(
+            "independent", "why", "Search for an unresolved independent mechanism.",
+            scope_id="unresolved:why",
+        )
+        common = {
+            "active_root_ids": ("first-root", "second-root", "resolver-cache"),
+            "active_island_ids": ("island_first", "island_second", "island_resolver"),
+            "normal_limit": 2,
+            "refined_paths": set(),
+            "attempted_action_ids": set(),
+            "attempted_effects": set(),
+            "pending_maturation_child_roots": set(),
+            "blocked_maturation_root_ids": set(),
+            "verified_lead_actions": (),
+        }
+
+        first_round = schedule_round_actions(
+            (first, second, continuation, independent),
+            round_index=1,
+            continuation_priority_by_effect={normalized_action_effect(continuation): (0, 4)},
+            **common,
+        )
+        later_round = schedule_round_actions(
+            (first, second, continuation, independent),
+            round_index=3,
+            continuation_priority_by_effect={normalized_action_effect(continuation): (2, 4)},
+            **common,
+        )
+
+        second_round = schedule_round_actions(
+            (first, second, continuation, independent),
+            round_index=2,
+            continuation_priority_by_effect={normalized_action_effect(continuation): (1, 4)},
+            **common,
+        )
+        second_round_baseline = schedule_round_actions(
+            (first, second, continuation, independent),
+            round_index=2,
+            **common,
+        )
+
+        self.assertEqual(first_round.normal, (first, second))
+        self.assertEqual(second_round.normal, second_round_baseline.normal)
+        self.assertEqual(later_round.normal, (first, continuation))
+
+    def test_waiting_relationship_expansion_can_reach_second_existing_slot(self) -> None:
+        first = ExpandRelationship(
+            "first", "why", "first-root", "file:src/first.ts",
+            "outgoing", ("calls",), "Follow first.",
+            scope_id="island_first", seed_kind="file", cross_file_only=True,
+        )
+        second = ExpandRelationship(
+            "second", "why", "second-root", "file:src/second.ts",
+            "outgoing", ("calls",), "Follow second.",
+            scope_id="island_second", seed_kind="file", cross_file_only=True,
+        )
+        relationship = ExpandRelationship(
+            "relationship", "why", "relationship-root", "file:src/relationship.ts",
+            "outgoing", ("calls",), "Follow the verified file handoff.",
+            scope_id="island_relationship", seed_kind="file", cross_file_only=True,
+        )
+        common = {
+            "active_root_ids": ("first-root", "second-root", "relationship-root"),
+            "active_island_ids": ("island_first", "island_second", "island_relationship"),
+            "normal_limit": 2,
+            "refined_paths": set(),
+            "attempted_action_ids": set(),
+            "attempted_effects": set(),
+            "pending_maturation_child_roots": set(),
+            "blocked_maturation_root_ids": set(),
+            "verified_lead_actions": (),
+        }
+
+        first_round = schedule_round_actions(
+            (first, second, relationship),
+            round_index=1,
+            continuation_priority_by_effect={normalized_action_effect(relationship): (0, 1)},
+            **common,
+        )
+        later_round = schedule_round_actions(
+            (first, second, relationship),
+            round_index=3,
+            continuation_priority_by_effect={normalized_action_effect(relationship): (2, 1)},
+            **common,
+        )
+
+        second_round = schedule_round_actions(
+            (first, second, relationship),
+            round_index=2,
+            continuation_priority_by_effect={normalized_action_effect(relationship): (1, 1)},
+            **common,
+        )
+        second_round_baseline = schedule_round_actions(
+            (first, second, relationship),
+            round_index=2,
+            **common,
+        )
+
+        self.assertEqual(first_round.normal, (first, second))
+        self.assertEqual(second_round.normal, second_round_baseline.normal)
+        self.assertEqual(later_round.normal, (first, relationship))
+
+    def test_waiting_age_does_not_promote_broad_new_island_search(self) -> None:
+        first = ExpandWithinFileHandoff(
+            "first", "why", "first-root", "src/first.ts", "Inspect first.",
+            scope_id="island_first",
+        )
+        second = ExpandWithinFileHandoff(
+            "second", "why", "second-root", "src/second.ts", "Inspect second.",
+            scope_id="island_second",
+        )
+        broad = SearchNewIsland(
+            "broad", "why", "Search the repository.", scope_id="unresolved:why",
+        )
+
+        common = {
+            "active_root_ids": ("first-root", "second-root"),
+            "active_island_ids": ("island_first", "island_second"),
+            "normal_limit": 2,
+            "round_index": 2,
+            "refined_paths": set(),
+            "attempted_action_ids": set(),
+            "attempted_effects": set(),
+            "pending_maturation_child_roots": set(),
+            "blocked_maturation_root_ids": set(),
+            "verified_lead_actions": (),
+        }
+        baseline = schedule_round_actions(
+            (first, second, broad),
+            **common,
+        )
+        aged = schedule_round_actions(
+            (first, second, broad),
+            continuation_priority_by_effect={normalized_action_effect(broad): (1, 4)},
+            **common,
+        )
+
+        self.assertEqual(aged.normal, baseline.normal)
+
     def test_every_action_purpose_enters_exactly_its_documented_pool(self) -> None:
         actions = tuple(_action_for(purpose) for purpose in ActionPurpose)
         grouped = partition_actions_by_pool(actions)
@@ -127,20 +317,20 @@ class RetrievalActionPolicyTests(unittest.TestCase):
             self.assertNotIn("policy", payload)
             json.dumps(payload)
 
-    def test_round_scheduler_preserves_each_independent_pool(self) -> None:
-        normal = SearchWithinFile(
+    def test_round_scheduler_folds_owner_maturation_into_ordinary_pool(self) -> None:
+        normal = ExpandWithinFileHandoff(
             "normal", "why", "root_normal", "src/normal.ts", "Find normal code.",
             scope_id="island_normal",
         )
-        deferred = SearchWithinFile(
+        deferred = ExpandWithinFileHandoff(
             "deferred", "why", "root_deferred", "src/deferred.ts", "Rescue held code.",
             scope_id="frontier_deferred", purpose=ActionPurpose.DEFERRED_FILE_RESCUE,
         )
-        maturation = SearchWithinFile(
+        maturation = ExpandWithinFileHandoff(
             "maturation", "why", "root_maturation", "src/maturation.ts", "Improve owner.",
             scope_id="island_maturation", purpose=ActionPurpose.OWNER_MATURATION,
         )
-        test_maturation = SearchWithinFile(
+        test_maturation = ExpandWithinFileHandoff(
             "test", "why", "root_test", "tests/watch.ts", "Find assertion.",
             scope_id="island_test", purpose=ActionPurpose.TEST_SCENARIO_MATURATION,
         )
@@ -160,23 +350,115 @@ class RetrievalActionPolicyTests(unittest.TestCase):
             verified_lead_actions=(verified,),
         )
 
-        self.assertEqual(schedule.normal, (normal,))
+        self.assertEqual(schedule.normal, (normal, maturation))
         self.assertEqual(schedule.deferred_file_rescue, (deferred,))
-        self.assertEqual(schedule.owner_maturation, (maturation,))
         self.assertEqual(schedule.test_maturation, (test_maturation,))
         self.assertEqual(schedule.verified_lead, (verified,))
         self.assertEqual(len(schedule.selected), 5)
 
+    def test_dormant_file_inspection_receives_one_existing_ordinary_slot(self) -> None:
+        first = ExpandWithinFileHandoff(
+            "first", "why", "root_first", "src/first.ts", "Inspect first.",
+            scope_id="island_first",
+        )
+        second = ExpandWithinFileHandoff(
+            "second", "why", "root_second", "src/second.ts", "Inspect second.",
+            scope_id="island_second",
+        )
+        dormant = InspectDormantFileAlternatives(
+            "dormant", "src/dormant.ts", ("obs_a", "obs_b"),
+            "Inspect dormant file.",
+            scope_id="dormant_file:src/dormant.ts",
+        )
+
+        schedule = schedule_round_actions(
+            (first, second, dormant),
+            active_root_ids=("root_first", "root_second"),
+            active_island_ids=("island_first", "island_second"),
+            normal_limit=2,
+            round_index=1,
+            refined_paths=set(),
+            attempted_action_ids=set(),
+            attempted_effects=set(),
+            pending_maturation_child_roots=set(),
+            blocked_maturation_root_ids=set(),
+            verified_lead_actions=(),
+        )
+
+        self.assertEqual(schedule.normal, (first, dormant))
+
+        another = InspectDormantFileAlternatives(
+            "another", "src/another.ts", ("obs_c", "obs_d"),
+            "Inspect another dormant file.",
+            scope_id="dormant_file:src/another.ts",
+        )
+        later = schedule_round_actions(
+            (first, second, another),
+            active_root_ids=("root_first", "root_second"),
+            active_island_ids=("island_first", "island_second"),
+            normal_limit=2,
+            round_index=2,
+            refined_paths=set(),
+            attempted_action_ids={"dormant"},
+            attempted_effects={normalized_action_effect(dormant)},
+            pending_maturation_child_roots=set(),
+            blocked_maturation_root_ids=set(),
+            verified_lead_actions=(),
+        )
+
+        self.assertNotIn(another, later.normal)
+
+        conditional_second = schedule_round_actions(
+            (first, second, another),
+            active_root_ids=("root_first", "root_second"),
+            active_island_ids=("island_first", "island_second"),
+            normal_limit=2,
+            round_index=2,
+            refined_paths=set(),
+            attempted_action_ids={"dormant"},
+            attempted_effects={normalized_action_effect(dormant)},
+            pending_maturation_child_roots=set(),
+            blocked_maturation_root_ids=set(),
+            verified_lead_actions=(),
+            dormant_file_attempt_limit=2,
+        )
+
+        self.assertIn(another, conditional_second.normal)
+
+        weaker = InspectDormantFileAlternatives(
+            "weaker", "doc/source/conf.py", ("obs_e", "obs_f"),
+            "Inspect weaker dormant file.",
+            scope_id="dormant_file:doc/source/conf.py",
+            hypothesis_strength=DormantFileHypothesisStrength(1, 1, 7),
+        )
+        gated = schedule_round_actions(
+            (first, second, weaker),
+            active_root_ids=("root_first", "root_second"),
+            active_island_ids=("island_first", "island_second"),
+            normal_limit=2,
+            round_index=2,
+            refined_paths=set(),
+            attempted_action_ids={"dormant"},
+            attempted_effects={normalized_action_effect(dormant)},
+            pending_maturation_child_roots=set(),
+            blocked_maturation_root_ids=set(),
+            verified_lead_actions=(),
+            dormant_file_attempt_limit=2,
+            dormant_file_followup_floor=DormantFileHypothesisStrength(2, 3, 27),
+        )
+
+        self.assertNotIn(weaker, gated.normal)
+
     def test_repeated_action_is_suppressed_before_slots_and_novel_action_backfills(self) -> None:
-        repeated = SearchWithinFile(
+        repeated = ExpandWithinFileHandoff(
             "repeat", "why", "root_repeat", "src/repeat.ts", "Changed prose.",
             sparse_anchors=("targetMethod",), scope_id="island_repeat",
         )
-        novel = SearchWithinFile(
+        novel = ExpandWithinFileHandoff(
             "novel", "why", "root_novel", "src/novel.ts", "Find novel code.",
             sparse_anchors=("novelMethod",), scope_id="island_novel",
         )
-        prior = SearchWithinFile(
+        prior = ExpandWithinFileHandoff(
             "prior", "subject", "root_repeat", "src/repeat.ts", "Original prose.",
             sparse_anchors=("targetMethod",), scope_id="island_repeat",
         )
@@ -201,15 +483,15 @@ class RetrievalActionPolicyTests(unittest.TestCase):
         self.assertEqual(schedule.suppressed[0]["action_id"], "repeat")
 
     def test_empty_ordinary_action_can_backfill_from_an_unoccupied_island(self) -> None:
-        empty = SearchWithinFile(
+        empty = ExpandWithinFileHandoff(
             "empty", "why", "root_empty", "src/empty.ts", "Find empty code.",
             scope_id="island_empty",
         )
-        queued = SearchWithinFile(
+        queued = ExpandWithinFileHandoff(
             "queued", "why", "root_queued", "src/queued.ts", "Find queued code.",
             scope_id="island_queued",
         )
-        replacement = SearchWithinFile(
+        replacement = ExpandWithinFileHandoff(
             "replacement", "why", "root_replacement", "src/replacement.ts", "Find replacement code.",
             scope_id="island_replacement",
         )
@@ -231,11 +513,11 @@ class RetrievalActionPolicyTests(unittest.TestCase):
         self.assertEqual(selected, replacement)
 
     def test_empty_ordinary_backfill_never_selects_an_auxiliary_action(self) -> None:
-        empty = SearchWithinFile(
+        empty = ExpandWithinFileHandoff(
             "empty", "why", "root_empty", "src/empty.ts", "Find empty code.",
             scope_id="island_empty",
         )
-        auxiliary = SearchWithinFile(
+        auxiliary = ExpandWithinFileHandoff(
             "auxiliary", "why", "root_aux", "src/aux.ts", "Rescue deferred code.",
             scope_id="frontier_aux", purpose=ActionPurpose.DEFERRED_FILE_RESCUE,
         )
@@ -256,11 +538,11 @@ class RetrievalActionPolicyTests(unittest.TestCase):
         self.assertIsNone(selected)
 
     def test_owner_maturation_can_compete_inside_existing_ordinary_capacity(self) -> None:
-        first = SearchWithinFile(
+        first = ExpandWithinFileHandoff(
             "first", "why", "root_first", "src/first.ts", "Inspect first.",
             scope_id="island_first",
         )
-        second = SearchWithinFile(
+        second = ExpandWithinFileHandoff(
             "second", "why", "root_second", "src/second.ts", "Inspect second.",
             scope_id="island_second",
         )
@@ -281,23 +563,17 @@ class RetrievalActionPolicyTests(unittest.TestCase):
             "verified_lead_actions": (),
         }
 
-        baseline = schedule_round_actions((first, second, maturation), **common)
         folded = schedule_round_actions(
             (first, second, maturation),
-            ordinary_actions=(first, second, maturation),
-            fold_owner_maturation_into_ordinary=True,
             **common,
         )
 
-        self.assertEqual(len(baseline.normal), 2)
-        self.assertEqual(baseline.owner_maturation, (maturation,))
         self.assertEqual(len(folded.normal), 2)
         self.assertIn(maturation, folded.normal)
-        self.assertEqual(folded.owner_maturation, ())
 
     def test_pending_file_handoff_uses_one_existing_slot_only_after_discovery_round(self) -> None:
         pending_action = self._file_handoff("pending", "watch", "watch_island")
-        other = SearchWithinFile(
+        other = ExpandWithinFileHandoff(
             "other", "obligation", "builder", "src/builder.ts", "Inspect builder.",
             scope_id="builder_island",
         )

@@ -32,6 +32,12 @@ SUPPORTED_INITIAL_SELECTION_MODES = (
     INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     INITIAL_SELECTION_LEGACY_OBSERVATION_GUARDRAIL,
 )
+FINAL_SELECTION_REPRESENTATION_MECHANISM_FLOWS = "mechanism_flows"
+FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS = "island_packets"
+SUPPORTED_FINAL_SELECTION_REPRESENTATIONS = (
+    FINAL_SELECTION_REPRESENTATION_MECHANISM_FLOWS,
+    FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS,
+)
 
 
 def _repo_root() -> Path:
@@ -342,14 +348,13 @@ class WorkspaceRetrievalConfig:
     codex_ignore_user_config: bool = True
     codex_evidence_organizer_enabled: bool = True
     final_evidence_selection_enabled: bool = True
+    final_evidence_selection_representation: str = FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS
     stop_before_round_zero_qualification: bool = False
     dormant_island_completion_enabled: bool = False
-    island_frontier_ordinary_scheduling_enabled: bool = False
-    island_frontier_fold_owner_maturation_enabled: bool = False
+    dormant_file_alternatives_enabled: bool = True
     run_dir: str | None = None
     chunk_line_count: int = 40
     chunk_line_overlap: int = 10
-    lexical_ranking_profile: str = "flat_bm25"
     max_exploration_rounds: int = 4
     max_tool_calls_per_round: int = 5
     max_controller_actions_per_round: int = 2
@@ -553,14 +558,6 @@ class WorkspaceRetrievalConfig:
             raise ValueError("semantic_island_beam_size must be greater than zero.")
         if self.max_discovery_observations <= 0:
             raise ValueError("max_discovery_observations must be greater than zero.")
-        if (
-            self.island_frontier_fold_owner_maturation_enabled
-            and not self.island_frontier_ordinary_scheduling_enabled
-        ):
-            raise ValueError(
-                "island_frontier_fold_owner_maturation_enabled requires "
-                "island_frontier_ordinary_scheduling_enabled."
-            )
         if self.initial_selection_mode not in SUPPORTED_INITIAL_SELECTION_MODES:
             raise ValueError(
                 "Unsupported initial_selection_mode: "
@@ -583,8 +580,12 @@ class WorkspaceRetrievalConfig:
             )
         if self.max_final_selection_input_chars <= 0:
             raise ValueError("max_final_selection_input_chars must be greater than zero.")
-        if not self.structural_graph_enabled:
-            raise ValueError("Workspace retrieval requires structural_graph_enabled=True.")
+        if self.final_evidence_selection_representation not in SUPPORTED_FINAL_SELECTION_REPRESENTATIONS:
+            raise ValueError(
+                "Unsupported final_evidence_selection_representation: "
+                f"{self.final_evidence_selection_representation}. Supported values: "
+                f"{', '.join(SUPPORTED_FINAL_SELECTION_REPRESENTATIONS)}."
+            )
         if self.structural_graph_timeout_seconds <= 0:
             raise ValueError("structural_graph_timeout_seconds must be greater than zero.")
         if self.structural_graph_max_files <= 0:
@@ -598,8 +599,6 @@ class WorkspaceRetrievalConfig:
             raise ValueError("chunk_line_count must be greater than zero.")
         if self.chunk_line_overlap < 0 or self.chunk_line_overlap >= self.chunk_line_count:
             raise ValueError("chunk_line_overlap must be between zero and chunk_line_count - 1.")
-        if self.lexical_ranking_profile not in {"flat_bm25", "bm25f_v1", "bm25f_v2"}:
-            raise ValueError(f"Unsupported lexical_ranking_profile: {self.lexical_ranking_profile}.")
         if self.obsidian_search_limit <= 0:
             raise ValueError("obsidian_search_limit must be greater than zero.")
         if self.obsidian_min_guidance_score < 0:

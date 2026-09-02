@@ -10,7 +10,7 @@ from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_
     InspectVerifiedLead,
     RetrievalAction,
     SearchNewIsland,
-    SearchWithinFile,
+    ExpandWithinFileHandoff,
 )
 from services.retrieval.workspace.pipeline.execution_flow.actions.policy import action_pool
 from services.retrieval.workspace.pipeline.execution_flow.actions.scheduler import _action_effect
@@ -26,6 +26,7 @@ class IslandContinuation:
     frontier_id: str
     frontier_kind: str
     gap_id: str
+    obligation_ids: tuple[str, ...]
     source_observation_id: str
     executor_kind: str
     normalized_effect: tuple[str, ...]
@@ -43,6 +44,7 @@ class IslandContinuation:
             "frontier_id": self.frontier_id,
             "frontier_kind": self.frontier_kind,
             "gap_id": self.gap_id,
+            "obligation_ids": list(self.obligation_ids),
             "source_observation_id": self.source_observation_id,
             "executor_kind": self.executor_kind,
             "normalized_effect": list(self.normalized_effect),
@@ -89,6 +91,7 @@ class _ContinuationRecord:
     frontier_id: str
     frontier_kind: str
     gap_id: str
+    obligation_ids: set[str]
     source_observation_id: str
     normalized_effect: tuple[str, ...]
     grounding: str
@@ -134,6 +137,7 @@ class IslandFrontierLedger:
                 active_island_ids=islands.active_island_ids,
             )
             gap_id = _gap_id(action)
+            obligation_ids = set(_obligation_ids(action))
             record = self._records.get(effect)
             if record is None:
                 record = _ContinuationRecord(
@@ -143,6 +147,7 @@ class IslandFrontierLedger:
                     frontier_id=frontier_id,
                     frontier_kind=frontier_kind,
                     gap_id=gap_id,
+                    obligation_ids=obligation_ids,
                     source_observation_id=source_id,
                     normalized_effect=effect,
                     grounding=_grounding(action, frontier_kind),
@@ -158,6 +163,7 @@ class IslandFrontierLedger:
                 record.frontier_id = frontier_id
                 record.frontier_kind = frontier_kind
                 record.gap_id = gap_id or record.gap_id
+                record.obligation_ids.update(obligation_ids)
                 record.source_observation_id = source_id or record.source_observation_id
                 record.last_seen_round = round_index
                 record.catalogue_rank = catalogue_rank
@@ -200,6 +206,23 @@ class IslandFrontierLedger:
             )
         )
 
+    def ordinary_scheduling_signals(
+        self,
+        *,
+        round_index: int,
+    ) -> dict[tuple[str, ...], tuple[int, int]]:
+        """Return bounded wait/support signals for available ordinary effects."""
+
+        return {
+            item.normalized_effect: (
+                max(0, round_index - item.first_seen_round),
+                max(1, len(item.obligation_ids)),
+            )
+            for item in self._records.values()
+            if item.state == "available"
+            and action_pool(item.action.purpose).value in {"ordinary", "owner_maturation"}
+        }
+
     def snapshot(self) -> tuple[IslandFrontier, ...]:
         return self._frontiers
 
@@ -228,7 +251,11 @@ class IslandFrontierLedger:
             item.obligation_id for item in coverage if item.status in {"covered", "external"}
         }
         for record in self._records.values():
-            if record.state == "available" and record.gap_id and record.gap_id in completed:
+            if (
+                record.state == "available"
+                and record.obligation_ids
+                and record.obligation_ids.issubset(completed)
+            ):
                 record.state = "expired"
 
     def _build_frontiers(
@@ -256,15 +283,18 @@ class IslandFrontierLedger:
             direct = tuple(
                 item for item in observation_ids
                 if (decision := decisions.get(item)) is not None
-                and decision.support_level == "direct_evidence"
+                and decision.assessment.is_direct_fact
             )
             navigation = tuple(
                 item for item in observation_ids
                 if (decision := decisions.get(item)) is not None
-                and decision.support_level == "navigation_only"
+                and decision.assessment.is_navigation
             )
             relevant_gaps = tuple(dict.fromkeys(
-                record.gap_id for record in records if record.gap_id and record.gap_id in unresolved
+                gap_id
+                for record in records
+                for gap_id in sorted(record.obligation_ids)
+                if gap_id in unresolved
             ))
             result.append(IslandFrontier(
                 frontier_id=frontier_id,
@@ -279,7 +309,12 @@ class IslandFrontierLedger:
                 established_navigation_ids=navigation,
                 unresolved_gap_ids=relevant_gaps,
                 completed_gap_ids=tuple(
-                    dict.fromkeys(record.gap_id for record in records if record.gap_id in completed)
+                    dict.fromkeys(
+                        gap_id
+                        for record in records
+                        for gap_id in sorted(record.obligation_ids)
+                        if gap_id in completed
+                    )
                 ),
                 continuations=tuple(_freeze_continuation(item) for item in records),
                 terminal_reason=(
@@ -297,6 +332,7 @@ def _freeze_continuation(record: _ContinuationRecord) -> IslandContinuation:
         frontier_id=record.frontier_id,
         frontier_kind=record.frontier_kind,
         gap_id=record.gap_id,
+        obligation_ids=tuple(sorted(record.obligation_ids)),
         source_observation_id=record.source_observation_id,
         executor_kind=type(record.action).__name__,
         normalized_effect=record.normalized_effect,
@@ -312,7 +348,7 @@ def _freeze_continuation(record: _ContinuationRecord) -> IslandContinuation:
 def _source_observation_id(action: RetrievalAction) -> str:
     if isinstance(action, ExpandRelationship):
         return action.root_observation_id
-    if isinstance(action, (SearchWithinFile, InspectVerifiedLead)):
+    if isinstance(action, (ExpandWithinFileHandoff, InspectVerifiedLead)):
         return action.source_observation_id
     if isinstance(action, (InspectDeferredObservation, InspectOwnerContinuation)):
         return action.observation_id
@@ -321,6 +357,12 @@ def _source_observation_id(action: RetrievalAction) -> str:
 
 def _gap_id(action: RetrievalAction) -> str:
     return str(getattr(action, "obligation_id", "") or "")
+
+
+def _obligation_ids(action: RetrievalAction) -> tuple[str, ...]:
+    values = tuple(str(value) for value in getattr(action, "obligation_ids", ()) if value)
+    gap_id = _gap_id(action)
+    return tuple(dict.fromkeys((*values, *((gap_id,) if gap_id else ()))))
 
 
 def _frontier_identity(
@@ -346,7 +388,7 @@ def _grounding(action: RetrievalAction, frontier_kind: str) -> str:
         return "source_verified_exact_symbol"
     if isinstance(action, ExpandRelationship):
         return f"represented_{action.seed_kind}_node"
-    if isinstance(action, SearchWithinFile):
+    if isinstance(action, ExpandWithinFileHandoff):
         return "represented_file_handoff" if frontier_kind.endswith("island") else "retrieved_file_lead"
     if isinstance(action, (InspectDeferredObservation, InspectOwnerContinuation)):
         return "retrieved_owner_handle"
@@ -360,6 +402,6 @@ def _estimated_cost(action: RetrievalAction) -> str:
         return "source_disclosure"
     if isinstance(action, ExpandRelationship):
         return "structural_query"
-    if isinstance(action, (SearchWithinFile, SearchNewIsland)):
+    if isinstance(action, (ExpandWithinFileHandoff, SearchNewIsland)):
         return "retrieval_query"
     return action_pool(action.purpose).value

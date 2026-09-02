@@ -3,7 +3,7 @@
   "test_root": "C:/Programming/guidedInteligence_testcases",
   "shared_repo_root": "C:/Programming/guidedInteligence_testcases/_repos",
   "rebuild_index": false,
-  "case_timeout_seconds": 1800,
+  "case_timeout_seconds": 600,
   "chunk_lines": 40,
   "chunk_overlap": 10,
   "embedding_batch_size": 64,

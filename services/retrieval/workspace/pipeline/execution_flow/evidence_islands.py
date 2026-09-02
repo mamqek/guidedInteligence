@@ -8,6 +8,12 @@ from typing import Any, Mapping, Sequence
 from services.retrieval.workspace.pipeline.execution_flow.coverage_evaluation import ObligationCoverage
 from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import DiscoveryObservation
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
+from services.retrieval.workspace.pipeline.execution_flow.qualification_contract import (
+    EvidenceAssessment,
+    EvidenceDisposition,
+    EvidenceKind,
+    QualificationRationale,
+)
 from services.retrieval.workspace.pipeline.execution_flow.source_disclosure import DisclosureCard
 from services.retrieval.workspace.pipeline.execution_flow.structural_components import StructuralComponentSelection
 
@@ -20,7 +26,7 @@ class EvidenceIsland:
     enclosing_owners: tuple[str, ...] = ()
     obligation_ids: tuple[str, ...] = ()
     unresolved_obligation_ids: tuple[str, ...] = ()
-    qualification_support: tuple[str, ...] = ()
+    evidence_kinds: tuple[str, ...] = ()
     exact_anchors: tuple[str, ...] = ()
     action_provenance: tuple[str, ...] = ()
     structural_component_ids: tuple[str, ...] = ()
@@ -54,6 +60,7 @@ def build_semantic_islands(
     coverage: Sequence[ObligationCoverage],
     structural: StructuralComponentSelection,
     *,
+    primary_owner_counts: Mapping[str, int] | None = None,
     beam_size: int = 3,
     previous: IslandSelection | None = None,
     trace: Any | None = None,
@@ -62,9 +69,10 @@ def build_semantic_islands(
     if beam_size <= 0:
         raise ValueError("semantic island beam_size must be greater than zero")
     decision_by_id = {item.observation_id: item for item in decisions}
+    owner_primary_counts = primary_owner_counts or {}
     observation_by_id = {
         item.id: item for item in observations
-        if decision_by_id.get(item.id, _REJECT).disposition == "promote"
+        if decision_by_id.get(item.id, _REJECT).assessment.is_retained
     }
     card_by_id = {item.observation_id: item for item in cards}
     unresolved = {
@@ -118,7 +126,7 @@ def build_semantic_islands(
     action_groups: dict[str, list[str]] = {}
     for observation in observation_by_id.values():
         for provenance in observation.provenance:
-            if provenance.retriever in {"within_file_search", "graph_action"}:
+            if provenance.retriever in {"within_file_handoff_expansion", "graph_action"}:
                 action_groups.setdefault(provenance.query_id, []).append(observation.id)
     for ids in action_groups.values():
         for left_index, left in enumerate(ids):
@@ -153,7 +161,7 @@ def build_semantic_islands(
     islands = tuple(
         _make_island(
             tuple(ids), observation_by_id, decision_by_id, card_by_id, unresolved,
-            component_by_observation, previous_by_observation,
+            component_by_observation, previous_by_observation, owner_primary_counts,
         )
         for ids in sorted(grouped.values(), key=lambda values: tuple(sorted(values)))
     )
@@ -162,6 +170,7 @@ def build_semantic_islands(
         key=lambda item: _root_key(
             observation_by_id[item.representative_observation_id],
             decision_by_id[item.representative_observation_id],
+            primary_count=owner_primary_counts.get(item.representative_observation_id, 0),
         ),
     )
     active, reasons = _select_diverse_beam(ranked, beam_size)
@@ -170,7 +179,10 @@ def build_semantic_islands(
         for island in active
         for observation_id in sorted(
             island.observation_ids,
-            key=lambda value: _root_key(observation_by_id[value], decision_by_id[value]),
+            key=lambda value: _root_key(
+                observation_by_id[value], decision_by_id[value],
+                primary_count=owner_primary_counts.get(value, 0),
+            ),
         )
     )
     active_observations = set(active_roots)
@@ -198,10 +210,10 @@ def build_semantic_islands(
                 "beam_size": beam_size,
                 "core_support_counts": {
                     "direct_evidence": sum(
-                        1 for item in observation_by_id if decision_by_id[item].support_level == "direct_evidence"
+                        1 for item in observation_by_id if decision_by_id[item].assessment.is_direct_fact
                     ),
                     "navigation_only": sum(
-                        1 for item in observation_by_id if decision_by_id[item].support_level == "navigation_only"
+                        1 for item in observation_by_id if decision_by_id[item].assessment.is_navigation
                     ),
                 },
                 "merge_events": merge_events,
@@ -223,18 +235,25 @@ def _make_island(
     unresolved: set[str],
     component_by_observation: Mapping[str, str],
     previous_by_observation: Mapping[str, str],
+    primary_owner_counts: Mapping[str, int],
 ) -> EvidenceIsland:
     ordered_ids = tuple(sorted(ids))
-    representative = min(ordered_ids, key=lambda value: _root_key(observations[value], decisions[value]))
+    representative = min(
+        ordered_ids,
+        key=lambda value: _root_key(
+            observations[value], decisions[value],
+            primary_count=primary_owner_counts.get(value, 0),
+        ),
+    )
     files = tuple(sorted({observations[item].handle.path.casefold() for item in ordered_ids}))
     owners = tuple(sorted(filter(None, (_owner_identity(observations[item], cards.get(item)) for item in ordered_ids))))
     obligations = tuple(sorted({value for item in ordered_ids for value in observations[item].obligation_ids}))
     unresolved_ids = tuple(value for value in obligations if value in unresolved)
-    support = tuple(sorted({decisions[item].support_level for item in ordered_ids}))
+    support = tuple(sorted({decisions[item].assessment.evidence_kind.value for item in ordered_ids}))
     anchors = tuple(sorted({value for item in ordered_ids for value in observations[item].exact_anchor_matches}))
     provenance = tuple(sorted({
         entry.query_id for item in ordered_ids for entry in observations[item].provenance
-        if entry.retriever in {"within_file_search", "graph_action"}
+        if entry.retriever in {"within_file_handoff_expansion", "graph_action"}
     }))
     components = tuple(sorted({component_by_observation[item] for item in ordered_ids if item in component_by_observation}))
     predecessors = tuple(sorted({previous_by_observation[item] for item in ordered_ids if item in previous_by_observation}))
@@ -247,7 +266,7 @@ def _make_island(
         enclosing_owners=owners,
         obligation_ids=obligations,
         unresolved_obligation_ids=unresolved_ids,
-        qualification_support=support,
+        evidence_kinds=support,
         exact_anchors=anchors,
         action_provenance=provenance,
         structural_component_ids=components,
@@ -258,8 +277,9 @@ def _make_island(
             "inherited_from_observation_id": representative,
             "exact_anchor": bool(root.exact_anchor_matches),
             "recurrence": root.recurrence,
-            "qualification_support": decisions[representative].support_level,
+            "evidence_kind": decisions[representative].assessment.evidence_kind.value,
             "best_rank": root.best_rank,
+            "owner_primary_count": primary_owner_counts.get(representative, 0),
         },
     )
 
@@ -333,15 +353,25 @@ def _overlapping_unresolved(
     return bool(left_ids & right_ids)
 
 
-def _root_key(observation: DiscoveryObservation, decision: QualificationDecision) -> tuple[Any, ...]:
+def _root_key(
+    observation: DiscoveryObservation,
+    decision: QualificationDecision,
+    *,
+    primary_count: int = 0,
+) -> tuple[Any, ...]:
     return (
+        -primary_count,
         0 if observation.exact_anchor_matches else 1,
         -observation.recurrence,
-        0 if decision.support_level == "direct_evidence" else 1,
+        0 if decision.assessment.is_direct_fact else 1,
         observation.best_rank,
         observation.handle.path.casefold(),
         observation.handle.line_start,
     )
 
 
-_REJECT = QualificationDecision("", "reject", "insufficient", "missing")
+_REJECT = QualificationDecision(
+    "",
+    EvidenceAssessment(EvidenceDisposition.REJECT, EvidenceKind.INSUFFICIENT),
+    QualificationRationale("missing"),
+)

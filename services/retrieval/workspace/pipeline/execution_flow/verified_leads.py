@@ -45,7 +45,7 @@ class VerifiedLead:
 
 
 def _inspection_request(target: str, decision: QualificationDecision, claims: Sequence[str], source: str) -> tuple[str, str]:
-    for basis, text in (("qualification_followup", decision.local_follow_up),
+    for basis, text in (("qualification_followup", decision.rationale.local_follow_up),
                         *(("missing_information", claim) for claim in claims)):
         if any(_target_leaf(value) == _target_leaf(target)
                and (not ("." in value or "::" in value) or value.replace("::", ".") == target.replace("::", "."))
@@ -100,9 +100,11 @@ def discover_qualified_file_leads(
         observation, decision, card = observations.get(identifier), decisions.get(identifier), cards.get(identifier)
         if observation is None or decision is None or card is None:
             continue
-        if decision.disposition != "promote" or decision.support_level != "direct_evidence":
+        if not decision.assessment.is_retained or not decision.assessment.is_direct_fact:
             continue
-        obligations = tuple(value for value in decision.supported_obligation_ids if value in unresolved)
+        obligations = tuple(
+            value for value in decision.assessment.individually_established_obligation_ids if value in unresolved
+        )
         if not obligations:
             continue
         source = {
@@ -111,7 +113,11 @@ def discover_qualified_file_leads(
             "qualified_name": card.owner_name or observation.handle.symbol,
             "line_start": card.owner_line_start, "line_end": card.owner_line_end,
         }
-        base = {"source_observation_id": identifier, "supported_obligation_ids": list(obligations), "round": round_index}
+        base = {
+            "source_observation_id": identifier,
+            "established_obligation_ids": list(obligations),
+            "round": round_index,
+        }
         ast_owned = str(source["id"] or "").startswith("source_owner:")
         if not source["id"] or (not ast_owned and card.owner_kind not in {"function", "method", "constructor", "assigned_function"}):
             audit.append({**base, "status": "rejected", "reason": "source_not_resolved_callable"})
@@ -241,14 +247,14 @@ def _discover_verified_leads(
         base = {
             "observation_id": observation_id,
             "round": round_index,
-            "follow_up": decision.local_follow_up if decision is not None else "",
+            "follow_up": decision.rationale.local_follow_up if decision is not None else "",
         }
         if observation is None or decision is None or card is None:
             audit.append({**base, "status": "rejected", "reason": "missing_observation_decision_or_card"})
             continue
         is_matured = observation_id in matured_ids
-        if decision.disposition != "promote" or (
-            decision.support_level != "navigation_only" and not is_matured
+        if not decision.assessment.is_retained or (
+            not decision.assessment.is_navigation and not is_matured
         ):
             continue
         unresolved = [
@@ -260,7 +266,7 @@ def _discover_verified_leads(
         if not unresolved:
             audit.append({**base, "status": "rejected", "reason": "no_compatible_unresolved_obligation"})
             continue
-        target_context = decision.local_follow_up
+        target_context = decision.rationale.local_follow_up
         if is_matured:
             target_context = " ".join((
                 target_context,
@@ -310,7 +316,7 @@ def _discover_verified_leads(
             and target_path
             and target_path.casefold() != observation.handle.path.casefold()
         )
-        if is_matured and not structural_child and decision.support_level != "navigation_only":
+        if is_matured and not structural_child and not decision.assessment.is_navigation:
             audit.append({
                 **base,
                 "target": target,
@@ -346,7 +352,7 @@ def _discover_verified_leads(
             target_line_start=max(1, int(node.get("line_start") or 1)),
             target_line_end=max(1, int(node.get("line_end") or node.get("line_start") or 1)),
             target_symbol=str(node.get("qualified_name") or node.get("name") or leaf),
-            reason=decision.local_follow_up,
+            reason=decision.rationale.local_follow_up,
             discovered_round=round_index,
             source_rank=observation.best_rank,
             qualified_target=("." in target or "::" in target),

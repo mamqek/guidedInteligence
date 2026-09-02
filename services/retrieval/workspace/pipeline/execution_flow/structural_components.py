@@ -6,6 +6,12 @@ from typing import Any, Mapping, Sequence
 
 from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import DiscoveryObservation
 from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
+from services.retrieval.workspace.pipeline.execution_flow.qualification_contract import (
+    EvidenceAssessment,
+    EvidenceDisposition,
+    EvidenceKind,
+    QualificationRationale,
+)
 from services.retrieval.workspace.pipeline.execution_flow.island_connectors import (
     discover_island_connectors,
 )
@@ -39,7 +45,7 @@ def build_structural_components(
     round_index: int = 0,
 ) -> StructuralComponentSelection:
     decision_by_id = {item.observation_id: item for item in decisions}
-    eligible = [item for item in observations if decision_by_id.get(item.id, _REJECT).disposition == "promote"]
+    eligible = [item for item in observations if decision_by_id.get(item.id, _REJECT).assessment.is_retained]
     node_to_observation = {item.handle.node_id: item.id for item in eligible if item.handle.node_id}
     edges: list[dict[str, Any]] = []
     tool_calls = 0
@@ -105,4 +111,8 @@ def _component(observations: Sequence[DiscoveryObservation]) -> StructuralCompon
     return StructuralComponent(f"structural_{digest}", observation_ids, node_ids)
 
 
-_REJECT = QualificationDecision("", "reject", "insufficient", "missing")
+_REJECT = QualificationDecision(
+    "",
+    EvidenceAssessment(EvidenceDisposition.REJECT, EvidenceKind.INSUFFICIENT),
+    QualificationRationale("missing"),
+)

@@ -7,11 +7,15 @@ from typing import Any, Mapping, Sequence
 from core.models import ConversationState, EvidenceItem, RetrievalResult
 from core.source_policy import SourceCategory
 from services.intent.models import EvidenceSource
-from services.retrieval.config import INITIAL_SELECTION_LEGACY_OBSERVATION_GUARDRAIL
+from services.retrieval.config import (
+    FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS,
+    INITIAL_SELECTION_LEGACY_OBSERVATION_GUARDRAIL,
+)
 from services.retrieval.workspace.connected_context import ConnectedSourceContextResult
 from services.retrieval.workspace.pipeline.execution_flow.context import WorkspaceRetrievalContext
 from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import (
     DiscoveryObservation,
+    InitialAdmissionSignal,
     aggregate_observations,
     canonicalize_observations,
     merge_observation_pair,
@@ -290,7 +294,7 @@ def run_obligation_retrieval(
             for (path, line_start, line_end), nodes in range_nodes.items()
         ]
         ctx.trace.record(
-            "initial_codegraph_ranges_resolved",
+            "initial_codegraph_ranges_resolved" if ctx.config.structural_graph_enabled else "initial_ranges_without_codegraph",
             {
                 "requested_range_count": len(ranges),
                 "returned_range_count": len(response.payload.get("results", ())),
@@ -301,6 +305,7 @@ def run_obligation_retrieval(
                 "owner_snippet_count": sum(int(row["owner_count"]) for row in resolution_rows),
                 "file_count": len({row["path"] for row in resolution_rows}),
                 "batch_diagnostics": dict(response.payload.get("batch_diagnostics", {})),
+                "structural_graph_provider": "codegraph" if ctx.config.structural_graph_enabled else "disabled",
                 "ranges": resolution_rows,
             },
         )
@@ -401,6 +406,30 @@ def run_obligation_retrieval(
             preferred_input_chars=ctx.config.preferred_initial_owner_comparison_input_chars,
             max_input_chars=ctx.config.max_initial_owner_comparison_input_chars,
             max_selected=ctx.config.max_discovery_observations,
+        )
+        crossing_position = next(
+            (
+                int(row.get("ranking_position") or 0)
+                for row in admission.snippet_decisions
+                if bool(row.get("crossed_budget"))
+            ),
+            0,
+        )
+        reserved_ids = set(admission.coverage_reserved_ids)
+        admission_by_id = {
+            str(row.get("snippet_id") or ""): InitialAdmissionSignal(
+                ranking_position=int(row.get("ranking_position") or 0),
+                decision=str(row.get("decision") or ""),
+                crossed_budget=bool(row.get("crossed_budget")),
+                budget_crossing_position=crossing_position,
+                coverage_reserved=str(row.get("snippet_id") or "") in reserved_ids,
+            )
+            for row in admission.snippet_decisions
+            if row.get("snippet_id")
+        }
+        canonical_snippets = tuple(
+            replace(item, initial_admission=admission_by_id.get(item.id))
+            for item in canonical_snippets
         )
     admitted_path_keys = {path.casefold() for path in admission.admitted_paths}
     admitted_ids = set(admission.admitted_ids)
@@ -611,6 +640,7 @@ def run_obligation_retrieval(
         dormant_completion_observations=(
             owner_comparison.dormant if ctx.config.dormant_island_completion_enabled else ()
         ),
+        dormant_file_observations=owner_comparison.dormant,
         structural_tools=structural_tools,
         qdrant_tool=qdrant_tool,
         candidate_factory=lambda observation, decision, card: _candidate_from_qualified(
@@ -657,6 +687,7 @@ def run_obligation_retrieval(
             expanded_edges=controller.edges,
             input_char_budget=ctx.config.max_final_selection_input_chars,
             candidate_islands=candidate_islands,
+            representation=ctx.config.final_evidence_selection_representation,
         )
         consolidation = _preserve_active_island_candidates(
             consolidation,
@@ -664,6 +695,10 @@ def run_obligation_retrieval(
             candidate_islands,
             controller,
             file_traces=controller.file_traces,
+            preserve_active_islands=(
+                ctx.config.final_evidence_selection_representation
+                != FINAL_SELECTION_REPRESENTATION_ISLAND_PACKETS
+            ),
         )
         consolidation = _select_unresolved_file_trace_evidence(
             ctx,
@@ -740,6 +775,7 @@ def run_obligation_retrieval(
         "retrieval_plan": {"strategy": "qualification_first_controller_v1", "obligations": [item.to_dict() for item in states]},
         "index_rebuilt": index_rebuilt,
         "index_document_count": index_document_count,
+        "structural_graph_provider": "codegraph" if ctx.config.structural_graph_enabled else "disabled",
         "selected_count": len(selected),
         "tool_calls": tool_calls,
         "exploration_rounds": controller.rounds,
@@ -813,7 +849,7 @@ def _candidate_from_qualified(
     handle = card.handle
     qualification_origin = (
         "qualified_direct_evidence"
-        if decision.support_level == "direct_evidence"
+        if decision.assessment.is_direct_fact
         else "qualified_navigation_evidence"
     )
     origins = ordered_unique((qualification_origin, *(item.retriever for item in observation.provenance)))
@@ -845,8 +881,10 @@ def _candidate_from_qualified(
         provenance_origins=origins,
         source_paths=(),
         relationship_types=observation.relationship_kinds,
-        obligation_ids=decision.supported_obligation_ids,
-        qualification_reason=decision.reason,
+        obligation_ids=decision.assessment.individually_established_obligation_ids,
+        qualification_reason=decision.rationale.reason,
+        qualification_assessment=decision.assessment,
+        qualification_rationale=decision.rationale,
         facts=_candidate_facts(
             card.source_text,
             semantic_discoveries=semantic,
@@ -867,12 +905,12 @@ def _controller_candidate_payload(candidate: GroundedCandidate) -> dict[str, Any
         "symbol": candidate.symbol,
         "snippet": candidate.text,
         "qualification_reason": candidate.qualification_reason,
-        "obligation_ids": list(candidate.obligation_ids),
-        "qualification_support": (
-            "direct_evidence"
-            if candidate.origin == "qualified_direct_evidence"
-            else "navigation_only"
+        "qualification_assessment": (
+            candidate.qualification_assessment.to_dict()
+            if candidate.qualification_assessment is not None
+            else None
         ),
+        "obligation_ids": list(candidate.obligation_ids),
     }
 
 
@@ -911,6 +949,7 @@ def _preserve_active_island_candidates(
     controller: Any,
     *,
     file_traces: Sequence[Mapping[str, object]] = (),
+    preserve_active_islands: bool = True,
 ) -> dict[str, Any]:
     active_roots = set(controller.islands.active_root_ids)
     active_islands = {
@@ -947,21 +986,22 @@ def _preserve_active_island_candidates(
     ]
     represented = {candidate_islands.get(candidate_id, "") for candidate_id in accepted}
     preserved: list[str] = []
-    for island_id in sorted(protected_islands - represented):
-        choices = island_choices.get(island_id, [])
-        if not choices or len(accepted) >= MAX_EVIDENCE:
-            continue
-        candidate_id, _candidate = min(
-            choices,
-            key=lambda item: (
-                0 if item[1].origin == "qualified_direct_evidence" else 1,
-                -item[1].score,
-                item[1].path.casefold(),
-                item[1].line_start,
-            ),
-        )
-        accepted.append(candidate_id)
-        preserved.append(candidate_id)
+    if preserve_active_islands:
+        for island_id in sorted(protected_islands - represented):
+            choices = island_choices.get(island_id, [])
+            if not choices or len(accepted) >= MAX_EVIDENCE:
+                continue
+            candidate_id, _candidate = min(
+                choices,
+                key=lambda item: (
+                    0 if item[1].origin == "qualified_direct_evidence" else 1,
+                    -item[1].score,
+                    item[1].path.casefold(),
+                    item[1].line_start,
+                ),
+            )
+            accepted.append(candidate_id)
+            preserved.append(candidate_id)
     trace_sources: list[str] = []
     accepted_set = set(accepted)
     reserved_source_paths: set[str] = set()
@@ -997,6 +1037,7 @@ def _preserve_active_island_candidates(
     result = dict(consolidation)
     result["accepted_candidate_ids"] = accepted
     result["preserved_active_island_candidate_ids"] = preserved
+    result["active_island_preservation_enabled"] = preserve_active_islands
     result["preserved_file_trace_source_candidate_ids"] = trace_sources
     return result
 
@@ -1112,13 +1153,18 @@ def _selected_file_trace_evidence(
     start_rank: int,
     remaining: int,
 ) -> list[EvidenceItem]:
-    accepted = {str(value) for value in consolidation.get("accepted_file_trace_ids", ())}
+    accepted = [str(value) for value in consolidation.get("accepted_file_trace_ids", ())]
+    traces_by_id = {
+        f"file_trace:{str(trace.get('source_island_id') or 'unknown')}:{str(trace.get('path') or '')}": trace
+        for trace in file_traces
+    }
     values: list[EvidenceItem] = []
-    for trace in file_traces:
+    for trace_id in accepted:
+        trace = traces_by_id.get(trace_id)
+        if trace is None:
+            continue
         path = str(trace.get("path") or "")
-        island_id = str(trace.get("source_island_id") or "unknown")
-        trace_id = f"file_trace:{island_id}:{path}"
-        if not path or trace_id not in accepted or len(values) >= remaining:
+        if not path or len(values) >= remaining:
             continue
         source_path = str(trace.get("source_path") or "")
         relationship = "/".join(str(value) for value in trace.get("relationship_kinds", ()) if str(value)) or "structural"

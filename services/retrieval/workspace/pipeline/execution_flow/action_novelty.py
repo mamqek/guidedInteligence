@@ -14,11 +14,13 @@ from typing import Any, Mapping, Sequence
 from services.retrieval.workspace.pipeline.execution_flow.actions.models import (
     ExpandRelationship,
     InspectDeferredObservation,
+    InspectDormantFileAlternatives,
+    InspectOwnerChallengers,
     InspectOwnerContinuation,
     InspectVerifiedLead,
     RetrievalAction,
     SearchNewIsland,
-    SearchWithinFile,
+    ExpandWithinFileHandoff,
 )
 from services.retrieval.workspace.tools.contracts import ToolObservation, ToolRequest
 
@@ -60,6 +62,18 @@ def normalized_action_effect(action: RetrievalAction) -> tuple[str, ...]:
         return ("verified_lead", action.target_node_id)
     if isinstance(action, InspectDeferredObservation):
         return ("inspect", action.observation_id, *_range_tokens(action.requested_range))
+    if isinstance(action, InspectDormantFileAlternatives):
+        return (
+            "inspect_dormant_file",
+            action.path.casefold(),
+            *sorted(action.observation_ids),
+        )
+    if isinstance(action, InspectOwnerChallengers):
+        return (
+            "inspect_owner_challengers",
+            action.path.casefold(),
+            *(sorted(action.observation_ids)),
+        )
     if isinstance(action, InspectOwnerContinuation):
         return ("owner_continuation", action.observation_id, *_range_tokens(action.owner_range))
     if isinstance(action, ExpandRelationship):
@@ -80,7 +94,7 @@ def normalized_action_effect(action: RetrievalAction) -> tuple[str, ...]:
             *(f"term:{value}" for value in _meaningful_terms(action.target_term_anchors)),
             f"cross_file:{bool(action.cross_file_only)}",
         )
-    if isinstance(action, SearchWithinFile):
+    if isinstance(action, ExpandWithinFileHandoff):
         anchors = _meaningful_terms((*action.sparse_anchors, action.handoff_reason))
         if not anchors:
             anchors = _meaningful_terms((action.dense_query,))

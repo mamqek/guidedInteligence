@@ -33,12 +33,17 @@ from services.retrieval.workspace.pipeline.execution_flow.file_trace_evidence im
     build_file_trace_evidence,
 )
 from services.retrieval.workspace.pipeline.execution_flow.island_frontiers import IslandFrontierLedger
+from services.retrieval.workspace.pipeline.execution_flow.owner_representation import (
+    OwnerRepresentationSelection,
+    build_owner_representations,
+)
 from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_execution import (
     ExpandRelationship,
     InspectDeferredObservation,
+    InspectDormantFileAlternatives,
     InspectOwnerContinuation,
     InspectVerifiedLead,
-    SearchWithinFile,
+    ExpandWithinFileHandoff,
     action_to_dict,
     enumerate_actions,
     execute_action,
@@ -55,6 +60,9 @@ from services.retrieval.workspace.pipeline.execution_flow.actions.scheduler impo
     _has_specific_exact_anchors,
     schedule_round_actions,
     select_ordinary_backfill_action,
+)
+from services.retrieval.workspace.pipeline.execution_flow.actions.dormant_file_alternatives import (
+    evaluate_dormant_file_qualification_gain,
 )
 from services.retrieval.workspace.pipeline.execution_flow.actions.pending_file_handoffs import (
     PendingFileHandoff,
@@ -100,6 +108,7 @@ def run_retrieval_controller(
     initial_observations: Sequence[DiscoveryObservation],
     deferred_observations: Sequence[DiscoveryObservation] = (),
     dormant_completion_observations: Sequence[DiscoveryObservation] = (),
+    dormant_file_observations: Sequence[DiscoveryObservation] = (),
     structural_tools: Mapping[str, Any],
     qdrant_tool: Any,
     candidate_factory: Callable[[DiscoveryObservation, QualificationDecision, DisclosureCard], Any | None],
@@ -130,6 +139,10 @@ def run_retrieval_controller(
     completion_candidate_ids = {item.id for item in dormant_completion_observations}
     attempted_completion_target_ids: set[str] = set()
     successful_completion_source_ids: list[str] = []
+    owner_representations: OwnerRepresentationSelection | None = None
+    dormant_file_attempt_limit = 1
+    dormant_second_opportunity_pending = False
+    dormant_file_followup_floor = None
 
     def qualify(items: Sequence[DiscoveryObservation], round_index: int) -> None:
         nonlocal tool_calls
@@ -148,10 +161,8 @@ def run_retrieval_controller(
             user_request=user_request,
             cards=tuple(
                 replace(card, previous_qualification={
-                    "support_level": previous.support_level,
-                    "disposition": previous.disposition,
-                    "reason": previous.reason,
-                    "supported_obligation_ids": list(previous.supported_obligation_ids),
+                    "assessment": previous.assessment.to_dict(),
+                    "rationale": previous.rationale.to_dict(),
                 }) if (previous := decisions.get(card.observation_id)) is not None else card
                 for card in disclosure.cards
             ),
@@ -194,7 +205,7 @@ def run_retrieval_controller(
         _add_usage(qualification_usage, qualification.usage)
         for decision in qualification.decisions:
             decisions[decision.observation_id] = decision
-            if decision.disposition == "promote":
+            if decision.assessment.is_retained:
                 observation = observations[decision.observation_id]
                 candidate = candidate_factory(observation, decision, cards[decision.observation_id])
                 if candidate is not None:
@@ -205,11 +216,44 @@ def run_retrieval_controller(
                     if str(candidate_payload(candidate).get("observation_id") or "") == decision.observation_id:
                         candidates.pop(candidate_id, None)
 
+    def reevaluate_owner_representations(round_index: int) -> None:
+        nonlocal owner_representations
+        previous = owner_representations
+        owner_representations = build_owner_representations(
+            tuple(observations.values()),
+            tuple(decisions.values()),
+            previous=previous,
+        )
+        previous_by_group = {
+            item.id: item.primary_observation_id for item in (previous.groups if previous else ())
+        }
+        ctx.trace.record(
+            "owner_representations_evaluated",
+            {
+                "round": round_index,
+                **owner_representations.to_dict(),
+                "primary_changes": [
+                    {
+                        "group_id": item.id,
+                        "path": item.path,
+                        "obligation_id": item.obligation_id,
+                        "previous_primary_observation_id": previous_by_group.get(item.id, ""),
+                        "primary_observation_id": item.primary_observation_id,
+                        "reason": item.election_reason,
+                    }
+                    for item in owner_representations.groups
+                    if previous_by_group.get(item.id, "") != item.primary_observation_id
+                ],
+            },
+        )
+
     qualify(tuple(initial_observations), 0)
+    reevaluate_owner_representations(0)
     coverage = _evaluate(ctx, user_request, obligations, candidates, candidate_payload, round_index=0)
     _add_usage(coverage_usage, coverage.usage)
     islands = _build_islands(
         ctx, observations, decisions, cards, coverage.coverage, structural_tools,
+        owner_representations=owner_representations,
         previous=None, round_index=0,
     )
     tool_calls += islands.tool_calls
@@ -271,13 +315,18 @@ def run_retrieval_controller(
             obligations=obligations,
             coverage=coverage.coverage,
             observations=tuple(observations.values()),
+            dormant_file_observations=dormant_file_observations,
             decisions=tuple(decisions.values()),
             cards=tuple(cards.values()),
             active_root_ids=islands.active_root_ids,
             observation_to_island=islands.observation_to_island,
+            owner_representations=owner_representations,
             edge_capabilities_tool=structural_tools["structural_edge_capabilities"],
             file_nodes_tool=structural_tools["structural_resolve_file_nodes"],
             attempted_fingerprints=attempted,
+            dormant_file_alternatives_enabled=bool(
+                getattr(ctx.config, "dormant_file_alternatives_enabled", False)
+            ),
             trace=ctx.trace,
             round_index=round_index,
         )
@@ -342,45 +391,23 @@ def run_retrieval_controller(
             },
             "verified_lead_actions": verified_lead_selected,
             "pending_file_handoffs": pending_file_handoffs,
+            "continuation_priority_by_effect": frontier_ledger.ordinary_scheduling_signals(
+                round_index=round_index,
+            ),
+            "dormant_file_attempt_limit": dormant_file_attempt_limit,
+            "dormant_file_followup_floor": dormant_file_followup_floor,
         }
-        baseline_schedule = schedule_round_actions(
+        schedule = schedule_round_actions(
             catalogue.actions,
+            additional_ordinary_actions=frontier_ledger.persisted_available_ordinary_actions(),
             **schedule_arguments,
         )
-        frontier_ordinary_enabled = bool(
-            getattr(ctx.config, "island_frontier_ordinary_scheduling_enabled", False)
-        )
-        fold_owner_maturation = bool(
-            getattr(ctx.config, "island_frontier_fold_owner_maturation_enabled", False)
-        )
-        experimental_ordinary_actions = tuple((
-            *(
-                item for item in catalogue.actions
-                if action_pool(item.purpose) is ActionPool.ORDINARY
-            ),
-            *(baseline_schedule.owner_maturation if fold_owner_maturation else ()),
-            *frontier_ledger.persisted_available_ordinary_actions(),
-        ))
-        schedule = (
-            schedule_round_actions(
-                catalogue.actions,
-                ordinary_actions=experimental_ordinary_actions,
-                fold_owner_maturation_into_ordinary=fold_owner_maturation,
-                **schedule_arguments,
-            )
-            if frontier_ordinary_enabled
-            else baseline_schedule
-        )
         ctx.trace.record(
-            "island_frontier_ordinary_schedule_compared",
+            "island_frontier_ordinary_schedule_created",
             {
                 "round": round_index,
-                "enabled": frontier_ordinary_enabled,
-                "fold_owner_maturation": fold_owner_maturation,
-                "baseline_action_ids": [item.id for item in baseline_schedule.normal],
-                "frontier_action_ids": [item.id for item in schedule.normal],
-                "baseline_effects": [list(_action_effect(item)) for item in baseline_schedule.normal],
-                "frontier_effects": [list(_action_effect(item)) for item in schedule.normal],
+                "action_ids": [item.id for item in schedule.normal],
+                "effects": [list(_action_effect(item)) for item in schedule.normal],
                 "persisted_selected_action_ids": [
                     item.id
                     for item in schedule.normal
@@ -391,12 +418,12 @@ def run_retrieval_controller(
         )
         normal_selected = schedule.normal
         deferred_file_seed_selected = schedule.deferred_file_rescue
-        folded_owner_maturation_selected = tuple(
+        ordinary_owner_maturation_selected = tuple(
             item for item in schedule.normal
             if action_pool(item.purpose) is ActionPool.OWNER_MATURATION
         )
-        maturation_selected = (*schedule.owner_maturation, *folded_owner_maturation_selected)
-        maturation_children = schedule.maturation_children
+        maturation_selected = ordinary_owner_maturation_selected
+        maturation_children: tuple[RetrievalAction, ...] = ()
         test_maturation_selected = schedule.test_maturation
         suppressed_ids = {item["action_id"] for item in schedule.suppressed}
         ctx.trace.record("verified_lead_scheduling", {
@@ -474,7 +501,7 @@ def run_retrieval_controller(
                 "normal_action_count": len(normal_selected),
                 "deferred_file_seed_action_count": len(deferred_file_seed_selected),
                 "maturation_action_count": len(maturation_selected),
-                "folded_owner_maturation_action_count": len(folded_owner_maturation_selected),
+                "ordinary_owner_maturation_action_count": len(ordinary_owner_maturation_selected),
                 "maturation_child_action_count": len(maturation_children),
                 "test_maturation_action_count": len(test_maturation_selected),
                 "verified_lead_action_count": len(verified_lead_selected),
@@ -502,7 +529,7 @@ def run_retrieval_controller(
         )
         previous_candidate_ids = set(candidates)
         previous_promoted_ids = {
-            observation_id for observation_id, decision in decisions.items() if decision.disposition == "promote"
+            observation_id for observation_id, decision in decisions.items() if decision.assessment.is_retained
         }
         previous_coverage = {item.obligation_id: item.status for item in coverage.coverage}
         changed: list[DiscoveryObservation] = []
@@ -510,6 +537,7 @@ def run_retrieval_controller(
         round_materialization_losses: list[dict[str, Any]] = []
         matured_observation_ids: set[str] = set()
         action_queue = list(selected)
+        round_dormant_actions: list[InspectDormantFileAlternatives] = []
         ordinary_action_ids = {action.id for action in normal_selected}
         productive_ordinary_scopes: set[str] = set()
         productive_ordinary_count = 0
@@ -524,11 +552,18 @@ def run_retrieval_controller(
             action_index += 1
             attempted.add(action.id)
             attempted_effects.add(_action_effect(action))
-            if isinstance(action, SearchWithinFile):
+            if isinstance(action, InspectDormantFileAlternatives):
+                round_dormant_actions.append(action)
+                if dormant_file_followup_floor is None:
+                    dormant_file_followup_floor = action.hypothesis_strength
+            if isinstance(action, ExpandWithinFileHandoff):
                 refined_paths.add(action.path.casefold())
             execution = execute_action(
                 action,
-                observations=tuple(observations.values()),
+                observations=tuple(dict.fromkeys((
+                    *observations.values(),
+                    *dormant_file_observations,
+                ))),
                 relationship_tool=structural_tools["structural_expand_relationships"],
                 qdrant_tool=qdrant_tool,
                 resolve_ranges_tool=structural_tools["structural_resolve_ranges"],
@@ -613,10 +648,10 @@ def run_retrieval_controller(
                     ))
             for observation in execution.observations:
                 existing = observations.get(observation.id)
-                if existing == observation and not isinstance(action, (InspectDeferredObservation, InspectOwnerContinuation)):
+                if existing == observation and not isinstance(action, (InspectDeferredObservation, InspectDormantFileAlternatives, InspectOwnerContinuation)):
                     continue
                 source_replaced = False
-                if existing is None or isinstance(action, (InspectDeferredObservation, InspectOwnerContinuation)):
+                if existing is None or isinstance(action, (InspectDeferredObservation, InspectDormantFileAlternatives, InspectOwnerContinuation)):
                     updated = observation
                 else:
                     try:
@@ -690,6 +725,9 @@ def run_retrieval_controller(
                             lead.source_observation_id for lead in pending_verified_leads.values()
                         },
                         pending_file_handoffs=pending_file_handoffs,
+                        continuation_priority_by_effect=frontier_ledger.ordinary_scheduling_signals(
+                            round_index=round_index,
+                        ),
                         occupied_scope_ids={
                             *productive_ordinary_scopes,
                             *reserved_ordinary_scopes,
@@ -726,6 +764,37 @@ def run_retrieval_controller(
                     },
                 )
         qualify(_latest_changed_observations(changed, observations), round_index)
+        for dormant_action in round_dormant_actions:
+            unresolved_before = {
+                obligation_id
+                for obligation_id, status in previous_coverage.items()
+                if status not in {"covered", "external"}
+            }
+            gain = evaluate_dormant_file_qualification_gain(
+                dormant_action,
+                decisions=tuple(decisions.values()),
+                unresolved_obligation_ids=unresolved_before,
+            )
+            dormant_attempt_count = sum(
+                bool(effect and effect[0] == "inspect_dormant_file")
+                for effect in attempted_effects
+            )
+            dormant_second_opportunity_pending = (
+                not gain.productive and dormant_attempt_count < 2
+            )
+            if dormant_second_opportunity_pending:
+                dormant_file_attempt_limit = 2
+            ctx.trace.record(
+                "dormant_file_qualification_gain_evaluated",
+                {
+                    "round": round_index,
+                    "action_id": dormant_action.id,
+                    "path": dormant_action.path,
+                    **gain.to_dict(),
+                    "second_opportunity_enabled": dormant_second_opportunity_pending,
+                    "attempt_limit": dormant_file_attempt_limit,
+                },
+            )
         completion_audit = select_dormant_island_completions(
             matured_observation_ids=tuple(matured_observation_ids),
             observations=observations,
@@ -812,7 +881,7 @@ def run_retrieval_controller(
                 round_index=round_index,
             )
             _add_usage(qualification_usage, completion_usage)
-            if completion_decision.disposition != "promote":
+            if not completion_decision.assessment.is_retained:
                 continue
             target_card = bounded_pair[1]
             target_observation = replace(target_observation, disclosure_status=target_card.mode)
@@ -829,7 +898,7 @@ def run_retrieval_controller(
                 round_index=round_index,
                 source_observation_id=selection.source_observation_id,
                 target_observation_id=target_observation.id,
-                support_level=completion_decision.support_level,
+                evidence_kind=completion_decision.assessment.evidence_kind.value,
             )
             ctx.trace.record(
                 "dormant_island_completion_promoted",
@@ -839,9 +908,10 @@ def run_retrieval_controller(
                     "target_observation_id": target_observation.id,
                     "island_id": selection.island_id,
                     "relationship_kind": selection.relationship_kind,
-                    "support_level": completion_decision.support_level,
+                    "evidence_kind": completion_decision.assessment.evidence_kind.value,
                 },
             )
+        reevaluate_owner_representations(round_index)
         discovered_leads, lead_audit, lead_tool_calls = _discover_verified_leads(
             round_index=round_index,
             changed_observation_ids=tuple(item.id for item in changed),
@@ -876,6 +946,7 @@ def run_retrieval_controller(
         previous_islands = islands
         islands = _build_islands(
             ctx, observations, decisions, cards, coverage.coverage, structural_tools,
+            owner_representations=owner_representations,
             previous=previous_islands, round_index=round_index,
         )
         tool_calls += islands.tool_calls
@@ -883,7 +954,7 @@ def run_retrieval_controller(
         current_coverage = {item.obligation_id: item.status for item in coverage.coverage}
         evidence_gain = set(candidates) != previous_candidate_ids
         promoted_ids = {
-            observation_id for observation_id, decision in decisions.items() if decision.disposition == "promote"
+            observation_id for observation_id, decision in decisions.items() if decision.assessment.is_retained
         }
         navigation_gain = bool(promoted_ids - previous_promoted_ids)
         coverage_gain = any(
@@ -913,11 +984,15 @@ def run_retrieval_controller(
                 "new_materialized_snippet_count": len(changed),
                 "source_materialization_loss_count": len(round_materialization_losses),
                 "source_materialization_losses": round_materialization_losses,
+                "dormant_second_opportunity_pending": dormant_second_opportunity_pending,
             },
         )
         if _required_covered(obligations, coverage.coverage):
             stop_reason = "all_required_obligations_covered"
-        elif not evidence_gain and not navigation_gain and not coverage_gain and not lead_gain:
+        elif (
+            not dormant_second_opportunity_pending
+            and not evidence_gain and not navigation_gain and not coverage_gain and not lead_gain
+        ):
             stop_reason = (
                 "source_materialization_loss"
                 if round_new_raw_source_ids and round_materialization_losses
@@ -1011,6 +1086,7 @@ def _build_islands(
     coverage: Sequence[ObligationCoverage],
     tools: Mapping[str, Any],
     *,
+    owner_representations: OwnerRepresentationSelection | None,
     previous: IslandSelection | None,
     round_index: int,
 ) -> IslandSelection:
@@ -1029,6 +1105,7 @@ def _build_islands(
         tuple(cards.values()),
         coverage,
         structural,
+        primary_owner_counts=(owner_representations.primary_counts if owner_representations else {}),
         beam_size=getattr(ctx.config, "semantic_island_beam_size", 4),
         previous=previous,
         trace=ctx.trace,
@@ -1048,7 +1125,9 @@ def _evaluate(
     direct_candidates = tuple(
         payload
         for item in candidates.values()
-        if (payload := candidate_payload(item)).get("qualification_support") == "direct_evidence"
+        if (
+            (payload := candidate_payload(item)).get("qualification_assessment") or {}
+        ).get("evidence_kind") == "direct_fact"
     )
     return evaluate_coverage(
         llm_config=ctx.config.llm_config,

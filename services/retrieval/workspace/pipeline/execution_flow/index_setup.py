@@ -19,6 +19,7 @@ from services.retrieval.workspace.pipeline.index_flow import (
     sync_manifest_scope_matches as _sync_manifest_scope_matches,
 )
 from services.retrieval.workspace.tools import QdrantHybridSearchTool, codegraph_tools
+from services.retrieval.workspace.tools.graphless import graphless_structural_tools
 
 
 @dataclass(frozen=True)
@@ -28,16 +29,17 @@ class IndexSetupResult:
 
 
 def structural_tools(ctx: WorkspaceRetrievalContext) -> dict[str, Any]:
+    if not ctx.config.structural_graph_enabled:
+        return dict(graphless_structural_tools())
     tools, _bridge = codegraph_tools(ctx.config)
     return tools
 
 
 def _index_scope_signature(ctx: WorkspaceRetrievalContext) -> dict[str, Any]:
     effective_exclude_paths = DEFAULT_EXCLUDED_PATHS if ctx.config.index_exclude_paths is None else ctx.config.index_exclude_paths
-    lexical_ranking_profile = getattr(ctx.config, "lexical_ranking_profile", "flat_bm25")
     return {
-        "index_schema_version": bm25_index_schema_version(lexical_ranking_profile),
-        "lexical_ranking_profile": lexical_ranking_profile,
+        "index_schema_version": bm25_index_schema_version(),
+        "lexical_ranking": "bm25",
         "workspace_root": str(Path(ctx.config.workspace_root).resolve()),
         "content_signature": indexable_content_signature(
             ctx.config.workspace_root,
@@ -47,6 +49,16 @@ def _index_scope_signature(ctx: WorkspaceRetrievalContext) -> dict[str, Any]:
         "chunk_line_count": ctx.config.chunk_line_count,
         "chunk_line_overlap": ctx.config.chunk_line_overlap,
     }
+
+
+def _scope_manifest_matches(manifest: dict[str, Any], expected: dict[str, Any]) -> bool:
+    if _sync_manifest_scope_matches(manifest, expected):
+        return True
+    legacy = dict(manifest)
+    if legacy.pop("lexical_ranking_profile", None) != "flat_bm25":
+        return False
+    legacy["lexical_ranking"] = "bm25"
+    return _sync_manifest_scope_matches(legacy, expected)
 
 
 def _reuse_or_build_bm25_index(
@@ -60,11 +72,11 @@ def _reuse_or_build_bm25_index(
     default_scope: bool,
 ) -> tuple[Any, bool]:
     legacy_default_scope = index_path.exists() and not scope_manifest and default_scope
-    if index_path.exists() and (_sync_manifest_scope_matches(scope_manifest, scope_signature) or legacy_default_scope):
+    if index_path.exists() and (_scope_manifest_matches(scope_manifest, scope_signature) or legacy_default_scope):
         index = load_index(index_dir)
         ctx.trace.record(
             "workspace_bm25_index_reused",
-            {"document_count": len(index.documents), "lexical_ranking_profile": index.lexical_ranking_profile},
+            {"document_count": len(index.documents)},
         )
         rebuilt = False
     else:
@@ -79,13 +91,12 @@ def _reuse_or_build_bm25_index(
             visibility="workspace_visible",
             origin="workspace_index",
             exclude_paths=ctx.config.index_exclude_paths,
-            lexical_ranking_profile=ctx.config.lexical_ranking_profile,
         )
         save_index(index, index_dir)
         _save_sync_manifest(scope_manifest_path, scope_signature)
         ctx.trace.record(
             "workspace_bm25_index_rebuilt",
-            {"document_count": len(index.documents), "lexical_ranking_profile": index.lexical_ranking_profile},
+            {"document_count": len(index.documents)},
         )
         rebuilt = True
     return index, rebuilt
@@ -117,15 +128,35 @@ def rebuild_index(ctx: WorkspaceRetrievalContext) -> IndexSetupResult:
     manifest = _load_sync_manifest(manifest_path)
     index_signature = qdrant_tool.backend.index_signature()
     collection_exists = qdrant_tool.backend.collection_exists()
+    point_count = qdrant_tool.backend.point_count() if collection_exists else 0
+    legacy_flat_collection = (
+        not bm25_rebuilt
+        and scope_manifest.get("lexical_ranking_profile") == "flat_bm25"
+        and int(manifest.get("document_count", -1)) == len(index.documents)
+        and point_count == len(index.documents)
+    )
     collection_current = (
-        str(manifest.get("index_signature", "")) == index_signature
+        (
+            str(manifest.get("index_signature", "")) == index_signature
+            or legacy_flat_collection
+        )
         and str(manifest.get("collection_name", "")) == ctx.config.qdrant_config.collection_name
         and collection_exists
-        and qdrant_tool.backend.point_count() > 0
+        and point_count > 0
     )
     if collection_current:
         indexed_points = len(index.documents)
         qdrant_rebuilt = False
+        if legacy_flat_collection and str(manifest.get("index_signature", "")) != index_signature:
+            _save_sync_manifest(
+                manifest_path,
+                {
+                    "collection_name": ctx.config.qdrant_config.collection_name,
+                    "document_count": len(index.documents),
+                    "index_signature": index_signature,
+                },
+            )
+            ctx.trace.record("workspace_index_manifest_migrated", {"document_count": len(index.documents)})
         ctx.trace.record("workspace_index_reused", {"document_count": len(index.documents), "indexed_points": indexed_points})
     else:
         if not ctx.config.enable_indexing:
@@ -158,7 +189,7 @@ def rebuild_index(ctx: WorkspaceRetrievalContext) -> IndexSetupResult:
             "document_count": len(index.documents),
             "indexed_points": indexed_points,
             "rebuilt": rebuilt,
-            "lexical_ranking_profile": index.lexical_ranking_profile,
+            "lexical_ranking": "bm25",
             "collection_name": ctx.config.qdrant_config.collection_name,
         },
     )

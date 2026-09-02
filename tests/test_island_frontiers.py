@@ -5,13 +5,16 @@ import unittest
 from services.retrieval.workspace.pipeline.execution_flow.actions.catalogue_and_execution import (
     ExpandRelationship,
     InspectDeferredObservation,
+    InspectOwnerContinuation,
     SearchNewIsland,
-    SearchWithinFile,
+    ExpandWithinFileHandoff,
 )
 from services.retrieval.workspace.pipeline.execution_flow.actions.scheduler import schedule_round_actions
+from services.retrieval.workspace.pipeline.execution_flow.actions.policy import ActionPurpose
+from services.retrieval.workspace.pipeline.execution_flow.action_novelty import normalized_action_effect
 from services.retrieval.workspace.pipeline.execution_flow.coverage_evaluation import ObligationCoverage
 from services.retrieval.workspace.pipeline.execution_flow.evidence_islands import EvidenceIsland, IslandSelection
-from services.retrieval.workspace.pipeline.execution_flow.evidence_qualification import QualificationDecision
+from tests.qualification_test_support import QualificationDecision
 from services.retrieval.workspace.pipeline.execution_flow.island_frontiers import IslandFrontierLedger
 
 
@@ -39,6 +42,31 @@ def _islands(island_id: str, *, active: bool = True) -> IslandSelection:
 
 
 class IslandFrontierProjectionTests(unittest.TestCase):
+    def test_owner_continuation_signal_retains_wait_and_obligation_recurrence(self) -> None:
+        action = InspectOwnerContinuation(
+            "resolver-continuation",
+            "subject",
+            "watch",
+            (11, 20),
+            (1, 20),
+            "Continue resolver owner.",
+            scope_id="island_watch",
+            obligation_ids=("subject", "trigger", "ordered", "why"),
+            purpose=ActionPurpose.OWNER_MATURATION,
+        )
+        ledger = IslandFrontierLedger()
+        ledger.observe_catalogue(
+            (action,), islands=_islands("island_watch"), decisions={}, coverage=_coverage(), round_index=1
+        )
+        ledger.observe_catalogue(
+            (action,), islands=_islands("island_watch"), decisions={}, coverage=_coverage(), round_index=2
+        )
+
+        self.assertEqual(
+            ledger.ordinary_scheduling_signals(round_index=2)[normalized_action_effect(action)],
+            (1, 4),
+        )
+
     def test_known_continuation_survives_catalogue_loss_and_island_identity_change(self) -> None:
         action = ExpandRelationship(
             "watch-file-expand",
@@ -102,11 +130,11 @@ class IslandFrontierProjectionTests(unittest.TestCase):
         self.assertEqual(deferred_projection.gap_id, "")
 
     def test_only_absent_ordinary_actions_enter_the_additive_scheduler_memory(self) -> None:
-        persisted = SearchWithinFile(
+        persisted = ExpandWithinFileHandoff(
             "persisted", "why", "watch", "watchMode.ts", "follow WatchMode",
             scope_id="island_watch",
         )
-        current = SearchWithinFile(
+        current = ExpandWithinFileHandoff(
             "current", "why", "builder", "builder.ts", "current Builder search",
             scope_id="island_watch",
         )
@@ -145,11 +173,11 @@ class IslandFrontierProjectionTests(unittest.TestCase):
         self.assertEqual(frontiers[0].established_evidence_ids, ("watch",))
 
     def test_frontier_override_can_schedule_a_persisted_ordinary_island(self) -> None:
-        persisted = SearchWithinFile(
+        persisted = ExpandWithinFileHandoff(
             "persisted", "why", "watch", "watchMode.ts", "follow WatchMode",
             scope_id="island_watch",
         )
-        current = SearchWithinFile(
+        current = ExpandWithinFileHandoff(
             "current", "why", "builder", "builder.ts", "follow Builder",
             scope_id="island_builder",
         )
@@ -168,7 +196,7 @@ class IslandFrontierProjectionTests(unittest.TestCase):
 
         baseline = schedule_round_actions((current,), **common)
         frontier = schedule_round_actions(
-            (current,), ordinary_actions=(persisted, current), **common
+            (current,), additional_ordinary_actions=(persisted,), **common
         )
 
         self.assertEqual(baseline.normal, (current,))
