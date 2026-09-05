@@ -429,7 +429,7 @@ class RetrievalServerStateTests(unittest.TestCase):
 
             config = state._workspace_retrieval_config(
                 run_dir=workspace / ".guided-intelligence" / "runs" / "test",
-                llm_config=RunLLMConfig(api_style="codex_cli", model="gpt-5.4-mini", codex_command=("codex",)),
+                llm_config=RunLLMConfig(api_style="codex_cli", model="gpt-5.6-luna", codex_command=("codex",)),
             )
 
             self.assertFalse(config.codex_ignore_user_config)
@@ -1227,6 +1227,7 @@ class RetrievalServerStateTests(unittest.TestCase):
 
             self.assertEqual(Path(config.workspace_root), workspace)
             self.assertTrue(config.structural_graph_enabled)
+            self.assertTrue(config.adaptive_controller_enabled)
             self.assertEqual(config.structural_graph_timeout_seconds, 900)
 
     def test_temporary_codegraph_excludes_preserve_and_restore_user_config(self) -> None:

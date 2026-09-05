@@ -1,0 +1,469 @@
+{
+  "schema_version": 1,
+  "campaign": "2026-09-03-workspace-four-runs",
+  "created_at": "2026-09-03T08:17:48.774027+00:00",
+  "updated_at": "2026-09-03T14:23:09.109223+00:00",
+  "retrieval_mode": "workspace",
+  "codex_model": "",
+  "codex_prompt_profile": "",
+  "structural_graph_enabled": false,
+  "run_config": "configs/testing/statistics-workspace-graphless.json",
+  "target_valid_runs_per_case": 4,
+  "historical_runs_are_reference_only": true,
+  "active_case": "",
+  "stop_reason": "complete",
+  "cases": {
+    "vuejs-vue-10004": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003245Z",
+        "run-20260815T015959Z",
+        "run-20260815T163904Z",
+        "run-20260829T172350Z",
+        "run-20260829T173150Z",
+        "run-20260829T173931Z",
+        "run-20260829T174744Z",
+        "run-20260829T224034Z",
+        "run-20260829T224425Z",
+        "run-20260829T224712Z",
+        "run-20260829T225038Z",
+        "run-20260830T131852Z",
+        "run-20260830T200802Z",
+        "run-20260901T074751Z",
+        "run-20260901T090222Z",
+        "run-20260901T101711Z",
+        "run-20260901T114603Z",
+        "run-20260902T092201Z",
+        "run-20260902T092612Z",
+        "run-20260902T093019Z",
+        "run-20260902T093436Z",
+        "run-20260902T121122Z",
+        "run-20260902T122030Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260903T081759Z",
+          "started_at": "2026-09-03T08:17:57.524971+00:00",
+          "completed_at": "2026-09-03T08:21:32.066979+00:00"
+        },
+        {
+          "run_id": "run-20260903T082133Z",
+          "started_at": "2026-09-03T08:21:32.068575+00:00",
+          "completed_at": "2026-09-03T08:25:08.360026+00:00"
+        },
+        {
+          "run_id": "run-20260903T082837Z",
+          "started_at": "2026-09-03T08:28:36.063363+00:00",
+          "completed_at": "2026-09-03T08:31:56.740764+00:00"
+        },
+        {
+          "run_id": "run-20260903T083158Z",
+          "started_at": "2026-09-03T08:31:56.743792+00:00",
+          "completed_at": "2026-09-03T08:35:59.632773+00:00"
+        }
+      ],
+      "failed_attempts": [
+        {
+          "run_id": "run-20260903T082510Z",
+          "started_at": "2026-09-03T08:25:08.363025+00:00",
+          "completed_at": "2026-09-03T08:26:04.642079+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        },
+        {
+          "run_id": "run-20260903T082606Z",
+          "started_at": "2026-09-03T08:26:04.644869+00:00",
+          "completed_at": "2026-09-03T08:28:36.060362+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        }
+      ]
+    },
+    "vuejs-vue-10519": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T002733Z",
+        "run-20260815T011144Z",
+        "run-20260815T011411Z",
+        "run-20260815T012802Z",
+        "run-20260829T172052Z",
+        "run-20260829T172855Z",
+        "run-20260829T173636Z",
+        "run-20260829T174440Z",
+        "run-20260829T195841Z",
+        "run-20260829T212854Z",
+        "run-20260829T213106Z",
+        "run-20260829T213339Z",
+        "run-20260901T071550Z",
+        "run-20260901T083318Z",
+        "run-20260901T094419Z",
+        "run-20260901T111103Z",
+        "run-20260902T084105Z",
+        "run-20260902T084458Z",
+        "run-20260902T084826Z",
+        "run-20260902T085134Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260903T083601Z",
+          "started_at": "2026-09-03T08:35:59.635773+00:00",
+          "completed_at": "2026-09-03T08:37:38.524505+00:00"
+        },
+        {
+          "run_id": "run-20260903T083740Z",
+          "started_at": "2026-09-03T08:37:38.527115+00:00",
+          "completed_at": "2026-09-03T08:39:47.996290+00:00"
+        },
+        {
+          "run_id": "run-20260903T083949Z",
+          "started_at": "2026-09-03T08:39:47.998289+00:00",
+          "completed_at": "2026-09-03T08:41:53.141821+00:00"
+        },
+        {
+          "run_id": "run-20260903T084154Z",
+          "started_at": "2026-09-03T08:41:53.143821+00:00",
+          "completed_at": "2026-09-03T08:44:03.607176+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "vuejs-vue-11718": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003913Z",
+        "run-20260815T125508Z",
+        "run-20260815T125621Z",
+        "run-20260815T125842Z",
+        "run-20260902T085440Z",
+        "run-20260902T085752Z",
+        "run-20260902T090131Z",
+        "run-20260902T090448Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260903T084405Z",
+          "started_at": "2026-09-03T08:44:03.607176+00:00",
+          "completed_at": "2026-09-03T08:45:47.565958+00:00"
+        },
+        {
+          "run_id": "run-20260903T084626Z",
+          "started_at": "2026-09-03T08:46:24.690654+00:00",
+          "completed_at": "2026-09-03T08:49:02.246193+00:00"
+        },
+        {
+          "run_id": "run-20260903T084903Z",
+          "started_at": "2026-09-03T08:49:02.247697+00:00",
+          "completed_at": "2026-09-03T08:50:48.793482+00:00"
+        },
+        {
+          "run_id": "run-20260903T085050Z",
+          "started_at": "2026-09-03T08:50:48.795483+00:00",
+          "completed_at": "2026-09-03T08:52:45.029237+00:00"
+        }
+      ],
+      "failed_attempts": [
+        {
+          "run_id": "run-20260903T084549Z",
+          "started_at": "2026-09-03T08:45:47.566957+00:00",
+          "completed_at": "2026-09-03T08:46:24.688597+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        }
+      ]
+    },
+    "vuejs-vue-11782": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T004625Z",
+        "run-20260815T191653Z",
+        "run-20260902T095217Z",
+        "run-20260902T095654Z",
+        "run-20260902T100001Z",
+        "run-20260902T100347Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260903T125229Z",
+          "started_at": "2026-09-03T08:53:20.487715+00:00",
+          "completed_at": "2026-09-03T12:55:18.085960+00:00"
+        },
+        {
+          "run_id": "run-20260903T125520Z",
+          "started_at": "2026-09-03T12:55:18.088659+00:00",
+          "completed_at": "2026-09-03T12:58:32.719142+00:00"
+        },
+        {
+          "run_id": "run-20260903T125834Z",
+          "started_at": "2026-09-03T12:58:32.721143+00:00",
+          "completed_at": "2026-09-03T13:01:11.330088+00:00"
+        },
+        {
+          "run_id": "run-20260903T130113Z",
+          "started_at": "2026-09-03T13:01:11.332597+00:00",
+          "completed_at": "2026-09-03T13:04:39.827889+00:00"
+        }
+      ],
+      "failed_attempts": [
+        {
+          "run_id": "run-20260903T085246Z",
+          "started_at": "2026-09-03T08:52:45.031235+00:00",
+          "completed_at": "2026-09-03T08:53:20.485198+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        }
+      ]
+    },
+    "vuejs-vue-13052": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003414Z",
+        "run-20260815T021213Z",
+        "run-20260815T174046Z",
+        "run-20260829T162949Z",
+        "run-20260829T172546Z",
+        "run-20260829T173331Z",
+        "run-20260829T174109Z",
+        "run-20260829T174934Z",
+        "run-20260829T233748Z",
+        "run-20260829T233947Z",
+        "run-20260829T234148Z",
+        "run-20260829T234312Z",
+        "run-20260901T080511Z",
+        "run-20260901T092015Z",
+        "run-20260901T103712Z",
+        "run-20260901T120523Z",
+        "run-20260902T090628Z",
+        "run-20260902T090932Z",
+        "run-20260902T091214Z",
+        "run-20260902T091529Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260903T130441Z",
+          "started_at": "2026-09-03T13:04:39.831396+00:00",
+          "completed_at": "2026-09-03T13:07:08.921141+00:00"
+        },
+        {
+          "run_id": "run-20260903T130710Z",
+          "started_at": "2026-09-03T13:07:08.923650+00:00",
+          "completed_at": "2026-09-03T13:09:50.359897+00:00"
+        },
+        {
+          "run_id": "run-20260903T130952Z",
+          "started_at": "2026-09-03T13:09:50.361901+00:00",
+          "completed_at": "2026-09-03T13:12:03.640960+00:00"
+        },
+        {
+          "run_id": "run-20260903T131205Z",
+          "started_at": "2026-09-03T13:12:03.642960+00:00",
+          "completed_at": "2026-09-03T13:14:57.546626+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "vuejs-vue-5884": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003437Z",
+        "run-20260815T021250Z",
+        "run-20260815T174348Z",
+        "run-20260829T172608Z",
+        "run-20260829T173351Z",
+        "run-20260829T174137Z",
+        "run-20260829T174959Z",
+        "run-20260829T234450Z",
+        "run-20260829T234726Z",
+        "run-20260829T235029Z",
+        "run-20260829T235253Z",
+        "run-20260901T080728Z",
+        "run-20260901T092226Z",
+        "run-20260901T103920Z",
+        "run-20260901T120827Z",
+        "run-20260902T100700Z",
+        "run-20260902T101043Z",
+        "run-20260902T101440Z",
+        "run-20260902T101829Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260903T131459Z",
+          "started_at": "2026-09-03T13:14:57.550725+00:00",
+          "completed_at": "2026-09-03T13:18:17.485327+00:00"
+        },
+        {
+          "run_id": "run-20260903T131819Z",
+          "started_at": "2026-09-03T13:18:17.487830+00:00",
+          "completed_at": "2026-09-03T13:21:13.381296+00:00"
+        },
+        {
+          "run_id": "run-20260903T132115Z",
+          "started_at": "2026-09-03T13:21:13.383302+00:00",
+          "completed_at": "2026-09-03T13:24:03.500256+00:00"
+        },
+        {
+          "run_id": "run-20260903T132405Z",
+          "started_at": "2026-09-03T13:24:03.504346+00:00",
+          "completed_at": "2026-09-03T13:26:52.792723+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "vuejs-vue-6097": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T004322Z",
+        "run-20260815T190450Z",
+        "run-20260902T091823Z",
+        "run-20260902T092233Z",
+        "run-20260902T092622Z",
+        "run-20260902T092951Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260903T132654Z",
+          "started_at": "2026-09-03T13:26:52.795230+00:00",
+          "completed_at": "2026-09-03T13:30:06.068065+00:00"
+        },
+        {
+          "run_id": "run-20260903T133007Z",
+          "started_at": "2026-09-03T13:30:06.070573+00:00",
+          "completed_at": "2026-09-03T13:33:11.581452+00:00"
+        },
+        {
+          "run_id": "run-20260903T133313Z",
+          "started_at": "2026-09-03T13:33:11.583474+00:00",
+          "completed_at": "2026-09-03T13:36:03.831633+00:00"
+        },
+        {
+          "run_id": "run-20260903T133605Z",
+          "started_at": "2026-09-03T13:36:03.835142+00:00",
+          "completed_at": "2026-09-03T13:38:37.249922+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "vuejs-vue-8528": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T004104Z",
+        "run-20260815T185612Z",
+        "run-20260902T093319Z",
+        "run-20260902T093654Z",
+        "run-20260902T093937Z",
+        "run-20260902T094218Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260903T133839Z",
+          "started_at": "2026-09-03T13:38:37.253974+00:00",
+          "completed_at": "2026-09-03T13:40:34.717542+00:00"
+        },
+        {
+          "run_id": "run-20260903T134036Z",
+          "started_at": "2026-09-03T13:40:34.720116+00:00",
+          "completed_at": "2026-09-03T13:42:36.982068+00:00"
+        },
+        {
+          "run_id": "run-20260903T134238Z",
+          "started_at": "2026-09-03T13:42:36.985068+00:00",
+          "completed_at": "2026-09-03T13:44:44.752424+00:00"
+        },
+        {
+          "run_id": "run-20260903T134446Z",
+          "started_at": "2026-09-03T13:44:44.755423+00:00",
+          "completed_at": "2026-09-03T13:47:27.803999+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "vuejs-vue-9042": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003304Z",
+        "run-20260815T020029Z",
+        "run-20260815T164218Z",
+        "run-20260829T172415Z",
+        "run-20260829T173213Z",
+        "run-20260829T173954Z",
+        "run-20260829T174809Z",
+        "run-20260829T225442Z",
+        "run-20260829T225759Z",
+        "run-20260829T230118Z",
+        "run-20260829T230500Z",
+        "run-20260901T075158Z",
+        "run-20260901T090755Z",
+        "run-20260901T102159Z",
+        "run-20260901T115125Z",
+        "run-20260902T103630Z",
+        "run-20260902T104055Z",
+        "run-20260902T104434Z",
+        "run-20260902T104903Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260903T134729Z",
+          "started_at": "2026-09-03T13:47:27.807004+00:00",
+          "completed_at": "2026-09-03T13:50:51.814968+00:00"
+        },
+        {
+          "run_id": "run-20260903T135053Z",
+          "started_at": "2026-09-03T13:50:51.818190+00:00",
+          "completed_at": "2026-09-03T13:55:14.800354+00:00"
+        },
+        {
+          "run_id": "run-20260903T135516Z",
+          "started_at": "2026-09-03T13:55:14.802504+00:00",
+          "completed_at": "2026-09-03T13:59:29.677648+00:00"
+        },
+        {
+          "run_id": "run-20260903T135931Z",
+          "started_at": "2026-09-03T13:59:29.679652+00:00",
+          "completed_at": "2026-09-03T14:03:48.917146+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "vuejs-vue-9842": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T004346Z",
+        "run-20260815T190715Z",
+        "run-20260902T094458Z",
+        "run-20260902T094845Z",
+        "run-20260902T095224Z",
+        "run-20260902T095629Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260903T140351Z",
+          "started_at": "2026-09-03T14:03:48.919147+00:00",
+          "completed_at": "2026-09-03T14:08:30.720368+00:00"
+        },
+        {
+          "run_id": "run-20260903T140930Z",
+          "started_at": "2026-09-03T14:09:27.938914+00:00",
+          "completed_at": "2026-09-03T14:13:32.471136+00:00"
+        },
+        {
+          "run_id": "run-20260903T141334Z",
+          "started_at": "2026-09-03T14:13:32.473138+00:00",
+          "completed_at": "2026-09-03T14:17:55.785396+00:00"
+        },
+        {
+          "run_id": "run-20260903T141757Z",
+          "started_at": "2026-09-03T14:17:55.788573+00:00",
+          "completed_at": "2026-09-03T14:23:09.108217+00:00"
+        }
+      ],
+      "failed_attempts": [
+        {
+          "run_id": "run-20260903T140832Z",
+          "started_at": "2026-09-03T14:08:30.722876+00:00",
+          "completed_at": "2026-09-03T14:09:27.936407+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        }
+      ]
+    }
+  }
+}

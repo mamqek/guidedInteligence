@@ -342,7 +342,7 @@ class WorkspaceRetrievalConfig:
     repository_owner: str = ""
     retrieval_mode: str = RETRIEVAL_MODE_WORKSPACE
     codex_command: tuple[str, ...] = ("codex",)
-    codex_model: str = "gpt-5.4-mini"
+    codex_model: str = "gpt-5.6-luna"
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE
     codex_timeout_seconds: int = 900
     codex_ignore_user_config: bool = True
@@ -352,6 +352,7 @@ class WorkspaceRetrievalConfig:
     stop_before_round_zero_qualification: bool = False
     dormant_island_completion_enabled: bool = False
     dormant_file_alternatives_enabled: bool = True
+    adaptive_controller_enabled: bool = True
     run_dir: str | None = None
     chunk_line_count: int = 40
     chunk_line_overlap: int = 10

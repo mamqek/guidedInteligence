@@ -169,7 +169,7 @@ def run_case(
     resolution: SnapshotResolution | None = None,
     retrieval_mode: str = RETRIEVAL_MODE_WORKSPACE,
     codex_command: Sequence[str] = ("codex",),
-    codex_model: str = "gpt-5.4-mini",
+    codex_model: str = "gpt-5.6-luna",
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE,
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
@@ -180,6 +180,7 @@ def run_case(
     stop_before_round_zero_qualification: bool = False,
     dormant_island_completion_enabled: bool = False,
     dormant_file_alternatives_enabled: bool = True,
+    adaptive_controller_enabled: bool = True,
     structural_graph_enabled: bool = True,
     initial_selection_mode: str = INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     semantic_island_beam_size: int = 4,
@@ -225,6 +226,7 @@ def run_case(
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
         dormant_file_alternatives_enabled=dormant_file_alternatives_enabled,
+        adaptive_controller_enabled=adaptive_controller_enabled,
         structural_graph_enabled=structural_graph_enabled,
         initial_selection_mode=initial_selection_mode,
         semantic_island_beam_size=semantic_island_beam_size,
@@ -292,7 +294,7 @@ def evaluate_case(
     llm_config: RunLLMConfig,
     retrieval_mode: str = RETRIEVAL_MODE_WORKSPACE,
     codex_command: Sequence[str] = ("codex",),
-    codex_model: str = "gpt-5.4-mini",
+    codex_model: str = "gpt-5.6-luna",
     codex_prompt_profile: str = DEFAULT_CODEX_PROMPT_PROFILE,
     codex_timeout_seconds: int = 900,
     codex_ignore_user_config: bool = True,
@@ -303,6 +305,7 @@ def evaluate_case(
     stop_before_round_zero_qualification: bool = False,
     dormant_island_completion_enabled: bool = False,
     dormant_file_alternatives_enabled: bool = True,
+    adaptive_controller_enabled: bool = True,
     structural_graph_enabled: bool = True,
     initial_selection_mode: str = INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     semantic_island_beam_size: int = 4,
@@ -387,6 +390,7 @@ def evaluate_case(
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
         dormant_file_alternatives_enabled=dormant_file_alternatives_enabled,
+        adaptive_controller_enabled=adaptive_controller_enabled,
         structural_graph_enabled=structural_graph_enabled,
         initial_selection_mode=initial_selection_mode,
         semantic_island_beam_size=semantic_island_beam_size,
@@ -415,6 +419,7 @@ def evaluate_case(
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
         dormant_file_alternatives_enabled=dormant_file_alternatives_enabled,
+        adaptive_controller_enabled=adaptive_controller_enabled,
         structural_graph_enabled=structural_graph_enabled,
         initial_selection_mode=initial_selection_mode,
         embedding_cache_path=embedding_cache_path,
@@ -556,6 +561,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         action=argparse.BooleanOptionalAction,
         default=None,
     )
+    run_parser.add_argument(
+        "--adaptive-controller",
+        dest="adaptive_controller_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
     run_parser.add_argument("--semantic-island-beam-size", type=int)
     run_parser.add_argument("--initial-selection-mode", choices=SUPPORTED_INITIAL_SELECTION_MODES)
     evaluate_parser = subparsers.add_parser("evaluate-case")
@@ -599,6 +610,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         action=argparse.BooleanOptionalAction,
         default=None,
     )
+    evaluate_parser.add_argument(
+        "--adaptive-controller",
+        dest="adaptive_controller_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
     evaluate_parser.add_argument("--semantic-island-beam-size", type=int)
     evaluate_parser.add_argument("--initial-selection-mode", choices=SUPPORTED_INITIAL_SELECTION_MODES)
     batch_parser = subparsers.add_parser("evaluate-batch")
@@ -624,6 +641,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     batch_parser.add_argument(
         "--structural-graph",
         dest="structural_graph_enabled",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
+    batch_parser.add_argument(
+        "--adaptive-controller",
+        dest="adaptive_controller_enabled",
         action=argparse.BooleanOptionalAction,
         default=None,
     )
@@ -673,7 +696,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             llm_config=_load_project_llm_config(run_config),
             retrieval_mode=_config_value(args, run_config, "retrieval_mode", RETRIEVAL_MODE_WORKSPACE),
             codex_command=_codex_command(args, run_config),
-            codex_model=_config_value(args, run_config, "codex_model", "gpt-5.4-mini"),
+            codex_model=_config_value(args, run_config, "codex_model", "gpt-5.6-luna"),
             codex_prompt_profile=_config_value(
                 args, run_config, "codex_prompt_profile", DEFAULT_CODEX_PROMPT_PROFILE
             ),
@@ -702,6 +725,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args,
                 run_config,
                 "dormant_file_alternatives_enabled",
+                True,
+            ),
+            adaptive_controller_enabled=_config_bool_override(
+                args,
+                run_config,
+                "adaptive_controller_enabled",
                 True,
             ),
             structural_graph_enabled=_config_bool_override(
@@ -745,7 +774,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             llm_config=_load_project_llm_config(run_config),
             retrieval_mode=_config_value(args, run_config, "retrieval_mode", RETRIEVAL_MODE_WORKSPACE),
             codex_command=_codex_command(args, run_config),
-            codex_model=_config_value(args, run_config, "codex_model", "gpt-5.4-mini"),
+            codex_model=_config_value(args, run_config, "codex_model", "gpt-5.6-luna"),
             codex_prompt_profile=_config_value(
                 args, run_config, "codex_prompt_profile", DEFAULT_CODEX_PROMPT_PROFILE
             ),
@@ -774,6 +803,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args,
                 run_config,
                 "dormant_file_alternatives_enabled",
+                True,
+            ),
+            adaptive_controller_enabled=_config_bool_override(
+                args,
+                run_config,
+                "adaptive_controller_enabled",
                 True,
             ),
             structural_graph_enabled=_config_bool_override(
@@ -875,7 +910,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         llm_config=_load_project_llm_config(run_config),
                         retrieval_mode=retrieval_mode,
                         codex_command=_codex_command(args, run_config),
-                        codex_model=_config_value(args, run_config, "codex_model", "gpt-5.4-mini"),
+                        codex_model=_config_value(args, run_config, "codex_model", "gpt-5.6-luna"),
                         codex_prompt_profile=_config_value(
                             args, run_config, "codex_prompt_profile", DEFAULT_CODEX_PROMPT_PROFILE
                         ),
@@ -982,7 +1017,7 @@ def _load_project_llm_config(run_config: Mapping[str, Any]) -> RunLLMConfig:
             command = [command]
         return RunLLMConfig(
             api_style="codex_cli",
-            model=str(run_config.get("generation_codex_model") or generation.get("codex_model") or run_config.get("codex_model") or "gpt-5.4-mini").strip(),
+            model=str(run_config.get("generation_codex_model") or generation.get("codex_model") or run_config.get("codex_model") or "gpt-5.6-luna").strip(),
             max_tokens=int(generation["max_tokens"]) if generation.get("max_tokens") is not None else None,
             timeout_seconds=int(generation.get("timeout_seconds") or codex.get("timeout_seconds") or 30),
             codex_command=tuple(resolve_codex_command(tuple(str(part) for part in command if str(part).strip()))),
@@ -1091,6 +1126,13 @@ def _evaluate_case_subprocess_command(args: argparse.Namespace, issue_json: str)
     structural_graph_override = getattr(args, "structural_graph_enabled", None)
     if structural_graph_override is not None:
         command.append("--structural-graph" if structural_graph_override else "--no-structural-graph")
+    adaptive_controller_override = getattr(args, "adaptive_controller_enabled", None)
+    if adaptive_controller_override is not None:
+        command.append(
+            "--adaptive-controller"
+            if adaptive_controller_override
+            else "--no-adaptive-controller"
+        )
     return command
 
 
@@ -1250,6 +1292,7 @@ def _write_run_metadata(
     stop_before_round_zero_qualification: bool,
     dormant_island_completion_enabled: bool,
     dormant_file_alternatives_enabled: bool,
+    adaptive_controller_enabled: bool,
     structural_graph_enabled: bool,
     initial_selection_mode: str,
     embedding_cache_path: Path | None = None,
@@ -1273,6 +1316,7 @@ def _write_run_metadata(
         "stop_before_round_zero_qualification": stop_before_round_zero_qualification,
         "dormant_island_completion_enabled": dormant_island_completion_enabled,
         "dormant_file_alternatives_enabled": dormant_file_alternatives_enabled,
+        "adaptive_controller_enabled": adaptive_controller_enabled,
         "structural_graph_enabled": structural_graph_enabled,
         "initial_selection_mode": initial_selection_mode,
         "embedding_cache_path": str(embedding_cache_path) if embedding_cache_path is not None else "",
@@ -1629,6 +1673,7 @@ def _workspace_retrieval_config_for_case(
     stop_before_round_zero_qualification: bool = False,
     dormant_island_completion_enabled: bool = False,
     dormant_file_alternatives_enabled: bool = True,
+    adaptive_controller_enabled: bool = True,
     structural_graph_enabled: bool = True,
     initial_selection_mode: str = INITIAL_SELECTION_SEMANTIC_OWNER_COMPARISON,
     semantic_island_beam_size: int = 4,
@@ -1681,6 +1726,7 @@ def _workspace_retrieval_config_for_case(
         stop_before_round_zero_qualification=stop_before_round_zero_qualification,
         dormant_island_completion_enabled=dormant_island_completion_enabled,
         dormant_file_alternatives_enabled=dormant_file_alternatives_enabled,
+        adaptive_controller_enabled=adaptive_controller_enabled,
         structural_graph_enabled=structural_graph_enabled,
         initial_selection_mode=initial_selection_mode,
         semantic_island_beam_size=semantic_island_beam_size,

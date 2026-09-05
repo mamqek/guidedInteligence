@@ -26,7 +26,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
     parser.add_argument("--repetitions", type=int, default=4)
+    parser.add_argument("--case-id", action="append", default=[], help="Limit the campaign to explicit testcase IDs.")
     parser.add_argument("--max-consecutive-failures", type=int, default=3)
+    parser.add_argument(
+        "--seed-valid-run",
+        action="append",
+        default=[],
+        metavar="CASE_ID=RUN_ID",
+        help="Register an already completed run after validating its artifacts and configuration.",
+    )
     parser.add_argument("--initialize-only", action="store_true")
     return parser.parse_args()
 
@@ -63,6 +71,13 @@ def initialize(args: argparse.Namespace) -> dict[str, Any]:
         return json.loads(args.ledger.read_text(encoding="utf-8"))
     config = json.loads(args.run_config.read_text(encoding="utf-8"))
     retrieval_mode = str(config["retrieval_mode"])
+    selected_case_ids = case_ids(args.report)
+    if args.case_id:
+        requested = set(args.case_id)
+        unknown = sorted(requested - set(selected_case_ids))
+        if unknown:
+            raise ValueError("unknown testcase IDs: " + ", ".join(unknown))
+        selected_case_ids = [case_id for case_id in selected_case_ids if case_id in requested]
     cases = {
         case_id: {
             "status": "pending",
@@ -70,7 +85,7 @@ def initialize(args: argparse.Namespace) -> dict[str, Any]:
             "campaign_runs": [],
             "failed_attempts": [],
         }
-        for case_id in case_ids(args.report)
+        for case_id in selected_case_ids
     }
     return {
         "schema_version": 1,
@@ -80,7 +95,9 @@ def initialize(args: argparse.Namespace) -> dict[str, Any]:
         "retrieval_mode": retrieval_mode,
         "codex_model": config.get("codex_model", ""),
         "codex_prompt_profile": config.get("codex_prompt_profile", ""),
-        "run_config": str(args.run_config.relative_to(ROOT)).replace("\\", "/"),
+        "structural_graph_enabled": config.get("structural_graph_enabled", True),
+        "adaptive_controller_enabled": config.get("adaptive_controller_enabled", True),
+        "run_config": str(args.run_config.resolve().relative_to(ROOT)).replace("\\", "/"),
         "target_valid_runs_per_case": args.repetitions,
         "historical_runs_are_reference_only": True,
         "active_case": "",
@@ -101,9 +118,17 @@ def is_valid_run(run_dir: Path, ledger: dict[str, Any]) -> tuple[bool, str]:
             codex_model=ledger["codex_model"],
             codex_prompt_profile=ledger["codex_prompt_profile"],
         )
+    if "structural_graph_enabled" in ledger:
+        expected["structural_graph_enabled"] = ledger["structural_graph_enabled"]
+    if "adaptive_controller_enabled" in ledger:
+        expected["adaptive_controller_enabled"] = ledger["adaptive_controller_enabled"]
     mismatches = [f"{key}={metadata.get(key)!r}" for key, value in expected.items() if metadata.get(key) != value]
     if mismatches:
         return False, "configuration mismatch: " + ", ".join(mismatches)
+    if metadata.get("skip_final_evidence_selection") is True:
+        return False, "final evidence selection was skipped"
+    if metadata.get("skip_response_generation") is not True:
+        return False, "response generation was not skipped; run is not token-comparable"
     orchestration = json.loads((run_dir / "orchestration-result.json").read_text(encoding="utf-8"))
     retrieval = orchestration.get("retrieval_result")
     if not isinstance(retrieval, dict):
@@ -120,6 +145,30 @@ def is_valid_run(run_dir: Path, ledger: dict[str, Any]) -> tuple[bool, str]:
     return True, ""
 
 
+def seed_valid_runs(args: argparse.Namespace, ledger: dict[str, Any]) -> None:
+    """Register validated completed runs without rerunning their testcase."""
+    for raw_seed in args.seed_valid_run:
+        case_id, separator, run_id = raw_seed.partition("=")
+        if not separator or not case_id or not run_id:
+            raise ValueError(f"invalid --seed-valid-run value {raw_seed!r}; expected CASE_ID=RUN_ID")
+        state = ledger["cases"].get(case_id)
+        if state is None:
+            raise ValueError(f"seed testcase is not in the campaign: {case_id}")
+        if any(item["run_id"] == run_id for item in state["campaign_runs"]):
+            continue
+        run_dir = TEST_ROOT / case_id / "runs" / run_id
+        valid, reason = is_valid_run(run_dir, ledger)
+        if not valid:
+            raise ValueError(f"seed run {case_id}/{run_id} is not valid: {reason}")
+        state["campaign_runs"].append({
+            "run_id": run_id,
+            "started_at": now(),
+            "completed_at": now(),
+            "source": "pre_campaign_acceptance",
+        })
+        state["status"] = "complete" if len(state["campaign_runs"]) >= int(ledger["target_valid_runs_per_case"]) else "pending"
+
+
 def write_ledger(path: Path, ledger: dict[str, Any]) -> None:
     ledger["updated_at"] = now()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -131,6 +180,7 @@ def write_ledger(path: Path, ledger: dict[str, Any]) -> None:
         f"# {ledger['retrieval_mode'].title()} Four-Run Campaign",
         "",
         f"- Configuration: `{ledger['retrieval_mode']}` / `{ledger.get('codex_model') or 'workspace pipeline'}` / `{ledger.get('codex_prompt_profile') or 'current defaults'}`",
+        f"- Adaptive controller enabled: `{ledger.get('adaptive_controller_enabled', True)}`",
         f"- Campaign target: {len(ledger['cases'])} cases × {target} valid runs = {len(ledger['cases']) * target}",
         f"- Completed valid runs: {completed}",
         f"- Active testcase: `{ledger.get('active_case') or 'none'}`",
@@ -164,6 +214,7 @@ def newest_new_run(case_id: str, before: set[str]) -> Path | None:
 def main() -> int:
     args = parse_args()
     ledger = initialize(args)
+    seed_valid_runs(args, ledger)
     write_ledger(args.ledger, ledger)
     if args.initialize_only:
         print(args.ledger)

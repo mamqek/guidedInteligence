@@ -1,0 +1,182 @@
+Traceback (most recent call last):
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1844, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 736, in main
+    run_dir = evaluate_case(
+              ^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 366, in evaluate_case
+    run_case(
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 244, in run_case
+    result = control_layer.run(state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\core\control_layer.py", line 86, in run
+    retrieval_result = self.retrieval_stage.retrieve(retrieval_state, policy_result)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\stage.py", line 31, in retrieve
+    return run_workspace_retrieval(self.context, state, policy_result)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\retrieval.py", line 109, in run_workspace_retrieval
+    result = run_obligation_retrieval(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\qualification_first_retrieval.py", line 509, in run_obligation_retrieval
+    owner_comparison = compare_initial_owners(
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\initial_owner_comparison.py", line 209, in compare_initial_owners
+    _validate_global_response(
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\initial_owner_comparison.py", line 671, in _validate_global_response
+    raise RuntimeError("initial_owner_comparison_invalid_global_selection")
+RuntimeError: initial_owner_comparison_invalid_global_selection
+Traceback (most recent call last):
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1844, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 736, in main
+    run_dir = evaluate_case(
+              ^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 366, in evaluate_case
+    run_case(
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 244, in run_case
+    result = control_layer.run(state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\core\control_layer.py", line 86, in run
+    retrieval_result = self.retrieval_stage.retrieve(retrieval_state, policy_result)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\stage.py", line 31, in retrieve
+    return run_workspace_retrieval(self.context, state, policy_result)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\retrieval.py", line 109, in run_workspace_retrieval
+    result = run_obligation_retrieval(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\qualification_first_retrieval.py", line 634, in run_obligation_retrieval
+    controller = run_retrieval_controller(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\retrieval_controller.py", line 943, in run_retrieval_controller
+    coverage = _evaluate(ctx, user_request, obligations, candidates, candidate_payload, round_index=round_index)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\retrieval_controller.py", line 1132, in _evaluate
+    return evaluate_coverage(
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\coverage_evaluation.py", line 70, in evaluate_coverage
+    raise RuntimeError("coverage_input_budget_too_small_for_metadata")
+RuntimeError: coverage_input_budget_too_small_for_metadata
+Traceback (most recent call last):
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1844, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 736, in main
+    run_dir = evaluate_case(
+              ^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 366, in evaluate_case
+    run_case(
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 244, in run_case
+    result = control_layer.run(state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\core\control_layer.py", line 86, in run
+    retrieval_result = self.retrieval_stage.retrieve(retrieval_state, policy_result)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\stage.py", line 31, in retrieve
+    return run_workspace_retrieval(self.context, state, policy_result)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\retrieval.py", line 109, in run_workspace_retrieval
+    result = run_obligation_retrieval(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\qualification_first_retrieval.py", line 509, in run_obligation_retrieval
+    owner_comparison = compare_initial_owners(
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\initial_owner_comparison.py", line 209, in compare_initial_owners
+    _validate_global_response(
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\initial_owner_comparison.py", line 671, in _validate_global_response
+    raise RuntimeError("initial_owner_comparison_invalid_global_selection")
+RuntimeError: initial_owner_comparison_invalid_global_selection
+Traceback (most recent call last):
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1844, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 736, in main
+    run_dir = evaluate_case(
+              ^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 366, in evaluate_case
+    run_case(
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 244, in run_case
+    result = control_layer.run(state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\core\control_layer.py", line 86, in run
+    retrieval_result = self.retrieval_stage.retrieve(retrieval_state, policy_result)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\stage.py", line 31, in retrieve
+    return run_workspace_retrieval(self.context, state, policy_result)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\retrieval.py", line 109, in run_workspace_retrieval
+    result = run_obligation_retrieval(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\qualification_first_retrieval.py", line 509, in run_obligation_retrieval
+    owner_comparison = compare_initial_owners(
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\initial_owner_comparison.py", line 199, in compare_initial_owners
+    response = complete_json(
+               ^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\llm\json_completion.py", line 117, in complete_json
+    response_data = _attempt(request_payload)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\llm\json_completion.py", line 53, in _attempt
+    response_data = _perform_request(config, api_key, request_payload)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\llm\json_completion.py", line 278, in _perform_request
+    with urllib.request.urlopen(request, timeout=config.timeout_seconds) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mukha\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 216, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mukha\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 519, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mukha\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 536, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mukha\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 496, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "C:\Users\mukha\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 1391, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mukha\AppData\Local\Programs\Python\Python311\Lib\urllib\request.py", line 1352, in do_open
+    r = h.getresponse()
+        ^^^^^^^^^^^^^^^
+  File "C:\Users\mukha\AppData\Local\Programs\Python\Python311\Lib\http\client.py", line 1395, in getresponse
+    response.begin()
+  File "C:\Users\mukha\AppData\Local\Programs\Python\Python311\Lib\http\client.py", line 325, in begin
+    version, status, reason = self._read_status()
+                              ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mukha\AppData\Local\Programs\Python\Python311\Lib\http\client.py", line 294, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+Traceback (most recent call last):
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1844, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 736, in main
+    run_dir = evaluate_case(
+              ^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 366, in evaluate_case
+    run_case(
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 244, in run_case
+    result = control_layer.run(state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\core\control_layer.py", line 86, in run
+    retrieval_result = self.retrieval_stage.retrieve(retrieval_state, policy_result)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\stage.py", line 31, in retrieve
+    return run_workspace_retrieval(self.context, state, policy_result)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\retrieval.py", line 109, in run_workspace_retrieval
+    result = run_obligation_retrieval(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\qualification_first_retrieval.py", line 509, in run_obligation_retrieval
+    owner_comparison = compare_initial_owners(
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\initial_owner_comparison.py", line 209, in compare_initial_owners
+    _validate_global_response(
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\initial_owner_comparison.py", line 667, in _validate_global_response
+    raise RuntimeError("initial_owner_comparison_invalid_global_selection")
+RuntimeError: initial_owner_comparison_invalid_global_selection

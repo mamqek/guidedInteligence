@@ -1,0 +1,562 @@
+{
+  "campaign": "2026-09-02-graphless-pilot-four-runs",
+  "scope": "Four-case CodeGraph ablation pilot; separate from the main benchmark report.",
+  "sources": {
+    "graphless": "2026-09-02-graphless-pilot-four-runs.json",
+    "workspace": "2026-09-02-workspace-four-runs-complete.json",
+    "codex": "2026-09-02-codex-efficient-luna-four-runs.json"
+  },
+  "graphless_boundary_audit": {
+    "valid_runs": 16,
+    "failures": []
+  },
+  "summaries": {
+    "graphless": {
+      "run_count": 16,
+      "metrics": {
+        "p@1": 0.5,
+        "r@1": 0.3125,
+        "ndcg@1": 0.5,
+        "p@2": 0.4375,
+        "r@2": 0.4431818181818182,
+        "ndcg@2": 0.5567593022405538,
+        "p@5": 0.2,
+        "r@5": 0.4744318181818182,
+        "ndcg@5": 0.4687946801890264,
+        "p@10": 0.10625,
+        "r@10": 0.4900568181818182,
+        "ndcg@10": 0.4428691983159048,
+        "retrieved_file_count": 2.75,
+        "implementation_hit_count": 1.0625,
+        "implementation_any_hit": 0.625,
+        "implementation_full_recall": 0.3125
+      },
+      "coverage_status_counts": {
+        "partial": 16
+      },
+      "sufficient_rate": 0.0,
+      "mean_flow_tokens": 83448.375,
+      "mean_elapsed_seconds": 182.9815200625
+    },
+    "workspace": {
+      "run_count": 16,
+      "metrics": {
+        "p@1": 0.375,
+        "r@1": 0.28125,
+        "ndcg@1": 0.375,
+        "p@2": 0.28125,
+        "r@2": 0.328125,
+        "ndcg@2": 0.42089896831108886,
+        "p@5": 0.225,
+        "r@5": 0.65625,
+        "ndcg@5": 0.5103404802492771,
+        "p@10": 0.11875000000000001,
+        "r@10": 0.671875,
+        "ndcg@10": 0.4938788440888462,
+        "retrieved_file_count": 3.9375,
+        "implementation_hit_count": 1.1875,
+        "implementation_any_hit": 0.75,
+        "implementation_full_recall": 0.625
+      },
+      "coverage_status_counts": {
+        "partial": 16
+      },
+      "sufficient_rate": 0.0,
+      "mean_flow_tokens": 96767.9375,
+      "mean_elapsed_seconds": 221.8106435625
+    },
+    "codex_luna_efficient": {
+      "run_count": 16,
+      "metrics": {
+        "p@1": 0.0625,
+        "r@1": 0.0625,
+        "ndcg@1": 0.08333333333333333,
+        "p@2": 0.15625,
+        "r@2": 0.265625,
+        "ndcg@2": 0.1907741939113905,
+        "p@5": 0.23750000000000002,
+        "r@5": 0.6420454545454546,
+        "ndcg@5": 0.3839688484858145,
+        "p@10": 0.125,
+        "r@10": 0.6477272727272727,
+        "ndcg@10": 0.3861008006444083,
+        "retrieved_file_count": 6.6875,
+        "implementation_hit_count": 1.25,
+        "implementation_any_hit": 1.0,
+        "implementation_full_recall": 0.5
+      },
+      "coverage_status_counts": {
+        "strong": 16
+      },
+      "sufficient_rate": 1.0,
+      "mean_flow_tokens": 422558.75,
+      "mean_elapsed_seconds": 124.17924275
+    }
+  },
+  "cases": {
+    "microsoft-TypeScript-35468": {
+      "graphless": {
+        "mean_metrics": {
+          "p@1": 1.0,
+          "r@1": 0.25,
+          "ndcg@1": 1.0,
+          "p@2": 1.0,
+          "r@2": 0.5,
+          "ndcg@2": 1.0,
+          "p@5": 0.5,
+          "r@5": 0.625,
+          "ndcg@5": 0.6821308473101654,
+          "p@10": 0.275,
+          "r@10": 0.6875,
+          "ndcg@10": 0.5972098750329221,
+          "retrieved_file_count": 5.5,
+          "implementation_hit_count": 2.75,
+          "implementation_any_hit": 1.0,
+          "implementation_full_recall": 0.0
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.5148809523809523,
+          "r10_population_stddev": 0.10825317547305482,
+          "any_implementation_hit_runs": 4,
+          "full_implementation_recall_runs": 0,
+          "sufficient_runs": 0
+        },
+        "coverage_statuses": {
+          "partial": 4
+        },
+        "mean_flow_tokens": 108560.25,
+        "mean_elapsed_seconds": 239.9641455,
+        "run_ids": [
+          "run-20260902T201743Z",
+          "run-20260902T202325Z",
+          "run-20260902T202746Z",
+          "run-20260902T203109Z"
+        ]
+      },
+      "workspace": {
+        "mean_metrics": {
+          "p@1": 0.5,
+          "r@1": 0.125,
+          "ndcg@1": 0.5,
+          "p@2": 0.625,
+          "r@2": 0.3125,
+          "ndcg@2": 0.5967132018086354,
+          "p@5": 0.5,
+          "r@5": 0.625,
+          "ndcg@5": 0.5665342596939863,
+          "p@10": 0.275,
+          "r@10": 0.6875,
+          "ndcg@10": 0.5006877150522624,
+          "retrieved_file_count": 4.75,
+          "implementation_hit_count": 2.75,
+          "implementation_any_hit": 1.0,
+          "implementation_full_recall": 0.5
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.42698412698412697,
+          "r10_population_stddev": 0.3247595264191645,
+          "any_implementation_hit_runs": 4,
+          "full_implementation_recall_runs": 2,
+          "sufficient_runs": 0
+        },
+        "coverage_statuses": {
+          "partial": 4
+        },
+        "mean_flow_tokens": 130335.5,
+        "mean_elapsed_seconds": 295.19598575,
+        "run_ids": [
+          "run-20260902T064052Z",
+          "run-20260902T064704Z",
+          "run-20260902T065123Z",
+          "run-20260902T065537Z"
+        ]
+      },
+      "codex_luna_efficient": {
+        "mean_metrics": {
+          "p@1": 0.0,
+          "r@1": 0.0,
+          "ndcg@1": 0.0,
+          "p@2": 0.125,
+          "r@2": 0.0625,
+          "ndcg@2": 0.0967132018086354,
+          "p@5": 0.4,
+          "r@5": 0.5,
+          "ndcg@5": 0.3604398011523646,
+          "p@10": 0.2,
+          "r@10": 0.5,
+          "ndcg@10": 0.30096414494294593,
+          "retrieved_file_count": 6.5,
+          "implementation_hit_count": 2.0,
+          "implementation_any_hit": 1.0,
+          "implementation_full_recall": 0.0
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.6640211640211641,
+          "r10_population_stddev": 0.0,
+          "any_implementation_hit_runs": 4,
+          "full_implementation_recall_runs": 0,
+          "sufficient_runs": 4
+        },
+        "coverage_statuses": {
+          "strong": 4
+        },
+        "mean_flow_tokens": 968002.25,
+        "mean_elapsed_seconds": 134.55985375,
+        "run_ids": [
+          "run-20260902T132352Z",
+          "run-20260902T143438Z",
+          "run-20260902T143736Z",
+          "run-20260902T144021Z"
+        ]
+      }
+    },
+    "pandas-dev-pandas-10068": {
+      "graphless": {
+        "mean_metrics": {
+          "p@1": 0.0,
+          "r@1": 0.0,
+          "ndcg@1": 0.0,
+          "p@2": 0.125,
+          "r@2": 0.25,
+          "ndcg@2": 0.17376534287144002,
+          "p@5": 0.05,
+          "r@5": 0.25,
+          "ndcg@5": 0.18299264298016857,
+          "p@10": 0.025,
+          "r@10": 0.25,
+          "ndcg@10": 0.18299264298016857,
+          "retrieved_file_count": 1.75,
+          "implementation_hit_count": 0.25,
+          "implementation_any_hit": 0.25,
+          "implementation_full_recall": 0.25
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.5555555555555556,
+          "r10_population_stddev": 0.4330127018922193,
+          "any_implementation_hit_runs": 1,
+          "full_implementation_recall_runs": 1,
+          "sufficient_runs": 0
+        },
+        "coverage_statuses": {
+          "partial": 4
+        },
+        "mean_flow_tokens": 71563.25,
+        "mean_elapsed_seconds": 143.82103025,
+        "run_ids": [
+          "run-20260902T203440Z",
+          "run-20260902T203710Z",
+          "run-20260902T204002Z",
+          "run-20260902T204147Z"
+        ]
+      },
+      "workspace": {
+        "mean_metrics": {
+          "p@1": 0.0,
+          "r@1": 0.0,
+          "ndcg@1": 0.0,
+          "p@2": 0.0,
+          "r@2": 0.0,
+          "ndcg@2": 0.08688267143572001,
+          "p@5": 0.2,
+          "r@5": 1.0,
+          "ndcg@5": 0.47482766130312226,
+          "p@10": 0.1,
+          "r@10": 1.0,
+          "ndcg@10": 0.47482766130312226,
+          "retrieved_file_count": 4.5,
+          "implementation_hit_count": 1.0,
+          "implementation_any_hit": 1.0,
+          "implementation_full_recall": 1.0
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.6444444444444445,
+          "r10_population_stddev": 0.0,
+          "any_implementation_hit_runs": 4,
+          "full_implementation_recall_runs": 4,
+          "sufficient_runs": 0
+        },
+        "coverage_statuses": {
+          "partial": 4
+        },
+        "mean_flow_tokens": 95498.75,
+        "mean_elapsed_seconds": 207.8835415,
+        "run_ids": [
+          "run-20260902T072929Z",
+          "run-20260902T074521Z",
+          "run-20260902T074843Z",
+          "run-20260902T075242Z"
+        ]
+      },
+      "codex_luna_efficient": {
+        "mean_metrics": {
+          "p@1": 0.25,
+          "r@1": 0.25,
+          "ndcg@1": 0.25,
+          "p@2": 0.375,
+          "r@2": 0.75,
+          "ndcg@2": 0.4672066785893,
+          "p@5": 0.2,
+          "r@5": 1.0,
+          "ndcg@5": 0.501435452531317,
+          "p@10": 0.1,
+          "r@10": 1.0,
+          "ndcg@10": 0.5661074286403379,
+          "retrieved_file_count": 6.0,
+          "implementation_hit_count": 1.0,
+          "implementation_any_hit": 1.0,
+          "implementation_full_recall": 1.0
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.8492063492063492,
+          "r10_population_stddev": 0.0,
+          "any_implementation_hit_runs": 4,
+          "full_implementation_recall_runs": 4,
+          "sufficient_runs": 4
+        },
+        "coverage_statuses": {
+          "strong": 4
+        },
+        "mean_flow_tokens": 278653.75,
+        "mean_elapsed_seconds": 131.54438975,
+        "run_ids": [
+          "run-20260902T151336Z",
+          "run-20260902T151542Z",
+          "run-20260902T151815Z",
+          "run-20260902T152024Z"
+        ]
+      }
+    },
+    "vuejs-vue-10803": {
+      "graphless": {
+        "mean_metrics": {
+          "p@1": 1.0,
+          "r@1": 1.0,
+          "ndcg@1": 1.0,
+          "p@2": 0.5,
+          "r@2": 1.0,
+          "ndcg@2": 0.95655866428214,
+          "p@5": 0.2,
+          "r@5": 1.0,
+          "ndcg@5": 0.95655866428214,
+          "p@10": 0.1,
+          "r@10": 1.0,
+          "ndcg@10": 0.95655866428214,
+          "retrieved_file_count": 1.75,
+          "implementation_hit_count": 1.0,
+          "implementation_any_hit": 1.0,
+          "implementation_full_recall": 1.0
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.75,
+          "r10_population_stddev": 0.0,
+          "any_implementation_hit_runs": 4,
+          "full_implementation_recall_runs": 4,
+          "sufficient_runs": 0
+        },
+        "coverage_statuses": {
+          "partial": 4
+        },
+        "mean_flow_tokens": 70612,
+        "mean_elapsed_seconds": 160.64525825,
+        "run_ids": [
+          "run-20260902T204415Z",
+          "run-20260902T204707Z",
+          "run-20260902T204953Z",
+          "run-20260902T205238Z"
+        ]
+      },
+      "workspace": {
+        "mean_metrics": {
+          "p@1": 1.0,
+          "r@1": 1.0,
+          "ndcg@1": 1.0,
+          "p@2": 0.5,
+          "r@2": 1.0,
+          "ndcg@2": 1.0,
+          "p@5": 0.2,
+          "r@5": 1.0,
+          "ndcg@5": 1.0,
+          "p@10": 0.1,
+          "r@10": 1.0,
+          "ndcg@10": 1.0,
+          "retrieved_file_count": 2.75,
+          "implementation_hit_count": 1.0,
+          "implementation_any_hit": 1.0,
+          "implementation_full_recall": 1.0
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.8333333333333333,
+          "r10_population_stddev": 0.0,
+          "any_implementation_hit_runs": 4,
+          "full_implementation_recall_runs": 4,
+          "sufficient_runs": 0
+        },
+        "coverage_statuses": {
+          "partial": 4
+        },
+        "mean_flow_tokens": 79862.5,
+        "mean_elapsed_seconds": 201.1685205,
+        "run_ids": [
+          "run-20260902T093853Z",
+          "run-20260902T094219Z",
+          "run-20260902T094522Z",
+          "run-20260902T094838Z"
+        ]
+      },
+      "codex_luna_efficient": {
+        "mean_metrics": {
+          "p@1": 0.0,
+          "r@1": 0.0,
+          "ndcg@1": 0.08333333333333333,
+          "p@2": 0.125,
+          "r@2": 0.25,
+          "ndcg@2": 0.19917689524762666,
+          "p@5": 0.2,
+          "r@5": 1.0,
+          "ndcg@5": 0.562286757761612,
+          "p@10": 0.1,
+          "r@10": 1.0,
+          "ndcg@10": 0.5852377204596275,
+          "retrieved_file_count": 5.75,
+          "implementation_hit_count": 1.0,
+          "implementation_any_hit": 1.0,
+          "implementation_full_recall": 1.0
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.47784391534391535,
+          "r10_population_stddev": 0.0,
+          "any_implementation_hit_runs": 4,
+          "full_implementation_recall_runs": 4,
+          "sufficient_runs": 4
+        },
+        "coverage_statuses": {
+          "strong": 4
+        },
+        "mean_flow_tokens": 304025.5,
+        "mean_elapsed_seconds": 122.98324699999999,
+        "run_ids": [
+          "run-20260902T171057Z",
+          "run-20260902T173511Z",
+          "run-20260902T173744Z",
+          "run-20260902T174007Z"
+        ]
+      }
+    },
+    "vuejs-vue-6301": {
+      "graphless": {
+        "mean_metrics": {
+          "p@1": 0.0,
+          "r@1": 0.0,
+          "ndcg@1": 0.0,
+          "p@2": 0.125,
+          "r@2": 0.022727272727272728,
+          "ndcg@2": 0.0967132018086354,
+          "p@5": 0.05,
+          "r@5": 0.022727272727272728,
+          "ndcg@5": 0.05349656618363188,
+          "p@10": 0.025,
+          "r@10": 0.022727272727272728,
+          "ndcg@10": 0.03471561096838863,
+          "retrieved_file_count": 2.0,
+          "implementation_hit_count": 0.25,
+          "implementation_any_hit": 0.25,
+          "implementation_full_recall": 0.0
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.4722222222222222,
+          "r10_population_stddev": 0.03936479108111085,
+          "any_implementation_hit_runs": 1,
+          "full_implementation_recall_runs": 0,
+          "sufficient_runs": 0
+        },
+        "coverage_statuses": {
+          "partial": 4
+        },
+        "mean_flow_tokens": 83058,
+        "mean_elapsed_seconds": 187.49564625,
+        "run_ids": [
+          "run-20260902T205457Z",
+          "run-20260902T205806Z",
+          "run-20260902T210126Z",
+          "run-20260902T210506Z"
+        ]
+      },
+      "workspace": {
+        "mean_metrics": {
+          "p@1": 0.0,
+          "r@1": 0.0,
+          "ndcg@1": 0.0,
+          "p@2": 0.0,
+          "r@2": 0.0,
+          "ndcg@2": 0.0,
+          "p@5": 0.0,
+          "r@5": 0.0,
+          "ndcg@5": 0.0,
+          "p@10": 0.0,
+          "r@10": 0.0,
+          "ndcg@10": 0.0,
+          "retrieved_file_count": 3.75,
+          "implementation_hit_count": 0.0,
+          "implementation_any_hit": 0.0,
+          "implementation_full_recall": 0.0
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.875,
+          "r10_population_stddev": 0.0,
+          "any_implementation_hit_runs": 0,
+          "full_implementation_recall_runs": 0,
+          "sufficient_runs": 0
+        },
+        "coverage_statuses": {
+          "partial": 4
+        },
+        "mean_flow_tokens": 81375,
+        "mean_elapsed_seconds": 182.9945265,
+        "run_ids": [
+          "run-20260902T102139Z",
+          "run-20260902T102442Z",
+          "run-20260902T103033Z",
+          "run-20260902T103323Z"
+        ]
+      },
+      "codex_luna_efficient": {
+        "mean_metrics": {
+          "p@1": 0.0,
+          "r@1": 0.0,
+          "ndcg@1": 0.0,
+          "p@2": 0.0,
+          "r@2": 0.0,
+          "ndcg@2": 0.0,
+          "p@5": 0.15000000000000002,
+          "r@5": 0.06818181818181818,
+          "ndcg@5": 0.11171338249796406,
+          "p@10": 0.1,
+          "r@10": 0.09090909090909091,
+          "ndcg@10": 0.0920939085347218,
+          "retrieved_file_count": 8.5,
+          "implementation_hit_count": 1.0,
+          "implementation_any_hit": 1.0,
+          "implementation_full_recall": 0.0
+        },
+        "stability": {
+          "mean_pairwise_retrieved_file_jaccard": 0.5294252044252045,
+          "r10_population_stddev": 0.0,
+          "any_implementation_hit_runs": 4,
+          "full_implementation_recall_runs": 0,
+          "sufficient_runs": 4
+        },
+        "coverage_statuses": {
+          "strong": 4
+        },
+        "mean_flow_tokens": 139553.5,
+        "mean_elapsed_seconds": 107.6294805,
+        "run_ids": [
+          "run-20260902T181141Z",
+          "run-20260902T181330Z",
+          "run-20260902T181511Z",
+          "run-20260902T181713Z"
+        ]
+      }
+    }
+  }
+}

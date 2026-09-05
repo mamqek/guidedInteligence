@@ -1,6 +1,7 @@
 # Graphless and controller-free retrieval ablations
 
-Status: graphless implementation complete and smoke-validated; controller-free ablation proposed, not implemented.
+Status: graphless implementation complete and smoke-validated; adaptive-controller ablation implemented and
+actual-pipeline acceptance verified twice on the main TypeScript case.
 
 ## Purpose
 
@@ -51,7 +52,7 @@ selection enabled.  Confirm the run metadata and retrieval summary name provider
 and graph actions add no endpoints.  Then compare two graphless and two normal runs on TypeScript 35468 plus one
 each on pandas 10068 and Vue 242.  Do not reindex: graphlessness does not change BM25/Qdrant index scope.
 
-## B. Controller-free retrieval (proposal)
+## B. Adaptive-controller-free retrieval
 
 Boundary: after round-zero owner comparison and qualification, bypass `run_retrieval_controller` and send the
 qualified round-zero evidence directly through the unchanged final-pool representation and final evidence selector.
@@ -71,5 +72,36 @@ Expected result: lower token cost and fewer discovered file traces / cross-file 
 cleaner attribution of any quality drop to controller exploration.  It is compatible with graphless mode as a later
 2×2 experiment, but the first measurement should vary one factor at a time.  Before implementation, define a small
 result contract carrying round-zero qualified observations, deferred/dormant diagnostics, zero controller actions,
-and `stop_reason=controller_bypassed_after_round_zero`; do not emulate later controller preservation or coverage
+and `stop_reason=adaptive_controller_disabled_after_round_zero`; do not emulate later controller preservation or coverage
 updates.
+
+### Implemented boundary
+
+`adaptive_controller_enabled=false` retains round-zero disclosure, qualification, coverage evaluation, structural
+component discovery, and semantic-island construction. It then returns the frozen round-zero candidate/island state
+with zero exploration rounds and no file traces. It does not run qualified-lead discovery, action enumeration,
+action scheduling, deferred/dormant inspection, endpoint qualification, frontier processing, or later coverage/island
+updates. Final-pool construction, the mechanism-flow baseline, island-packet augmentation, and final evidence
+selection remain unchanged.
+
+Expected quality impact: any lost owners, handoffs, and file traces are attributable to the removed adaptive
+exploration rather than a changed initial semantic-admission or final-selection contract. Expected token impact:
+controller-round qualification and coverage calls disappear, while round-zero and final-selection calls remain.
+Known regression risks: important owners left dormant by initial comparison cannot be recovered; a round-zero
+navigation candidate cannot mature; frozen islands may lack a later complementary owner. Compare two actual runs on
+the main TypeScript case against an unchanged Workspace baseline, recording run IDs, final candidate pools,
+`coverage_status`, `sufficient`, selected Oracle files, and retrieval-token totals.
+
+### Acceptance results
+
+Focused qualification-first, server, and CodeRepoQA tests passed 146 checks. Two actual TypeScript 35468 runs kept
+final evidence selection enabled and response generation disabled:
+
+- `run-20260904T134949Z`: 13 final-pool candidates, nine frozen islands, seven selected evidence items, three
+  implementation-Oracle overlaps, `partial/false`, and 61,611 retrieval-stage tokens.
+- `run-20260904T135451Z`: 12 final-pool candidates, nine frozen islands, seven selected evidence items, two
+  implementation-Oracle overlaps, `partial/false`, and 58,249 retrieval-stage tokens.
+
+Both traces contain `retrieval_controller_bypassed`, one final-consolidation request, and zero controller-round,
+controller-action, or qualified-lead-discovery events. This accepts the execution boundary and end-to-end behavior;
+it does not claim a quality improvement over normal Workspace retrieval.

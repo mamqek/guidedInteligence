@@ -2306,6 +2306,81 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
         self.assertEqual(result.rounds, 0)
         self.assertEqual(result.candidates, (candidate,))
 
+    def test_disabled_adaptive_controller_returns_round_zero_islands_without_exploration(self) -> None:
+        observation = _observation("obs_root", "src/root.ts", "function:root", ("owner",))
+        obligation = EvidenceObligation("owner", "Find the behavior owner.", True)
+        config = SimpleNamespace(
+            workspace_root=".",
+            llm_config=SimpleNamespace(),
+            max_qualification_input_chars=4000,
+            max_exploration_rounds=3,
+            max_controller_actions_per_round=2,
+            adaptive_controller_enabled=False,
+        )
+        events: list[tuple[str, dict[str, object]]] = []
+        trace = SimpleNamespace(
+            record=lambda event_type, payload: events.append((event_type, dict(payload))),
+            record_tool=lambda *args, **kwargs: None,
+        )
+        ctx = SimpleNamespace(config=config, trace=trace)
+        tools = {
+            "structural_file_outline": _Tool("structural_file_outline", {"nodes": []}),
+            "structural_relationships_within_nodes": _Tool(
+                "structural_relationships_within_nodes", {"edges": []}
+            ),
+            "structural_edge_capabilities": _FailTool(),
+            "structural_expand_relationships": _FailTool(),
+            "structural_resolve_ranges": _FailTool(),
+        }
+        qualification = QualificationBatch(
+            decisions=(
+                QualificationDecision(
+                    "obs_root", "promote", "direct_evidence", "owner", ("Defines root.",)
+                ),
+            ),
+            usage={},
+            serialized_chars=100,
+        )
+        uncovered = CoverageBatch(
+            coverage=(ObligationCoverage("owner", "partial", ("candidate:root",), "Need handoff.", "unknown"),),
+            usage={},
+        )
+        candidate = {"candidate_id": "candidate:root", "observation_id": "obs_root", "snippet": "source"}
+        with patch(
+            "services.retrieval.workspace.pipeline.execution_flow.retrieval_controller.qualify_cards",
+            return_value=qualification,
+        ), patch(
+            "services.retrieval.workspace.pipeline.execution_flow.retrieval_controller.evaluate_coverage",
+            return_value=uncovered,
+        ), patch(
+            "services.retrieval.workspace.pipeline.execution_flow.retrieval_controller.disclose_observations",
+            return_value=SimpleNamespace(
+                cards=(DisclosureCard("obs_root", observation.handle, "preview", "source"),),
+                tool_calls=0,
+            ),
+        ):
+            result = run_retrieval_controller(
+                ctx=ctx,
+                user_request="Explain root",
+                obligations=(obligation,),
+                initial_observations=(observation,),
+                structural_tools=tools,
+                qdrant_tool=_FailTool(),
+                candidate_factory=lambda *_args: candidate,
+                candidate_payload=lambda value: value,
+            )
+
+        event_types = [event_type for event_type, _payload in events]
+        self.assertEqual(result.stop_reason, "adaptive_controller_disabled_after_round_zero")
+        self.assertEqual(result.rounds, 0)
+        self.assertEqual(result.candidates, (candidate,))
+        self.assertEqual(result.file_traces, ())
+        self.assertTrue(result.islands.islands)
+        self.assertIn("retrieval_controller_bypassed", event_types)
+        self.assertNotIn("qualified_structural_file_leads_evaluated", event_types)
+        self.assertNotIn("controller_round_started", event_types)
+        self.assertNotIn("retrieval_controller_stopped", event_types)
+
     def test_active_island_guardrail_preserves_one_qualified_candidate_per_island(self) -> None:
         from services.retrieval.workspace.pipeline.execution_flow.evidence_islands import EvidenceIsland, IslandSelection
         from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import GroundedCandidate
