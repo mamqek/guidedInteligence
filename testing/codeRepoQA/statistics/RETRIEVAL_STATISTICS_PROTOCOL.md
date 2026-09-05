@@ -106,6 +106,17 @@ If a file occurs in more than one oracle list, use the highest grade. This makes
 
 Report P@1, P@2, P@5, P@10; R@1, R@2, R@5, R@10; and NDCG@1, NDCG@2, NDCG@5, NDCG@10.
 
+### Required reader-facing metric glossary
+
+Every report must include this compact explanation before its first results table:
+
+- `@1`, `@2`, `@5`, and `@10` mean the first 1, 2, 5, or 10 ordered unique repository files returned by the system.
+- **P@k** is the fraction of those first k files that are Implementation Oracle files; its denominator is always k.
+- **R@k** is the fraction of all Implementation Oracle files for the testcase that appear in those first k files.
+- **NDCG@k** is a 0–1 rank-sensitive quality score over those first k files: implementation files receive relevance 2, supporting test/validation or documentation files relevance 1, and earlier ranks receive more credit.
+
+The report may then refer to the compact labels in tables without redefining them in every caption.
+
 ### Precision at k
 
 `P@k = relevant implementation files in the first k ranks / k`
@@ -196,7 +207,7 @@ Each statistics report must contain, in this order:
 4. **Run inventory:** case, partition, category, retrieval topology, system, selected run ID, campaign selection rule, end-to-end elapsed time, and token accounting. Declare invariant model, retrieval-system, and profile/config values once in the Conditions section instead of repeating them on every run row. Report time and tokens for every selected testcase/system pair; do not provide aggregates alone. Token accounting must separately show indexing tokens, non-indexing flow tokens, and their total. Also report observed indexing duration and the matching source build run when an exact reusable index-build trace exists. For Codex runs, additionally show cached input tokens, uncached input tokens, and output tokens; reasoning output tokens may be shown as a non-additive subset of output tokens.
 5. **Headline metrics:** the complete P/R/NDCG table at 1, 2, 5, and 10.
 6. **Breakdowns:** per category, per retrieval topology, and per repository, with counts.
-7. **Per-case results:** enough detail to audit the averages.
+7. **Per-case results:** enough detail to audit the averages. When multiple systems/configurations are shown for one testcase, present them as one contiguous testcase block: print the case metadata only on the first system row and leave those cells blank on continuation rows (or use true multirow cells in a typeset table). Do not repeat the same case identifier on every configuration row.
 8. **Limitations:** missing cases, mixed models, single-run stochasticity, output limits, failed attempts, or Oracle concerns.
 9. **Reproduction note:** source files, calculation version/script or exact formula, and the original index-build artifact or declared amortization treatment for every cost comparison.
 
@@ -221,6 +232,7 @@ Use decimal values from 0 to 1 and display three decimal places. Calculate with 
 - [ ] Every reused-index row names the matching original index-build artifact and signature; any amortization names the exact shared index signature and divisor.
 - [ ] Currency estimates state their provider/model pricing snapshot and price cached Codex inputs separately from uncached inputs and outputs.
 - [ ] Counts accompany all aggregates.
+- [ ] Per-case multi-configuration tables visually group the configurations for each testcase; continuation rows do not repeat the case label or invariant case metadata.
 - [ ] Every case has one frozen reporting-only retrieval topology, and the report includes the topology breakdown.
 - [ ] The report itself repeats the definitions needed by a reader.
 - [ ] Final cases remained untouched until the declared final evaluation.

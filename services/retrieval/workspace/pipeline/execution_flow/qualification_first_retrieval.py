@@ -617,7 +617,11 @@ def run_obligation_retrieval(
                 "diagnostic_stop": "before_round_zero_qualification",
                 "request_analysis": intent_context.to_dict(),
                 "retrieval_plan": {
-                    "strategy": "qualification_first_controller_v1",
+                    "strategy": (
+                        "qualification_first_controller_v1"
+                        if getattr(ctx.config, "adaptive_controller_enabled", True)
+                        else "qualification_first_no_adaptive_controller_v1"
+                    ),
                     "obligations": [item.to_dict() for item in progress.values()],
                 },
                 "index_rebuilt": index_rebuilt,
@@ -772,7 +776,14 @@ def run_obligation_retrieval(
     summary = {
         "retriever": "workspace",
         "request_analysis": intent_context.to_dict(),
-        "retrieval_plan": {"strategy": "qualification_first_controller_v1", "obligations": [item.to_dict() for item in states]},
+        "retrieval_plan": {
+            "strategy": (
+                "qualification_first_controller_v1"
+                if getattr(ctx.config, "adaptive_controller_enabled", True)
+                else "qualification_first_no_adaptive_controller_v1"
+            ),
+            "obligations": [item.to_dict() for item in states],
+        },
         "index_rebuilt": index_rebuilt,
         "index_document_count": index_document_count,
         "structural_graph_provider": "codegraph" if ctx.config.structural_graph_enabled else "disabled",
@@ -795,6 +806,7 @@ def run_obligation_retrieval(
         "initial_owner_comparison_serialized_chars": owner_comparison.serialized_chars,
         "initial_owner_comparison_group_count": owner_comparison.compared_group_count,
         "dormant_island_completion_enabled": ctx.config.dormant_island_completion_enabled,
+        "adaptive_controller_enabled": getattr(ctx.config, "adaptive_controller_enabled", True),
         "coverage_usage": dict(controller.coverage_usage),
         "anchor_query_count": len(confirmations),
         "anchor_confirmations": [item.to_dict() for item in confirmations],

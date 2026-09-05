@@ -1,0 +1,361 @@
+{
+  "schema_version": 1,
+  "campaign": "2026-09-04-workspace-no-controller-four-runs-worker-c-pandas",
+  "created_at": "2026-09-04T16:17:22.831268+02:00",
+  "updated_at": "2026-09-04T22:54:14.864460+00:00",
+  "retrieval_mode": "workspace",
+  "codex_model": "",
+  "codex_prompt_profile": "",
+  "structural_graph_enabled": true,
+  "adaptive_controller_enabled": false,
+  "run_config": "configs/testing/statistics-workspace-no-controller.json",
+  "target_valid_runs_per_case": 4,
+  "historical_runs_are_reference_only": true,
+  "active_case": "",
+  "stop_reason": "complete",
+  "cases": {
+    "pandas-dev-pandas-10150": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T004559Z",
+        "run-20260815T191410Z",
+        "run-20260902T072114Z",
+        "run-20260902T072500Z",
+        "run-20260902T072842Z",
+        "run-20260902T073156Z",
+        "run-20260903T000640Z",
+        "run-20260903T001029Z",
+        "run-20260903T001341Z",
+        "run-20260903T001649Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T190445Z",
+          "started_at": "2026-09-04T19:04:42.548627+00:00",
+          "completed_at": "2026-09-04T19:06:44.123702+00:00"
+        },
+        {
+          "run_id": "run-20260904T190645Z",
+          "started_at": "2026-09-04T19:06:44.126716+00:00",
+          "completed_at": "2026-09-04T19:08:37.724188+00:00"
+        },
+        {
+          "run_id": "run-20260904T190839Z",
+          "started_at": "2026-09-04T19:08:37.727312+00:00",
+          "completed_at": "2026-09-04T19:10:26.358445+00:00"
+        },
+        {
+          "run_id": "run-20260904T191028Z",
+          "started_at": "2026-09-04T19:10:26.361448+00:00",
+          "completed_at": "2026-09-04T19:12:19.704611+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-16499": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003759Z",
+        "run-20260815T021824Z",
+        "run-20260815T182704Z",
+        "run-20260823T031156Z",
+        "run-20260902T073453Z",
+        "run-20260902T073745Z",
+        "run-20260902T074121Z",
+        "run-20260902T074355Z",
+        "run-20260903T082102Z",
+        "run-20260903T082411Z",
+        "run-20260903T082552Z",
+        "run-20260903T082805Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T191221Z",
+          "started_at": "2026-09-04T19:12:19.708240+00:00",
+          "completed_at": "2026-09-04T19:13:52.051262+00:00"
+        },
+        {
+          "run_id": "run-20260904T191353Z",
+          "started_at": "2026-09-04T19:13:52.054771+00:00",
+          "completed_at": "2026-09-04T19:15:45.974421+00:00"
+        },
+        {
+          "run_id": "run-20260904T191548Z",
+          "started_at": "2026-09-04T19:15:45.977421+00:00",
+          "completed_at": "2026-09-04T19:17:13.851293+00:00"
+        },
+        {
+          "run_id": "run-20260904T191716Z",
+          "started_at": "2026-09-04T19:17:13.854654+00:00",
+          "completed_at": "2026-09-04T19:19:11.432249+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-16764": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003200Z",
+        "run-20260815T014646Z",
+        "run-20260815T161202Z",
+        "run-20260829T172301Z",
+        "run-20260829T173103Z",
+        "run-20260829T173841Z",
+        "run-20260829T174655Z",
+        "run-20260829T204041Z",
+        "run-20260829T222121Z",
+        "run-20260829T222427Z",
+        "run-20260829T222623Z",
+        "run-20260901T073937Z",
+        "run-20260901T085412Z",
+        "run-20260901T100807Z",
+        "run-20260901T113739Z",
+        "run-20260902T082442Z",
+        "run-20260902T082814Z",
+        "run-20260902T083156Z",
+        "run-20260902T083543Z",
+        "run-20260903T083014Z",
+        "run-20260903T083313Z",
+        "run-20260903T083634Z",
+        "run-20260903T084008Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T221254Z",
+          "started_at": "2026-09-04T22:12:52.476917+00:00",
+          "completed_at": "2026-09-04T22:14:50.438925+00:00"
+        },
+        {
+          "run_id": "run-20260904T221452Z",
+          "started_at": "2026-09-04T22:14:50.442133+00:00",
+          "completed_at": "2026-09-04T22:17:14.731795+00:00"
+        },
+        {
+          "run_id": "run-20260904T221716Z",
+          "started_at": "2026-09-04T22:17:14.733797+00:00",
+          "completed_at": "2026-09-04T22:19:05.775511+00:00"
+        },
+        {
+          "run_id": "run-20260904T221908Z",
+          "started_at": "2026-09-04T22:19:05.778554+00:00",
+          "completed_at": "2026-09-04T22:20:46.900559+00:00"
+        }
+      ],
+      "failed_attempts": [
+        {
+          "run_id": "run-20260904T191913Z",
+          "started_at": "2026-09-04T19:19:11.436762+00:00",
+          "completed_at": "2026-09-04T19:20:23.608489+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        },
+        {
+          "run_id": "run-20260904T192026Z",
+          "started_at": "2026-09-04T19:20:23.612572+00:00",
+          "completed_at": "2026-09-04T19:20:27.098798+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        },
+        {
+          "run_id": "run-20260904T192029Z",
+          "started_at": "2026-09-04T19:20:27.102436+00:00",
+          "completed_at": "2026-09-04T19:20:30.330218+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        },
+        {
+          "run_id": "",
+          "started_at": "2026-09-04T22:12:49.431820+00:00",
+          "completed_at": "2026-09-04T22:12:52.473813+00:00",
+          "return_code": 1,
+          "reason": "run directory was not created"
+        }
+      ]
+    },
+    "pandas-dev-pandas-22872": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T004011Z",
+        "run-20260815T184856Z",
+        "run-20260902T083928Z",
+        "run-20260902T084334Z",
+        "run-20260902T084745Z",
+        "run-20260902T085202Z",
+        "run-20260903T125232Z",
+        "run-20260903T125807Z",
+        "run-20260903T130107Z",
+        "run-20260903T130428Z",
+        "run-20260903T130830Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T222048Z",
+          "started_at": "2026-09-04T22:20:46.904286+00:00",
+          "completed_at": "2026-09-04T22:23:15.282264+00:00"
+        },
+        {
+          "run_id": "run-20260904T222529Z",
+          "started_at": "2026-09-04T22:25:27.577236+00:00",
+          "completed_at": "2026-09-04T22:28:08.625058+00:00"
+        },
+        {
+          "run_id": "run-20260904T223000Z",
+          "started_at": "2026-09-04T22:29:58.555753+00:00",
+          "completed_at": "2026-09-04T22:32:11.246889+00:00"
+        },
+        {
+          "run_id": "run-20260904T223213Z",
+          "started_at": "2026-09-04T22:32:11.248888+00:00",
+          "completed_at": "2026-09-04T22:34:17.827836+00:00"
+        }
+      ],
+      "failed_attempts": [
+        {
+          "run_id": "run-20260904T222316Z",
+          "started_at": "2026-09-04T22:23:15.285263+00:00",
+          "completed_at": "2026-09-04T22:25:27.574080+00:00",
+          "return_code": 0,
+          "reason": "retrieval returned no usable evidence (coverage_status=missing, stop_reason=adaptive_controller_disabled_after_round_zero)"
+        },
+        {
+          "run_id": "run-20260904T222810Z",
+          "started_at": "2026-09-04T22:28:08.627311+00:00",
+          "completed_at": "2026-09-04T22:29:58.553148+00:00",
+          "return_code": 0,
+          "reason": "retrieval returned no usable evidence (coverage_status=missing, stop_reason=adaptive_controller_disabled_after_round_zero)"
+        }
+      ]
+    },
+    "pandas-dev-pandas-25183": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003522Z",
+        "run-20260815T021546Z",
+        "run-20260815T175808Z",
+        "run-20260902T080213Z",
+        "run-20260902T080730Z",
+        "run-20260902T081114Z",
+        "run-20260902T081514Z",
+        "run-20260903T131240Z",
+        "run-20260903T131559Z",
+        "run-20260903T131910Z",
+        "run-20260903T132217Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T223419Z",
+          "started_at": "2026-09-04T22:34:17.831359+00:00",
+          "completed_at": "2026-09-04T22:36:11.644757+00:00"
+        },
+        {
+          "run_id": "run-20260904T223613Z",
+          "started_at": "2026-09-04T22:36:11.647289+00:00",
+          "completed_at": "2026-09-04T22:37:48.257048+00:00"
+        },
+        {
+          "run_id": "run-20260904T223750Z",
+          "started_at": "2026-09-04T22:37:48.260554+00:00",
+          "completed_at": "2026-09-04T22:39:30.623845+00:00"
+        },
+        {
+          "run_id": "run-20260904T223932Z",
+          "started_at": "2026-09-04T22:39:30.626222+00:00",
+          "completed_at": "2026-09-04T22:41:40.650484+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-35925": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003942Z",
+        "run-20260815T184419Z",
+        "run-20260829T162616Z",
+        "run-20260829T172721Z",
+        "run-20260829T173501Z",
+        "run-20260829T174250Z",
+        "run-20260829T175113Z",
+        "run-20260830T003010Z",
+        "run-20260830T003218Z",
+        "run-20260830T003537Z",
+        "run-20260830T003659Z",
+        "run-20260901T082113Z",
+        "run-20260901T093320Z",
+        "run-20260901T105526Z",
+        "run-20260901T122052Z",
+        "run-20260902T081923Z",
+        "run-20260902T082136Z",
+        "run-20260902T082319Z",
+        "run-20260902T082543Z",
+        "run-20260903T133452Z",
+        "run-20260903T133734Z",
+        "run-20260903T134010Z",
+        "run-20260903T134317Z",
+        "run-20260903T134611Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T224142Z",
+          "started_at": "2026-09-04T22:41:40.654035+00:00",
+          "completed_at": "2026-09-04T22:43:20.443095+00:00"
+        },
+        {
+          "run_id": "run-20260904T224322Z",
+          "started_at": "2026-09-04T22:43:20.446195+00:00",
+          "completed_at": "2026-09-04T22:44:39.601903+00:00"
+        },
+        {
+          "run_id": "run-20260904T224441Z",
+          "started_at": "2026-09-04T22:44:39.604908+00:00",
+          "completed_at": "2026-09-04T22:46:00.022216+00:00"
+        },
+        {
+          "run_id": "run-20260904T224601Z",
+          "started_at": "2026-09-04T22:46:00.024221+00:00",
+          "completed_at": "2026-09-04T22:47:07.480972+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "pandas-dev-pandas-36617": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T004037Z",
+        "run-20260815T185318Z",
+        "run-20260902T090812Z",
+        "run-20260902T091117Z",
+        "run-20260902T091512Z",
+        "run-20260902T091811Z",
+        "run-20260902T121025Z",
+        "run-20260902T121513Z",
+        "run-20260903T134849Z",
+        "run-20260903T135158Z",
+        "run-20260903T135337Z",
+        "run-20260903T135646Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T224709Z",
+          "started_at": "2026-09-04T22:47:07.485009+00:00",
+          "completed_at": "2026-09-04T22:48:45.461427+00:00"
+        },
+        {
+          "run_id": "run-20260904T224847Z",
+          "started_at": "2026-09-04T22:48:45.464504+00:00",
+          "completed_at": "2026-09-04T22:50:24.345653+00:00"
+        },
+        {
+          "run_id": "run-20260904T225026Z",
+          "started_at": "2026-09-04T22:50:24.348654+00:00",
+          "completed_at": "2026-09-04T22:52:35.584157+00:00"
+        },
+        {
+          "run_id": "run-20260904T225237Z",
+          "started_at": "2026-09-04T22:52:35.586693+00:00",
+          "completed_at": "2026-09-04T22:54:14.862956+00:00"
+        }
+      ],
+      "failed_attempts": []
+    }
+  }
+}

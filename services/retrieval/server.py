@@ -1373,7 +1373,7 @@ class RuntimeState:
 
     def _codex_llm_config(self, *, model: str, timeout_seconds: int | None = None) -> RunLLMConfig:
         codex = _normalize_codex_connection(_connections_mapping(self.config).get("codex", {}), retrieval=_retrieval_settings(self.config))
-        resolved_model = model.strip() or str(_retrieval_settings(self.config).get("codex_model") or "gpt-5.4-mini").strip() or "gpt-5.4-mini"
+        resolved_model = model.strip() or str(_retrieval_settings(self.config).get("codex_model") or "gpt-5.6-luna").strip() or "gpt-5.6-luna"
         return RunLLMConfig(
             api_style="codex_cli",
             model=resolved_model,
@@ -1447,7 +1447,7 @@ class RuntimeState:
             qdrant_config=qdrant_config,
             retrieval_mode=retrieval_mode,
             codex_command=resolve_codex_command(_string_list(retrieval_settings.get("codex_command", ["codex"]))),
-            codex_model=str(retrieval_settings.get("codex_model") or "gpt-5.4-mini").strip() or "gpt-5.4-mini",
+            codex_model=str(retrieval_settings.get("codex_model") or "gpt-5.6-luna").strip() or "gpt-5.6-luna",
             codex_prompt_profile=str(
                 retrieval_settings.get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE
             ).strip().lower(),
@@ -1465,6 +1465,9 @@ class RuntimeState:
             ),
             dormant_file_alternatives_enabled=bool(
                 retrieval_settings.get("dormant_file_alternatives_enabled", True)
+            ),
+            adaptive_controller_enabled=bool(
+                retrieval_settings.get("adaptive_controller_enabled", True)
             ),
             structural_graph_enabled=bool(
                 retrieval_settings.get("structural_graph_enabled", True)
@@ -1688,7 +1691,7 @@ class RuntimeState:
             "retrieval": {
                 "mode": RETRIEVAL_MODE_WORKSPACE,
                 "codex_command": ["codex"],
-                "codex_model": "gpt-5.4-mini",
+                "codex_model": "gpt-5.6-luna",
                 "workspace_model": "",
                 "codex_prompt_profile": DEFAULT_CODEX_PROMPT_PROFILE,
                 "codex_timeout_seconds": 900,
@@ -1696,7 +1699,7 @@ class RuntimeState:
             "generation": {
                 "provider": "api",
                 "api_model": "gpt-5.6-luna",
-                "codex_model": "gpt-5.4-mini",
+                "codex_model": "gpt-5.6-luna",
                 "max_tokens": None,
                 "timeout_seconds": 120,
             },
@@ -2315,7 +2318,7 @@ def _normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     if isinstance(command, str):
         command = [command]
     retrieval["codex_command"] = _string_list(command) or ["codex"]
-    retrieval["codex_model"] = str(retrieval.get("codex_model") or "gpt-5.4-mini").strip() or "gpt-5.4-mini"
+    retrieval["codex_model"] = str(retrieval.get("codex_model") or "gpt-5.6-luna").strip() or "gpt-5.6-luna"
     retrieval["workspace_model"] = str(retrieval.get("workspace_model") or "").strip()
     retrieval["codex_prompt_profile"] = str(
         retrieval.get("codex_prompt_profile") or DEFAULT_CODEX_PROMPT_PROFILE

@@ -1,5 +1,28 @@
 # Retrieval Changelog
 
+## 2026-09-04: Frozen Round-Zero Adaptive-Controller Ablation — Implemented
+
+Added the opt-in `adaptive_controller_enabled=false` Workspace ablation. It retains the unchanged initial owner
+comparison, disclosure/qualification contract, round-zero coverage evaluation, structural components, semantic
+islands, mechanism-flow baseline, island-packet augmentation, and final evidence selector. Immediately after the
+initial islands are built, it returns a frozen round-zero result and skips qualified-lead discovery, action
+enumeration/scheduling, deferred and dormant inspection, endpoint qualification, frontier processing, later
+coverage/island updates, and file-trace creation. The default remains enabled, so existing Workspace behavior is
+unchanged.
+
+The CodeRepoQA harness exposes `--no-adaptive-controller`, records the flag in run metadata, and includes
+`configs/testing/statistics-workspace-no-controller.json` plus focused and statistics npm commands. Expected quality
+impact is loss of owners and handoffs that require adaptive recovery. Expected token impact is removal of later
+qualification/coverage rounds while retaining round-zero and final-selection cost. The principal regression risks
+are unrecoverable dormant owners, unmatured navigation candidates, and frozen islands missing complementary owners.
+
+Focused qualification-first, server, and CodeRepoQA verification passed 146 tests. Actual TypeScript 35468 runs
+`run-20260904T134949Z` and `run-20260904T135451Z` both completed through final evidence selection with zero adaptive
+round/action/lead-discovery events. They produced respectively 13/12 final-pool candidates, nine/nine islands,
+seven/seven evidence items, three/two implementation-Oracle overlaps, `partial/false` in both runs, and
+61,611/58,249 retrieval-stage tokens. This verifies the ablation boundary and end-to-end execution, not a quality
+improvement over the unchanged Workspace baseline.
+
 ## 2026-09-02: CodeGraph Node Runtime Resolution — Retained
 
 CodeGraph's bridge previously executed a bare `node` command, so Windows PATH could select the system Node 20 even
@@ -6175,3 +6198,24 @@ different boundaries. The retained change repairs each boundary at the stage tha
 - Codex provider execution now also treats `exec_command failed` plus `rejected: blocked by policy` as an explicit
   retrieval error even when the CLI process exits zero and emits schema-valid uncertainty output. The batch cannot
   silently accumulate that failure again. Twenty focused Codex-provider and campaign-validity tests pass.
+
+## 2026-09-05 — CodeGraph and adaptive-controller ablation campaign complete
+
+- Completed the requested 35-case, four-run Workspace ablation with both
+  `structural_graph_enabled: false` and `adaptive_controller_enabled: false`. The four disjoint worker ledgers
+  produced 140 artifact-complete, validated runs: exactly four per frozen testcase. Response generation was skipped
+  and final evidence selection remained enabled throughout.
+- The merged statistics input is
+  `testing/codeRepoQA/statistics/runs/2026-09-05-workspace-graphless-no-controller-four-runs-complete.json`.
+  Validation re-read every run's metadata and artifacts: all 140 runs have both flags disabled, valid final evidence,
+  and no duplicate run ID. Worker ledgers retain failed attempts for audit but they do not enter the four-run metrics.
+- The campaign used four non-overlapping shards after the earlier controller-only campaign established the parallel
+  ledger pattern. Qdrant/BM25 indexes were reused with rebuilding disabled; no concurrent index mutation was
+  performed. A current `certifi` CA bundle was explicitly inherited by workers after the host Python default CA path
+  rejected the OpenAI endpoint certificate chain.
+- Generated the unified five-condition report at
+  `testing/codeRepoQA/statistics/runs/2026-09-05-five-system-four-run-complete.json` (and adjacent Markdown). It
+  contains 700 accepted inventory rows: 35 cases × four repetitions × five systems. Macro P@5/R@5/NDCG@5 are
+  0.191/0.508/0.401 for Workspace, 0.260/0.677/0.511 for Codex, 0.200/0.505/0.463 without CodeGraph,
+  0.186/0.465/0.389 without the adaptive controller, and 0.186/0.479/0.433 with both disabled. Mean recorded
+  non-indexing flow tokens are respectively 95,315, 283,913, 82,177, 47,566, and 46,176.

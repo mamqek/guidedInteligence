@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1890, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 765, in main
+    run_dir = evaluate_case(
+              ^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 339, in evaluate_case
+    _clone_or_fetch_repo(repo_clone_url, origin_repo_dir)
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1244, in _clone_or_fetch_repo
+    _git(repo_dir, "fetch", "--all", "--tags", "--prune")
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1646, in _git
+    raise RuntimeError(
+RuntimeError: git fetch --all --tags --prune failed in C:\Programming\guidedInteligence_testcases\_repos\pandas-dev-pandas\origin: error: cannot lock ref 'refs/remotes/origin/main': is at 3c1b272caec542955f7717ad1427df527f1bc577 but expected 89623acaf8cb3378cd620b6a08473c798b04748f
+From https://github.com/pandas-dev/pandas
+ ! 89623acaf8..3c1b272cae  main       -> origin/main  (unable to update local ref)

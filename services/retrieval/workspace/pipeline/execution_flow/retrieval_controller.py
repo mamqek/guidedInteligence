@@ -258,6 +258,35 @@ def run_retrieval_controller(
     )
     tool_calls += islands.tool_calls
     all_edges.extend(_represented_connector_edges(islands.edges))
+    if not getattr(ctx.config, "adaptive_controller_enabled", True):
+        stop_reason = "adaptive_controller_disabled_after_round_zero"
+        ctx.trace.record(
+            "retrieval_controller_bypassed",
+            {
+                "stop_reason": stop_reason,
+                "rounds": 0,
+                "tool_calls": tool_calls,
+                "qualified_observation_count": len(decisions),
+                "candidate_ids": sorted(candidates),
+                "island_ids": [item.id for item in islands.islands],
+                "deferred_observation_count": len(observations) - len(decisions),
+            },
+        )
+        return ControllerResult(
+            observations=tuple(observations.values()),
+            cards=tuple(cards.values()),
+            decisions=tuple(decisions.values()),
+            candidates=tuple(candidates.values()),
+            coverage=coverage.coverage,
+            islands=islands,
+            edges=tuple(_dedupe_edges(all_edges)),
+            tool_calls=tool_calls,
+            rounds=0,
+            stop_reason=stop_reason,
+            qualification_usage=dict(qualification_usage),
+            coverage_usage=dict(coverage_usage),
+            file_traces=(),
+        )
     stop_reason = "all_required_obligations_covered" if _required_covered(obligations, coverage.coverage) else ""
     completed_rounds = 0
     allow_exact_followup_round = False

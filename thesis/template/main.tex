@@ -1,0 +1,213 @@
+%
+%% This is the template to use for your master thesis Software Engineering. It
+%% provides you with a structure that we expect you to follow, with guidelines on
+%% the contents of each section. Depending on your research you can deviate from
+%% this structure, usually by renaming or adding some chapters in the middle. Do
+%% discuss this with your academic supervisor first!
+%% 
+%% Be sure to change the variables under the "Options" banner down below, such as
+%% title, subtitle, author, examiner, company, etc., and pick a cover image (or
+%% remove it entirely).
+%
+
+% NOTE: the 'nag' package warns about obsole LaTeX commands.
+% If you see warnings from 'nag' in your log, your document will still compile,
+% but try to use modern syntax (e.g. \textbf{} instead of {\bf }).
+\RequirePackage[l2tabu]{nag}
+\documentclass{mscthesis}
+
+\usepackage{import}
+\usepackage[final]{microtype}
+
+\usepackage{polyglossia}
+\setmainlanguage[variant=british]{english}
+\usepackage[backend=biber,
+            hyperref=true,
+            isbn=true,
+            backref=false,
+            maxcitenames=3,
+            maxbibnames=100,
+            block=none,
+            style=numeric-comp,
+            giveninits=true,
+            sortlocale=auto]{biblatex}
+\addbibresource{references.bib}
+
+\DefineBibliographyStrings{english}{%
+  bibliography = {References},
+  references = {References},
+}
+
+\usepackage[svgnames]{xcolor}
+\usepackage{graphicx}
+\graphicspath{{./figures/}}
+\setkeys{Gin}{width=0.9\linewidth}
+\usepackage{subcaption}
+\captionsetup{margin=1pt}
+
+\usepackage[colorlinks=false,
+			pdfborder={0 0 0},
+			pdfusetitle]{hyperref}
+\urlstyle{same}
+
+\usepackage{booktabs} % publication quality tables
+\usepackage{mathtools} % mathematical tools to use with amsmath
+\usepackage{cleveref} % intelligent cross-referencing
+\usepackage{blindtext} % producing 'blind' text for testing
+\usepackage[british,xlatin,abbreviations]{foreign} % systematic treatment of 'foreign' words in documents
+\usepackage[cachedir=_minted-\jobname,chapter]{minted} % highlight source code
+\setminted{style=tango,frame=lines,framesep=2mm,fontsize=\small,linenos,breaklines,breakafter=-/,tabsize=2}
+\usepackage[colorinlistoftodos]{todonotes} % marking things to do in a LaTeX document
+
+\usepackage[acronym,shortcuts=ac,nomain,nonumberlist]{glossaries-extra}
+\makeglossaries{}
+\setabbreviationstyle[acronym]{long-short}
+\loadglsentries{acronyms}
+
+\usepackage[shortlabels,inline]{enumitem} % control layout of itemize, enumerate, description
+\setlist{noitemsep} % shorten space between items
+
+% Change table numbers to lininig instead of oldstyle
+\usepackage{etoolbox}
+\AtBeginEnvironment{tabular}{\addfontfeatures{Numbers={Lining}}}
+
+%---------------------------------------------------------------------%
+%                     Options                                         %
+%---------------------------------------------------------------------%
+
+\title{Software Engineering\\Master Thesis Template}
+\subtitle{Version of \today} % remove if you don't need a subtitle
+\date{\today}
+\author{The Author}
+
+% Provide the logo and address of the host organisation (company or research group)
+\hostorganisation{hilbert.pdf}{%
+Hilbert Institute for Space Research\\
+Strekkerweg 41\\
+1033~DA Amsterdam\\
+The Netherlands
+}
+
+% Optional cover picture. Put this in comments when not needed.
+\coverpicture{\includegraphics[width=\textwidth]{maze.pdf}}
+
+% -- Thesis committee --
+
+% MANDATORY
+% Examiner (academic supervisor), also chair of the committee, and their affiliation (research group, university)
+\examiner{Dr.\ Academic Supervisor}{Research Group, UvA}
+% Second reviewer (reader), and their affiliation (research group, university)
+\reviewer{Dr.\ Second Reviewer}{Research Group, UvA}
+
+% OPTIONAL
+% Daily supervisor is supervisor from a research group, typically a PhD student or Postdoc
+% Provide their name and affiliation (research group, university)
+\dailysupervisor{Dr.\ Daily Supervisor}{Research Group, UvA}
+% External supervisor is the (daily) supervisor from the company
+\externalsupervisor{External Supervisor}{Company}
+% Any other committee members and their affiliation
+\othermember{Prof.\ dr.\ Other~Member}{University}
+\othermember{Dr.\ Committee~Member}{Company}
+
+% A copyright notice and maybe something about the cover picture.
+% Put in comments to get the default copyright notice.
+\colophon{\noindent{}%
+  Copyright \copyright{} \theauthor{}, \the\year{}. \emph{Note that this notice is for
+  demonstration purposes and that the \LaTeX{} style and document source are free to
+  use as basis for your MSc thesis.}\\[1em]
+  Cover picture: A ``random'' maze.
+}
+
+%---------------------------------------------------------------------%
+%                     /Options                                        %
+%---------------------------------------------------------------------%
+
+\begin{document}
+%
+% FRONTMATTER
+%
+
+\frontmatter
+% from memdesign.pdf, see Table 2.1: Front matter
+% cover title - recto, no folio
+\makecoverpage
+
+% formal title pages - recto
+\cleartorecto{}
+\makeformaltitlepages
+
+% dedication / epigraph - recto
+\cleartorecto{}
+% \makeepigraphpage{\import{frontmatter/}{epigraph.tex}}
+
+% abstract - recto
+\cleartorecto{}
+\chapter{Abstract}
+\import{frontmatter/}{abstract.tex}
+% reset all used acronyms so we can properly introduce them next time
+\glsresetall{}
+
+% declaration - recto
+\cleartorecto{}
+\chapter{Declaration on GenAI Use}
+\import{frontmatter/}{declaration.tex}
+\clearpage{}
+
+% blank - verso
+% ToC - recto
+\cleartorecto{}
+\tableofcontents{}
+\clearpage{}
+
+% List of Figures - recto or verso
+\listoffigures{}
+\clearpage{}
+
+% List of Tables - recto or verso
+\listoftables{}
+\clearpage{}
+
+% acknowledgments (any acknowledgemnts not mentioned in preface)
+\cleartorecto{}
+\chapter{Acknowledgements}
+\import{frontmatter/}{acknowledgement.tex}
+
+
+\mainmatter
+
+\import{chapters/}{introduction.tex}
+\import{chapters/}{background.tex}
+\import{chapters/}{related_work.tex}
+\import{chapters/}{methods.tex}
+\import{chapters/}{experiments.tex}
+\import{chapters/}{evaluation.tex}
+\import{chapters/}{conclusion.tex}
+
+%
+% APPENDICES
+%
+
+\appendix
+
+\import{appendix/}{appendix.tex}
+\input{appendix/showcase.tex} % use input to workaround differences between Overleaf and local TeX Live
+
+%
+% BACKMATTER
+%
+
+\backmatter
+
+% Bibliography
+\printbibliography{}
+\cleardoublepage{}
+
+% Acronyms
+\printacronyms[style=long,title={Acronyms}]
+\cleardoublepage{}
+
+% List of ToDos
+% \listoftodos{}
+% \cleardoublepage{}
+
+\end{document}

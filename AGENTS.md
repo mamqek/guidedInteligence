@@ -6,6 +6,12 @@
 - Use this notebook as the persistent project knowledge source for this repository.
 - Consult it when work requires project context, architectural intent, orchestration plans, or decisions that are not obvious from the local files.
 
+## Thesis Reference Sources
+
+- Repository-local thesis material lives under `thesis/`.
+- Before thesis planning, writing support, structural changes, or formatting work, consult `thesis/README.md`, the university manual and rubric in `thesis/sources/`, the supplied plan in `thesis/sources/thesis-plan.md`, and the extracted LaTeX template in `thesis/template/` as relevant.
+- Treat university files as authoritative constraints and distinguish them from planning guidance. Respect the university's authorship and generative-AI rules: agent-produced planning material is guidance, not submission-ready student prose.
+
 ## LLM Failure Policy
 
 - Do not silently fall back from an LLM-backed stage to a deterministic surrogate.

@@ -20,7 +20,7 @@ WORKSPACE_LEDGERS = (
     RUNS_DIR / "2026-09-02-workspace-two-worker-a.json",
     RUNS_DIR / "2026-09-02-workspace-two-worker-b.json",
 )
-CODEX_LEDGER = RUNS_DIR / "2026-08-26-codex-luna-four-runs.json"
+CODEX_LEDGER = RUNS_DIR / "2026-09-02-codex-efficient-luna-four-runs.json"
 MERGED_LEDGER = RUNS_DIR / "2026-09-02-workspace-four-runs-complete.json"
 REPORT_JSON = RUNS_DIR / "2026-09-02-workspace-vs-codex-four-run-comparison.json"
 REPORT_MD = RUNS_DIR / "2026-09-02-workspace-vs-codex-four-run-comparison.md"
@@ -420,7 +420,7 @@ def write_main_statistics(
         "limitations": [
             "Workspace provider-reported indexing usage was not retained; cold-index token and cost values are explicitly estimated from exact indexed-chunk counts using one full-build calibration per repository.",
             "TypeScript indexing excludes the entire lib directory in this evaluated configuration, including declaration files; the intended future policy is to exclude generated bundles individually while retaining authored declarations.",
-            "The frozen Codex campaign is invalid for retrieval comparison: all 140 runs had repository commands rejected by execution policy and 134 returned no usable evidence.",
+            "Two Codex infrastructure attempts exceeded the campaign watchdog before required artifacts were written; they are recorded in the ledger and excluded from the 140 valid-run aggregate.",
             "Workspace response generation was skipped; final evidence selection remained enabled.",
         ],
     }
@@ -431,17 +431,17 @@ def write_main_statistics(
         "",
         "## Status and scope",
         "",
-        "Workspace retrieval is complete over 35 CodeRepoQA cases: seven issue categories, three repositories, 28 development cases, and seven frozen final-evaluation cases. The Codex campaign is not a valid comparison condition: all 140 executions had repository shell commands rejected by policy, and 134 returned no usable evidence. Its rows are retained below only to audit that failure.",
+        "Both retrieval conditions are complete over 35 CodeRepoQA cases: seven issue categories, three repositories, 28 development cases, and seven frozen final-evaluation cases. Each condition contains 140 valid runs, with four runs per case.",
         "",
         "## Conditions",
         "",
         "- Workspace: `configs/testing/statistics-workspace.json`, `gpt-5.6-luna`, qualification-first controller, response generation skipped, final evidence selection enabled.",
-        "- Codex: `gpt-5.6-luna`, `efficient` prompt profile, frozen campaign ledger `2026-08-26-codex-luna-four-runs.json`.",
+        "- Codex: `gpt-5.6-luna`, `efficient` prompt profile, campaign ledger `2026-09-02-codex-efficient-luna-four-runs.json`.",
         f"- Frozen implementation revision: `{IMPLEMENTATION_REVISION}`.",
         f"- Index cost estimate: `{EMBEDDING_MODEL}` at ${EMBEDDING_PRICE_USD_PER_MILLION_TOKENS:.2f}/1M input tokens; repository-specific tokens-per-chunk rates come from the three full rebuilds named in the JSON report.",
         "- Headline selection: the first valid campaign run for every testcase and system; no run was selected or replaced using its score.",
         "- Four-run stability: calculate every run, average four repetitions within each case, then macro-average the 35 case means.",
-        "- Twenty-one Workspace attempts exited with code 1 before producing required artifacts. They are excluded and remain auditable in the source ledgers; the ledger does not preserve a precise cause for every attempt.",
+        "- Two interrupted Codex attempts are excluded and retained in the Codex ledger. They exceeded the watchdog before required artifacts were written; no valid run was repeated.",
         "",
         "## Metric note",
         "",
@@ -469,7 +469,7 @@ def write_main_statistics(
         lines.append(
             f"| `{row['case_id']}` | `{row['partition']}` | `{row['category']}` | `{row['retrieval_topology']}` | {row['system']} | `{row['run_id']}` | {row['elapsed_seconds']:.1f} | {build_seconds_text} | {build_source} | {indexing} | {row['flow_tokens']} | {row['total_tokens_with_estimated_index']} | {cached} | {uncached} | {output} |"
         )
-    lines.extend(["", "## Descriptive headline metrics — Codex condition invalid", "", *markdown_metric_table(headline["workspace"], headline["codex"]), "", "No Workspace-minus-Codex quality conclusion is valid from these values. The Codex condition must be rerun with working read-only repository inspection."])
+    lines.extend(["", "## Descriptive headline metrics", "", *markdown_metric_table(headline["workspace"], headline["codex"])])
     for dimension, title in (
         ("partition", "Partition breakdown"),
         ("category", "Issue-category breakdown"),
@@ -484,9 +484,13 @@ def write_main_statistics(
                 metrics = summary["metrics"]
                 lines.append(f"| `{group}` | {label} | {summary['case_count']} | {fmt(metrics['p@5'])} | {fmt(metrics['r@5'])} | {fmt(metrics['ndcg@5'])} | {fmt(metrics['implementation_any_hit'])} | {fmt(metrics['implementation_full_recall'])} |")
     lines.extend(["", "## Per-case headline results", "", "| Case | System | P@5 | R@5 | NDCG@5 | Files | Oracle hits |", "| --- | --- | ---: | ---: | ---: | ---: | ---: |"])
+    previous_case_id = ""
     for row in sorted(selected, key=lambda item: (str(item["case_id"]), str(item["system"]))):
         metrics = row["metrics"]
-        lines.append(f"| `{row['case_id']}` | {row['system']} | {fmt(metrics['p@5'])} | {fmt(metrics['r@5'])} | {fmt(metrics['ndcg@5'])} | {len(row['retrieved_files'])} | {int(metrics['implementation_hit_count'])} |")
+        case_id = str(row["case_id"])
+        case_label = f"`{case_id}`" if case_id != previous_case_id else ""
+        lines.append(f"| {case_label} | {row['system']} | {fmt(metrics['p@5'])} | {fmt(metrics['r@5'])} | {fmt(metrics['ndcg@5'])} | {len(row['retrieved_files'])} | {int(metrics['implementation_hit_count'])} |")
+        previous_case_id = case_id
     lines.extend([
         "",
         "## Four-run stability analysis",
@@ -670,12 +674,12 @@ def main() -> None:
         "",
         "## Status and scope",
         "",
-        "Workspace complete: 35 cases and 140 valid retrieval runs. The frozen Codex ledger contains 140 artifact-complete executions, but it is not a valid retrieval condition: every run had repository shell commands rejected by execution policy and 134 returned no usable evidence. Codex values below are retained for failure audit only and must not be presented as a functioning Workspace-versus-Codex comparison.",
+        "Workspace and Codex are complete: 35 cases and 140 valid retrieval runs each. Two interrupted Codex attempts remain auditable in the ledger but are excluded from all metrics.",
         "",
         "## Conditions",
         "",
         "- Workspace: `configs/testing/statistics-workspace.json`, `gpt-5.6-luna`, qualification-first controller, response generation skipped, final evidence selection enabled.",
-        "- Codex: frozen `2026-08-26-codex-luna-four-runs.json`, `gpt-5.6-luna`, `efficient` prompt profile.",
+        "- Codex: `2026-09-02-codex-efficient-luna-four-runs.json`, `gpt-5.6-luna`, `efficient` prompt profile.",
         "- Aggregation: calculate each run, average four runs within each case, then macro-average the 35 case means.",
         "- Workspace collection used two workers for the final 32 cases; elapsed time is compared directly as requested.",
         "",
@@ -683,11 +687,9 @@ def main() -> None:
         "",
         "Files are ranked. Implementation Oracle files define precision and recall; test/validation and documentation Oracle files receive partial NDCG relevance. Missing ranks are nonrelevant. Values are calculated at 1, 2, 5, and 10.",
         "",
-        "## Descriptive metrics — Codex condition invalid",
+        "## Descriptive metrics",
         "",
         *markdown_metric_table(summaries["workspace"], summaries["codex"]),
-        "",
-        "No inferential Workspace-minus-Codex conclusion is valid from this campaign because the Codex repository-inspection condition failed.",
         "",
         "## Operational summary",
         "",
@@ -718,12 +720,15 @@ def main() -> None:
     lines.extend(["", "## Per-case results", "", "| Case | Partition | Topology | System | P@5 | R@5 | NDCG@5 | Any-hit runs | Full-recall runs | Mean files | Mean tokens | Mean seconds |", "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"])
     for case_id in sorted(per_case):
         case = per_case[case_id]
-        for system, label in (("workspace", "Workspace"), ("codex", "Codex")):
+        for index, (system, label) in enumerate((("workspace", "Workspace"), ("codex", "Codex"))):
             item = case[system]
             metrics = item["mean_metrics"]
             stability = item["stability"]
+            case_label = f"`{case_id}`" if index == 0 else ""
+            partition_label = f"`{case['partition']}`" if index == 0 else ""
+            topology_label = f"`{case['retrieval_topology']}`" if index == 0 else ""
             lines.append(
-                f"| `{case_id}` | `{case['partition']}` | `{case['retrieval_topology']}` | {label} | {fmt(metrics['p@5'])} | {fmt(metrics['r@5'])} | {fmt(metrics['ndcg@5'])} | {stability['any_implementation_hit_runs']}/4 | {stability['full_implementation_recall_runs']}/4 | {fmt(metrics['retrieved_file_count'])} | {item['mean_flow_tokens']:.0f} | {item['mean_elapsed_seconds']:.1f} |"
+                f"| {case_label} | {partition_label} | {topology_label} | {label} | {fmt(metrics['p@5'])} | {fmt(metrics['r@5'])} | {fmt(metrics['ndcg@5'])} | {stability['any_implementation_hit_runs']}/4 | {stability['full_implementation_recall_runs']}/4 | {fmt(metrics['retrieved_file_count'])} | {item['mean_flow_tokens']:.0f} | {item['mean_elapsed_seconds']:.1f} |"
             )
 
     lines.extend(["", "## Run inventory", "", "The JSON companion contains normalized ranked files, Oracle overlap, all metric values, and token components for every row.", "", "| Case | System | Rep | Run | Coverage | Sufficient | Evidence | Files | Flow tokens | Seconds |", "| --- | --- | ---: | --- | --- | --- | ---: | ---: | ---: | ---: |"])

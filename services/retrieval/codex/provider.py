@@ -4,9 +4,10 @@ import json
 import os
 import re
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from core.models import ConversationState, EvidenceItem, PolicyResult, RetrievalResult
 from core.source_policy import SourceCategory
@@ -18,10 +19,62 @@ USER_PROMPT_PLACEHOLDER = "{{USER_PROMPT}}"
 INTENT_CONTEXT_PLACEHOLDER = "{{INTENT_CONTEXT_JSON}}"
 DEFAULT_CODEX_EVIDENCE_LIMIT = 10
 ORGANIZER_CODEX_CANDIDATE_LIMIT = 40
+CODEX_OUTPUT_LINGER_GRACE_SECONDS = 30
 
 
 class CodexRetrievalError(RuntimeError):
     """Raised when the Codex-backed retrieval stage cannot produce evidence."""
+
+
+def _await_codex_completion(
+    process: subprocess.Popen[str],
+    *,
+    command: Sequence[str],
+    output_path: Path,
+    timeout_seconds: int,
+    on_lingering_output: Callable[[], None],
+) -> subprocess.CompletedProcess[str]:
+    """Wait for Codex, accepting a completed output file if its parent process lingers.
+
+    Codex writes `-o` atomically after completing its structured response. On Windows the
+    CLI has occasionally remained alive after that point, which used to hold the entire
+    retrieval pipeline until its process timeout. The valid output remains the source of
+    truth; this only stops an already-completed CLI process after a grace period.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    output_ready_at: float | None = None
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            process.kill()
+            process.communicate()
+            raise CodexRetrievalError(f"Codex retrieval timed out after {timeout_seconds} seconds.")
+        try:
+            stdout, stderr = process.communicate(timeout=min(1.0, remaining))
+            return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+        except subprocess.TimeoutExpired:
+            if not _has_usable_codex_output(output_path):
+                continue
+            output_ready_at = output_ready_at or time.monotonic()
+            if time.monotonic() - output_ready_at < CODEX_OUTPUT_LINGER_GRACE_SECONDS:
+                continue
+            on_lingering_output()
+            process.terminate()
+            try:
+                stdout, stderr = process.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+            return subprocess.CompletedProcess(command, 0, stdout, stderr)
+
+
+def _has_usable_codex_output(output_path: Path) -> bool:
+    try:
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    evidence = payload.get("evidence") if isinstance(payload, Mapping) else None
+    return isinstance(evidence, list) and bool(evidence)
 
 
 class CodexRetrievalStage:
@@ -110,25 +163,34 @@ class CodexRetrievalStage:
             },
         )
         try:
-            completed = subprocess.run(
+            process = subprocess.Popen(
                 command,
                 cwd=str(Path(self.config.workspace_root)),
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
                 env=_codex_subprocess_env(command),
-                timeout=self.config.codex_timeout_seconds,
-                check=False,
             )
         except FileNotFoundError as exc:
             raise CodexRetrievalError(
                 "Codex retrieval mode requires the `codex` CLI to be installed and available on PATH."
             ) from exc
-        except subprocess.TimeoutExpired as exc:
-            raise CodexRetrievalError(
-                f"Codex retrieval timed out after {self.config.codex_timeout_seconds} seconds."
-            ) from exc
+        completed = _await_codex_completion(
+            process,
+            command=command,
+            output_path=output_path,
+            timeout_seconds=self.config.codex_timeout_seconds,
+            on_lingering_output=lambda: self._record(
+                "codex_retrieval_output_completed_before_process_exit",
+                {
+                    "conversation_id": state.conversation_id,
+                    "output_path": str(output_path),
+                    "grace_seconds": CODEX_OUTPUT_LINGER_GRACE_SECONDS,
+                },
+            ),
+        )
         completed_at = datetime.now(timezone.utc)
         (run_dir / "codex-stdout.txt").write_text(completed.stdout or "", encoding="utf-8")
         (run_dir / "codex-stderr.txt").write_text(completed.stderr or "", encoding="utf-8")

@@ -1,0 +1,43 @@
+Traceback (most recent call last):
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1844, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 736, in main
+    run_dir = evaluate_case(
+              ^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 336, in evaluate_case
+    _clone_or_fetch_repo(repo_clone_url, origin_repo_dir)
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1202, in _clone_or_fetch_repo
+    _git(repo_dir, "fetch", "--all", "--tags", "--prune")
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1602, in _git
+    raise RuntimeError(
+RuntimeError: git fetch --all --tags --prune failed in C:\Programming\guidedInteligence_testcases\_repos\pandas-dev-pandas\origin: fatal: unable to access 'https://github.com/pandas-dev/pandas.git/': Resolving timed out after 14342142 milliseconds
+Traceback (most recent call last):
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 1844, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 736, in main
+    run_dir = evaluate_case(
+              ^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 366, in evaluate_case
+    run_case(
+  File "C:\Programming\guidedInteligence\testing\codeRepoQA\run_case.py", line 244, in run_case
+    result = control_layer.run(state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\core\control_layer.py", line 86, in run
+    retrieval_result = self.retrieval_stage.retrieve(retrieval_state, policy_result)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\stage.py", line 31, in retrieve
+    return run_workspace_retrieval(self.context, state, policy_result)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\retrieval.py", line 109, in run_workspace_retrieval
+    result = run_obligation_retrieval(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\qualification_first_retrieval.py", line 509, in run_obligation_retrieval
+    owner_comparison = compare_initial_owners(
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\initial_owner_comparison.py", line 209, in compare_initial_owners
+    _validate_global_response(
+  File "C:\Programming\guidedInteligence\services\retrieval\workspace\pipeline\execution_flow\initial_owner_comparison.py", line 671, in _validate_global_response
+    raise RuntimeError("initial_owner_comparison_invalid_global_selection")
+RuntimeError: initial_owner_comparison_invalid_global_selection

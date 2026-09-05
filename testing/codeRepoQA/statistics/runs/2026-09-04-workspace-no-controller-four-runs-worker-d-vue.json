@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "campaign": "2026-09-04-workspace-no-controller-four-runs-worker-d-vue",
+  "created_at": "2026-09-04T16:17:22.831268+02:00",
+  "updated_at": "2026-09-04T22:47:12.089105+00:00",
+  "retrieval_mode": "workspace",
+  "codex_model": "",
+  "codex_prompt_profile": "",
+  "structural_graph_enabled": true,
+  "adaptive_controller_enabled": false,
+  "run_config": "configs/testing/statistics-workspace-no-controller.json",
+  "target_valid_runs_per_case": 4,
+  "historical_runs_are_reference_only": true,
+  "active_case": "",
+  "stop_reason": "complete",
+  "cases": {
+    "vuejs-vue-5884": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003437Z",
+        "run-20260815T021250Z",
+        "run-20260815T174348Z",
+        "run-20260829T172608Z",
+        "run-20260829T173351Z",
+        "run-20260829T174137Z",
+        "run-20260829T174959Z",
+        "run-20260829T234450Z",
+        "run-20260829T234726Z",
+        "run-20260829T235029Z",
+        "run-20260829T235253Z",
+        "run-20260901T080728Z",
+        "run-20260901T092226Z",
+        "run-20260901T103920Z",
+        "run-20260901T120827Z",
+        "run-20260902T100700Z",
+        "run-20260902T101043Z",
+        "run-20260902T101440Z",
+        "run-20260902T101829Z",
+        "run-20260903T131459Z",
+        "run-20260903T131819Z",
+        "run-20260903T132115Z",
+        "run-20260903T132405Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T190444Z",
+          "started_at": "2026-09-04T19:04:42.551632+00:00",
+          "completed_at": "2026-09-04T19:07:11.392769+00:00"
+        },
+        {
+          "run_id": "run-20260904T190713Z",
+          "started_at": "2026-09-04T19:07:11.396271+00:00",
+          "completed_at": "2026-09-04T19:09:50.070618+00:00"
+        },
+        {
+          "run_id": "run-20260904T190951Z",
+          "started_at": "2026-09-04T19:09:50.073191+00:00",
+          "completed_at": "2026-09-04T19:11:47.726981+00:00"
+        },
+        {
+          "run_id": "run-20260904T191149Z",
+          "started_at": "2026-09-04T19:11:47.729983+00:00",
+          "completed_at": "2026-09-04T19:13:43.795068+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "vuejs-vue-6097": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T004322Z",
+        "run-20260815T190450Z",
+        "run-20260902T091823Z",
+        "run-20260902T092233Z",
+        "run-20260902T092622Z",
+        "run-20260902T092951Z",
+        "run-20260903T132654Z",
+        "run-20260903T133007Z",
+        "run-20260903T133313Z",
+        "run-20260903T133605Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T191345Z",
+          "started_at": "2026-09-04T19:13:43.798076+00:00",
+          "completed_at": "2026-09-04T19:15:53.648251+00:00"
+        },
+        {
+          "run_id": "run-20260904T191555Z",
+          "started_at": "2026-09-04T19:15:53.651400+00:00",
+          "completed_at": "2026-09-04T19:18:16.458855+00:00"
+        },
+        {
+          "run_id": "run-20260904T191818Z",
+          "started_at": "2026-09-04T19:18:16.462361+00:00",
+          "completed_at": "2026-09-04T19:20:37.422675+00:00"
+        },
+        {
+          "run_id": "run-20260904T221251Z",
+          "started_at": "2026-09-04T22:12:49.710577+00:00",
+          "completed_at": "2026-09-04T22:14:26.842751+00:00"
+        }
+      ],
+      "failed_attempts": [
+        {
+          "run_id": "run-20260904T192039Z",
+          "started_at": "2026-09-04T19:20:37.426687+00:00",
+          "completed_at": "2026-09-04T19:20:40.678211+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        },
+        {
+          "run_id": "run-20260904T192042Z",
+          "started_at": "2026-09-04T19:20:40.682277+00:00",
+          "completed_at": "2026-09-04T19:20:43.604915+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        },
+        {
+          "run_id": "run-20260904T192045Z",
+          "started_at": "2026-09-04T19:20:43.607434+00:00",
+          "completed_at": "2026-09-04T19:20:46.421556+00:00",
+          "return_code": 1,
+          "reason": "missing artifacts: run-metadata.json, orchestration-result.json, evaluator-comparison.json"
+        }
+      ]
+    },
+    "vuejs-vue-6301": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T002755Z",
+        "run-20260815T013026Z",
+        "run-20260829T172114Z",
+        "run-20260829T172915Z",
+        "run-20260829T173655Z",
+        "run-20260829T174500Z",
+        "run-20260829T200132Z",
+        "run-20260829T213638Z",
+        "run-20260829T213918Z",
+        "run-20260829T214128Z",
+        "run-20260901T071903Z",
+        "run-20260901T083555Z",
+        "run-20260901T094735Z",
+        "run-20260901T111423Z",
+        "run-20260902T102139Z",
+        "run-20260902T102442Z",
+        "run-20260902T103033Z",
+        "run-20260902T103323Z",
+        "run-20260902T205457Z",
+        "run-20260902T205806Z",
+        "run-20260902T210126Z",
+        "run-20260902T210506Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T221428Z",
+          "started_at": "2026-09-04T22:14:26.846752+00:00",
+          "completed_at": "2026-09-04T22:16:35.010548+00:00"
+        },
+        {
+          "run_id": "run-20260904T221636Z",
+          "started_at": "2026-09-04T22:16:35.013552+00:00",
+          "completed_at": "2026-09-04T22:18:16.355357+00:00"
+        },
+        {
+          "run_id": "run-20260904T221818Z",
+          "started_at": "2026-09-04T22:18:16.358603+00:00",
+          "completed_at": "2026-09-04T22:20:12.927741+00:00"
+        },
+        {
+          "run_id": "run-20260904T222014Z",
+          "started_at": "2026-09-04T22:20:12.931247+00:00",
+          "completed_at": "2026-09-04T22:22:27.322771+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "vuejs-vue-8528": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T004104Z",
+        "run-20260815T185612Z",
+        "run-20260902T093319Z",
+        "run-20260902T093654Z",
+        "run-20260902T093937Z",
+        "run-20260902T094218Z",
+        "run-20260903T133839Z",
+        "run-20260903T134036Z",
+        "run-20260903T134238Z",
+        "run-20260903T134446Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T222229Z",
+          "started_at": "2026-09-04T22:22:27.325776+00:00",
+          "completed_at": "2026-09-04T22:23:58.626893+00:00"
+        },
+        {
+          "run_id": "run-20260904T222400Z",
+          "started_at": "2026-09-04T22:23:58.629893+00:00",
+          "completed_at": "2026-09-04T22:25:36.823894+00:00"
+        },
+        {
+          "run_id": "run-20260904T222538Z",
+          "started_at": "2026-09-04T22:25:36.828518+00:00",
+          "completed_at": "2026-09-04T22:27:17.743563+00:00"
+        },
+        {
+          "run_id": "run-20260904T222719Z",
+          "started_at": "2026-09-04T22:27:17.746154+00:00",
+          "completed_at": "2026-09-04T22:29:11.179089+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "vuejs-vue-9042": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T003304Z",
+        "run-20260815T020029Z",
+        "run-20260815T164218Z",
+        "run-20260829T172415Z",
+        "run-20260829T173213Z",
+        "run-20260829T173954Z",
+        "run-20260829T174809Z",
+        "run-20260829T225442Z",
+        "run-20260829T225759Z",
+        "run-20260829T230118Z",
+        "run-20260829T230500Z",
+        "run-20260901T075158Z",
+        "run-20260901T090755Z",
+        "run-20260901T102159Z",
+        "run-20260901T115125Z",
+        "run-20260902T103630Z",
+        "run-20260902T104055Z",
+        "run-20260902T104434Z",
+        "run-20260902T104903Z",
+        "run-20260903T134729Z",
+        "run-20260903T135053Z",
+        "run-20260903T135516Z",
+        "run-20260903T135931Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T222913Z",
+          "started_at": "2026-09-04T22:29:11.183097+00:00",
+          "completed_at": "2026-09-04T22:31:29.643080+00:00"
+        },
+        {
+          "run_id": "run-20260904T223131Z",
+          "started_at": "2026-09-04T22:31:29.646095+00:00",
+          "completed_at": "2026-09-04T22:33:22.019436+00:00"
+        },
+        {
+          "run_id": "run-20260904T223323Z",
+          "started_at": "2026-09-04T22:33:22.022437+00:00",
+          "completed_at": "2026-09-04T22:35:42.452509+00:00"
+        },
+        {
+          "run_id": "run-20260904T223544Z",
+          "started_at": "2026-09-04T22:35:42.455570+00:00",
+          "completed_at": "2026-09-04T22:37:34.247374+00:00"
+        }
+      ],
+      "failed_attempts": []
+    },
+    "vuejs-vue-9842": {
+      "status": "complete",
+      "historical_runs": [
+        "run-20260815T004346Z",
+        "run-20260815T190715Z",
+        "run-20260902T094458Z",
+        "run-20260902T094845Z",
+        "run-20260902T095224Z",
+        "run-20260902T095629Z",
+        "run-20260903T140351Z",
+        "run-20260903T140930Z",
+        "run-20260903T141334Z",
+        "run-20260903T141757Z"
+      ],
+      "campaign_runs": [
+        {
+          "run_id": "run-20260904T223736Z",
+          "started_at": "2026-09-04T22:37:34.252417+00:00",
+          "completed_at": "2026-09-04T22:40:13.116645+00:00"
+        },
+        {
+          "run_id": "run-20260904T224014Z",
+          "started_at": "2026-09-04T22:40:13.118650+00:00",
+          "completed_at": "2026-09-04T22:42:39.868590+00:00"
+        },
+        {
+          "run_id": "run-20260904T224241Z",
+          "started_at": "2026-09-04T22:42:39.870728+00:00",
+          "completed_at": "2026-09-04T22:44:54.889721+00:00"
+        },
+        {
+          "run_id": "run-20260904T224456Z",
+          "started_at": "2026-09-04T22:44:54.892780+00:00",
+          "completed_at": "2026-09-04T22:47:12.087104+00:00"
+        }
+      ],
+      "failed_attempts": []
+    }
+  }
+}

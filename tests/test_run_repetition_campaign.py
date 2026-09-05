@@ -15,6 +15,9 @@ def _write_run(tmp_path, *, evidence, coverage_status="partial", stop_reason="")
                 "retrieval_mode": "codex",
                 "codex_model": "gpt-5.6-luna",
                 "codex_prompt_profile": "efficient",
+                "adaptive_controller_enabled": False,
+                "skip_response_generation": True,
+                "skip_final_evidence_selection": False,
             }
         ),
         encoding="utf-8",
@@ -39,6 +42,7 @@ def _ledger():
         "retrieval_mode": "codex",
         "codex_model": "gpt-5.6-luna",
         "codex_prompt_profile": "efficient",
+        "adaptive_controller_enabled": False,
     }
 
 
@@ -70,6 +74,20 @@ class RunRepetitionCampaignValidityTests(unittest.TestCase):
             result = is_valid_run(run_dir, _ledger())
 
         self.assertEqual(result, (True, ""))
+
+    def test_controller_setting_mismatch_is_not_valid(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = Path(directory)
+            _write_run(run_dir, evidence=[{"path": "src/example.py"}])
+            metadata_path = run_dir / "run-metadata.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata["adaptive_controller_enabled"] = True
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+            valid, reason = is_valid_run(run_dir, _ledger())
+
+        self.assertFalse(valid)
+        self.assertEqual(reason, "configuration mismatch: adaptive_controller_enabled=True")
 
 
 if __name__ == "__main__":

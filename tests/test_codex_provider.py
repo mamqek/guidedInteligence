@@ -375,7 +375,7 @@ class CodexProviderTests(unittest.TestCase):
             )
             captured: dict[str, list[str]] = {}
 
-            def fake_run(command: list[str], **kwargs: object) -> object:
+            def fake_popen(command: list[str], **kwargs: object) -> object:
                 captured["command"] = list(command)
                 output_path = Path(command[command.index("-o") + 1])
                 output_path.write_text(
@@ -395,9 +395,13 @@ class CodexProviderTests(unittest.TestCase):
                     ),
                     encoding="utf-8",
                 )
-                return type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+                return type(
+                    "Completed",
+                    (),
+                    {"returncode": 0, "communicate": lambda self, timeout=None: ("", "")},
+                )()
 
-            with patch("services.retrieval.codex.provider.subprocess.run", side_effect=fake_run):
+            with patch("services.retrieval.codex.provider.subprocess.Popen", side_effect=fake_popen):
                 stage.retrieve(state, policy)
 
             return captured["command"]
