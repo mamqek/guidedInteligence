@@ -18,13 +18,9 @@ from services.intent import (
     IntentClassificationInput,
     EvidenceRole,
     EvidenceSource,
-    SolutionPressure,
-    Specificity,
     TargetReference,
-    TargetState,
     TargetType,
     TaskIntent,
-    TurnRelation,
     build_intent_context,
     classify_intent,
     classification_from_mapping,
@@ -180,10 +176,6 @@ class IntentSystemTests(unittest.TestCase):
             classification_from_mapping(
                 {
                     "intents": ["explore", "explore"],
-                    "turn_relation": "new_task",
-                    "solution_pressure": "none",
-                    "specificity": "medium",
-                    "target_state": "unresolved",
                     "explicit_targets": [],
                     "confidence": 0.9,
                     "classification_basis": ["test"],
@@ -373,10 +365,6 @@ class IntentSystemTests(unittest.TestCase):
         classification = classification_from_mapping(
             {
                 "intents": ["explain"],
-                "turn_relation": "new_task",
-                "solution_pressure": "none",
-                "specificity": "narrow",
-                "target_state": "explicit",
                 "explicit_targets": [],
                 "confidence": 0.9,
                 "classification_basis": ["test"],
@@ -413,10 +401,6 @@ class IntentSystemTests(unittest.TestCase):
         classification = classification_from_mapping(
             {
                 "intents": ["explain"],
-                "turn_relation": "new_task",
-                "solution_pressure": "none",
-                "specificity": "narrow",
-                "target_state": "unresolved",
                 "explicit_targets": [],
                 "confidence": 0.9,
                 "classification_basis": ["test"],
@@ -457,10 +441,6 @@ class IntentSystemTests(unittest.TestCase):
         classification = classification_from_mapping(
             {
                 "intents": ["explain"],
-                "turn_relation": "new_task",
-                "solution_pressure": "none",
-                "specificity": "narrow",
-                "target_state": "unresolved",
                 "explicit_targets": [],
                 "confidence": 0.9,
                 "classification_basis": ["test"],
@@ -507,13 +487,11 @@ class IntentSystemTests(unittest.TestCase):
         classification = IntentClassification(
             **{
                 **_classification((TaskIntent.EXPLAIN,)).__dict__,
-                "target_state": TargetState.EXPLICIT,
                 "explicit_targets": (TargetReference(TargetType.FUNCTION, "missingFunction"),),
             }
         )
         normalized = normalize_intent(classification, user_prompt="How does authentication work?")
         self.assertEqual(normalized.classification.explicit_targets, ())
-        self.assertEqual(normalized.classification.target_state, TargetState.UNRESOLVED)
 
     def test_composer_unions_all_fixed_stages_without_merging(self) -> None:
         flow = compose_intent_flow((TaskIntent.DEBUG, TaskIntent.CHANGE))
@@ -543,10 +521,6 @@ class IntentSystemTests(unittest.TestCase):
 def _classification(intents: tuple[TaskIntent, ...]) -> IntentClassification:
     return IntentClassification(
         intents=intents,
-        turn_relation=TurnRelation.NEW_TASK,
-        solution_pressure=SolutionPressure.NONE,
-        specificity=Specificity.MEDIUM,
-        target_state=TargetState.UNRESOLVED,
         explicit_targets=(),
         confidence=0.9,
         classification_basis=("test",),
@@ -577,10 +551,6 @@ def _analysis_response(intents: tuple[TaskIntent, ...]) -> dict[str, object]:
             }
             for intent in TaskIntent
         },
-        "turn_relation": "new_task",
-        "solution_pressure": "none",
-        "specificity": "medium",
-        "target_state": "unresolved",
         "explicit_targets": [],
         "confidence": 0.9,
         "anchors": {"paths": [], "symbols": [], "errors": [], "literals": [], "identifiers": []},

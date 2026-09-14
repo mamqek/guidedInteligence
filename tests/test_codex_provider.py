@@ -32,7 +32,7 @@ class CodexProviderTests(unittest.TestCase):
         prompt = _codex_prompt(
             "Explain the code context needed for this issue.\n\nTitle: Broken behavior",
             template=template,
-            intent_context={"intents": [{"intent": "explain", "description": "Establish how or why the requested behavior works."}], "specificity": "medium", "explicit_targets": []},
+            intent_context={"intents": [{"intent": "explain", "description": "Establish how or why the requested behavior works."}], "explicit_targets": []},
         )
 
         self.assertIn("Select the smallest evidence set", prompt)
@@ -53,7 +53,7 @@ class CodexProviderTests(unittest.TestCase):
         prompt = _codex_prompt(
             "Issue packet",
             template=template,
-            intent_context={"intents": [{"intent": "change", "description": "Gather context needed to reason about a requested modification without implementing it."}], "specificity": "medium", "explicit_targets": []},
+            intent_context={"intents": [{"intent": "change", "description": "Gather context needed to reason about a requested modification without implementing it."}], "explicit_targets": []},
         )
         required = schema["required"]
         evidence_schema = schema["properties"]["evidence"]

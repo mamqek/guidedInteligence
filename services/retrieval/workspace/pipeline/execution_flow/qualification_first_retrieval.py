@@ -843,23 +843,8 @@ def _preserve_active_island_candidates(
         for candidate_id in consolidation.get("accepted_candidate_ids", ())
         if str(candidate_id) in candidates
     ]
-    represented = {candidate_islands.get(candidate_id, "") for candidate_id in accepted}
-    preserved: list[str] = []
-    for island_id in sorted(protected_islands - represented):
-        choices = island_choices.get(island_id, [])
-        if not choices or len(accepted) >= MAX_EVIDENCE:
-            continue
-        candidate_id, _candidate = min(
-            choices,
-            key=lambda item: (
-                0 if item[1].origin == "qualified_direct_evidence" else 1,
-                -item[1].score,
-                item[1].path.casefold(),
-                item[1].line_start,
-            ),
-        )
-        accepted.append(candidate_id)
-        preserved.append(candidate_id)
+    # Preserve exact trace provenance before spending spare capacity on diversity.
+    # The later trace selector still decides whether its destination is useful.
     trace_sources: list[str] = []
     accepted_set = set(accepted)
     reserved_source_paths: set[str] = set()
@@ -892,6 +877,23 @@ def _preserve_active_island_candidates(
         accepted_set.add(candidate_id)
         trace_sources.append(candidate_id)
         reserved_source_paths.add(source_path)
+    represented = {candidate_islands.get(candidate_id, "") for candidate_id in accepted}
+    preserved: list[str] = []
+    for island_id in sorted(protected_islands - represented):
+        choices = island_choices.get(island_id, [])
+        if not choices or len(accepted) >= MAX_EVIDENCE:
+            continue
+        candidate_id, _candidate = min(
+            choices,
+            key=lambda item: (
+                0 if item[1].origin == "qualified_direct_evidence" else 1,
+                -item[1].score,
+                item[1].path.casefold(),
+                item[1].line_start,
+            ),
+        )
+        accepted.append(candidate_id)
+        preserved.append(candidate_id)
     result = dict(consolidation)
     result["accepted_candidate_ids"] = accepted
     result["preserved_active_island_candidate_ids"] = preserved

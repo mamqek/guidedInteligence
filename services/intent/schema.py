@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
-from services.intent.models import SolutionPressure, Specificity, TargetState, TargetType, TaskIntent, TurnRelation
+from services.intent.models import TargetType, TaskIntent
 
 
-SCHEMA_VERSION = "request_analysis_v2"
+SCHEMA_ID = "request_analysis"
 
 
 def intent_response_format() -> Mapping[str, Any]:
     return {
         "type": "json_schema",
         "json_schema": {
-            "name": SCHEMA_VERSION,
+            "name": SCHEMA_ID,
             "strict": True,
             "schema": {
                 "type": "object",
@@ -34,10 +34,6 @@ def intent_response_format() -> Mapping[str, Any]:
                         "required": _values(TaskIntent),
                         "additionalProperties": False,
                     },
-                    "turn_relation": {"type": "string", "enum": _values(TurnRelation)},
-                    "solution_pressure": {"type": "string", "enum": _values(SolutionPressure)},
-                    "specificity": {"type": "string", "enum": _values(Specificity)},
-                    "target_state": {"type": "string", "enum": _values(TargetState)},
                     "explicit_targets": {
                         "type": "array",
                         "items": {
@@ -67,10 +63,6 @@ def intent_response_format() -> Mapping[str, Any]:
                 },
                 "required": [
                     "intent_decisions",
-                    "turn_relation",
-                    "solution_pressure",
-                    "specificity",
-                    "target_state",
                     "explicit_targets",
                     "confidence",
                     "anchors",

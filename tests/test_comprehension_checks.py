@@ -6,7 +6,7 @@ from unittest.mock import patch
 from core.models import ConversationState, EvidenceItem, RetrievalResult
 from core.source_policy import SourceCategory
 from services.intent import compose_intent_flow
-from services.intent.models import IntentContext, Specificity, TaskIntent
+from services.intent.models import IntentContext, TaskIntent
 from services.response_generation.comprehension import (
     FlowValidationError,
     _model_facing_intent_flow,
@@ -157,7 +157,7 @@ class IntentComposedExplanationTests(unittest.TestCase):
         state = ConversationState(
             conversation_id="repair-test",
             user_input="Why does parsing fail?",
-            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), specificity=Specificity.NARROW, explicit_targets=()),
+            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), explicit_targets=()),
         )
         retrieval = RetrievalResult(evidence=self.evidence, coverage_status="strong", sufficient=True)
 
@@ -181,7 +181,7 @@ class IntentComposedExplanationTests(unittest.TestCase):
         state = ConversationState(
             conversation_id="hint-repair-test",
             user_input="Why does parsing fail?",
-            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), specificity=Specificity.NARROW, explicit_targets=()),
+            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), explicit_targets=()),
         )
         retrieval = RetrievalResult(evidence=self.evidence, coverage_status="strong", sufficient=True)
 
@@ -211,7 +211,7 @@ class IntentComposedExplanationTests(unittest.TestCase):
         state = ConversationState(
             conversation_id="test",
             user_input="Why does parsing fail?",
-            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), specificity=Specificity.NARROW, explicit_targets=()),
+            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), explicit_targets=()),
         )
         retrieval = RetrievalResult(evidence=self.evidence, coverage_status="strong", sufficient=True)
         events: list[tuple[str, dict]] = []

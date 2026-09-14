@@ -5278,3 +5278,21 @@ Verification:
   navigation-only structural participants. Neither displaced an Oracle. Relative to the most recent recorded runs,
   Vue changed from 0/2 to 1/2 and Pandas from 1/3 to 2/3; treat this as non-regression evidence, not a causal quality
   claim, because retrieval inputs and LLM decisions vary.
+
+## 2026-09-15 — Historical cleanup: exact trace-source capacity ordering
+
+- Decision and replay audit: [trace-source-capacity-ordering.md](decisions/trace-source-capacity-ordering.md).
+- One stage-only change reserves eligible exact trace sources before generic island additions.
+  Model-selected evidence, existing limits, trace-selection LLM and qualification remain unchanged.
+- Exact deterministic baselines reproduce 224438Z/225902Z/225912Z. Variant repairs the
+  capacity-blocked WatchMode source in 224438Z and older 215956Z, without claiming a replayed
+  final oracle score. Successful original pools preserve their candidate sets.
+- Fresh actual runs run-20260914T232154Z / 232229Z / 232239Z: 4/4, 4/4, 3/4 focal files,
+  all partial/false; 105549 / 101153 / 94317 retrieval tokens. Total 301019, mean 100340.
+  Previous fresh cleanup batch total 300081: +0.31%, not a controlled causal cost estimate.
+- Current helper replays exactly on new pools; old ordering retains the SAME candidate sets.
+  Thus live results establish no observed regression, not causation of the two 4/4 scores.
+  232239Z has WatchMode in final pool but no Helpers trace created; raw Helpers leads exist.
+- Best-effort retained only for demonstrated deterministic capacity repair. 84 focused tests pass;
+  full suite 482/486 under Node22, with unrelated index-fixture/manifest failures documented.
+  WSL Qdrant reused all 83408 points; no rebuild, Docker restart, or thesis modifications.

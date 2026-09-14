@@ -1,0 +1,520 @@
+diff --git a/services/intent/__init__.py b/services/intent/__init__.py
+index 25a5b1d..b678167 100644
+--- a/services/intent/__init__.py
++++ b/services/intent/__init__.py
+@@ -15,13 +15,9 @@ from services.intent.models import (
+     EvidenceRole,
+     EvidenceSource,
+     RequestAnchors,
+-    SolutionPressure,
+-    Specificity,
+     TargetReference,
+-    TargetState,
+     TargetType,
+     TaskIntent,
+-    TurnRelation,
+     classification_from_mapping,
+ )
+ from services.intent.normalizer import NormalizedIntent, normalize_intent
+@@ -44,14 +40,10 @@ __all__ = [
+     "IntentStageResult",
+     "IntentSufficiency",
+     "NormalizedIntent",
+-    "SolutionPressure",
+-    "Specificity",
+     "SufficiencyArea",
+     "TargetReference",
+-    "TargetState",
+     "TargetType",
+     "TaskIntent",
+-    "TurnRelation",
+     "build_intent_context",
+     "classify_intent",
+     "classification_from_mapping",
+diff --git a/services/intent/composer.py b/services/intent/composer.py
+index 3f1c64e..b243415 100644
+--- a/services/intent/composer.py
++++ b/services/intent/composer.py
+@@ -7,7 +7,6 @@ from services.intent.models import IntentClassification, IntentContext, IntentFl
+ def build_intent_context(classification: IntentClassification) -> IntentContext:
+     return IntentContext(
+         intents=classification.intents,
+-        specificity=classification.specificity,
+         explicit_targets=classification.explicit_targets,
+         anchors=classification.anchors,
+         search_terms=classification.search_terms,
+diff --git a/services/intent/logging.py b/services/intent/logging.py
+index 795aa9f..727925a 100644
+--- a/services/intent/logging.py
++++ b/services/intent/logging.py
+@@ -4,8 +4,8 @@ from dataclasses import dataclass
+ from typing import Any
+ 
+ from services.intent.models import IntentClassification
+-from services.intent.prompts import PROMPT_TEMPLATE_ID
+-from services.intent.schema import SCHEMA_VERSION
++from services.intent.prompts import PROMPT_ID
++from services.intent.schema import SCHEMA_ID
+ 
+ 
+ @dataclass(frozen=True)
+@@ -16,8 +16,8 @@ class IntentStageResult:
+     fallback_used: bool
+     latency_ms: int
+     classifier_model: str
+-    classifier_prompt_version: str = PROMPT_TEMPLATE_ID
+-    classifier_schema_version: str = SCHEMA_VERSION
++    classifier_prompt_id: str = PROMPT_ID
++    classifier_schema_id: str = SCHEMA_ID
+ 
+     def to_dict(self) -> dict[str, Any]:
+         return {
+@@ -27,6 +27,6 @@ class IntentStageResult:
+             "fallback_used": self.fallback_used,
+             "latency_ms": self.latency_ms,
+             "classifier_model": self.classifier_model,
+-            "classifier_prompt_version": self.classifier_prompt_version,
+-            "classifier_schema_version": self.classifier_schema_version,
++            "classifier_prompt_id": self.classifier_prompt_id,
++            "classifier_schema_id": self.classifier_schema_id,
+         }
+diff --git a/services/intent/models.py b/services/intent/models.py
+index f7e55db..a8ae50b 100644
+--- a/services/intent/models.py
++++ b/services/intent/models.py
+@@ -17,27 +17,6 @@ class TaskIntent(str, Enum):
+     VERIFY = "verify"
+ 
+ 
+-class TurnRelation(str, Enum):
+-    NEW_TASK = "new_task"
+-    CLARIFY = "clarify"
+-    CONTINUE = "continue"
+-    MODE_CHANGE = "mode_change"
+-    ANSWER_TO_CHECK = "answer_to_check"
+-
+-
+-class SolutionPressure(str, Enum):
+-    NONE = "none"
+-    GUIDANCE = "guidance"
+-    PARTIAL_SOLUTION = "partial_solution"
+-    COMPLETE_SOLUTION = "complete_solution"
+-
+-
+-class Specificity(str, Enum):
+-    NARROW = "narrow"
+-    MEDIUM = "medium"
+-    BROAD = "broad"
+-
+-
+ class TargetType(str, Enum):
+     FILE = "file"
+     CLASS = "class"
+@@ -53,13 +32,6 @@ class TargetType(str, Enum):
+     UNKNOWN = "unknown"
+ 
+ 
+-class TargetState(str, Enum):
+-    EXPLICIT = "explicit"
+-    CONTEXTUAL = "contextual"
+-    RESOLVED = "resolved"
+-    UNRESOLVED = "unresolved"
+-
+-
+ class EvidenceRole(str, Enum):
+     IMPLEMENTATION = "implementation"
+     TEST = "test"
+@@ -189,10 +161,6 @@ class IntentContract:
+ @dataclass(frozen=True)
+ class IntentClassification:
+     intents: tuple[TaskIntent, ...]
+-    turn_relation: TurnRelation
+-    solution_pressure: SolutionPressure
+-    specificity: Specificity
+-    target_state: TargetState
+     explicit_targets: tuple[TargetReference, ...]
+     confidence: float
+     classification_basis: tuple[str, ...]
+@@ -203,10 +171,6 @@ class IntentClassification:
+     def to_dict(self) -> dict[str, Any]:
+         return {
+             "intents": [intent.value for intent in self.intents],
+-            "turn_relation": self.turn_relation.value,
+-            "solution_pressure": self.solution_pressure.value,
+-            "specificity": self.specificity.value,
+-            "target_state": self.target_state.value,
+             "explicit_targets": [target.to_dict() for target in self.explicit_targets],
+             "confidence": self.confidence,
+             "classification_basis": list(self.classification_basis),
+@@ -245,7 +209,6 @@ class IntentClassificationInput:
+ @dataclass(frozen=True)
+ class IntentContext:
+     intents: tuple[TaskIntent, ...]
+-    specificity: Specificity
+     explicit_targets: tuple[TargetReference, ...]
+     anchors: RequestAnchors = RequestAnchors()
+     search_terms: tuple[str, ...] = ()
+@@ -262,7 +225,6 @@ class IntentContext:
+                 }
+                 for intent in self.intents
+             ],
+-            "specificity": self.specificity.value,
+             "explicit_targets": [target.to_dict() for target in self.explicit_targets],
+             "anchors": self.anchors.to_dict(),
+             "search_terms": list(self.search_terms),
+@@ -296,10 +258,6 @@ def classification_from_mapping(value: Mapping[str, Any]) -> IntentClassificatio
+     }
+     return IntentClassification(
+         intents=intents,
+-        turn_relation=_required_enum(value.get("turn_relation"), TurnRelation, "turn_relation"),
+-        solution_pressure=_required_enum(value.get("solution_pressure"), SolutionPressure, "solution_pressure"),
+-        specificity=_required_enum(value.get("specificity"), Specificity, "specificity"),
+-        target_state=_required_enum(value.get("target_state"), TargetState, "target_state"),
+         explicit_targets=_target_references(value.get("explicit_targets")),
+         confidence=_confidence(value.get("confidence")),
+         classification_basis=_strings(value.get("classification_basis"), limit=8),
+diff --git a/services/intent/normalizer.py b/services/intent/normalizer.py
+index dbeb125..0f8db3e 100644
+--- a/services/intent/normalizer.py
++++ b/services/intent/normalizer.py
+@@ -3,7 +3,7 @@ from __future__ import annotations
+ from dataclasses import dataclass, replace
+ from typing import Any
+ 
+-from services.intent.models import IntentClassification, TargetState
++from services.intent.models import IntentClassification
+ 
+ 
+ @dataclass(frozen=True)
+@@ -28,12 +28,5 @@ def normalize_intent(
+     )
+     if len(explicit_targets) != len(classification.explicit_targets):
+         corrections.append("removed_nonliteral_explicit_targets")
+-    target_state = classification.target_state
+-    if explicit_targets and target_state != TargetState.EXPLICIT:
+-        target_state = TargetState.EXPLICIT
+-        corrections.append("corrected_literal_target_state")
+-    if not explicit_targets and target_state == TargetState.EXPLICIT:
+-        target_state = TargetState.UNRESOLVED
+-        corrections.append("corrected_missing_explicit_target")
+-    normalized = replace(classification, explicit_targets=explicit_targets, target_state=target_state)
++    normalized = replace(classification, explicit_targets=explicit_targets)
+     return NormalizedIntent(classification=normalized, corrections=tuple(corrections))
+diff --git a/services/intent/prompts.py b/services/intent/prompts.py
+index 74bca1f..5fa238e 100644
+--- a/services/intent/prompts.py
++++ b/services/intent/prompts.py
+@@ -2,7 +2,7 @@ from __future__ import annotations
+ 
+ from pathlib import Path
+ 
+-PROMPT_TEMPLATE_ID = "request_analysis_v3"
++PROMPT_ID = "request_analysis"
+ PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "intent_classification.md"
+ STAGE_REQUIREMENTS_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "request_analysis_stage_requirements.md"
+ STAGE_GROUPS_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "request_analysis_stage_groups.md"
+diff --git a/services/intent/prompts/intent_classification.md b/services/intent/prompts/intent_classification.md
+index 63a676b..208acb4 100644
+--- a/services/intent/prompts/intent_classification.md
++++ b/services/intent/prompts/intent_classification.md
+@@ -20,7 +20,7 @@ Use the requested outcome to distinguish adjacent intents:
+ - Select both only when the user independently requests both a mechanism explanation and a diagnosis.
+ - A request to "explain the code context needed for this issue" selects `explain`; expected/actual issue details are context for that explanation, not a separate debugging request.
+ 
+-Question words are not intent labels by themselves. Keep conversation relation, solution pressure, specificity, and target state separate from task intents. An explicit target must be literally present in the current prompt.
++Question words are not intent labels by themselves. An explicit target must be literally present in the current prompt.
+ 
+ Extract error text, literals, identifiers, and concise conceptual search terms. For code examples, preserve literal repository-facing type/API names and member names as separate identifiers (for example, `Series` and `add`), rather than replacing them only with local variables such as `s1` and `s2`. Do not invent names that are absent from the prompt. Paths and symbols will be normalized against the prompt after this call, so do not reinterpret paths or turn natural-language phrases into symbols.
+ 
+diff --git a/services/intent/schema.py b/services/intent/schema.py
+index de9ee7d..e6ab52b 100644
+--- a/services/intent/schema.py
++++ b/services/intent/schema.py
+@@ -2,17 +2,17 @@ from __future__ import annotations
+ 
+ from typing import Any, Mapping, Sequence
+ 
+-from services.intent.models import SolutionPressure, Specificity, TargetState, TargetType, TaskIntent, TurnRelation
++from services.intent.models import TargetType, TaskIntent
+ 
+ 
+-SCHEMA_VERSION = "request_analysis_v2"
++SCHEMA_ID = "request_analysis"
+ 
+ 
+ def intent_response_format() -> Mapping[str, Any]:
+     return {
+         "type": "json_schema",
+         "json_schema": {
+-            "name": SCHEMA_VERSION,
++            "name": SCHEMA_ID,
+             "strict": True,
+             "schema": {
+                 "type": "object",
+@@ -34,10 +34,6 @@ def intent_response_format() -> Mapping[str, Any]:
+                         "required": _values(TaskIntent),
+                         "additionalProperties": False,
+                     },
+-                    "turn_relation": {"type": "string", "enum": _values(TurnRelation)},
+-                    "solution_pressure": {"type": "string", "enum": _values(SolutionPressure)},
+-                    "specificity": {"type": "string", "enum": _values(Specificity)},
+-                    "target_state": {"type": "string", "enum": _values(TargetState)},
+                     "explicit_targets": {
+                         "type": "array",
+                         "items": {
+@@ -67,10 +63,6 @@ def intent_response_format() -> Mapping[str, Any]:
+                 },
+                 "required": [
+                     "intent_decisions",
+-                    "turn_relation",
+-                    "solution_pressure",
+-                    "specificity",
+-                    "target_state",
+                     "explicit_targets",
+                     "confidence",
+                     "anchors",
+diff --git a/services/llm/json_completion.py b/services/llm/json_completion.py
+index e39266f..ec0d722 100644
+--- a/services/llm/json_completion.py
++++ b/services/llm/json_completion.py
+@@ -256,7 +256,6 @@ def _store_continuity_response(config: Any, response: Mapping[str, Any]) -> None
+ def _compact_continuity_response(response: Mapping[str, Any]) -> Mapping[str, Any]:
+     keep_keys = (
+         "intents",
+-        "specificity",
+         "anchors",
+         "search_terms",
+         "evidence_obligations",
+diff --git a/testing/replay_explanation_experiments.py b/testing/replay_explanation_experiments.py
+index c582ebf..c728edc 100644
+--- a/testing/replay_explanation_experiments.py
++++ b/testing/replay_explanation_experiments.py
+@@ -11,7 +11,7 @@ from typing import Any, Mapping
+ 
+ from core.models import ConversationState, EvidenceItem, RetrievalResult
+ from core.source_policy import SourceCategory
+-from services.intent.models import IntentContext, Specificity, TaskIntent
++from services.intent.models import IntentContext, TaskIntent
+ from services.retrieval.server import RuntimeState
+ from services.response_generation import comprehension as generation
+ 
+@@ -88,7 +88,7 @@ def main() -> None:
+     state = ConversationState(
+         conversation_id=f"explanation-experiment-{source_name}",
+         user_input=prompt,
+-        intent_context=IntentContext(selected_intents, Specificity.BROAD, ()),
++        intent_context=IntentContext(selected_intents, ()),
+     )
+     retrieval = RetrievalResult(
+         evidence=evidence,
+diff --git a/tests/test_coderepoqa_retrieval.py b/tests/test_coderepoqa_retrieval.py
+index 0d2bd79..daf6660 100644
+--- a/tests/test_coderepoqa_retrieval.py
++++ b/tests/test_coderepoqa_retrieval.py
+@@ -12,7 +12,7 @@ from core.models import EvidenceItem, ResponsePayload, RetrievalResult, TurnType
+ from core.source_policy import SourceCategory
+ from services.retrieval.config import RunLLMConfig
+ from services.intent.logging import IntentStageResult
+-from services.intent.models import IntentClassification, SolutionPressure, Specificity, TargetState, TaskIntent, TurnRelation
++from services.intent.models import IntentClassification, TaskIntent
+ from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, indexable_content_signature, load_index
+ from testing.codeRepoQA.run_case import (
+     _coderepoqa_exclude_paths,
+@@ -427,10 +427,6 @@ def _intent_result() -> IntentStageResult:
+         status="success",
+         classification=IntentClassification(
+             intents=(TaskIntent.CHANGE,),
+-            turn_relation=TurnRelation.NEW_TASK,
+-            solution_pressure=SolutionPressure.GUIDANCE,
+-            specificity=Specificity.MEDIUM,
+-            target_state=TargetState.UNRESOLVED,
+             explicit_targets=(),
+             confidence=0.9,
+             classification_basis=("test",),
+diff --git a/tests/test_codex_provider.py b/tests/test_codex_provider.py
+index dd935be..503bdb7 100644
+--- a/tests/test_codex_provider.py
++++ b/tests/test_codex_provider.py
+@@ -42,7 +42,7 @@ class CodexProviderTests(unittest.TestCase):
+         prompt = _codex_prompt(
+             "Explain the code context needed for this issue.\n\nTitle: Broken behavior",
+             template=template,
+-            intent_context={"intents": [{"intent": "explain", "description": "Establish how or why the requested behavior works."}], "specificity": "medium", "explicit_targets": []},
++            intent_context={"intents": [{"intent": "explain", "description": "Establish how or why the requested behavior works."}], "explicit_targets": []},
+         )
+ 
+         self.assertIn("Select the smallest evidence set", prompt)
+@@ -63,7 +63,7 @@ class CodexProviderTests(unittest.TestCase):
+         prompt = _codex_prompt(
+             "Issue packet",
+             template=template,
+-            intent_context={"intents": [{"intent": "change", "description": "Gather context needed to reason about a requested modification without implementing it."}], "specificity": "medium", "explicit_targets": []},
++            intent_context={"intents": [{"intent": "change", "description": "Gather context needed to reason about a requested modification without implementing it."}], "explicit_targets": []},
+         )
+         required = schema["required"]
+         evidence_schema = schema["properties"]["evidence"]
+diff --git a/tests/test_comprehension_checks.py b/tests/test_comprehension_checks.py
+index 2e61a76..3e181f6 100644
+--- a/tests/test_comprehension_checks.py
++++ b/tests/test_comprehension_checks.py
+@@ -6,7 +6,7 @@ from unittest.mock import patch
+ from core.models import ConversationState, EvidenceItem, RetrievalResult
+ from core.source_policy import SourceCategory
+ from services.intent import compose_intent_flow
+-from services.intent.models import IntentContext, Specificity, TaskIntent
++from services.intent.models import IntentContext, TaskIntent
+ from services.response_generation.comprehension import (
+     FlowValidationError,
+     _model_facing_intent_flow,
+@@ -157,7 +157,7 @@ class IntentComposedExplanationTests(unittest.TestCase):
+         state = ConversationState(
+             conversation_id="repair-test",
+             user_input="Why does parsing fail?",
+-            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), specificity=Specificity.NARROW, explicit_targets=()),
++            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), explicit_targets=()),
+         )
+         retrieval = RetrievalResult(evidence=self.evidence, coverage_status="strong", sufficient=True)
+ 
+@@ -181,7 +181,7 @@ class IntentComposedExplanationTests(unittest.TestCase):
+         state = ConversationState(
+             conversation_id="hint-repair-test",
+             user_input="Why does parsing fail?",
+-            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), specificity=Specificity.NARROW, explicit_targets=()),
++            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), explicit_targets=()),
+         )
+         retrieval = RetrievalResult(evidence=self.evidence, coverage_status="strong", sufficient=True)
+ 
+@@ -211,7 +211,7 @@ class IntentComposedExplanationTests(unittest.TestCase):
+         state = ConversationState(
+             conversation_id="test",
+             user_input="Why does parsing fail?",
+-            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), specificity=Specificity.NARROW, explicit_targets=()),
++            intent_context=IntentContext(intents=(TaskIntent.DEBUG,), explicit_targets=()),
+         )
+         retrieval = RetrievalResult(evidence=self.evidence, coverage_status="strong", sufficient=True)
+         events: list[tuple[str, dict]] = []
+diff --git a/tests/test_intent.py b/tests/test_intent.py
+index 5c9d4a1..180efad 100644
+--- a/tests/test_intent.py
++++ b/tests/test_intent.py
+@@ -18,13 +18,9 @@ from services.intent import (
+     IntentClassificationInput,
+     EvidenceRole,
+     EvidenceSource,
+-    SolutionPressure,
+-    Specificity,
+     TargetReference,
+-    TargetState,
+     TargetType,
+     TaskIntent,
+-    TurnRelation,
+     build_intent_context,
+     classify_intent,
+     classification_from_mapping,
+@@ -180,10 +176,6 @@ class IntentSystemTests(unittest.TestCase):
+             classification_from_mapping(
+                 {
+                     "intents": ["explore", "explore"],
+-                    "turn_relation": "new_task",
+-                    "solution_pressure": "none",
+-                    "specificity": "medium",
+-                    "target_state": "unresolved",
+                     "explicit_targets": [],
+                     "confidence": 0.9,
+                     "classification_basis": ["test"],
+@@ -373,10 +365,6 @@ class IntentSystemTests(unittest.TestCase):
+         classification = classification_from_mapping(
+             {
+                 "intents": ["explain"],
+-                "turn_relation": "new_task",
+-                "solution_pressure": "none",
+-                "specificity": "narrow",
+-                "target_state": "explicit",
+                 "explicit_targets": [],
+                 "confidence": 0.9,
+                 "classification_basis": ["test"],
+@@ -413,10 +401,6 @@ class IntentSystemTests(unittest.TestCase):
+         classification = classification_from_mapping(
+             {
+                 "intents": ["explain"],
+-                "turn_relation": "new_task",
+-                "solution_pressure": "none",
+-                "specificity": "narrow",
+-                "target_state": "unresolved",
+                 "explicit_targets": [],
+                 "confidence": 0.9,
+                 "classification_basis": ["test"],
+@@ -457,10 +441,6 @@ class IntentSystemTests(unittest.TestCase):
+         classification = classification_from_mapping(
+             {
+                 "intents": ["explain"],
+-                "turn_relation": "new_task",
+-                "solution_pressure": "none",
+-                "specificity": "narrow",
+-                "target_state": "unresolved",
+                 "explicit_targets": [],
+                 "confidence": 0.9,
+                 "classification_basis": ["test"],
+@@ -507,13 +487,11 @@ class IntentSystemTests(unittest.TestCase):
+         classification = IntentClassification(
+             **{
+                 **_classification((TaskIntent.EXPLAIN,)).__dict__,
+-                "target_state": TargetState.EXPLICIT,
+                 "explicit_targets": (TargetReference(TargetType.FUNCTION, "missingFunction"),),
+             }
+         )
+         normalized = normalize_intent(classification, user_prompt="How does authentication work?")
+         self.assertEqual(normalized.classification.explicit_targets, ())
+-        self.assertEqual(normalized.classification.target_state, TargetState.UNRESOLVED)
+ 
+     def test_composer_unions_all_fixed_stages_without_merging(self) -> None:
+         flow = compose_intent_flow((TaskIntent.DEBUG, TaskIntent.CHANGE))
+@@ -543,10 +521,6 @@ class IntentSystemTests(unittest.TestCase):
+ def _classification(intents: tuple[TaskIntent, ...]) -> IntentClassification:
+     return IntentClassification(
+         intents=intents,
+-        turn_relation=TurnRelation.NEW_TASK,
+-        solution_pressure=SolutionPressure.NONE,
+-        specificity=Specificity.MEDIUM,
+-        target_state=TargetState.UNRESOLVED,
+         explicit_targets=(),
+         confidence=0.9,
+         classification_basis=("test",),
+@@ -577,10 +551,6 @@ def _analysis_response(intents: tuple[TaskIntent, ...]) -> dict[str, object]:
+             }
+             for intent in TaskIntent
+         },
+-        "turn_relation": "new_task",
+-        "solution_pressure": "none",
+-        "specificity": "medium",
+-        "target_state": "unresolved",
+         "explicit_targets": [],
+         "confidence": 0.9,
+         "anchors": {"paths": [], "symbols": [], "errors": [], "literals": [], "identifiers": []},
+diff --git a/tests/test_policy.py b/tests/test_policy.py
+index 80a73b6..e3e5bf9 100644
+--- a/tests/test_policy.py
++++ b/tests/test_policy.py
+@@ -15,11 +15,7 @@ from services.guidance.answer_evaluation import evaluate_answers
+ from services.intent.logging import IntentStageResult
+ from services.intent.models import (
+     IntentClassification,
+-    SolutionPressure,
+-    Specificity,
+-    TargetState,
+     TaskIntent,
+-    TurnRelation,
+ )
+ from step3_harness_scenarios import SCENARIOS
+ 
+@@ -88,10 +84,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
+     def test_active_intent_classification_passes_only_minimal_context_to_retrieval(self) -> None:
+         classification = IntentClassification(
+             intents=(TaskIntent.EXPLAIN, TaskIntent.EXPLORE),
+-            turn_relation=TurnRelation.NEW_TASK,
+-            solution_pressure=SolutionPressure.NONE,
+-            specificity=Specificity.MEDIUM,
+-            target_state=TargetState.UNRESOLVED,
+             explicit_targets=(),
+             confidence=0.9,
+             classification_basis=("asks how and where",),

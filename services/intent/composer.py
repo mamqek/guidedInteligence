@@ -7,7 +7,6 @@ from services.intent.models import IntentClassification, IntentContext, IntentFl
 def build_intent_context(classification: IntentClassification) -> IntentContext:
     return IntentContext(
         intents=classification.intents,
-        specificity=classification.specificity,
         explicit_targets=classification.explicit_targets,
         anchors=classification.anchors,
         search_terms=classification.search_terms,

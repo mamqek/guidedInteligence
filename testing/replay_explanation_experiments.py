@@ -11,7 +11,7 @@ from typing import Any, Mapping
 
 from core.models import ConversationState, EvidenceItem, RetrievalResult
 from core.source_policy import SourceCategory
-from services.intent.models import IntentContext, Specificity, TaskIntent
+from services.intent.models import IntentContext, TaskIntent
 from services.retrieval.server import RuntimeState
 from services.response_generation import comprehension as generation
 
@@ -88,7 +88,7 @@ def main() -> None:
     state = ConversationState(
         conversation_id=f"explanation-experiment-{source_name}",
         user_input=prompt,
-        intent_context=IntentContext(selected_intents, Specificity.BROAD, ()),
+        intent_context=IntentContext(selected_intents, ()),
     )
     retrieval = RetrievalResult(
         evidence=evidence,

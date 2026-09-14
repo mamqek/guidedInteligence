@@ -2341,6 +2341,34 @@ class QualificationFirstRetrievalTests(unittest.TestCase):
 
         self.assertEqual([item.metadata["path"] for item in selected], ["src/compiler/a.ts", "tests/watch.ts"])
 
+    def test_exact_trace_source_precedes_generic_addition_at_capacity(self) -> None:
+        from services.retrieval.workspace.pipeline.execution_flow.obligation_retrieval import GroundedCandidate
+
+        candidates = {str(i): GroundedCandidate("src/a.ts", i + 1, i + 1, "a", .9,
+                      "qualified_direct_evidence", node_id=f"function:{i}") for i in range(13)}
+        candidates["source"] = GroundedCandidate("tests/watch.ts", 1, 5, "watch", .5,
+                                                "qualified_navigation_evidence")
+        candidates["generic"] = GroundedCandidate("src/other.ts", 1, 5, "other", .8,
+                                                 "qualified_navigation_evidence")
+        source_id = _candidate_observation_id(candidates["source"])
+        controller = SimpleNamespace(islands=SimpleNamespace(
+            active_root_ids=(source_id, "other"), islands=(
+                SimpleNamespace(id="mixed", observation_ids=(source_id,)),
+                SimpleNamespace(id="other", observation_ids=("other",)),)))
+        mapping = {cid: "mixed" for cid in candidates}
+        mapping["generic"] = "other"
+        initial = [str(i) for i in range(13)]
+        trace = {"source_observation_id": source_id, "source_path": "tests/watch.ts"}
+        result = _preserve_active_island_candidates(
+            {"accepted_candidate_ids": initial}, candidates, mapping, controller,
+            file_traces=(trace, trace))
+        self.assertEqual(result["accepted_candidate_ids"], initial + ["source"])
+        self.assertEqual(result["preserved_active_island_candidate_ids"], [])
+        full = _preserve_active_island_candidates(
+            {"accepted_candidate_ids": initial + ["generic"]}, candidates, mapping,
+            controller, file_traces=(trace,))
+        self.assertEqual(full["accepted_candidate_ids"], initial + ["generic"])
+
 
 def _build_test_islands(
     observations: tuple[DiscoveryObservation, ...],

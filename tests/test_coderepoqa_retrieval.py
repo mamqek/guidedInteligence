@@ -12,7 +12,7 @@ from core.models import EvidenceItem, ResponsePayload, RetrievalResult, TurnType
 from core.source_policy import SourceCategory
 from services.retrieval.config import RunLLMConfig
 from services.intent.logging import IntentStageResult
-from services.intent.models import IntentClassification, SolutionPressure, Specificity, TargetState, TaskIntent, TurnRelation
+from services.intent.models import IntentClassification, TaskIntent
 from services.retrieval.workspace.bm25 import DEFAULT_EXCLUDED_PATHS, indexable_content_signature, load_index
 from testing.codeRepoQA.run_case import (
     _coderepoqa_exclude_paths,
@@ -425,10 +425,6 @@ def _intent_result() -> IntentStageResult:
         status="success",
         classification=IntentClassification(
             intents=(TaskIntent.CHANGE,),
-            turn_relation=TurnRelation.NEW_TASK,
-            solution_pressure=SolutionPressure.GUIDANCE,
-            specificity=Specificity.MEDIUM,
-            target_state=TargetState.UNRESOLVED,
             explicit_targets=(),
             confidence=0.9,
             classification_basis=("test",),

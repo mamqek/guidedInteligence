@@ -1,5 +1,24 @@
 # Retrieval Experiment Open Questions
 
+## Frozen-analysis diagnostic, September 15 follow-up
+
+- [Exact trace-source capacity ordering](trace-source-capacity-ordering.md): exact saved
+  preservation replay confirms 224438Z's source island was eligible, but generic additions
+  filled the evidence cap first. Ordering-only variant is best-effort retained: fresh runs
+  232154Z/232229Z/232239Z yield 4/4, 4/4, 3/4, all partial/false. Old-order counterfactuals
+  on these new pools preserve the same candidate sets, so scores are NOT causal proof.
+  The older two capacity failures are repaired deterministically; missing trace creation
+  in 232239Z remains separate and semantic completeness is still unresolved.
+
+- [Frozen-analysis diagnostic](frozen-analysis-diagnostic.md) obtained 3/4, 4/4, 4/4
+  with identical replayed analysis and identical initial owner-comparison requests.
+  Owner decisions differ. In 224438Z, Helpers' 18-call trace exists but its exact
+  WatchMode source is not accepted, reproducing the SSA-1/QRC-1 late eligibility boundary.
+- Separate infrastructure finding: unavailable Qdrant plus concurrent rebuild paths can
+  leave a partial collection that the historical nonzero-count reuse gate accepts.
+  Affected startup attempts were excluded; measured replays used verified 83408 points.
+  No causal claim about earlier batches; production completeness guard remains unresolved.
+
 ## SSA-1 — Shared snippet admission, initial boundary retained; final boundary pending
 
 - [Shared selection experiment](snippet-first-admission-experiment.md): implements the IOC-1/FPK-1

@@ -233,7 +233,9 @@ def run_case(
         intent_enabled=True,
         response_generation_enabled=not skip_response_generation,
     )
-    result = control_layer.run(state)
+    from testing.codeRepoQA.request_analysis_diagnostics import request_analysis_diagnostics
+    with request_analysis_diagnostics(output_dir, os.environ.get("CODEREPOQA_REPLAY_ANALYSIS_RUN")):
+        result = control_layer.run(state)
     if not result.policy_result.allowed:
         raise RuntimeError(f"Policy result rejected run-case: {result.policy_result.reason}")
     if not result.policy_result.retrieval_required:
