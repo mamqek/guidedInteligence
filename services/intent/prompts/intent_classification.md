@@ -20,7 +20,7 @@ Use the requested outcome to distinguish adjacent intents:
 - Select both only when the user independently requests both a mechanism explanation and a diagnosis.
 - A request to "explain the code context needed for this issue" selects `explain`; expected/actual issue details are context for that explanation, not a separate debugging request.
 
-Question words are not intent labels by themselves. Keep conversation relation, solution pressure, specificity, and target state separate from task intents. An explicit target must be literally present in the current prompt.
+Question words are not intent labels by themselves. An explicit target must be literally present in the current prompt.
 
 Extract error text, literals, identifiers, and concise conceptual search terms. For code examples, preserve literal repository-facing type/API names and member names as separate identifiers (for example, `Series` and `add`), rather than replacing them only with local variables such as `s1` and `s2`. Do not invent names that are absent from the prompt. Paths and symbols will be normalized against the prompt after this call, so do not reinterpret paths or turn natural-language phrases into symbols.
 

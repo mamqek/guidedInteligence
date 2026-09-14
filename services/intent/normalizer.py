@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
-from services.intent.models import IntentClassification, TargetState
+from services.intent.models import IntentClassification
 
 
 @dataclass(frozen=True)
@@ -28,12 +28,5 @@ def normalize_intent(
     )
     if len(explicit_targets) != len(classification.explicit_targets):
         corrections.append("removed_nonliteral_explicit_targets")
-    target_state = classification.target_state
-    if explicit_targets and target_state != TargetState.EXPLICIT:
-        target_state = TargetState.EXPLICIT
-        corrections.append("corrected_literal_target_state")
-    if not explicit_targets and target_state == TargetState.EXPLICIT:
-        target_state = TargetState.UNRESOLVED
-        corrections.append("corrected_missing_explicit_target")
-    normalized = replace(classification, explicit_targets=explicit_targets, target_state=target_state)
+    normalized = replace(classification, explicit_targets=explicit_targets)
     return NormalizedIntent(classification=normalized, corrections=tuple(corrections))

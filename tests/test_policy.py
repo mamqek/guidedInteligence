@@ -15,11 +15,7 @@ from services.guidance.answer_evaluation import evaluate_answers
 from services.intent.logging import IntentStageResult
 from services.intent.models import (
     IntentClassification,
-    SolutionPressure,
-    Specificity,
-    TargetState,
     TaskIntent,
-    TurnRelation,
 )
 from step3_harness_scenarios import SCENARIOS
 
@@ -88,10 +84,6 @@ class ControlLayerPolicyTests(unittest.TestCase):
     def test_active_intent_classification_passes_only_minimal_context_to_retrieval(self) -> None:
         classification = IntentClassification(
             intents=(TaskIntent.EXPLAIN, TaskIntent.EXPLORE),
-            turn_relation=TurnRelation.NEW_TASK,
-            solution_pressure=SolutionPressure.NONE,
-            specificity=Specificity.MEDIUM,
-            target_state=TargetState.UNRESOLVED,
             explicit_targets=(),
             confidence=0.9,
             classification_basis=("asks how and where",),

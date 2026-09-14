@@ -17,27 +17,6 @@ class TaskIntent(str, Enum):
     VERIFY = "verify"
 
 
-class TurnRelation(str, Enum):
-    NEW_TASK = "new_task"
-    CLARIFY = "clarify"
-    CONTINUE = "continue"
-    MODE_CHANGE = "mode_change"
-    ANSWER_TO_CHECK = "answer_to_check"
-
-
-class SolutionPressure(str, Enum):
-    NONE = "none"
-    GUIDANCE = "guidance"
-    PARTIAL_SOLUTION = "partial_solution"
-    COMPLETE_SOLUTION = "complete_solution"
-
-
-class Specificity(str, Enum):
-    NARROW = "narrow"
-    MEDIUM = "medium"
-    BROAD = "broad"
-
-
 class TargetType(str, Enum):
     FILE = "file"
     CLASS = "class"
@@ -51,13 +30,6 @@ class TargetType(str, Enum):
     SUBSYSTEM = "subsystem"
     ERROR = "error"
     UNKNOWN = "unknown"
-
-
-class TargetState(str, Enum):
-    EXPLICIT = "explicit"
-    CONTEXTUAL = "contextual"
-    RESOLVED = "resolved"
-    UNRESOLVED = "unresolved"
 
 
 class EvidenceRole(str, Enum):
@@ -189,10 +161,6 @@ class IntentContract:
 @dataclass(frozen=True)
 class IntentClassification:
     intents: tuple[TaskIntent, ...]
-    turn_relation: TurnRelation
-    solution_pressure: SolutionPressure
-    specificity: Specificity
-    target_state: TargetState
     explicit_targets: tuple[TargetReference, ...]
     confidence: float
     classification_basis: tuple[str, ...]
@@ -203,10 +171,6 @@ class IntentClassification:
     def to_dict(self) -> dict[str, Any]:
         return {
             "intents": [intent.value for intent in self.intents],
-            "turn_relation": self.turn_relation.value,
-            "solution_pressure": self.solution_pressure.value,
-            "specificity": self.specificity.value,
-            "target_state": self.target_state.value,
             "explicit_targets": [target.to_dict() for target in self.explicit_targets],
             "confidence": self.confidence,
             "classification_basis": list(self.classification_basis),
@@ -245,7 +209,6 @@ class IntentClassificationInput:
 @dataclass(frozen=True)
 class IntentContext:
     intents: tuple[TaskIntent, ...]
-    specificity: Specificity
     explicit_targets: tuple[TargetReference, ...]
     anchors: RequestAnchors = RequestAnchors()
     search_terms: tuple[str, ...] = ()
@@ -262,7 +225,6 @@ class IntentContext:
                 }
                 for intent in self.intents
             ],
-            "specificity": self.specificity.value,
             "explicit_targets": [target.to_dict() for target in self.explicit_targets],
             "anchors": self.anchors.to_dict(),
             "search_terms": list(self.search_terms),
@@ -296,10 +258,6 @@ def classification_from_mapping(value: Mapping[str, Any]) -> IntentClassificatio
     }
     return IntentClassification(
         intents=intents,
-        turn_relation=_required_enum(value.get("turn_relation"), TurnRelation, "turn_relation"),
-        solution_pressure=_required_enum(value.get("solution_pressure"), SolutionPressure, "solution_pressure"),
-        specificity=_required_enum(value.get("specificity"), Specificity, "specificity"),
-        target_state=_required_enum(value.get("target_state"), TargetState, "target_state"),
         explicit_targets=_target_references(value.get("explicit_targets")),
         confidence=_confidence(value.get("confidence")),
         classification_basis=_strings(value.get("classification_basis"), limit=8),

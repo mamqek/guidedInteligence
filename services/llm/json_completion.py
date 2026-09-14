@@ -256,7 +256,6 @@ def _store_continuity_response(config: Any, response: Mapping[str, Any]) -> None
 def _compact_continuity_response(response: Mapping[str, Any]) -> Mapping[str, Any]:
     keep_keys = (
         "intents",
-        "specificity",
         "anchors",
         "search_terms",
         "evidence_obligations",

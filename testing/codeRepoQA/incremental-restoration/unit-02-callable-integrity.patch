@@ -1,0 +1,417 @@
+diff --git a/services/retrieval/codegraph/callable_owners.mjs b/services/retrieval/codegraph/callable_owners.mjs
+new file mode 100644
+index 0000000..344d659
+--- /dev/null
++++ b/services/retrieval/codegraph/callable_owners.mjs
+@@ -0,0 +1,165 @@
++import fs from 'node:fs';
++import path from 'node:path';
++import ts from 'typescript';
++
++const JAVASCRIPT = new Set(['.js', '.jsx', '.mjs', '.cjs']);
++const cache = new Map();
++
++function line(file, position) {
++  return file.getLineAndCharacterOfPosition(position).line + 1;
++}
++
++function assignmentName(node, file) {
++  if (ts.isIdentifier(node)) return node.text;
++  if (ts.isPropertyAccessExpression(node)) {
++    const parent = assignmentName(node.expression, file);
++    return parent ? `${parent}.${node.name.text}` : '';
++  }
++  if (ts.isElementAccessExpression(node) && node.argumentExpression
++      && (ts.isStringLiteral(node.argumentExpression) || ts.isNumericLiteral(node.argumentExpression))) {
++    const parent = assignmentName(node.expression, file);
++    return parent ? `${parent}.${node.argumentExpression.text}` : '';
++  }
++  return '';
++}
++
++export function callableInventory(projectRoot, sourcePath) {
++  const absolute = path.resolve(projectRoot, sourcePath);
++  const relative = path.relative(path.resolve(projectRoot), absolute);
++  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
++    return { status: 'failed', reason: 'source_owner_outside_workspace', entries: [] };
++  }
++  if (!JAVASCRIPT.has(path.extname(sourcePath).toLowerCase())) return { status: 'unsupported', entries: [] };
++  let stat;
++  try { stat = fs.statSync(absolute); }
++  catch { return { status: 'failed', reason: 'source_unreadable', entries: [] }; }
++  const signature = `${stat.mtimeMs}:${stat.size}`;
++  const previous = cache.get(absolute);
++  if (previous?.signature === signature) return previous.value;
++  const source = fs.readFileSync(absolute, 'utf8');
++  const file = ts.createSourceFile(sourcePath, source, ts.ScriptTarget.Latest, true,
++    path.extname(sourcePath).toLowerCase() === '.jsx' ? ts.ScriptKind.JSX : ts.ScriptKind.JS);
++  if (file.parseDiagnostics.length) {
++    return { status: 'failed', reason: 'source_ast_parse_failed', entries: [],
++      diagnostic_count: file.parseDiagnostics.length };
++  }
++  const entries = [];
++  function visit(node) {
++    if (ts.isFunctionLike(node) && node.body) {
++      let anchor = node;
++      let name = node.name?.getText(file) || (ts.isConstructorDeclaration(node) ? 'constructor' : '');
++      const declaredName = name;
++      let kind = 'function';
++      if (ts.isFunctionExpression(node) || ts.isArrowFunction(node)) {
++        if (ts.isBinaryExpression(node.parent) && node.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken
++            && ts.isExpressionStatement(node.parent.parent)) {
++          anchor = node.parent.parent;
++          name = assignmentName(node.parent.left, file);
++          kind = 'assigned_function';
++        } else if (ts.isVariableDeclaration(node.parent)) {
++          name = node.parent.name.getText(file);
++        }
++      }
++      const start = line(file, anchor.getStart(file));
++      const end = line(file, anchor.end);
++      const locationVariants = [[start, end], [line(file, node.getStart(file)), line(file, node.end)]];
++      if (ts.isVariableDeclaration(node.parent) && ts.isVariableDeclarationList(node.parent.parent)) {
++        const statement = node.parent.parent.parent;
++        locationVariants.push([line(file, statement.getStart(file)), line(file, statement.end)]);
++      }
++      const names = [...new Set([name, declaredName].filter(Boolean))];
++      entries.push({ node, name, names, kind, start, end, locationVariants });
++    }
++    ts.forEachChild(node, visit);
++  }
++  visit(file);
++  const value = { status: 'ok', file, entries };
++  if (cache.size >= 128) cache.delete(cache.keys().next().value);
++  cache.set(absolute, { signature, value });
++  return value;
++}
++
++function matchesGraphOwner(entry, node) {
++  const start = Number(node.line_start ?? node.startLine);
++  const end = Number(node.line_end ?? node.endLine ?? start);
++  const name = String(node.name || node.qualified_name || node.qualifiedName || '').split('::').at(-1);
++  return entry.locationVariants.some(([a, b]) => start === a && end === b)
++    && (!entry.names.length || entry.names.some(alias => alias === name || alias.split('.').at(-1) === name));
++}
++
++export function graphCallableValidity(projectRoot, node) {
++  if (!['function', 'method', 'constructor', 'assigned_function'].includes(node.kind)) return { valid: true };
++  const sourcePath = node.path || node.filePath;
++  if (!sourcePath) return { valid: true };
++  const inventory = callableInventory(projectRoot, sourcePath);
++  if (inventory.status === 'unsupported') return { valid: true };
++  if (inventory.status !== 'ok') return { valid: false, reason: inventory.reason };
++  return inventory.entries.some(entry => matchesGraphOwner(entry, node))
++    ? { valid: true } : { valid: false, reason: 'graph_callable_disagrees_with_source_ast' };
++}
++
++function sourceOwner(sourcePath, entry) {
++  return { id: `source_owner:${sourcePath}:${entry.start}:${entry.end}`, kind: entry.kind,
++    name: entry.name, qualified_name: entry.name, path: sourcePath,
++    line_start: entry.start, line_end: entry.end, language: 'javascript',
++    adapter: 'typescript_compiler_api', decision_code: 'validated_source_callable_recovery' };
++}
++
++export function reconcileCallableOwners(projectRoot, sourcePath, start, end, nodes) {
++  const rejected = [];
++  const retained = nodes.filter(node => {
++    const result = graphCallableValidity(projectRoot, node);
++    if (!result.valid) rejected.push({ node_id: node.id, path: sourcePath, name: node.name,
++      line_start: node.line_start, line_end: node.line_end, reason: result.reason });
++    return result.valid;
++  });
++  if (!rejected.length) return { nodes, rejected };
++  const inventory = callableInventory(projectRoot, sourcePath);
++  if (inventory.status === 'ok') {
++    for (const entry of inventory.entries) {
++      if (!entry.name || entry.start > end || entry.end < start
++          || retained.some(node => matchesGraphOwner(entry, node))) continue;
++      retained.push(sourceOwner(sourcePath, entry));
++    }
++  }
++  return { nodes: retained, rejected };
++}
++
++export function findSourceCallable(projectRoot, sourceNode) {
++  const inventory = callableInventory(projectRoot, sourceNode.path);
++  if (inventory.status !== 'ok') return null;
++  const matches = inventory.entries.filter(entry => {
++    const owner = sourceOwner(sourceNode.path, entry);
++    return owner.id === sourceNode.id && entry.start === sourceNode.line_start && entry.end === sourceNode.line_end
++      && entry.name === (sourceNode.qualified_name || sourceNode.name);
++  });
++  return matches.length === 1 ? { ...matches[0], file: inventory.file } : null;
++}
++
++// Apply at every bridge exit so a rejected owner cannot return through outlines,
++// expansion, or a connector. Drop the relationship too if any endpoint is invalid.
++export function validateStructuralResult(projectRoot, result) {
++  const rejected = new Map();
++  function visit(value) {
++    if (Array.isArray(value)) return value.map(visit).filter(item => item !== null);
++    if (!value || typeof value !== 'object') return value;
++    if (value.id && value.kind && (value.path || value.filePath)) {
++      const check = graphCallableValidity(projectRoot, value);
++      if (!check.valid) {
++        rejected.set(value.id, { node_id: value.id, path: value.path || value.filePath,
++          name: value.name || value.qualified_name, reason: check.reason });
++        return null;
++      }
++    }
++    const output = {};
++    for (const [key, child] of Object.entries(value)) {
++      const validated = visit(child);
++      if (child && validated === null && ['source', 'target', 'connector', 'node'].includes(key)) return null;
++      output[key] = validated;
++    }
++    return output;
++  }
++  const validated = visit(result) ?? {};
++  if (rejected.size) validated.structural_owner_rejections = [...rejected.values()];
++  return validated;
++}
+diff --git a/services/retrieval/codegraph/source_ast.mjs b/services/retrieval/codegraph/source_ast.mjs
+index 2087e97..c892e43 100644
+--- a/services/retrieval/codegraph/source_ast.mjs
++++ b/services/retrieval/codegraph/source_ast.mjs
+@@ -1,6 +1,7 @@
+ import fs from "node:fs";
+ import path from "node:path";
+ import ts from "typescript";
++import { findSourceCallable, graphCallableValidity } from "./callable_owners.mjs";
+ 
+ 
+ const SUPPORTED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
+@@ -417,6 +418,7 @@ export function localizeFileCall(codegraph, projectRoot, sourceNode, targetNode)
+ export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
+   const sourcePath = normalizePath(sourceNode?.filePath || sourceNode?.path);
+   const isSourceOwner = String(sourceNode?.id || "").startsWith("source_owner:");
++  let validatedCallable = null;
+   const extension = path.extname(sourcePath).toLowerCase();
+   const base = {
+     source_node_id: String(sourceNode?.id || ""),
+@@ -427,6 +429,10 @@ export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
+   if (!SUPPORTED_EXTENSIONS.has(extension)) {
+     return { ...base, status: "unsupported", reason: "unsupported_extension" };
+   }
++  if (!isSourceOwner) {
++    const validity = graphCallableValidity(projectRoot, sourceNode);
++    if (!validity.valid) return { ...base, status: "failed", reason: validity.reason };
++  }
+   if (isSourceOwner) {
+     const root = fs.realpathSync(projectRoot);
+     let resolvedPath;
+@@ -436,12 +442,18 @@ export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
+     if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+       return { ...base, status: "failed", reason: "source_owner_outside_workspace" };
+     }
+-    const matches = resolveSourceOwners(projectRoot, { path: sourcePath,
+-      line_start: sourceNode.line_start, line_end: sourceNode.line_end }).owners.filter(owner =>
+-      owner.id === sourceNode.id && owner.line_start === sourceNode.line_start && owner.line_end === sourceNode.line_end
+-      && owner.qualified_name === (sourceNode.qualified_name || sourceNode.name));
+-    if (matches.length !== 1) return { ...base, status: "failed", reason: "source_owner_identity_mismatch" };
+-    sourceNode = matches[0];
++    if ([".js", ".jsx", ".mjs", ".cjs"].includes(extension)) {
++      validatedCallable = findSourceCallable(projectRoot, sourceNode);
++      if (!validatedCallable) return { ...base, status: "failed", reason: "source_owner_identity_mismatch" };
++      sourceNode = { ...sourceNode, kind: validatedCallable.kind };
++    } else {
++      const matches = resolveSourceOwners(projectRoot, { path: sourcePath,
++        line_start: sourceNode.line_start, line_end: sourceNode.line_end }).owners.filter(owner =>
++        owner.id === sourceNode.id && owner.line_start === sourceNode.line_start && owner.line_end === sourceNode.line_end
++        && owner.qualified_name === (sourceNode.qualified_name || sourceNode.name));
++      if (matches.length !== 1) return { ...base, status: "failed", reason: "source_owner_identity_mismatch" };
++      sourceNode = matches[0];
++    }
+   }
+   let source;
+   try {
+@@ -453,10 +465,10 @@ export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
+     : extension === ".jsx" ? ts.ScriptKind.JSX
+       : [".js", ".mjs", ".cjs"].includes(extension) ? ts.ScriptKind.JS
+         : ts.ScriptKind.TS;
+-  const sourceFile = ts.createSourceFile(sourcePath, source, ts.ScriptTarget.Latest, true, scriptKind);
++  const sourceFile = validatedCallable?.file || ts.createSourceFile(sourcePath, source, ts.ScriptTarget.Latest, true, scriptKind);
+   const calls = [];
+   if (isSourceOwner) {
+-    let callable;
++    let callable = validatedCallable?.node;
+     for (const statement of sourceFile.statements) {
+       if (lineOf(sourceFile, statement.getStart(sourceFile)) === sourceNode.line_start
+           && lineOf(sourceFile, statement.end) === sourceNode.line_end
+diff --git a/services/retrieval/codegraph/workspace_graph.mjs b/services/retrieval/codegraph/workspace_graph.mjs
+index 9b411cb..4ca9543 100644
+--- a/services/retrieval/codegraph/workspace_graph.mjs
++++ b/services/retrieval/codegraph/workspace_graph.mjs
+@@ -3,6 +3,7 @@ import fs from "node:fs";
+ import path from "node:path";
+ import codegraphPackage from "@colbymchenry/codegraph";
+ import { localizeFileCall, resolveSourceOwners, sourceOwnerCalls, summarizeFileCallsToDestination, ownerSourceLayouts } from "./source_ast.mjs";
++import { reconcileCallableOwners, validateStructuralResult } from "./callable_owners.mjs";
+ 
+ const { CodeGraph, setLogger, silentLogger } = codegraphPackage;
+ 
+@@ -154,17 +155,18 @@ async function resolveRanges(args) {
+   const codegraph = await openGraph();
+   const ranges = Array.isArray(args.ranges) ? args.ranges.slice(0, 80) : [];
+   return {
+-    results: ranges.map((range) => ({
+-      file: normalizePath(range.file),
+-      line_start: Number(range.line_start || 0),
+-      line_end: Number(range.line_end || range.line_start || 0),
+-      nodes: nodesOverlappingRange(
+-        codegraph,
+-        range.file,
+-        range.line_start,
+-        range.line_end,
+-      ).slice(0, 12).map(nodePayload),
+-    })),
++    results: ranges.map((range) => {
++      const resolved = reconcileCallableOwners(projectRoot, normalizePath(range.file),
++        Number(range.line_start), Number(range.line_end || range.line_start),
++        nodesOverlappingRange(codegraph, range.file, range.line_start, range.line_end).slice(0, 12).map(nodePayload));
++      return {
++        file: normalizePath(range.file),
++        line_start: Number(range.line_start || 0),
++        line_end: Number(range.line_end || range.line_start || 0),
++        nodes: resolved.nodes,
++        ...(resolved.rejected.length ? { structural_owner_rejections: resolved.rejected } : {}),
++      };
++    }),
+   };
+ }
+ 
+@@ -693,7 +695,7 @@ for await (const line of lines) {
+       process.stdout.write(`${JSON.stringify({ id: request.id, ok: true, result: {} })}\n`);
+       break;
+     }
+-    const result = await dispatch(request.operation, request.arguments || {});
++    const result = validateStructuralResult(projectRoot, await dispatch(request.operation, request.arguments || {}));
+     process.stdout.write(`${JSON.stringify({ id: request.id, ok: true, result })}\n`);
+   } catch (error) {
+     process.stdout.write(`${JSON.stringify({ id: request?.id || "", ok: false, error: error?.stack || error?.message || String(error) })}\n`);
+diff --git a/tests/test_callable_owner_integrity.py b/tests/test_callable_owner_integrity.py
+new file mode 100644
+index 0000000..49fa105
+--- /dev/null
++++ b/tests/test_callable_owner_integrity.py
+@@ -0,0 +1,120 @@
++from __future__ import annotations
++
++import json
++from pathlib import Path
++import shutil
++import subprocess
++import tempfile
++import unittest
++
++from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import observation_from_result
++from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import select_range_candidate_owners
++
++
++class CallableOwnerIntegrityTests(unittest.TestCase):
++    def replay(self, source: str, script: str) -> dict:
++        node = shutil.which('node')
++        if not node:
++            self.skipTest('Node is unavailable')
++        root = Path(__file__).resolve().parents[1]
++        with tempfile.TemporaryDirectory() as directory:
++            Path(directory, 'owners.js').write_text(source, encoding='utf-8')
++            imports = (
++                f"import {{reconcileCallableOwners,validateStructuralResult}} from {json.dumps((root/'services/retrieval/codegraph/callable_owners.mjs').as_uri())};\n"
++                f"import {{sourceOwnerCalls}} from {json.dumps((root/'services/retrieval/codegraph/source_ast.mjs').as_uri())};\n"
++                "const root=process.argv[1];\n"
++            )
++            completed = subprocess.run([node, '--input-type=module', '-e', imports + script, directory],
++                                       capture_output=True, text=True, check=True)
++            return json.loads(completed.stdout)
++
++    def test_false_if_recovers_outer_and_keeps_its_body_and_call(self):
++        source = ('export function validateProp(value: any, vm?: Component): any {\n'
++                  '  if (value) {\n    value = false;\n  }\n'
++                  '  assertProp(value);\n  return value;\n}\n')
++        result = self.replay(source, '''
++const bad={id:'function:bad',kind:'function',name:'if',path:'owners.js',line_start:2,line_end:4};
++const resolved=reconcileCallableOwners(root,'owners.js',1,7,[bad]);
++console.log(JSON.stringify({resolved,calls:sourceOwnerCalls(null,root,resolved.nodes[0]),
++  rejectedCalls:sourceOwnerCalls(null,root,bad),
++  rejectedRoot:validateStructuralResult(root,{source:bad}),
++  otherEntries:validateStructuralResult(root,{nodes:[bad],edges:[{source:bad,target:bad}],
++    connector_paths:[{source:bad,connector:bad,target:bad}],capabilities:[{node:bad}]})}));
++''')
++        owner = result['resolved']['nodes'][0]
++        self.assertEqual((owner['name'], owner['line_start'], owner['line_end']), ('validateProp', 1, 7))
++        self.assertTrue(owner['id'].startswith('source_owner:'))
++        self.assertEqual([c['name'] for c in result['calls']['calls']], ['assertProp'])
++        self.assertEqual(result['rejectedCalls']['status'], 'failed')
++        self.assertEqual(len(result['rejectedRoot']['structural_owner_rejections']), 1)
++        for key in ['nodes', 'edges', 'connector_paths', 'capabilities']:
++            self.assertEqual(result['otherEntries'][key], [])
++        self.assertEqual(len(result['otherEntries']['structural_owner_rejections']), 1)
++        observation = observation_from_result({'path': 'owners.js', 'line_start': 1, 'line_end': 7, 'text': source},
++                                             obligation_id='why', query_id='q', rank=1, retriever='dense', nodes=[owner])[0]
++        self.assertIn('assertProp(value)', observation.observed_text)
++
++    def test_type_declaration_end_is_replaced_by_executable_end(self):
++        result = self.replay('function assertType(value: any): { valid: boolean; } {\n  return check(value);\n}\n', '''
++const bad={id:'function:bad',kind:'function',name:'assertType',path:'owners.js',line_start:1,line_end:1};
++const resolved=reconcileCallableOwners(root,'owners.js',1,3,[bad]);
++console.log(JSON.stringify({resolved,calls:sourceOwnerCalls(null,root,resolved.nodes[0])}));
++''')
++        self.assertEqual(result['resolved']['nodes'][0]['line_end'], 3)
++        self.assertEqual([c['name'] for c in result['calls']['calls']], ['check'])
++
++    def test_nested_function_retains_outer_context_and_calls_do_not_leak(self):
++        result = self.replay('function outer(value: any) {\n  function inner() {\n    child();\n  }\n  outerOnly();\n}\n', '''
++const bad={id:'function:bad',kind:'function',name:'if',path:'owners.js',line_start:3,line_end:3};
++const resolved=reconcileCallableOwners(root,'owners.js',2,4,[bad]);
++console.log(JSON.stringify({resolved,calls:resolved.nodes.map(n=>sourceOwnerCalls(null,root,n))}));
++''')
++        nodes = result['resolved']['nodes']
++        selected = select_range_candidate_owners(nodes, line_start=2, line_end=4)
++        self.assertEqual(len(selected), 1)
++        self.assertEqual(selected[0]['name'], 'inner')
++        self.assertEqual(selected[0]['outer_symbol'], 'outer')
++        self.assertEqual([[c['name'] for c in r['calls']] for r in result['calls']], [['outerOnly'], ['child']])
++
++    def test_healthy_graph_identity_unchanged_and_parse_failure_is_explicit(self):
++        result = self.replay('function valid() { return 1; }\n', '''
++const good={id:'function:good',kind:'function',name:'valid',path:'owners.js',line_start:1,line_end:1};
++console.log(JSON.stringify(reconcileCallableOwners(root,'owners.js',1,1,[good])));
++''')
++        self.assertEqual(result['nodes'][0]['id'], 'function:good')
++        self.assertEqual(result['rejected'], [])
++        result = self.replay('function broken( {\n', '''
++const bad={id:'function:bad',kind:'function',name:'broken',path:'owners.js',line_start:1,line_end:1};
++console.log(JSON.stringify(reconcileCallableOwners(root,'owners.js',1,1,[bad])));
++''')
++        self.assertEqual(result['nodes'], [])
++        self.assertEqual(result['rejected'][0]['reason'], 'source_ast_parse_failed')
++        original = 'function broken( {\n'
++        observations = observation_from_result(
++            {'path': 'owners.js', 'line_start': 1, 'line_end': 1, 'text': original},
++            obligation_id='why', query_id='q', rank=1, retriever='dense', nodes=result['nodes'])
++        self.assertEqual(observations[0].observed_text.strip(), original.strip())
++        self.assertEqual(observations[0].handle.node_id, '')
++
++    def test_recovered_handle_cannot_claim_a_different_function_or_range(self):
++        result = self.replay('function owner(value: any) { return consume(value); }\n', '''
++const bad={id:'function:bad',kind:'function',name:'if',path:'owners.js',line_start:1,line_end:1};
++const owner=reconcileCallableOwners(root,'owners.js',1,1,[bad]).nodes[0];
++console.log(JSON.stringify({results:[{line_end:2},{qualified_name:'other'},{id:owner.id+'x'}]
++  .map(change=>sourceOwnerCalls(null,root,{...owner,...change}))}));
++''')
++        self.assertTrue(all(r['status'] == 'failed' for r in result['results']))
++
++    def test_named_expression_keeps_graph_name_and_assignment_identity(self):
++        result = self.replay('module.exports = function wrapper() {\n  const Component = function Inner() {};\n  obj.get = function getter() {};\n};\n', '''
++const nodes=[['wrapper',1,4],['Inner',2,2],['getter',3,3]].map(([name,start,end])=>
++  ({id:'function:'+name,kind:'function',name,path:'owners.js',line_start:start,line_end:end}));
++console.log(JSON.stringify(reconcileCallableOwners(root,'owners.js',1,4,nodes)));
++''')
++        self.assertEqual(result['rejected'], [])
++        self.assertEqual([n['id'] for n in result['nodes']],
++                         ['function:wrapper', 'function:Inner', 'function:getter'])
++
++
++if __name__ == '__main__':
++    unittest.main()
