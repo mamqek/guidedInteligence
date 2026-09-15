@@ -1,0 +1,2276 @@
+[
+  {
+    "run": "run-20260915T012705Z",
+    "current_exact": true,
+    "current_count": 54,
+    "old_count": 116,
+    "current_chars": 60862,
+    "old_chars": 60809,
+    "current_ids": [
+      "obs_7c916dbf6e4a9627",
+      "obs_0fa4f1a86225e86b",
+      "obs_6abd501bd4a6bb9c",
+      "obs_77225362b6d6a1df",
+      "obs_2fdb3c3e4e28c2cf",
+      "obs_7f62d19ed2aa1a2b",
+      "obs_2151e0bd99d2509c",
+      "obs_17bf408d47eff68e",
+      "obs_e6e2ff69135740c6",
+      "obs_53448498cfe32c0a",
+      "obs_2bdc82622400d700",
+      "obs_f121fa3924e63073",
+      "obs_64b46e2f9b1eac61",
+      "obs_b8bf5f3e7358e696",
+      "obs_de4d233e4b26a557",
+      "obs_8be493cf714139b6",
+      "obs_b228ce6431328663",
+      "obs_4a52b7bc5c1c5b61",
+      "obs_c66ea581b495cc70",
+      "obs_324ade529d4df01b",
+      "obs_a0f44b610a19fb1e",
+      "obs_15c3b0854213a3ea",
+      "obs_399336d52f3be44d",
+      "obs_3034626b1005406c",
+      "obs_061bb65ed9e2ba3a",
+      "obs_fa99fadef73840b3",
+      "obs_d22844f18775f091",
+      "obs_fc78c25ccf1b0749",
+      "obs_bc4b6169b205f9ea",
+      "obs_4a3f6c615e3e5389",
+      "obs_f926841d05b7b285",
+      "obs_d9429cb9822b7b1a",
+      "obs_4dc8e593e050d2d8",
+      "obs_263271cc0d4a6584",
+      "obs_6bc711f0adff8ce8",
+      "obs_6c21da00a9255fe5",
+      "obs_762848be252954d9",
+      "obs_814e77fcffd238cd",
+      "obs_fc8d7580f7b1ba78",
+      "obs_39f500fb50bcf062",
+      "obs_7b1c486fa23dd505",
+      "obs_4e3a77a6ace9cf0a",
+      "obs_ca76df222b45c9e3",
+      "obs_1cf322f2445de3a5",
+      "obs_79d1b08397e8e92d",
+      "obs_b99e905f7267d725",
+      "obs_42d21231c71c459f",
+      "obs_fad223f4cdf67910",
+      "obs_cb6867c2b56fe1a1",
+      "obs_f45d7dfb2c9e12a0",
+      "obs_1904d1476a040207",
+      "obs_6af055824bcd9005",
+      "obs_ac639f6667532b4f",
+      "obs_7b50f88a3f7a75c5"
+    ],
+    "old_ids": [
+      "obs_7c916dbf6e4a9627",
+      "obs_0fa4f1a86225e86b",
+      "obs_6abd501bd4a6bb9c",
+      "obs_77225362b6d6a1df",
+      "obs_2fdb3c3e4e28c2cf",
+      "obs_7f62d19ed2aa1a2b",
+      "obs_2151e0bd99d2509c",
+      "obs_17bf408d47eff68e",
+      "obs_e6e2ff69135740c6",
+      "obs_53448498cfe32c0a",
+      "obs_2bdc82622400d700",
+      "obs_f121fa3924e63073",
+      "obs_64b46e2f9b1eac61",
+      "obs_b8bf5f3e7358e696",
+      "obs_de4d233e4b26a557",
+      "obs_8be493cf714139b6",
+      "obs_b228ce6431328663",
+      "obs_4a52b7bc5c1c5b61",
+      "obs_c66ea581b495cc70",
+      "obs_324ade529d4df01b",
+      "obs_a0f44b610a19fb1e",
+      "obs_15c3b0854213a3ea",
+      "obs_399336d52f3be44d",
+      "obs_3034626b1005406c",
+      "obs_061bb65ed9e2ba3a",
+      "obs_fa99fadef73840b3",
+      "obs_d22844f18775f091",
+      "obs_fc78c25ccf1b0749",
+      "obs_bc4b6169b205f9ea",
+      "obs_4a3f6c615e3e5389",
+      "obs_f926841d05b7b285",
+      "obs_d9429cb9822b7b1a",
+      "obs_4dc8e593e050d2d8",
+      "obs_263271cc0d4a6584",
+      "obs_6bc711f0adff8ce8",
+      "obs_6c21da00a9255fe5",
+      "obs_762848be252954d9",
+      "obs_814e77fcffd238cd",
+      "obs_fc8d7580f7b1ba78",
+      "obs_39f500fb50bcf062",
+      "obs_7b1c486fa23dd505",
+      "obs_4e3a77a6ace9cf0a",
+      "obs_ca76df222b45c9e3",
+      "obs_1cf322f2445de3a5",
+      "obs_79d1b08397e8e92d",
+      "obs_b99e905f7267d725",
+      "obs_42d21231c71c459f",
+      "obs_fad223f4cdf67910",
+      "obs_cb6867c2b56fe1a1",
+      "obs_f45d7dfb2c9e12a0",
+      "obs_1904d1476a040207",
+      "obs_6af055824bcd9005",
+      "obs_ac639f6667532b4f",
+      "obs_7b50f88a3f7a75c5",
+      "obs_14d32dcbee3570c7",
+      "obs_1b9e7dfb6fb91365",
+      "obs_96c1c9366841bdbc",
+      "obs_0a962feea450c3cc",
+      "obs_5369e5b2c59e61da",
+      "obs_aa01fc75c106e49c",
+      "obs_a7af4d140b8df634",
+      "obs_f3f94cef3e0cdea3",
+      "obs_05f9ae75bb50c332",
+      "obs_d393e081cff5ddf9",
+      "obs_9dda296c337abed3",
+      "obs_fa3a9d50329d2133",
+      "obs_624fe8c6d34bd55b",
+      "obs_80f16f196043b6db",
+      "obs_089979f9eb316a13",
+      "obs_3bdcb787f46484ed",
+      "obs_87ceeb5c9b9ed010",
+      "obs_75e72bccf4debc47",
+      "obs_b54c7436d16d5ed3",
+      "obs_a7804ab27cc4d5fe",
+      "obs_287b3bb5b366f74d",
+      "obs_62654f252105f429",
+      "obs_ac1b62c753681f3d",
+      "obs_dffec2ca21f2f36d",
+      "obs_9930321cbb5185fc",
+      "obs_95a23d9cee14c3f7",
+      "obs_c94ab360c1d25d85",
+      "obs_9bb29e6e88ab3f6a",
+      "obs_29466bd820c9a0b9",
+      "obs_c6e06f8c49363b16",
+      "obs_8a3eeeddbd796d81",
+      "obs_f8c2e23ab5b9e31d",
+      "obs_df01e35881d0e71d",
+      "obs_695f56ac8dcb31be",
+      "obs_1fd49082657e029c",
+      "obs_859d78b6bdbc628b",
+      "obs_fadcb3c732133736",
+      "obs_2ed8df68edc46d5f",
+      "obs_0c105aad2c1bfa7b",
+      "obs_bdd068535c3369e7",
+      "obs_687798966154bfae",
+      "obs_577f506ae0e3c0ac",
+      "obs_599bf5d69821180c",
+      "obs_227741d4e3758433",
+      "obs_d8037e99733227f6",
+      "obs_8cdc9720e16fa4b7",
+      "obs_43ea055e0e8defde",
+      "obs_aa17095f0156b8c0",
+      "obs_9fa5234f27536e0a",
+      "obs_b12d6242db592080",
+      "obs_e88d10aae1cae418",
+      "obs_63a540e62af58e23",
+      "obs_414d14bffcdc1ab4",
+      "obs_8588c67b861a52f4",
+      "obs_285a62102b556166",
+      "obs_d27855d3f2da6e56",
+      "obs_b8e17c0d25def85a",
+      "obs_58d49750b3c39207",
+      "obs_83fa7de45eaf5591",
+      "obs_b816a97f232c4738",
+      "obs_3d8921e6200cb9e1",
+      "obs_681a2e4948e29ddd"
+    ],
+    "additionally_admitted_with_old_renderer": [
+      {
+        "id": "obs_14d32dcbee3570c7",
+        "path": "src/compiler/codegen/index.js",
+        "symbol": "",
+        "lines": [
+          583,
+          604
+        ]
+      },
+      {
+        "id": "obs_1b9e7dfb6fb91365",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          1602,
+          1609
+        ]
+      },
+      {
+        "id": "obs_96c1c9366841bdbc",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          5741,
+          5760
+        ]
+      },
+      {
+        "id": "obs_0a962feea450c3cc",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          8459,
+          8498
+        ]
+      },
+      {
+        "id": "obs_5369e5b2c59e61da",
+        "path": "src/core/util/props.js",
+        "symbol": "isExplicable",
+        "lines": [
+          234,
+          237
+        ]
+      },
+      {
+        "id": "obs_aa01fc75c106e49c",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          7501,
+          7507
+        ]
+      },
+      {
+        "id": "obs_a7af4d140b8df634",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::prependModifier",
+        "lines": [
+          2925,
+          2927
+        ]
+      },
+      {
+        "id": "obs_f3f94cef3e0cdea3",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::transformModel",
+        "lines": [
+          3502,
+          3520
+        ]
+      },
+      {
+        "id": "obs_05f9ae75bb50c332",
+        "path": "test/unit/features/options/props.spec.js",
+        "symbol": "",
+        "lines": [
+          190,
+          229
+        ]
+      },
+      {
+        "id": "obs_d393e081cff5ddf9",
+        "path": "src/core/instance/state.js",
+        "symbol": "initMethods",
+        "lines": [
+          262,
+          288
+        ]
+      },
+      {
+        "id": "obs_9dda296c337abed3",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "",
+        "lines": [
+          860,
+          899
+        ]
+      },
+      {
+        "id": "obs_fa3a9d50329d2133",
+        "path": "test/unit/features/error-handling.spec.js",
+        "symbol": "createErrorTestComponents",
+        "lines": [
+          327,
+          366
+        ]
+      },
+      {
+        "id": "obs_624fe8c6d34bd55b",
+        "path": "test/unit/features/component/component.spec.js",
+        "symbol": "",
+        "lines": [
+          271,
+          310
+        ]
+      },
+      {
+        "id": "obs_80f16f196043b6db",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "genProps",
+        "lines": [
+          4791,
+          4809
+        ]
+      },
+      {
+        "id": "obs_089979f9eb316a13",
+        "path": "src/platforms/weex/util/parser.js",
+        "symbol": "nodeToBinding",
+        "lines": [
+          11,
+          40
+        ]
+      },
+      {
+        "id": "obs_3bdcb787f46484ed",
+        "path": "src/compiler/parser/index.js",
+        "symbol": "processAttrs",
+        "lines": [
+          788,
+          827
+        ]
+      },
+      {
+        "id": "obs_87ceeb5c9b9ed010",
+        "path": "test/unit/features/instance/properties.spec.js",
+        "symbol": "",
+        "lines": [
+          91,
+          130
+        ]
+      },
+      {
+        "id": "obs_75e72bccf4debc47",
+        "path": "src/core/instance/render-helpers/bind-dynamic-keys.js",
+        "symbol": "",
+        "lines": [
+          30,
+          35
+        ]
+      },
+      {
+        "id": "obs_b54c7436d16d5ed3",
+        "path": "test/unit/modules/compiler/parser.spec.js",
+        "symbol": "",
+        "lines": [
+          511,
+          550
+        ]
+      },
+      {
+        "id": "obs_a7804ab27cc4d5fe",
+        "path": "types/options.d.ts",
+        "symbol": "PropValidator",
+        "lines": [
+          151,
+          151
+        ]
+      },
+      {
+        "id": "obs_287b3bb5b366f74d",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          869,
+          908
+        ]
+      },
+      {
+        "id": "obs_62654f252105f429",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          1557,
+          1571
+        ]
+      },
+      {
+        "id": "obs_ac1b62c753681f3d",
+        "path": "src/core/util/props.js",
+        "symbol": "",
+        "lines": [
+          1,
+          13
+        ]
+      },
+      {
+        "id": "obs_dffec2ca21f2f36d",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          3122,
+          3161
+        ]
+      },
+      {
+        "id": "obs_9930321cbb5185fc",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          3182,
+          3221
+        ]
+      },
+      {
+        "id": "obs_95a23d9cee14c3f7",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::mustUseProp",
+        "lines": [
+          7786,
+          7788
+        ]
+      },
+      {
+        "id": "obs_c94ab360c1d25d85",
+        "path": "test/unit/features/options/props.spec.js",
+        "symbol": "",
+        "lines": [
+          61,
+          100
+        ]
+      },
+      {
+        "id": "obs_9bb29e6e88ab3f6a",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "",
+        "lines": [
+          2340,
+          2379
+        ]
+      },
+      {
+        "id": "obs_29466bd820c9a0b9",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "",
+        "lines": [
+          2400,
+          2439
+        ]
+      },
+      {
+        "id": "obs_c6e06f8c49363b16",
+        "path": "test/unit/features/error-handling.spec.js",
+        "symbol": "getErrorMsg",
+        "lines": [
+          116,
+          122
+        ]
+      },
+      {
+        "id": "obs_8a3eeeddbd796d81",
+        "path": "types/test/options-test.ts",
+        "symbol": "",
+        "lines": [
+          256,
+          295
+        ]
+      },
+      {
+        "id": "obs_f8c2e23ab5b9e31d",
+        "path": "types/test/options-test.ts",
+        "symbol": "",
+        "lines": [
+          286,
+          325
+        ]
+      },
+      {
+        "id": "obs_df01e35881d0e71d",
+        "path": "test/unit/modules/vdom/patch/edge-cases.spec.js",
+        "symbol": "",
+        "lines": [
+          391,
+          430
+        ]
+      },
+      {
+        "id": "obs_695f56ac8dcb31be",
+        "path": "src/compiler/parser/index.js",
+        "symbol": "",
+        "lines": [
+          454,
+          480
+        ]
+      },
+      {
+        "id": "obs_1fd49082657e029c",
+        "path": "src/compiler/parser/index.js",
+        "symbol": "",
+        "lines": [
+          960,
+          975
+        ]
+      },
+      {
+        "id": "obs_859d78b6bdbc628b",
+        "path": "test/unit/features/instance/properties.spec.js",
+        "symbol": "",
+        "lines": [
+          121,
+          160
+        ]
+      },
+      {
+        "id": "obs_fadcb3c732133736",
+        "path": "test/unit/features/component/component-async.spec.js",
+        "symbol": "",
+        "lines": [
+          1,
+          40
+        ]
+      },
+      {
+        "id": "obs_2ed8df68edc46d5f",
+        "path": "types/test/options-test.ts",
+        "symbol": "",
+        "lines": [
+          226,
+          265
+        ]
+      },
+      {
+        "id": "obs_0c105aad2c1bfa7b",
+        "path": "test/unit/modules/compiler/compiler-options.spec.js",
+        "symbol": "",
+        "lines": [
+          31,
+          70
+        ]
+      },
+      {
+        "id": "obs_bdd068535c3369e7",
+        "path": "test/unit/features/options/propsData.spec.js",
+        "symbol": "",
+        "lines": [
+          1,
+          30
+        ]
+      },
+      {
+        "id": "obs_687798966154bfae",
+        "path": "test/unit/features/error-handling.spec.js",
+        "symbol": "components",
+        "lines": [
+          3,
+          3
+        ]
+      },
+      {
+        "id": "obs_577f506ae0e3c0ac",
+        "path": "examples/firebase/app.js",
+        "symbol": "emailRE",
+        "lines": [
+          1,
+          1
+        ]
+      },
+      {
+        "id": "obs_599bf5d69821180c",
+        "path": "examples/firebase/app.js",
+        "symbol": "config",
+        "lines": [
+          4,
+          8
+        ]
+      },
+      {
+        "id": "obs_227741d4e3758433",
+        "path": "examples/firebase/app.js",
+        "symbol": "usersRef",
+        "lines": [
+          11,
+          11
+        ]
+      },
+      {
+        "id": "obs_d8037e99733227f6",
+        "path": "examples/firebase/app.js",
+        "symbol": "app",
+        "lines": [
+          14,
+          40
+        ]
+      },
+      {
+        "id": "obs_8cdc9720e16fa4b7",
+        "path": "types/options.d.ts",
+        "symbol": "PropType",
+        "lines": [
+          149,
+          149
+        ]
+      },
+      {
+        "id": "obs_43ea055e0e8defde",
+        "path": "src/compiler/error-detector.js",
+        "symbol": "checkEvent",
+        "lines": [
+          59,
+          70
+        ]
+      },
+      {
+        "id": "obs_aa17095f0156b8c0",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          1548,
+          1556
+        ]
+      },
+      {
+        "id": "obs_9fa5234f27536e0a",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          4235,
+          4261
+        ]
+      },
+      {
+        "id": "obs_b12d6242db592080",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          4735,
+          4751
+        ]
+      },
+      {
+        "id": "obs_e88d10aae1cae418",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          5064,
+          5086
+        ]
+      },
+      {
+        "id": "obs_63a540e62af58e23",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          7035,
+          7064
+        ]
+      },
+      {
+        "id": "obs_414d14bffcdc1ab4",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::initMethods",
+        "lines": [
+          5044,
+          5070
+        ]
+      },
+      {
+        "id": "obs_8588c67b861a52f4",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::checkComponents",
+        "lines": [
+          1390,
+          1394
+        ]
+      },
+      {
+        "id": "obs_285a62102b556166",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::validateComponentName",
+        "lines": [
+          1396,
+          1409
+        ]
+      },
+      {
+        "id": "obs_d27855d3f2da6e56",
+        "path": "src/core/instance/state.js",
+        "symbol": "sharedPropertyDefinition",
+        "lines": [
+          31,
+          36
+        ]
+      },
+      {
+        "id": "obs_b8e17c0d25def85a",
+        "path": "src/core/instance/state.js",
+        "symbol": "initComputed",
+        "lines": [
+          199,
+          208
+        ]
+      },
+      {
+        "id": "obs_58d49750b3c39207",
+        "path": "test/unit/features/options/props.spec.js",
+        "symbol": "",
+        "lines": [
+          523,
+          546
+        ]
+      },
+      {
+        "id": "obs_83fa7de45eaf5591",
+        "path": "test/helpers/to-have-been-warned.js",
+        "symbol": "createCompareFn::containsMsg",
+        "lines": [
+          26,
+          28
+        ]
+      },
+      {
+        "id": "obs_b816a97f232c4738",
+        "path": "test/helpers/to-have-been-warned.js",
+        "symbol": "",
+        "lines": [
+          56,
+          70
+        ]
+      },
+      {
+        "id": "obs_3d8921e6200cb9e1",
+        "path": "test/unit/features/instance/render-proxy.spec.js",
+        "symbol": "",
+        "lines": [
+          1,
+          40
+        ]
+      },
+      {
+        "id": "obs_681a2e4948e29ddd",
+        "path": "src/platforms/web/runtime/modules/dom-props.js",
+        "symbol": "updateDOMProps",
+        "lines": [
+          38,
+          76
+        ]
+      }
+    ]
+  },
+  {
+    "run": "run-20260915T012715Z",
+    "current_exact": true,
+    "current_count": 52,
+    "old_count": 118,
+    "current_chars": 60051,
+    "old_chars": 60319,
+    "current_ids": [
+      "obs_7c916dbf6e4a9627",
+      "obs_2fdb3c3e4e28c2cf",
+      "obs_0fa4f1a86225e86b",
+      "obs_77225362b6d6a1df",
+      "obs_8be493cf714139b6",
+      "obs_7f62d19ed2aa1a2b",
+      "obs_f121fa3924e63073",
+      "obs_64b46e2f9b1eac61",
+      "obs_b8bf5f3e7358e696",
+      "obs_de4d233e4b26a557",
+      "obs_fc78c25ccf1b0749",
+      "obs_2151e0bd99d2509c",
+      "obs_e6e2ff69135740c6",
+      "obs_53448498cfe32c0a",
+      "obs_ca76df222b45c9e3",
+      "obs_2bdc82622400d700",
+      "obs_b228ce6431328663",
+      "obs_6abd501bd4a6bb9c",
+      "obs_4a52b7bc5c1c5b61",
+      "obs_c66ea581b495cc70",
+      "obs_3034626b1005406c",
+      "obs_fa99fadef73840b3",
+      "obs_d22844f18775f091",
+      "obs_4dc8e593e050d2d8",
+      "obs_1904d1476a040207",
+      "obs_263271cc0d4a6584",
+      "obs_aa01fc75c106e49c",
+      "obs_324ade529d4df01b",
+      "obs_17bf408d47eff68e",
+      "obs_a7af4d140b8df634",
+      "obs_a0f44b610a19fb1e",
+      "obs_15c3b0854213a3ea",
+      "obs_399336d52f3be44d",
+      "obs_061bb65ed9e2ba3a",
+      "obs_d9429cb9822b7b1a",
+      "obs_fa3a9d50329d2133",
+      "obs_75e72bccf4debc47",
+      "obs_7b50f88a3f7a75c5",
+      "obs_6af055824bcd9005",
+      "obs_1cf322f2445de3a5",
+      "obs_bc4b6169b205f9ea",
+      "obs_fad223f4cdf67910",
+      "obs_4a3f6c615e3e5389",
+      "obs_79d1b08397e8e92d",
+      "obs_d8037e99733227f6",
+      "obs_6bc711f0adff8ce8",
+      "obs_ac1b62c753681f3d",
+      "obs_9930321cbb5185fc",
+      "obs_dffec2ca21f2f36d",
+      "obs_0a962feea450c3cc",
+      "obs_b99e905f7267d725",
+      "obs_f926841d05b7b285"
+    ],
+    "old_ids": [
+      "obs_7c916dbf6e4a9627",
+      "obs_2fdb3c3e4e28c2cf",
+      "obs_0fa4f1a86225e86b",
+      "obs_77225362b6d6a1df",
+      "obs_8be493cf714139b6",
+      "obs_7f62d19ed2aa1a2b",
+      "obs_f121fa3924e63073",
+      "obs_64b46e2f9b1eac61",
+      "obs_b8bf5f3e7358e696",
+      "obs_de4d233e4b26a557",
+      "obs_fc78c25ccf1b0749",
+      "obs_2151e0bd99d2509c",
+      "obs_e6e2ff69135740c6",
+      "obs_53448498cfe32c0a",
+      "obs_ca76df222b45c9e3",
+      "obs_2bdc82622400d700",
+      "obs_b228ce6431328663",
+      "obs_6abd501bd4a6bb9c",
+      "obs_4a52b7bc5c1c5b61",
+      "obs_c66ea581b495cc70",
+      "obs_3034626b1005406c",
+      "obs_fa99fadef73840b3",
+      "obs_d22844f18775f091",
+      "obs_4dc8e593e050d2d8",
+      "obs_1904d1476a040207",
+      "obs_263271cc0d4a6584",
+      "obs_aa01fc75c106e49c",
+      "obs_324ade529d4df01b",
+      "obs_17bf408d47eff68e",
+      "obs_a7af4d140b8df634",
+      "obs_a0f44b610a19fb1e",
+      "obs_15c3b0854213a3ea",
+      "obs_399336d52f3be44d",
+      "obs_061bb65ed9e2ba3a",
+      "obs_d9429cb9822b7b1a",
+      "obs_fa3a9d50329d2133",
+      "obs_75e72bccf4debc47",
+      "obs_7b50f88a3f7a75c5",
+      "obs_6af055824bcd9005",
+      "obs_1cf322f2445de3a5",
+      "obs_bc4b6169b205f9ea",
+      "obs_fad223f4cdf67910",
+      "obs_4a3f6c615e3e5389",
+      "obs_79d1b08397e8e92d",
+      "obs_d8037e99733227f6",
+      "obs_6bc711f0adff8ce8",
+      "obs_ac1b62c753681f3d",
+      "obs_9930321cbb5185fc",
+      "obs_dffec2ca21f2f36d",
+      "obs_0a962feea450c3cc",
+      "obs_b99e905f7267d725",
+      "obs_f926841d05b7b285",
+      "obs_05f9ae75bb50c332",
+      "obs_cb6867c2b56fe1a1",
+      "obs_9bb29e6e88ab3f6a",
+      "obs_29466bd820c9a0b9",
+      "obs_577f506ae0e3c0ac",
+      "obs_599bf5d69821180c",
+      "obs_227741d4e3758433",
+      "obs_624fe8c6d34bd55b",
+      "obs_3bdcb787f46484ed",
+      "obs_1fd49082657e029c",
+      "obs_fadcb3c732133736",
+      "obs_a7804ab27cc4d5fe",
+      "obs_0101cb95acce7273",
+      "obs_4e3a77a6ace9cf0a",
+      "obs_5369e5b2c59e61da",
+      "obs_0f458ad7ced06dd4",
+      "obs_285a62102b556166",
+      "obs_1b9e7dfb6fb91365",
+      "obs_b12d6242db592080",
+      "obs_287b3bb5b366f74d",
+      "obs_62654f252105f429",
+      "obs_11721189e9cd921e",
+      "obs_f3f94cef3e0cdea3",
+      "obs_f45d7dfb2c9e12a0",
+      "obs_42d21231c71c459f",
+      "obs_687798966154bfae",
+      "obs_ac639f6667532b4f",
+      "obs_695f56ac8dcb31be",
+      "obs_87248259170f88e2",
+      "obs_bf989fe1efc2e2b8",
+      "obs_7f8e3ea83e1fb989",
+      "obs_86d1a9ed748a20e2",
+      "obs_0c105aad2c1bfa7b",
+      "obs_1024fe1e5535a023",
+      "obs_724997542d3e95d1",
+      "obs_14d32dcbee3570c7",
+      "obs_83fa7de45eaf5591",
+      "obs_6c21da00a9255fe5",
+      "obs_762848be252954d9",
+      "obs_814e77fcffd238cd",
+      "obs_fc8d7580f7b1ba78",
+      "obs_39f500fb50bcf062",
+      "obs_7b1c486fa23dd505",
+      "obs_bdd068535c3369e7",
+      "obs_2ed8df68edc46d5f",
+      "obs_0c5ef847bc1e7791",
+      "obs_8588c67b861a52f4",
+      "obs_41d5de5916d8c69b",
+      "obs_aa17095f0156b8c0",
+      "obs_96c1c9366841bdbc",
+      "obs_9f52c96e7ff75bb7",
+      "obs_9fa5234f27536e0a",
+      "obs_2917bb049419d102",
+      "obs_262cd720d6e5700c",
+      "obs_1e2a998347817be7",
+      "obs_810799f04cb2be67",
+      "obs_76f61fa6647e9d85",
+      "obs_414d14bffcdc1ab4",
+      "obs_d27855d3f2da6e56",
+      "obs_6f870fe7ce2c826b",
+      "obs_f3c96e491e14d917",
+      "obs_58d49750b3c39207",
+      "obs_d393e081cff5ddf9",
+      "obs_f30b627ba9eb38a1",
+      "obs_9dda296c337abed3",
+      "obs_3568709d43c89694"
+    ],
+    "additionally_admitted_with_old_renderer": [
+      {
+        "id": "obs_05f9ae75bb50c332",
+        "path": "test/unit/features/options/props.spec.js",
+        "symbol": "",
+        "lines": [
+          190,
+          229
+        ]
+      },
+      {
+        "id": "obs_cb6867c2b56fe1a1",
+        "path": "src/core/vdom/create-component.js",
+        "symbol": "transformModel",
+        "lines": [
+          250,
+          268
+        ]
+      },
+      {
+        "id": "obs_9bb29e6e88ab3f6a",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "",
+        "lines": [
+          2340,
+          2379
+        ]
+      },
+      {
+        "id": "obs_29466bd820c9a0b9",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "",
+        "lines": [
+          2400,
+          2439
+        ]
+      },
+      {
+        "id": "obs_577f506ae0e3c0ac",
+        "path": "examples/firebase/app.js",
+        "symbol": "emailRE",
+        "lines": [
+          1,
+          1
+        ]
+      },
+      {
+        "id": "obs_599bf5d69821180c",
+        "path": "examples/firebase/app.js",
+        "symbol": "config",
+        "lines": [
+          4,
+          8
+        ]
+      },
+      {
+        "id": "obs_227741d4e3758433",
+        "path": "examples/firebase/app.js",
+        "symbol": "usersRef",
+        "lines": [
+          11,
+          11
+        ]
+      },
+      {
+        "id": "obs_624fe8c6d34bd55b",
+        "path": "test/unit/features/component/component.spec.js",
+        "symbol": "",
+        "lines": [
+          271,
+          310
+        ]
+      },
+      {
+        "id": "obs_3bdcb787f46484ed",
+        "path": "src/compiler/parser/index.js",
+        "symbol": "processAttrs",
+        "lines": [
+          788,
+          827
+        ]
+      },
+      {
+        "id": "obs_1fd49082657e029c",
+        "path": "src/compiler/parser/index.js",
+        "symbol": "",
+        "lines": [
+          960,
+          975
+        ]
+      },
+      {
+        "id": "obs_fadcb3c732133736",
+        "path": "test/unit/features/component/component-async.spec.js",
+        "symbol": "",
+        "lines": [
+          1,
+          40
+        ]
+      },
+      {
+        "id": "obs_a7804ab27cc4d5fe",
+        "path": "types/options.d.ts",
+        "symbol": "PropValidator",
+        "lines": [
+          151,
+          151
+        ]
+      },
+      {
+        "id": "obs_0101cb95acce7273",
+        "path": "src/compiler/helpers.js",
+        "symbol": "",
+        "lines": [
+          63,
+          68
+        ]
+      },
+      {
+        "id": "obs_4e3a77a6ace9cf0a",
+        "path": "src/core/util/props.js",
+        "symbol": "",
+        "lines": [
+          15,
+          20
+        ]
+      },
+      {
+        "id": "obs_5369e5b2c59e61da",
+        "path": "src/core/util/props.js",
+        "symbol": "isExplicable",
+        "lines": [
+          234,
+          237
+        ]
+      },
+      {
+        "id": "obs_0f458ad7ced06dd4",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          95,
+          103
+        ]
+      },
+      {
+        "id": "obs_285a62102b556166",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::validateComponentName",
+        "lines": [
+          1396,
+          1409
+        ]
+      },
+      {
+        "id": "obs_1b9e7dfb6fb91365",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          1602,
+          1609
+        ]
+      },
+      {
+        "id": "obs_b12d6242db592080",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          4735,
+          4751
+        ]
+      },
+      {
+        "id": "obs_287b3bb5b366f74d",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          869,
+          908
+        ]
+      },
+      {
+        "id": "obs_62654f252105f429",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          1557,
+          1571
+        ]
+      },
+      {
+        "id": "obs_11721189e9cd921e",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::toNumber",
+        "lines": [
+          103,
+          106
+        ]
+      },
+      {
+        "id": "obs_f3f94cef3e0cdea3",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::transformModel",
+        "lines": [
+          3502,
+          3520
+        ]
+      },
+      {
+        "id": "obs_f45d7dfb2c9e12a0",
+        "path": "test/unit/features/options/props.spec.js",
+        "symbol": "",
+        "lines": [
+          307,
+          346
+        ]
+      },
+      {
+        "id": "obs_42d21231c71c459f",
+        "path": "test/unit/features/options/props.spec.js",
+        "symbol": "",
+        "lines": [
+          367,
+          393
+        ]
+      },
+      {
+        "id": "obs_687798966154bfae",
+        "path": "test/unit/features/error-handling.spec.js",
+        "symbol": "components",
+        "lines": [
+          3,
+          3
+        ]
+      },
+      {
+        "id": "obs_ac639f6667532b4f",
+        "path": "test/unit/features/component/component.spec.js",
+        "symbol": "",
+        "lines": [
+          241,
+          280
+        ]
+      },
+      {
+        "id": "obs_695f56ac8dcb31be",
+        "path": "src/compiler/parser/index.js",
+        "symbol": "",
+        "lines": [
+          454,
+          480
+        ]
+      },
+      {
+        "id": "obs_87248259170f88e2",
+        "path": "types/options.d.ts",
+        "symbol": "Accessors",
+        "lines": [
+          42,
+          44
+        ]
+      },
+      {
+        "id": "obs_bf989fe1efc2e2b8",
+        "path": "test/weex/cases/recycle-list/components/stateful-v-model.vdom.js",
+        "symbol": "",
+        "lines": [
+          16,
+          23
+        ]
+      },
+      {
+        "id": "obs_7f8e3ea83e1fb989",
+        "path": "test/unit/features/options/errorCaptured.spec.js",
+        "symbol": "",
+        "lines": [
+          181,
+          220
+        ]
+      },
+      {
+        "id": "obs_86d1a9ed748a20e2",
+        "path": "src/shared/util.js",
+        "symbol": "n",
+        "lines": [
+          98,
+          98
+        ]
+      },
+      {
+        "id": "obs_0c105aad2c1bfa7b",
+        "path": "test/unit/modules/compiler/compiler-options.spec.js",
+        "symbol": "",
+        "lines": [
+          31,
+          70
+        ]
+      },
+      {
+        "id": "obs_1024fe1e5535a023",
+        "path": "test/unit/modules/vdom/modules/dom-props.spec.js",
+        "symbol": "",
+        "lines": [
+          31,
+          70
+        ]
+      },
+      {
+        "id": "obs_724997542d3e95d1",
+        "path": "test/unit/modules/compiler/compiler-options.spec.js",
+        "symbol": "",
+        "lines": [
+          91,
+          130
+        ]
+      },
+      {
+        "id": "obs_14d32dcbee3570c7",
+        "path": "src/compiler/codegen/index.js",
+        "symbol": "",
+        "lines": [
+          583,
+          604
+        ]
+      },
+      {
+        "id": "obs_83fa7de45eaf5591",
+        "path": "test/helpers/to-have-been-warned.js",
+        "symbol": "createCompareFn::containsMsg",
+        "lines": [
+          26,
+          28
+        ]
+      },
+      {
+        "id": "obs_6c21da00a9255fe5",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "cssVarRE",
+        "lines": [
+          6,
+          6
+        ]
+      },
+      {
+        "id": "obs_762848be252954d9",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "importantRE",
+        "lines": [
+          7,
+          7
+        ]
+      },
+      {
+        "id": "obs_814e77fcffd238cd",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "setProp",
+        "lines": [
+          8,
+          27
+        ]
+      },
+      {
+        "id": "obs_fc8d7580f7b1ba78",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "vendorNames",
+        "lines": [
+          29,
+          29
+        ]
+      },
+      {
+        "id": "obs_39f500fb50bcf062",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "emptyStyle",
+        "lines": [
+          31,
+          31
+        ]
+      },
+      {
+        "id": "obs_7b1c486fa23dd505",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "normalize",
+        "lines": [
+          32,
+          40
+        ]
+      },
+      {
+        "id": "obs_bdd068535c3369e7",
+        "path": "test/unit/features/options/propsData.spec.js",
+        "symbol": "",
+        "lines": [
+          1,
+          30
+        ]
+      },
+      {
+        "id": "obs_2ed8df68edc46d5f",
+        "path": "types/test/options-test.ts",
+        "symbol": "",
+        "lines": [
+          226,
+          265
+        ]
+      },
+      {
+        "id": "obs_0c5ef847bc1e7791",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          2760,
+          2765
+        ]
+      },
+      {
+        "id": "obs_8588c67b861a52f4",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::checkComponents",
+        "lines": [
+          1390,
+          1394
+        ]
+      },
+      {
+        "id": "obs_41d5de5916d8c69b",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          309,
+          320
+        ]
+      },
+      {
+        "id": "obs_aa17095f0156b8c0",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          1548,
+          1556
+        ]
+      },
+      {
+        "id": "obs_96c1c9366841bdbc",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          5741,
+          5760
+        ]
+      },
+      {
+        "id": "obs_9f52c96e7ff75bb7",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::looseIndexOf",
+        "lines": [
+          322,
+          327
+        ]
+      },
+      {
+        "id": "obs_9fa5234f27536e0a",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          4235,
+          4261
+        ]
+      },
+      {
+        "id": "obs_2917bb049419d102",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          6295,
+          6307
+        ]
+      },
+      {
+        "id": "obs_262cd720d6e5700c",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::cleanupDeps",
+        "lines": [
+          4716,
+          4723
+        ]
+      },
+      {
+        "id": "obs_1e2a998347817be7",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::update",
+        "lines": [
+          4729,
+          4738
+        ]
+      },
+      {
+        "id": "obs_810799f04cb2be67",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::run",
+        "lines": [
+          4744,
+          4755
+        ]
+      },
+      {
+        "id": "obs_76f61fa6647e9d85",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::resetSchedulerState",
+        "lines": [
+          4435,
+          4442
+        ]
+      },
+      {
+        "id": "obs_414d14bffcdc1ab4",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::initMethods",
+        "lines": [
+          5044,
+          5070
+        ]
+      },
+      {
+        "id": "obs_d27855d3f2da6e56",
+        "path": "src/core/instance/state.js",
+        "symbol": "sharedPropertyDefinition",
+        "lines": [
+          31,
+          36
+        ]
+      },
+      {
+        "id": "obs_6f870fe7ce2c826b",
+        "path": "src/core/instance/state.js",
+        "symbol": "dataDef",
+        "lines": [
+          323,
+          323
+        ]
+      },
+      {
+        "id": "obs_f3c96e491e14d917",
+        "path": "src/core/instance/state.js",
+        "symbol": "propsDef",
+        "lines": [
+          325,
+          325
+        ]
+      },
+      {
+        "id": "obs_58d49750b3c39207",
+        "path": "test/unit/features/options/props.spec.js",
+        "symbol": "",
+        "lines": [
+          523,
+          546
+        ]
+      },
+      {
+        "id": "obs_d393e081cff5ddf9",
+        "path": "src/core/instance/state.js",
+        "symbol": "initMethods",
+        "lines": [
+          262,
+          288
+        ]
+      },
+      {
+        "id": "obs_f30b627ba9eb38a1",
+        "path": "test/unit/features/error-handling.spec.js",
+        "symbol": "",
+        "lines": [
+          31,
+          70
+        ]
+      },
+      {
+        "id": "obs_9dda296c337abed3",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "",
+        "lines": [
+          860,
+          899
+        ]
+      },
+      {
+        "id": "obs_3568709d43c89694",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "prependModifierMarker",
+        "lines": [
+          1963,
+          1967
+        ]
+      }
+    ]
+  },
+  {
+    "run": "run-20260915T012726Z",
+    "current_exact": true,
+    "current_count": 55,
+    "old_count": 118,
+    "current_chars": 61533,
+    "old_chars": 60473,
+    "current_ids": [
+      "obs_2fdb3c3e4e28c2cf",
+      "obs_7c916dbf6e4a9627",
+      "obs_0fa4f1a86225e86b",
+      "obs_a0f44b610a19fb1e",
+      "obs_6abd501bd4a6bb9c",
+      "obs_7f62d19ed2aa1a2b",
+      "obs_77225362b6d6a1df",
+      "obs_f121fa3924e63073",
+      "obs_64b46e2f9b1eac61",
+      "obs_b8bf5f3e7358e696",
+      "obs_de4d233e4b26a557",
+      "obs_2151e0bd99d2509c",
+      "obs_e6e2ff69135740c6",
+      "obs_53448498cfe32c0a",
+      "obs_ca76df222b45c9e3",
+      "obs_2bdc82622400d700",
+      "obs_b228ce6431328663",
+      "obs_4a52b7bc5c1c5b61",
+      "obs_c66ea581b495cc70",
+      "obs_15c3b0854213a3ea",
+      "obs_bc4b6169b205f9ea",
+      "obs_399336d52f3be44d",
+      "obs_4a3f6c615e3e5389",
+      "obs_3034626b1005406c",
+      "obs_1904d1476a040207",
+      "obs_577f506ae0e3c0ac",
+      "obs_599bf5d69821180c",
+      "obs_227741d4e3758433",
+      "obs_d8037e99733227f6",
+      "obs_d22844f18775f091",
+      "obs_263271cc0d4a6584",
+      "obs_dffec2ca21f2f36d",
+      "obs_aa01fc75c106e49c",
+      "obs_a7af4d140b8df634",
+      "obs_324ade529d4df01b",
+      "obs_79d1b08397e8e92d",
+      "obs_061bb65ed9e2ba3a",
+      "obs_d9429cb9822b7b1a",
+      "obs_17bf408d47eff68e",
+      "obs_9bb29e6e88ab3f6a",
+      "obs_fa99fadef73840b3",
+      "obs_75e72bccf4debc47",
+      "obs_05f9ae75bb50c332",
+      "obs_b99e905f7267d725",
+      "obs_fad223f4cdf67910",
+      "obs_f926841d05b7b285",
+      "obs_fa3a9d50329d2133",
+      "obs_624fe8c6d34bd55b",
+      "obs_0c105aad2c1bfa7b",
+      "obs_edaee17ddc2fad44",
+      "obs_8a3eeeddbd796d81",
+      "obs_a7804ab27cc4d5fe",
+      "obs_cc60a0e389f139d9",
+      "obs_83fa7de45eaf5591",
+      "obs_6bc711f0adff8ce8"
+    ],
+    "old_ids": [
+      "obs_2fdb3c3e4e28c2cf",
+      "obs_7c916dbf6e4a9627",
+      "obs_0fa4f1a86225e86b",
+      "obs_a0f44b610a19fb1e",
+      "obs_6abd501bd4a6bb9c",
+      "obs_7f62d19ed2aa1a2b",
+      "obs_77225362b6d6a1df",
+      "obs_f121fa3924e63073",
+      "obs_64b46e2f9b1eac61",
+      "obs_b8bf5f3e7358e696",
+      "obs_de4d233e4b26a557",
+      "obs_2151e0bd99d2509c",
+      "obs_e6e2ff69135740c6",
+      "obs_53448498cfe32c0a",
+      "obs_ca76df222b45c9e3",
+      "obs_2bdc82622400d700",
+      "obs_b228ce6431328663",
+      "obs_4a52b7bc5c1c5b61",
+      "obs_c66ea581b495cc70",
+      "obs_15c3b0854213a3ea",
+      "obs_bc4b6169b205f9ea",
+      "obs_399336d52f3be44d",
+      "obs_4a3f6c615e3e5389",
+      "obs_3034626b1005406c",
+      "obs_1904d1476a040207",
+      "obs_577f506ae0e3c0ac",
+      "obs_599bf5d69821180c",
+      "obs_227741d4e3758433",
+      "obs_d8037e99733227f6",
+      "obs_d22844f18775f091",
+      "obs_263271cc0d4a6584",
+      "obs_dffec2ca21f2f36d",
+      "obs_aa01fc75c106e49c",
+      "obs_a7af4d140b8df634",
+      "obs_324ade529d4df01b",
+      "obs_79d1b08397e8e92d",
+      "obs_061bb65ed9e2ba3a",
+      "obs_d9429cb9822b7b1a",
+      "obs_17bf408d47eff68e",
+      "obs_9bb29e6e88ab3f6a",
+      "obs_fa99fadef73840b3",
+      "obs_75e72bccf4debc47",
+      "obs_05f9ae75bb50c332",
+      "obs_b99e905f7267d725",
+      "obs_fad223f4cdf67910",
+      "obs_f926841d05b7b285",
+      "obs_fa3a9d50329d2133",
+      "obs_624fe8c6d34bd55b",
+      "obs_0c105aad2c1bfa7b",
+      "obs_edaee17ddc2fad44",
+      "obs_8a3eeeddbd796d81",
+      "obs_a7804ab27cc4d5fe",
+      "obs_cc60a0e389f139d9",
+      "obs_83fa7de45eaf5591",
+      "obs_6bc711f0adff8ce8",
+      "obs_7d2aba38d154547c",
+      "obs_fadcb3c732133736",
+      "obs_ac1b62c753681f3d",
+      "obs_4e3a77a6ace9cf0a",
+      "obs_fc78c25ccf1b0749",
+      "obs_1cf322f2445de3a5",
+      "obs_5369e5b2c59e61da",
+      "obs_f45d7dfb2c9e12a0",
+      "obs_58d49750b3c39207",
+      "obs_4dc8e593e050d2d8",
+      "obs_687798966154bfae",
+      "obs_0101cb95acce7273",
+      "obs_ac639f6667532b4f",
+      "obs_2ed8df68edc46d5f",
+      "obs_87ceeb5c9b9ed010",
+      "obs_6af055824bcd9005",
+      "obs_6c21da00a9255fe5",
+      "obs_762848be252954d9",
+      "obs_814e77fcffd238cd",
+      "obs_fc8d7580f7b1ba78",
+      "obs_39f500fb50bcf062",
+      "obs_7b1c486fa23dd505",
+      "obs_0f458ad7ced06dd4",
+      "obs_9930321cbb5185fc",
+      "obs_8be493cf714139b6",
+      "obs_f3f94cef3e0cdea3",
+      "obs_62654f252105f429",
+      "obs_0a962feea450c3cc",
+      "obs_0c5ef847bc1e7791",
+      "obs_11721189e9cd921e",
+      "obs_3568709d43c89694",
+      "obs_29466bd820c9a0b9",
+      "obs_cb6867c2b56fe1a1",
+      "obs_d393e081cff5ddf9",
+      "obs_f30b627ba9eb38a1",
+      "obs_5cb5c857342569cb",
+      "obs_724997542d3e95d1",
+      "obs_c0dd49000ac41855",
+      "obs_859d78b6bdbc628b",
+      "obs_695f56ac8dcb31be",
+      "obs_3bdcb787f46484ed",
+      "obs_e2a6f3966a53a81a",
+      "obs_e7dad798084ce636",
+      "obs_bdd068535c3369e7",
+      "obs_d25b9355212f3a66",
+      "obs_86d1a9ed748a20e2",
+      "obs_f6a82e9ac1b0dae1",
+      "obs_b1b81064b9074f5a",
+      "obs_b12d6242db592080",
+      "obs_8588c67b861a52f4",
+      "obs_285a62102b556166",
+      "obs_aa17095f0156b8c0",
+      "obs_262cd720d6e5700c",
+      "obs_1e2a998347817be7",
+      "obs_810799f04cb2be67",
+      "obs_41d5de5916d8c69b",
+      "obs_1b9e7dfb6fb91365",
+      "obs_1625fce87f9b5d8b",
+      "obs_76f61fa6647e9d85",
+      "obs_9f52c96e7ff75bb7",
+      "obs_c94ab360c1d25d85",
+      "obs_f040b781e6110301",
+      "obs_4f4976b4103a7df0"
+    ],
+    "additionally_admitted_with_old_renderer": [
+      {
+        "id": "obs_7d2aba38d154547c",
+        "path": "src/core/util/options.js",
+        "symbol": "",
+        "lines": [
+          294,
+          331
+        ]
+      },
+      {
+        "id": "obs_fadcb3c732133736",
+        "path": "test/unit/features/component/component-async.spec.js",
+        "symbol": "",
+        "lines": [
+          1,
+          40
+        ]
+      },
+      {
+        "id": "obs_ac1b62c753681f3d",
+        "path": "src/core/util/props.js",
+        "symbol": "",
+        "lines": [
+          1,
+          13
+        ]
+      },
+      {
+        "id": "obs_4e3a77a6ace9cf0a",
+        "path": "src/core/util/props.js",
+        "symbol": "",
+        "lines": [
+          15,
+          20
+        ]
+      },
+      {
+        "id": "obs_fc78c25ccf1b0749",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          839,
+          878
+        ]
+      },
+      {
+        "id": "obs_1cf322f2445de3a5",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::normalizeProps",
+        "lines": [
+          1441,
+          1447
+        ]
+      },
+      {
+        "id": "obs_5369e5b2c59e61da",
+        "path": "src/core/util/props.js",
+        "symbol": "isExplicable",
+        "lines": [
+          234,
+          237
+        ]
+      },
+      {
+        "id": "obs_f45d7dfb2c9e12a0",
+        "path": "test/unit/features/options/props.spec.js",
+        "symbol": "",
+        "lines": [
+          307,
+          346
+        ]
+      },
+      {
+        "id": "obs_58d49750b3c39207",
+        "path": "test/unit/features/options/props.spec.js",
+        "symbol": "",
+        "lines": [
+          523,
+          546
+        ]
+      },
+      {
+        "id": "obs_4dc8e593e050d2d8",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "",
+        "lines": [
+          890,
+          929
+        ]
+      },
+      {
+        "id": "obs_687798966154bfae",
+        "path": "test/unit/features/error-handling.spec.js",
+        "symbol": "components",
+        "lines": [
+          3,
+          3
+        ]
+      },
+      {
+        "id": "obs_0101cb95acce7273",
+        "path": "src/compiler/helpers.js",
+        "symbol": "",
+        "lines": [
+          63,
+          68
+        ]
+      },
+      {
+        "id": "obs_ac639f6667532b4f",
+        "path": "test/unit/features/component/component.spec.js",
+        "symbol": "",
+        "lines": [
+          241,
+          280
+        ]
+      },
+      {
+        "id": "obs_2ed8df68edc46d5f",
+        "path": "types/test/options-test.ts",
+        "symbol": "",
+        "lines": [
+          226,
+          265
+        ]
+      },
+      {
+        "id": "obs_87ceeb5c9b9ed010",
+        "path": "test/unit/features/instance/properties.spec.js",
+        "symbol": "",
+        "lines": [
+          91,
+          130
+        ]
+      },
+      {
+        "id": "obs_6af055824bcd9005",
+        "path": "src/core/config.js",
+        "symbol": "",
+        "lines": [
+          71,
+          110
+        ]
+      },
+      {
+        "id": "obs_6c21da00a9255fe5",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "cssVarRE",
+        "lines": [
+          6,
+          6
+        ]
+      },
+      {
+        "id": "obs_762848be252954d9",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "importantRE",
+        "lines": [
+          7,
+          7
+        ]
+      },
+      {
+        "id": "obs_814e77fcffd238cd",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "setProp",
+        "lines": [
+          8,
+          27
+        ]
+      },
+      {
+        "id": "obs_fc8d7580f7b1ba78",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "vendorNames",
+        "lines": [
+          29,
+          29
+        ]
+      },
+      {
+        "id": "obs_39f500fb50bcf062",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "emptyStyle",
+        "lines": [
+          31,
+          31
+        ]
+      },
+      {
+        "id": "obs_7b1c486fa23dd505",
+        "path": "src/platforms/web/runtime/modules/style.js",
+        "symbol": "normalize",
+        "lines": [
+          32,
+          40
+        ]
+      },
+      {
+        "id": "obs_0f458ad7ced06dd4",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          95,
+          103
+        ]
+      },
+      {
+        "id": "obs_9930321cbb5185fc",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          3182,
+          3221
+        ]
+      },
+      {
+        "id": "obs_8be493cf714139b6",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory",
+        "lines": [
+          419,
+          458
+        ]
+      },
+      {
+        "id": "obs_f3f94cef3e0cdea3",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::transformModel",
+        "lines": [
+          3502,
+          3520
+        ]
+      },
+      {
+        "id": "obs_62654f252105f429",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          1557,
+          1571
+        ]
+      },
+      {
+        "id": "obs_0a962feea450c3cc",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          8459,
+          8498
+        ]
+      },
+      {
+        "id": "obs_0c5ef847bc1e7791",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          2760,
+          2765
+        ]
+      },
+      {
+        "id": "obs_11721189e9cd921e",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::toNumber",
+        "lines": [
+          103,
+          106
+        ]
+      },
+      {
+        "id": "obs_3568709d43c89694",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "prependModifierMarker",
+        "lines": [
+          1963,
+          1967
+        ]
+      },
+      {
+        "id": "obs_29466bd820c9a0b9",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "",
+        "lines": [
+          2400,
+          2439
+        ]
+      },
+      {
+        "id": "obs_cb6867c2b56fe1a1",
+        "path": "src/core/vdom/create-component.js",
+        "symbol": "transformModel",
+        "lines": [
+          250,
+          268
+        ]
+      },
+      {
+        "id": "obs_d393e081cff5ddf9",
+        "path": "src/core/instance/state.js",
+        "symbol": "initMethods",
+        "lines": [
+          262,
+          288
+        ]
+      },
+      {
+        "id": "obs_f30b627ba9eb38a1",
+        "path": "test/unit/features/error-handling.spec.js",
+        "symbol": "",
+        "lines": [
+          31,
+          70
+        ]
+      },
+      {
+        "id": "obs_5cb5c857342569cb",
+        "path": "test/unit/modules/compiler/compiler-options.spec.js",
+        "symbol": "",
+        "lines": [
+          61,
+          100
+        ]
+      },
+      {
+        "id": "obs_724997542d3e95d1",
+        "path": "test/unit/modules/compiler/compiler-options.spec.js",
+        "symbol": "",
+        "lines": [
+          91,
+          130
+        ]
+      },
+      {
+        "id": "obs_c0dd49000ac41855",
+        "path": "types/options.d.ts",
+        "symbol": "PropOptions",
+        "lines": [
+          154,
+          158
+        ]
+      },
+      {
+        "id": "obs_859d78b6bdbc628b",
+        "path": "test/unit/features/instance/properties.spec.js",
+        "symbol": "",
+        "lines": [
+          121,
+          160
+        ]
+      },
+      {
+        "id": "obs_695f56ac8dcb31be",
+        "path": "src/compiler/parser/index.js",
+        "symbol": "",
+        "lines": [
+          454,
+          480
+        ]
+      },
+      {
+        "id": "obs_3bdcb787f46484ed",
+        "path": "src/compiler/parser/index.js",
+        "symbol": "processAttrs",
+        "lines": [
+          788,
+          827
+        ]
+      },
+      {
+        "id": "obs_e2a6f3966a53a81a",
+        "path": "test/unit/features/options/functional.spec.js",
+        "symbol": "",
+        "lines": [
+          121,
+          160
+        ]
+      },
+      {
+        "id": "obs_e7dad798084ce636",
+        "path": "test/unit/features/options/functional.spec.js",
+        "symbol": "",
+        "lines": [
+          151,
+          190
+        ]
+      },
+      {
+        "id": "obs_bdd068535c3369e7",
+        "path": "test/unit/features/options/propsData.spec.js",
+        "symbol": "",
+        "lines": [
+          1,
+          30
+        ]
+      },
+      {
+        "id": "obs_d25b9355212f3a66",
+        "path": "examples/firebase/index.html",
+        "symbol": "",
+        "lines": [
+          1,
+          35
+        ]
+      },
+      {
+        "id": "obs_86d1a9ed748a20e2",
+        "path": "src/shared/util.js",
+        "symbol": "n",
+        "lines": [
+          98,
+          98
+        ]
+      },
+      {
+        "id": "obs_f6a82e9ac1b0dae1",
+        "path": "test/ssr/ssr-string.spec.js",
+        "symbol": "",
+        "lines": [
+          939,
+          955
+        ]
+      },
+      {
+        "id": "obs_b1b81064b9074f5a",
+        "path": "src/core/util/props.js",
+        "symbol": "",
+        "lines": [
+          14,
+          14
+        ]
+      },
+      {
+        "id": "obs_b12d6242db592080",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          4735,
+          4751
+        ]
+      },
+      {
+        "id": "obs_8588c67b861a52f4",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::checkComponents",
+        "lines": [
+          1390,
+          1394
+        ]
+      },
+      {
+        "id": "obs_285a62102b556166",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::validateComponentName",
+        "lines": [
+          1396,
+          1409
+        ]
+      },
+      {
+        "id": "obs_aa17095f0156b8c0",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          1548,
+          1556
+        ]
+      },
+      {
+        "id": "obs_262cd720d6e5700c",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::cleanupDeps",
+        "lines": [
+          4716,
+          4723
+        ]
+      },
+      {
+        "id": "obs_1e2a998347817be7",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::update",
+        "lines": [
+          4729,
+          4738
+        ]
+      },
+      {
+        "id": "obs_810799f04cb2be67",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::run",
+        "lines": [
+          4744,
+          4755
+        ]
+      },
+      {
+        "id": "obs_41d5de5916d8c69b",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          309,
+          320
+        ]
+      },
+      {
+        "id": "obs_1b9e7dfb6fb91365",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          1602,
+          1609
+        ]
+      },
+      {
+        "id": "obs_1625fce87f9b5d8b",
+        "path": "packages/vue-server-renderer/basic.js",
+        "symbol": "",
+        "lines": [
+          5528,
+          5567
+        ]
+      },
+      {
+        "id": "obs_76f61fa6647e9d85",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::resetSchedulerState",
+        "lines": [
+          4435,
+          4442
+        ]
+      },
+      {
+        "id": "obs_9f52c96e7ff75bb7",
+        "path": "packages/weex-vue-framework/factory.js",
+        "symbol": "weexFactory::looseIndexOf",
+        "lines": [
+          322,
+          327
+        ]
+      },
+      {
+        "id": "obs_c94ab360c1d25d85",
+        "path": "test/unit/features/options/props.spec.js",
+        "symbol": "",
+        "lines": [
+          61,
+          100
+        ]
+      },
+      {
+        "id": "obs_f040b781e6110301",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "Observer",
+        "lines": [
+          1178,
+          1193
+        ]
+      },
+      {
+        "id": "obs_4f4976b4103a7df0",
+        "path": "packages/vue-template-compiler/browser.js",
+        "symbol": "checkForAliasModel",
+        "lines": [
+          3658,
+          3673
+        ]
+      }
+    ]
+  }
+]

@@ -1,5 +1,69 @@
 # Retrieval Changelog
 
+## 2026-09-15: Narrow Hidden Request-Name Witness — Reverted
+
+Record: [gate, paired comparisons and full-run audit](decisions/hidden-request-anchor-experiment.md).
+Replaced broad unresolved expansion experimentally with one small witness only when an
+exact request name, also matched by retrieval and used in a source call/member expression,
+was absent from compact views. Kept original compact text; 512 added chars / seven lines,
+1024 shared candidate-source cap. Resolution/ranking/budgets/prompts remained unchanged.
+First capitalization-only gate rejected deterministically for prose matches (The/Cannot).
+
+| Actual case | Runs (20260915 UTC suffix) | Focal overlap | Retrieval tokens |
+|---|---|---|---|
+| Vue | 020544Z / 020554Z / 020605Z | 2/2 / 1/2 / 1/2 | 65457 / 50821 / 63813 |
+| TypeScript | 020751Z / 020802Z / 020812Z | 3/4 / 4/4 / 3/4 | 105524 / 112429 / 106439 |
+
+All partial/false, final selection on, response off, no reindex. Mean Vue 60030 (+13.3%
+vs checkpoint), TypeScript 108131 (+5.8%). Two new-renderer saved-input selector calls
+retained the Symbol test; two old-renderer calls and two fixed-new-admission old-renderer
+controls omitted it. Selector total 121749. Actual plus diagnostic total **626232**.
+
+All three live Vue comparisons visibly contain the Symbol test, but none initially selects
+its exact range. The 2/2 final retains ordinary mismatch tests at L277-316 after navigation
+through makeInstance. The other two leave the test file dormant at initial comparison.
+TypeScript gate activations are zero; all candidate objects and admission are exactly
+unchanged on/off in three replay checks. Its lower scores cannot be attributed to this
+gate. Builder admission and Helpers expansion losses are traced in the record.
+
+Reverted rather than calling one final improvement repeatable. Patch and diagnostics
+preserved, no live import of archived gate. 106 focused variant tests pass; full suite
+498/502 with the four known failures. Post-reversion 97 focused tests pass. Runtime
+back to 803f5e2, prior Flow fix retained, thesis untouched.
+
+## 2026-09-15: Bounded Unresolved Comparison Source — Reverted
+
+Record: [experiment and evidence-boundary audit](decisions/unresolved-comparison-source-experiment.md).
+Checkpoint 803f5e2; named-owner preparation, parser, ranking, model, index scope and
+all budgets remained fixed. Variant 1 rendered contiguous unresolved excerpts up to
+1024 characters before the existing admission gate instead of disconnected 80-character
+scraps. Vue's Symbol assertions became visible in all actual comparisons.
+
+| Case | Runs (20260915 UTC suffix) | Focal overlap | Retrieval tokens |
+|---|---|---|---|
+| Vue | 012705Z / 012715Z / 012726Z | 1/2 / 2/2 / 2/2 | 52477 / 60353 / 73112 |
+| TypeScript | 013159Z / 013209Z / 013219Z | 2/4 / 4/4 / 1/4 | 89011 / 109420 / 101239 |
+
+All partial/false; actual pipeline, final selection enabled, explanation disabled.
+Checkpoint controls: Vue 1/2 each (mean 52965 tokens); TypeScript 4/4 each (mean
+102218). Variant means 61981 (+17.0%) / 99890 (-2.3%). Two fixed-pool real selector
+replays cost 34079/34312 and selected the Vue test once, not twice. New measured
+retrieval/selector total 554003; no wiki-generation cost included.
+
+Exact current-admission reconstruction and old-renderer counterfactuals show fewer
+admitted owners, but no causal proof that those exclusions caused the TypeScript
+losses: missing issue-specific Builder owners also fail old-renderer admission in
+013159Z/013219Z. The latter contains WatchMode-to-Helpers source calls but schedules
+no WatchMode file expansion and creates no Helpers trace. See the record for exact
+raw/canonical/comparison/controller/final boundaries and differing Vue test snippets.
+
+Variant reverted rather than retained for token savings or compensated by new rules.
+Runtime and runtime tests match checkpoint again; earlier Flow parser correction stays.
+Patch, standalone diagnostic renderer, scripts and JSON audits are preserved under
+testing/codeRepoQA. Focused variant tests 100 pass; full suite 492/496 with the four
+known checkpoint failures; after reversion 97 focused checkpoint tests pass. No
+post-reversion full run claimed. Thesis unchanged.
+
 ## 2026-08-29: Pending Cross-file Handoff Scheduling — Reverted
 
 Record: [pending cross-file handoff scheduling experiment](decisions/pending-file-handoff-scheduling-experiment.md).
@@ -5319,3 +5383,21 @@ Verification:
   Twelve complete actual runs total 815600 retrieval tokens; diagnostics and failed attempt
   bring recorded retrieval/selector usage to 933253. Explanation generation disabled.
   Vue Qdrant collection populated to 4350; TS existing 83408 reused. Thesis untouched.
+
+## 2026-09-15 — Eight fresh current-checkpoint verification runs
+
+- Runtime remains 803f5e2, both rejected unresolved-source variants absent. No code,
+  model, prompt or scope changes; thesis untouched. Final selection on, response generation off.
+- [Four-case report](decisions/current-checkpoint-four-case-rerun.md) records configuration,
+  selection rationale, historical-comparison caveats and artifact locations.
+- TypeScript 022328Z/022339Z: 4/4 and 3/4 focal; 102293/103095 retrieval tokens.
+- Vue 022309Z/022319Z: 1/2 each; 52929/55553 tokens.
+- pandas categorical groupby 14942, 022739Z/023200Z: 3/15 each (2 implementation
+  matches each); 130301/92162 tokens.
+- pandas Excel backend 4542, 022747Z/023027Z: 2/13 and 3/13 (1/2 implementation
+  matches); 72343/69710 tokens. All run IDs have prefix run-20260915T.
+- All eight completed partial/false. Total retrieval usage 678386, excluding request
+  analysis and embeddings. Additional cases had prior nonzero scores, but their older
+  graphless/island-packet configuration is not a controlled baseline for this checkout.
+- Existing TS/Vue Qdrant indexes reused. Missing pandas collections restored to saved
+  counts 14707/6677 before starting each second run; unchanged index scope.

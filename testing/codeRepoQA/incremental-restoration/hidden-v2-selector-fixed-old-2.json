@@ -1,0 +1,128 @@
+{
+  "source_run": "run-20260915T012715Z",
+  "original_prepared_admission_verified": true,
+  "all_observations_unchanged": false,
+  "names": [
+    "Explain",
+    "Title",
+    "Symbols",
+    "Version",
+    "Reproduction",
+    "Steps",
+    "Symbol",
+    "What",
+    "TypeError",
+    "Cannot",
+    "NOT",
+    "REMOVE"
+  ],
+  "changes": [
+    {
+      "id": "obs_263271cc0d4a6584",
+      "path": "test/unit/features/instance/render-proxy.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        31,
+        36
+      ],
+      "source_chars": 240
+    },
+    {
+      "id": "obs_4a3f6c615e3e5389",
+      "path": "test/unit/features/options/props.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        236,
+        242
+      ],
+      "source_chars": 356
+    },
+    {
+      "id": "obs_3d8921e6200cb9e1",
+      "path": "test/unit/features/instance/render-proxy.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        30,
+        36
+      ],
+      "source_chars": 276
+    },
+    {
+      "id": "obs_f8c2e23ab5b9e31d",
+      "path": "types/test/options-test.ts",
+      "anchor": "Symbol",
+      "witness": [
+        309,
+        315
+      ],
+      "source_chars": 285
+    },
+    {
+      "id": "obs_5803b27982f47d35",
+      "path": "test/unit/features/options/inject.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        173,
+        179
+      ],
+      "source_chars": 263
+    }
+  ],
+  "old_count": 118,
+  "new_count": 116,
+  "old_chars": 60319,
+  "new_chars": 60145,
+  "displaced": [
+    {
+      "id": "obs_9dda296c337abed3",
+      "path": "packages/vue-template-compiler/browser.js",
+      "symbol": ""
+    },
+    {
+      "id": "obs_3568709d43c89694",
+      "path": "packages/vue-template-compiler/browser.js",
+      "symbol": "prependModifierMarker"
+    }
+  ],
+  "admitted_changes": [
+    {
+      "id": "obs_263271cc0d4a6584",
+      "path": "test/unit/features/instance/render-proxy.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        31,
+        36
+      ],
+      "source_chars": 240
+    },
+    {
+      "id": "obs_4a3f6c615e3e5389",
+      "path": "test/unit/features/options/props.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        236,
+        242
+      ],
+      "source_chars": 356
+    }
+  ],
+  "condition": "old-on-new-admission",
+  "selected": [
+    {
+      "id": "obs_0fa4f1a86225e86b",
+      "path": "src/core/util/props.js",
+      "symbol": "assertProp"
+    },
+    {
+      "id": "obs_f121fa3924e63073",
+      "path": "src/core/util/props.js",
+      "symbol": "validateProp"
+    },
+    {
+      "id": "obs_de4d233e4b26a557",
+      "path": "src/core/util/props.js",
+      "symbol": "getInvalidTypeMessage"
+    }
+  ],
+  "tokens": 20365
+}

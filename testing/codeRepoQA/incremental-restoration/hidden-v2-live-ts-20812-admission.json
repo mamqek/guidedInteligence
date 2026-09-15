@@ -1,0 +1,32 @@
+{
+  "source_run": "run-20260915T020812Z",
+  "original_prepared_admission_verified": true,
+  "all_observations_unchanged": true,
+  "names": [
+    "Explain",
+    "Title",
+    "The",
+    "Setup",
+    "Two",
+    "Then",
+    "Restarting",
+    "Observations",
+    "TypeScript",
+    "Code",
+    "Search",
+    "Terms",
+    "wereHamster",
+    "Clone",
+    "node_modules",
+    "Session",
+    "Expected",
+    "Actual"
+  ],
+  "changes": [],
+  "old_count": 70,
+  "new_count": 70,
+  "old_chars": 60451,
+  "new_chars": 60451,
+  "displaced": [],
+  "admitted_changes": []
+}
