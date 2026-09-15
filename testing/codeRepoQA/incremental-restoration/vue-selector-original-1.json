@@ -1,0 +1,20 @@
+{
+  "source_run": "run-20260914T234506Z",
+  "mode": "exact_saved_request",
+  "request_sha256": "8614b597ee632e70af48c0b1df5d9e1d5c18ef88480c9d74001232ceb1151d93",
+  "selected_files": [
+    "packages/weex-vue-framework/factory.js",
+    "src/core/util/props.js"
+  ],
+  "selected": {
+    "g1": [
+      "o3",
+      "o1",
+      "o6"
+    ],
+    "g3": [
+      "o50"
+    ]
+  },
+  "tokens": 21089
+}

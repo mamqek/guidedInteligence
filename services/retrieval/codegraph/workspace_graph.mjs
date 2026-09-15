@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import codegraphPackage from "@colbymchenry/codegraph";
 import { localizeFileCall, resolveSourceOwners, sourceOwnerCalls, summarizeFileCallsToDestination, ownerSourceLayouts } from "./source_ast.mjs";
+import { reconcileCallableOwners, validateStructuralResult } from "./callable_owners.mjs";
 
 const { CodeGraph, setLogger, silentLogger } = codegraphPackage;
 
@@ -154,17 +155,18 @@ async function resolveRanges(args) {
   const codegraph = await openGraph();
   const ranges = Array.isArray(args.ranges) ? args.ranges.slice(0, 80) : [];
   return {
-    results: ranges.map((range) => ({
-      file: normalizePath(range.file),
-      line_start: Number(range.line_start || 0),
-      line_end: Number(range.line_end || range.line_start || 0),
-      nodes: nodesOverlappingRange(
-        codegraph,
-        range.file,
-        range.line_start,
-        range.line_end,
-      ).slice(0, 12).map(nodePayload),
-    })),
+    results: ranges.map((range) => {
+      const resolved = reconcileCallableOwners(projectRoot, normalizePath(range.file),
+        Number(range.line_start), Number(range.line_end || range.line_start),
+        nodesOverlappingRange(codegraph, range.file, range.line_start, range.line_end).slice(0, 12).map(nodePayload));
+      return {
+        file: normalizePath(range.file),
+        line_start: Number(range.line_start || 0),
+        line_end: Number(range.line_end || range.line_start || 0),
+        nodes: resolved.nodes,
+        ...(resolved.rejected.length ? { structural_owner_rejections: resolved.rejected } : {}),
+      };
+    }),
   };
 }
 
@@ -693,7 +695,7 @@ for await (const line of lines) {
       process.stdout.write(`${JSON.stringify({ id: request.id, ok: true, result: {} })}\n`);
       break;
     }
-    const result = await dispatch(request.operation, request.arguments || {});
+    const result = validateStructuralResult(projectRoot, await dispatch(request.operation, request.arguments || {}));
     process.stdout.write(`${JSON.stringify({ id: request.id, ok: true, result })}\n`);
   } catch (error) {
     process.stdout.write(`${JSON.stringify({ id: request?.id || "", ok: false, error: error?.stack || error?.message || String(error) })}\n`);

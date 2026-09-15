@@ -5296,3 +5296,26 @@ Verification:
 - Best-effort retained only for demonstrated deterministic capacity repair. 84 focused tests pass;
   full suite 482/486 under Node22, with unrelated index-fixture/manifest failures documented.
   WSL Qdrant reused all 83408 points; no rebuild, Docker restart, or thesis modifications.
+
+## 2026-09-15 — Vue callable integrity restoration and Flow-parser correction
+
+- [Complete experiment, causal probes and failures](decisions/vue-callable-integrity-restoration.md).
+  Inspected current code and reproduced actual Vue props.js `if` L33-35 / assertType
+  L151-154 bugs before inspecting a899dbe. Restored the historical patch, then corrected
+  its separate whole-file Flow parse false rejection using Babel's Flow-capable parser.
+- Vue baseline 20260914T234506Z/234634Z/234645Z: 2/2,1/2,1/2; 76238/65535/45482 tokens.
+  Historical patch 235154Z/235204Z/235214Z: 1/2 each; 50533/56006/56259 tokens.
+  Corrected 235805Z/235815Z/20260915T003449Z: 1/2 each; 51684/59197/48013 tokens.
+  All partial/false. 235840Z excluded for invalid qualification obligation ID, 32836 tokens.
+- TypeScript controls 20260915T000114Z/000333Z/000343Z: 4/4 each, partial/false;
+  95024/100609/111020 tokens (306653 total, +1.87% versus checkpoint). No causal recall
+  claim: 1345 saved structural outputs and 1136 ranges remain unchanged under the JS fix.
+- Two exact original selector replays pick compiled copies; two counterfactuals changing
+  only two malformed owner views pick original props.js. None picks the test. Replay total
+  84817 tokens. Test omission starts at initial selection despite retrieval/admission;
+  do not label it missing retrieval or prove causation from raw final file counts.
+- Retain corrected structural repair, not an overall Vue quality improvement claim.
+  17 focused tests pass; full 489/493, same four checkpoint fixture/manifest failures.
+  Twelve complete actual runs total 815600 retrieval tokens; diagnostics and failed attempt
+  bring recorded retrieval/selector usage to 933253. Explanation generation disabled.
+  Vue Qdrant collection populated to 4350; TS existing 83408 reused. Thesis untouched.
