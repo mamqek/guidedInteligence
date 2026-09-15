@@ -1,5 +1,18 @@
 # Retrieval Experiment Open Questions
 
+## Callable integrity restoration, September 15
+
+- [Vue Flow validation experiment](vue-callable-integrity-restoration.md) corrects fake
+  `if` owners and truncated return-type owners. Historical validator also discarded genuine
+  owners when unrelated Flow syntax defeated the TypeScript parser; replaced JS validation
+  with Babel Flow parsing and verified recovered-owner call isolation. TS path unchanged.
+- Corrected Vue 235805Z/235815Z/003449Z: 1/2 each; TS 000114Z/000333Z/000343Z: 4/4 each.
+  All partial/false. Vue tests are retrieved/admitted but left dormant by initial comparison,
+  not lost at structural resolution. Exact original selector repeats also omit the test;
+  two repaired-view counterfactuals favor original props.js over compiled copies.
+- Retained as structural correctness; test-context selection and missing styleValue
+  behavior remain separate. No oracle reservation or other restoration unit enabled.
+
 ## Frozen-analysis diagnostic, September 15 follow-up
 
 - [Exact trace-source capacity ordering](trace-source-capacity-ordering.md): exact saved

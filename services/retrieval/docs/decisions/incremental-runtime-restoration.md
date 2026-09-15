@@ -6,6 +6,11 @@
 > the ordering repair. See trace-source-capacity-ordering.md. Unit 2 remains absent;
 > units 3–10 have not been tested in this restoration sequence. Thesis stays outside
 > the runtime checkpoint and must remain untouched.
+>
+> Follow-up: unit 2 is now restored with a corrected Flow-capable validator. See
+> [Vue callable integrity restoration](vue-callable-integrity-restoration.md): corrected
+> Vue 1/2 three times, TypeScript 4/4 three times, all partial/false. Retained for verified
+> structural correctness, not a claim of improved Vue file recall. Units 3–10 remain untested.
 
 ### Recommended next boundary
 

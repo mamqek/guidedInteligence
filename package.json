@@ -42,6 +42,7 @@
     "codegraph:explore": "set CODEGRAPH_TELEMETRY=0&& codegraph explore --path ."
   },
   "dependencies": {
+    "@babel/parser": "7.29.7",
     "@colbymchenry/codegraph": "1.5.0",
     "@dagrejs/dagre": "^3.1.0",
     "@xyflow/react": "^12.11.2",

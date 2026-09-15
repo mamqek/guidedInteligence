@@ -1,0 +1,16 @@
+{
+  "source_run": "run-20260914T234506Z",
+  "mode": "two_owner_view_repair",
+  "request_sha256": "7f4924fb76f581a0c14787e4fc5a02ac13d098ec93937e12b14a47ea60b15b16",
+  "selected_files": [
+    "src/core/util/props.js"
+  ],
+  "selected": {
+    "g3": [
+      "o47",
+      "o46",
+      "o50"
+    ]
+  },
+  "tokens": 21130
+}

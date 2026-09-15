@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import { findSourceCallable, graphCallableValidity, sourceCallableCalls } from "./callable_owners.mjs";
 
 
 const SUPPORTED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
@@ -417,6 +418,7 @@ export function localizeFileCall(codegraph, projectRoot, sourceNode, targetNode)
 export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
   const sourcePath = normalizePath(sourceNode?.filePath || sourceNode?.path);
   const isSourceOwner = String(sourceNode?.id || "").startsWith("source_owner:");
+  let validatedCallable = null;
   const extension = path.extname(sourcePath).toLowerCase();
   const base = {
     source_node_id: String(sourceNode?.id || ""),
@@ -427,6 +429,10 @@ export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
   if (!SUPPORTED_EXTENSIONS.has(extension)) {
     return { ...base, status: "unsupported", reason: "unsupported_extension" };
   }
+  if (!isSourceOwner) {
+    const validity = graphCallableValidity(projectRoot, sourceNode);
+    if (!validity.valid) return { ...base, status: "failed", reason: validity.reason };
+  }
   if (isSourceOwner) {
     const root = fs.realpathSync(projectRoot);
     let resolvedPath;
@@ -436,12 +442,19 @@ export function sourceOwnerCalls(codegraph, projectRoot, sourceNode) {
     if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
       return { ...base, status: "failed", reason: "source_owner_outside_workspace" };
     }
-    const matches = resolveSourceOwners(projectRoot, { path: sourcePath,
-      line_start: sourceNode.line_start, line_end: sourceNode.line_end }).owners.filter(owner =>
-      owner.id === sourceNode.id && owner.line_start === sourceNode.line_start && owner.line_end === sourceNode.line_end
-      && owner.qualified_name === (sourceNode.qualified_name || sourceNode.name));
-    if (matches.length !== 1) return { ...base, status: "failed", reason: "source_owner_identity_mismatch" };
-    sourceNode = matches[0];
+    if ([".js", ".jsx", ".mjs", ".cjs"].includes(extension)) {
+      validatedCallable = findSourceCallable(projectRoot, sourceNode);
+      if (!validatedCallable) return { ...base, status: "failed", reason: "source_owner_identity_mismatch" };
+      return { ...base, status: "ok", adapter: "babel_flow_parser", source_kind: validatedCallable.kind,
+        source_identity_kind: "ast_source_owner", calls: sourceCallableCalls(validatedCallable) };
+    } else {
+      const matches = resolveSourceOwners(projectRoot, { path: sourcePath,
+        line_start: sourceNode.line_start, line_end: sourceNode.line_end }).owners.filter(owner =>
+        owner.id === sourceNode.id && owner.line_start === sourceNode.line_start && owner.line_end === sourceNode.line_end
+        && owner.qualified_name === (sourceNode.qualified_name || sourceNode.name));
+      if (matches.length !== 1) return { ...base, status: "failed", reason: "source_owner_identity_mismatch" };
+      sourceNode = matches[0];
+    }
   }
   let source;
   try {

@@ -1,0 +1,60 @@
+[
+  {
+    "range": [
+      20,
+      65
+    ],
+    "nodes": [
+      {
+        "id": "function:c93bd29662d70506e76b5651618bf05f",
+        "kind": "function",
+        "name": "if",
+        "qualified_name": "if",
+        "path": "src/core/util/props.js",
+        "line_start": 33,
+        "line_end": 35,
+        "language": "javascript"
+      }
+    ],
+    "rejected": [],
+    "observations": [
+      {
+        "symbol": "if",
+        "visible_range": [
+          33,
+          35
+        ],
+        "text": "if (absent && !hasOwn(prop, 'default')) {\n      value = false\n    } else if (value === '' || value === hyphenate(key)) {"
+      }
+    ]
+  },
+  {
+    "range": [
+      145,
+      175
+    ],
+    "nodes": [
+      {
+        "id": "function:a76c05daee925a8380c6438e2f2a28ec",
+        "kind": "function",
+        "name": "assertType",
+        "qualified_name": "assertType",
+        "path": "src/core/util/props.js",
+        "line_start": 151,
+        "line_end": 154,
+        "language": "javascript"
+      }
+    ],
+    "rejected": [],
+    "observations": [
+      {
+        "symbol": "assertType",
+        "visible_range": [
+          151,
+          154
+        ],
+        "text": "function assertType (value: any, type: Function): {\n  valid: boolean;\n  expectedType: string;\n} {"
+      }
+    ]
+  }
+]

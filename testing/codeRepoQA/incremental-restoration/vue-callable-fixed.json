@@ -1,0 +1,102 @@
+[
+  {
+    "range": [
+      20,
+      65
+    ],
+    "nodes": [
+      {
+        "id": "source_owner:src/core/util/props.js:21:62",
+        "kind": "function",
+        "name": "validateProp",
+        "qualified_name": "validateProp",
+        "path": "src/core/util/props.js",
+        "line_start": 21,
+        "line_end": 62,
+        "language": "javascript",
+        "adapter": "typescript_compiler_api",
+        "decision_code": "validated_source_callable_recovery"
+      }
+    ],
+    "rejected": [
+      {
+        "node_id": "function:c93bd29662d70506e76b5651618bf05f",
+        "path": "src/core/util/props.js",
+        "name": "if",
+        "line_start": 33,
+        "line_end": 35,
+        "reason": "graph_callable_disagrees_with_source_ast"
+      }
+    ],
+    "observations": [
+      {
+        "symbol": "validateProp",
+        "visible_range": [
+          21,
+          62
+        ],
+        "text": "export function validateProp (\n  key: string,\n  propOptions: Object,\n  propsData: Object,\n  vm?: Component\n): any {\n  const prop = propOptions[key]\n  const absent = !hasOwn(propsData, key)\n  let value = propsData[key]\n  // boolean casting\n  const booleanIndex = getTypeIndex(Boolean, prop.type)\n  if (booleanIndex > -1) {\n    if (absent && !hasOwn(prop, 'default')) {\n      value = false\n    } else if (value === '' || value === hyphenate(key)) {\n      // only cast empty string / same name to boolean if\n      // boolean has higher priority\n      const stringIndex = getTypeIndex(String, prop.type)\n      if (stringIndex < 0 || booleanIndex < stringIndex) {\n        value = true\n      }\n    }\n  }\n  // check default value\n  if (value === undefined) {\n    value = getPropDefaultValue(vm, prop, key)\n    // since the default value is a fresh copy,\n    // make sure to observe it.\n    const prevShouldObserve = shouldObserve\n    toggleObserving(true)\n    observe(value)\n    toggleObserving(prevShouldObserve)\n  }\n  if (\n    process.env.NODE_ENV !== 'production' &&\n    // skip validation for weex recycle-list child component props\n    !(__WEEX__ && isObject(value) && ('@binding' in value))\n  ) {\n    assertProp(prop, key, value, vm, absent)\n  }\n  return value\n}"
+      }
+    ]
+  },
+  {
+    "range": [
+      145,
+      175
+    ],
+    "nodes": [
+      {
+        "id": "source_owner:src/core/util/props.js:100:147",
+        "kind": "function",
+        "name": "assertProp",
+        "qualified_name": "assertProp",
+        "path": "src/core/util/props.js",
+        "line_start": 100,
+        "line_end": 147,
+        "language": "javascript",
+        "adapter": "typescript_compiler_api",
+        "decision_code": "validated_source_callable_recovery"
+      },
+      {
+        "id": "source_owner:src/core/util/props.js:151:175",
+        "kind": "function",
+        "name": "assertType",
+        "qualified_name": "assertType",
+        "path": "src/core/util/props.js",
+        "line_start": 151,
+        "line_end": 175,
+        "language": "javascript",
+        "adapter": "typescript_compiler_api",
+        "decision_code": "validated_source_callable_recovery"
+      }
+    ],
+    "rejected": [
+      {
+        "node_id": "function:a76c05daee925a8380c6438e2f2a28ec",
+        "path": "src/core/util/props.js",
+        "name": "assertType",
+        "line_start": 151,
+        "line_end": 154,
+        "reason": "graph_callable_disagrees_with_source_ast"
+      }
+    ],
+    "observations": [
+      {
+        "symbol": "assertProp",
+        "visible_range": [
+          145,
+          147
+        ],
+        "text": "}\n  }\n}"
+      },
+      {
+        "symbol": "assertType",
+        "visible_range": [
+          151,
+          175
+        ],
+        "text": "function assertType (value: any, type: Function): {\n  valid: boolean;\n  expectedType: string;\n} {\n  let valid\n  const expectedType = getType(type)\n  if (simpleCheckRE.test(expectedType)) {\n    const t = typeof value\n    valid = t === expectedType.toLowerCase()\n    // for primitive wrapper objects\n    if (!valid && t === 'object') {\n      valid = value instanceof type\n    }\n  } else if (expectedType === 'Object') {\n    valid = isPlainObject(value)\n  } else if (expectedType === 'Array') {\n    valid = Array.isArray(value)\n  } else {\n    valid = value instanceof type\n  }\n  return {\n    valid,\n    expectedType\n  }\n}"
+      }
+    ]
+  }
+]
