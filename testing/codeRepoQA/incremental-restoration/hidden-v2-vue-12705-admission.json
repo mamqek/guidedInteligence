@@ -1,0 +1,118 @@
+{
+  "source_run": "run-20260915T012705Z",
+  "original_prepared_admission_verified": true,
+  "names": [
+    "Explain",
+    "Title",
+    "Symbols",
+    "Version",
+    "Reproduction",
+    "Steps",
+    "Symbol",
+    "What",
+    "TypeError",
+    "Cannot",
+    "NOT",
+    "REMOVE"
+  ],
+  "changes": [
+    {
+      "id": "obs_4a3f6c615e3e5389",
+      "path": "test/unit/features/options/props.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        236,
+        242
+      ],
+      "source_chars": 356
+    },
+    {
+      "id": "obs_263271cc0d4a6584",
+      "path": "test/unit/features/instance/render-proxy.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        31,
+        36
+      ],
+      "source_chars": 240
+    },
+    {
+      "id": "obs_f8c2e23ab5b9e31d",
+      "path": "types/test/options-test.ts",
+      "anchor": "Symbol",
+      "witness": [
+        309,
+        315
+      ],
+      "source_chars": 285
+    },
+    {
+      "id": "obs_3d8921e6200cb9e1",
+      "path": "test/unit/features/instance/render-proxy.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        30,
+        36
+      ],
+      "source_chars": 276
+    },
+    {
+      "id": "obs_18d8a9e7762f1183",
+      "path": "test/unit/modules/vdom/create-element.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        220,
+        226
+      ],
+      "source_chars": 297
+    }
+  ],
+  "old_count": 116,
+  "new_count": 114,
+  "old_chars": 60809,
+  "new_chars": 60016,
+  "displaced": [
+    {
+      "id": "obs_3d8921e6200cb9e1",
+      "path": "test/unit/features/instance/render-proxy.spec.js",
+      "symbol": ""
+    },
+    {
+      "id": "obs_681a2e4948e29ddd",
+      "path": "src/platforms/web/runtime/modules/dom-props.js",
+      "symbol": "updateDOMProps"
+    }
+  ],
+  "admitted_changes": [
+    {
+      "id": "obs_4a3f6c615e3e5389",
+      "path": "test/unit/features/options/props.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        236,
+        242
+      ],
+      "source_chars": 356
+    },
+    {
+      "id": "obs_263271cc0d4a6584",
+      "path": "test/unit/features/instance/render-proxy.spec.js",
+      "anchor": "Symbol",
+      "witness": [
+        31,
+        36
+      ],
+      "source_chars": 240
+    },
+    {
+      "id": "obs_f8c2e23ab5b9e31d",
+      "path": "types/test/options-test.ts",
+      "anchor": "Symbol",
+      "witness": [
+        309,
+        315
+      ],
+      "source_chars": 285
+    }
+  ]
+}

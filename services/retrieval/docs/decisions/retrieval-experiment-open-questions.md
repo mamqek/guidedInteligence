@@ -1,5 +1,30 @@
 # Retrieval Experiment Open Questions
 
+## Unresolved comparison visibility, September 15
+
+- [Narrow hidden-request-name follow-up](hidden-request-anchor-experiment.md): repairs
+  only a missing exact request name used as a call/member expression, with one shared
+  bounded context window. Paired selector checks retain Vue's Symbol test twice while
+  old rendering omits it twice, including a fixed-admission control. Fresh Vue 020544Z /
+  020554Z / 020605Z yields 2/2,1/2,1/2; all see the Symbol code, none initially selects
+  that exact range. Reverted: isolated visibility gain does not establish repeatable
+  end-to-end benefit. TypeScript 020751Z/020802Z/020812Z yields 3/4,4/4,3/4 with ZERO
+  gate activations and exactly unchanged candidate objects/admission; those misses
+  must not be attributed to this inactive gate. No automatic relevance credit added.
+
+- [Bounded unresolved source experiment](unresolved-comparison-source-experiment.md):
+  replacing 80-character disconnected lines with a bounded contiguous excerpt makes
+  Vue's Symbol test visible in all three actual comparisons. Vue improves from 1/2 each
+  to 1/2, 2/2, 2/2, but TypeScript controls fall from 4/4 each to 2/4, 4/4, 1/4.
+- Reverted; the archived patch is not active. Do not call unresolved comparison views
+  lossless. No qualification/ranking/controller policy was changed to compensate.
+- Exact admission counterfactuals demonstrate fewer admitted owners, but the missing
+  Builder owners in 013159Z/013219Z also fall outside the old-renderer prefix. WatchMode
+  exposes Helpers calls in 013219Z, but no corresponding expansion executes. Those are
+  IOC-1/admission and discovery-scheduling boundaries, not proven renderer-caused losses.
+- Visibility needs a separate retained solution and paired-input evaluation; evidence
+  of omitted text does not entitle a test to obligation credit or automatic selection.
+
 ## Callable integrity restoration, September 15
 
 - [Vue Flow validation experiment](vue-callable-integrity-restoration.md) corrects fake

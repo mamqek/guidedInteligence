@@ -1,0 +1,134 @@
+diff --git a/services/retrieval/workspace/pipeline/execution_flow/owner_comparison_source.py b/services/retrieval/workspace/pipeline/execution_flow/owner_comparison_source.py
+index c0a3b1b..eb34961 100644
+--- a/services/retrieval/workspace/pipeline/execution_flow/owner_comparison_source.py
++++ b/services/retrieval/workspace/pipeline/execution_flow/owner_comparison_source.py
+@@ -1,6 +1,7 @@
+ """Bounded owner-specific source for comparison, independent of qualification and ranking."""
+ from dataclasses import dataclass, replace
+ from pathlib import Path
++import re
+ from typing import Any, Sequence
+ 
+ from .discovery_observations import DiscoveryObservation, RetrievedSourceView
+@@ -14,6 +15,48 @@ class OwnerSourcePreparation:
+     layout_requests: int
+ 
+ 
++def render_unresolved_source(view: RetrievedSourceView, *, matched_terms: Sequence[str],
++                             max_chars: int) -> str:
++    """Preserve a contiguous portion of retrieved text, never synthesize an owner."""
++    if max_chars < 100:
++        raise ValueError('invalid_unresolved_source_budget')
++    lines = view.text.splitlines()
++    if not lines:
++        return ''
++
++    def render(start: int, end: int) -> str:
++        parts = []
++        if start:
++            parts.append(f'... lines {view.line_start}-{view.line_start+start-1} omitted ...')
++        parts.append(f'[lines {view.line_start+start}-{view.line_start+end}]\n' + '\n'.join(lines[start:end+1]))
++        if end < len(lines)-1:
++            parts.append(f'... lines {view.line_start+end+1}-{view.line_start+len(lines)-1} omitted ...')
++        return '\n'.join(parts)
++
++    full = render(0, len(lines)-1)
++    if len(full) <= max_chars:
++        return full
++    terms = {term.casefold() for term in matched_terms if len(term.strip()) >= 3}
++    patterns = [re.compile(r'(?<!\w)' + re.escape(term) + r'(?!\w)', re.I) for term in sorted(terms)]
++    scores = [sum(bool(pattern.search(line)) for pattern in patterns) for line in lines]
++    center = max(range(len(lines)), key=lambda i: (scores[i], -i))
++    start = end = center
++    if len(render(start, end)) > max_chars:
++        label = f'[line {view.line_start+center}; clipped, partial source]\n'
++        return label + lines[center][:max_chars-len(label)-3] + '...'
++    while True:
++        options = [(start-1, end)] if start else []
++        if end < len(lines)-1:
++            options.append((start, end+1))
++        # Balance neighboring context around the match while keeping one contiguous window.
++        options.sort(key=lambda bounds: (abs((center-bounds[0])-(bounds[1]-center)), bounds[0]))
++        chosen = next((bounds for bounds in options if len(render(*bounds)) <= max_chars), None)
++        if chosen is None:
++            break
++        start, end = chosen
++    return render(start, end)
++
++
+ def prepare_initial_owner_sources(observations: Sequence[DiscoveryObservation], *, config: Any,
+                                  trace: Any) -> OwnerSourcePreparation:
+     from services.retrieval.workspace.tools.codegraph import codegraph_tools
+@@ -101,7 +144,16 @@ def prepare_owner_sources(observations: Sequence[DiscoveryObservation], *, works
+                  rendering_policy='signature_focused_window',max_lines=16,focus_lines=8,context_lines=2)
+         prepared=item
+         if not h.node_id or not h.full_line_start or not h.full_line_end:
+-            row['reason']='unresolved_owner_unchanged'
++            views = item.source_views or (RetrievedSourceView(h.path,h.line_start,h.line_end,item.observed_text),)
++            terms = tuple(term for source in item.provenance for term in source.matched_terms)
++            prepared = replace(item, comparison_source_views=tuple(
++                replace(view, text=render_unresolved_source(view, matched_terms=terms, max_chars=max_chars))
++                for view in views))
++            row.update(reason='unresolved_source_prepared', rendering_policy='contiguous_retrieved_window',
++                       max_lines=None,focus_lines=None,context_lines=None,
++                       source_chars=sum(len(view.text) for view in prepared.comparison_source_views),
++                       source_views=[dict(path=view.path,line_start=view.line_start,line_end=view.line_end,text=view.text)
++                                     for view in prepared.comparison_source_views])
+         else:
+             if h.path not in files:
+                 path=(root/h.path).resolve()
+@@ -148,5 +200,5 @@ def prepare_owner_sources(observations: Sequence[DiscoveryObservation], *, works
+     output=OwnerSourcePreparation(tuple(result),tuple(rows),len(files),len(layouts))
+     if trace is not None:
+         trace.record('owner_comparison_source_prepared',dict(mode=mode,max_chars=max_chars,file_reads=len(files),
+-            layout_requests=len(layouts),candidate_count=len(result),prepared_count=sum(r['reason']=='owner_source_prepared' for r in rows),rows=rows))
++            layout_requests=len(layouts),candidate_count=len(result),prepared_count=sum(r['reason'] in {'owner_source_prepared','unresolved_source_prepared'} for r in rows),rows=rows))
+     return output
+diff --git a/tests/test_owner_comparison_source.py b/tests/test_owner_comparison_source.py
+index 75fd9aa..fe67f9e 100644
+--- a/tests/test_owner_comparison_source.py
++++ b/tests/test_owner_comparison_source.py
+@@ -5,12 +5,42 @@ import tempfile
+ import unittest
+ from types import SimpleNamespace
+ 
+-from services.retrieval.workspace.pipeline.execution_flow.owner_comparison_source import render_owner_source, prepare_owner_sources
++from services.retrieval.workspace.pipeline.execution_flow.owner_comparison_source import render_owner_source, render_unresolved_source, prepare_owner_sources
+ from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import DiscoveryObservation, DiscoveryProvenance, SourceHandle, RetrievedSourceView
+ from services.retrieval.workspace.source_ast.router import SourceAstRouter
+ 
+ 
+ class OwnerSourceTests(unittest.TestCase):
++    def test_unresolved_small_source_keeps_symbol_test_and_identity(self):
++        text="it('symbol', () => {\n  makeInstance(Symbol('foo'), Symbol)\n  expect('Expected Symbol').toHaveBeenWarned()\n})"
++        view=RetrievedSourceView('test.js',10,13,text)
++        original=DiscoveryObservation('id',SourceHandle('test.js',10,13),text,
++            (DiscoveryProvenance('dense','q',matched_terms=('Symbol',)),),source_views=(view,))
++        result=prepare_owner_sources((original,),workspace_root='.',source_ast=None,mode='consistent',max_chars=1024)
++        new=result.observations[0]
++        self.assertEqual(new.source_views,original.source_views)
++        self.assertEqual(new.handle,original.handle)
++        self.assertEqual(new.provenance,original.provenance)
++        self.assertIn(text,new.comparison_source_views[0].text)
++        self.assertEqual(result.layout_requests,0)
++
++    def test_unresolved_long_source_keeps_contiguous_match_context_with_bounds(self):
++        lines=[f'  unrelated_{i}();' for i in range(60)]
++        lines[40]='  makeInstance(Symbol(value), Symbol)'
++        text=render_unresolved_source(RetrievedSourceView('test.js',100,159,'\n'.join(lines)),
++                                      matched_terms=('Symbol',),max_chars=280)
++        self.assertIn(lines[40],text)
++        self.assertIn(lines[39],text)
++        self.assertIn(lines[41],text)
++        self.assertIn('omitted',text)
++        self.assertLessEqual(len(text),280)
++
++    def test_unresolved_no_match_and_overlong_line_are_explicit(self):
++        text=render_unresolved_source(RetrievedSourceView('a',1,1,'x'*2000),matched_terms=(),max_chars=100)
++        self.assertLessEqual(len(text),100)
++        self.assertIn('clipped, partial source',text)
++        self.assertEqual(render_unresolved_source(RetrievedSourceView('a',1,1,''),matched_terms=(),max_chars=100),'')
++
+     def test_preparation_preserves_identity_provenance_and_repairs_renderer(self):
+         from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import _source_view_payloads
+         source='def f():\n    """Documentation."""\n    return answer()\n'

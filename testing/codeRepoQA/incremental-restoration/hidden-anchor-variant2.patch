@@ -1,0 +1,247 @@
+diff --git a/services/retrieval/workspace/pipeline/execution_flow/owner_comparison_source.py b/services/retrieval/workspace/pipeline/execution_flow/owner_comparison_source.py
+index c0a3b1b..8a5dbcb 100644
+--- a/services/retrieval/workspace/pipeline/execution_flow/owner_comparison_source.py
++++ b/services/retrieval/workspace/pipeline/execution_flow/owner_comparison_source.py
+@@ -4,6 +4,7 @@ from pathlib import Path
+ from typing import Any, Sequence
+ 
+ from .discovery_observations import DiscoveryObservation, RetrievedSourceView
++from .hidden_anchor_source import prepare_hidden_anchor_source, request_code_names
+ 
+ 
+ @dataclass(frozen=True)
+@@ -15,13 +16,13 @@ class OwnerSourcePreparation:
+ 
+ 
+ def prepare_initial_owner_sources(observations: Sequence[DiscoveryObservation], *, config: Any,
+-                                 trace: Any) -> OwnerSourcePreparation:
++                                 trace: Any, user_request: str = '') -> OwnerSourcePreparation:
+     from services.retrieval.workspace.tools.codegraph import codegraph_tools
+     from services.retrieval.workspace.source_ast.router import SourceAstRouter
+     _, bridge = codegraph_tools(config)
+     return prepare_owner_sources(observations, workspace_root=config.workspace_root,
+         source_ast=SourceAstRouter(config.workspace_root, codegraph_bridge=bridge),
+-        mode='consistent', max_chars=1024, trace=trace)
++        mode='consistent', max_chars=1024, trace=trace, user_request=user_request)
+ 
+ 
+ def _segments(lines: Sequence[str], selected: set[int]) -> tuple[tuple[int, int, str], ...]:
+@@ -88,20 +89,30 @@ def render_owner_source(lines: Sequence[str], *, start: int, end: int, signature
+ 
+ 
+ def prepare_owner_sources(observations: Sequence[DiscoveryObservation], *, workspace_root: str,
+-                          source_ast: Any, mode: str, max_chars: int, trace: Any = None) -> OwnerSourcePreparation:
++                          source_ast: Any, mode: str, max_chars: int, trace: Any = None,
++                          user_request: str = '') -> OwnerSourcePreparation:
+     if mode not in {'targeted', 'consistent'}:
+         raise ValueError('unknown_owner_source_mode')
+     # Local import avoids a cycle between the renderer and source preparation.
+     from .initial_owner_comparison import _compact_source_view
+     root=Path(workspace_root).resolve()
+     files, layouts, rows, result = {}, {}, [], []
++    names = request_code_names(user_request)
+     for item in observations:
+         h=item.handle
+         row=dict(observation_id=item.id,path=h.path,symbol=h.symbol,mode=mode,max_chars=max_chars,
+                  rendering_policy='signature_focused_window',max_lines=16,focus_lines=8,context_lines=2)
+         prepared=item
+         if not h.node_id or not h.full_line_start or not h.full_line_end:
+-            row['reason']='unresolved_owner_unchanged'
++            repair = prepare_hidden_anchor_source(item, names=names, compact=_compact_source_view,
++                                                   max_chars=max_chars)
++            row.update(reason=repair.reason, anchor=repair.anchor, witness_range=repair.witness_range)
++            if repair.views:
++                prepared = replace(item, comparison_source_views=repair.views)
++                row.update(rendering_policy='compact_plus_hidden_request_witness',
++                           source_chars=sum(len(v.text) for v in repair.views),
++                           source_views=[dict(path=v.path,line_start=v.line_start,line_end=v.line_end,text=v.text)
++                                         for v in repair.views])
+         else:
+             if h.path not in files:
+                 path=(root/h.path).resolve()
+@@ -148,5 +159,5 @@ def prepare_owner_sources(observations: Sequence[DiscoveryObservation], *, works
+     output=OwnerSourcePreparation(tuple(result),tuple(rows),len(files),len(layouts))
+     if trace is not None:
+         trace.record('owner_comparison_source_prepared',dict(mode=mode,max_chars=max_chars,file_reads=len(files),
+-            layout_requests=len(layouts),candidate_count=len(result),prepared_count=sum(r['reason']=='owner_source_prepared' for r in rows),rows=rows))
++            layout_requests=len(layouts),candidate_count=len(result),prepared_count=sum(r['reason'] in {'owner_source_prepared','hidden_request_name_restored'} for r in rows),rows=rows))
+     return output
+diff --git a/services/retrieval/workspace/pipeline/execution_flow/qualification_first_retrieval.py b/services/retrieval/workspace/pipeline/execution_flow/qualification_first_retrieval.py
+index 0f9f2e2..42d03dc 100644
+--- a/services/retrieval/workspace/pipeline/execution_flow/qualification_first_retrieval.py
++++ b/services/retrieval/workspace/pipeline/execution_flow/qualification_first_retrieval.py
+@@ -354,7 +354,8 @@ def run_obligation_retrieval(
+         },
+     )
+ 
+-    source_preparation = prepare_initial_owner_sources(canonical_snippets, config=ctx.config, trace=ctx.trace)
++    source_preparation = prepare_initial_owner_sources(canonical_snippets, config=ctx.config, trace=ctx.trace,
++                                                     user_request=state.user_input)
+     canonical_snippets = source_preparation.observations
+     tool_calls += source_preparation.layout_requests
+     admission = fit_initial_owner_comparison_admission(
+diff --git a/services/retrieval/workspace/pipeline/execution_flow/hidden_anchor_source.py b/services/retrieval/workspace/pipeline/execution_flow/hidden_anchor_source.py
+new file mode 100644
+--- /dev/null
++++ b/services/retrieval/workspace/pipeline/execution_flow/hidden_anchor_source.py
+@@ -0,0 +1,70 @@
++"""Small comparison-only witnesses for request names hidden by source compaction."""
++from dataclasses import dataclass, replace
++import re
++from typing import Callable, Sequence
++
++from .discovery_observations import DiscoveryObservation, RetrievedSourceView
++
++
++@dataclass(frozen=True)
++class HiddenAnchorSource:
++    views: tuple[RetrievedSourceView, ...]
++    reason: str
++    anchor: str = ''
++    witness_range: tuple[int, int] = ()
++
++
++def request_code_names(request: str) -> tuple[str, ...]:
++    """Conservative lexical names; no lower-case prose expansion or case guessing."""
++    return tuple(dict.fromkeys(word for word in re.findall(r'(?<![\w$])[A-Za-z_$][\w$]{2,}(?![\w$])', request)
++                              if word[0].isupper() or '_' in word or re.search(r'[a-z][A-Z]', word)))
++
++
++def prepare_hidden_anchor_source(observation: DiscoveryObservation, *, names: Sequence[str],
++                                 compact: Callable[[str], str], max_chars: int = 1024) -> HiddenAnchorSource:
++    handle = observation.handle
++    if handle.node_id and handle.full_line_start and handle.full_line_end:
++        return HiddenAnchorSource((), 'resolved_owner_unchanged')
++    views = observation.source_views or (RetrievedSourceView(
++        handle.path, handle.line_start, handle.line_end, observation.observed_text),)
++    old = tuple(replace(v, text=compact(v.text)) for v in views)
++    old_chars = sum(len(v.text) for v in old)
++    remaining = min(512, max_chars - old_chars - 1)
++    if remaining <= 0:
++        return HiddenAnchorSource((), 'candidate_source_budget_full')
++    matched = {t.casefold() for p in observation.provenance for t in p.matched_terms}
++    witnesses = []
++    for name in names:
++        if name.casefold() not in matched:
++            continue
++        pattern = re.compile(r'(?<![\w$])' + re.escape(name) + r'(?![\w$])')
++        if any(pattern.search(v.text) for v in old):
++            continue
++        code_use = re.compile(pattern.pattern + r'(?=\s*(?:\(|\.))')
++        for index, view in enumerate(views):
++            for line_index, line in enumerate(view.text.splitlines()):
++                if code_use.search(line):
++                    witnesses.append((name, index, line_index))
++    if not witnesses:
++        return HiddenAnchorSource((), 'no_hidden_request_name')
++    # Prefer the longer exact name, then original view/line order. No relevance score.
++    for name, index, center in sorted(witnesses, key=lambda w: (-len(w[0]), w[1], w[2], w[0])):
++        view = views[index]
++        lines = view.text.splitlines()
++        start = end = center
++
++        def render(a: int, b: int) -> str:
++            return f'[additional source lines {view.line_start+a}-{view.line_start+b}]\n' + '\n'.join(lines[a:b+1])
++
++        if len(render(start, end)) > remaining:
++            continue
++        for radius in range(1, 4):
++            a, b = max(0, center-radius), min(len(lines)-1, center+radius)
++            if len(render(a, b)) > remaining:
++                break
++            start, end = a, b
++        enriched = list(old)
++        enriched[index] = replace(old[index], text=old[index].text + '\n' + render(start, end))
++        return HiddenAnchorSource(tuple(enriched), 'hidden_request_name_restored', name,
++                                  (view.line_start+start, view.line_start+end))
++    return HiddenAnchorSource((), 'anchor_context_does_not_fit')
+diff --git a/tests/test_hidden_anchor_source.py b/tests/test_hidden_anchor_source.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_hidden_anchor_source.py
+@@ -0,0 +1,85 @@
++from dataclasses import replace
++import unittest
++
++from services.retrieval.workspace.pipeline.execution_flow.discovery_observations import (
++    DiscoveryObservation, DiscoveryProvenance, RetrievedSourceView, SourceHandle,
++)
++from services.retrieval.workspace.pipeline.execution_flow.hidden_anchor_source import (
++    prepare_hidden_anchor_source, request_code_names,
++)
++from services.retrieval.workspace.pipeline.execution_flow.initial_owner_comparison import _compact_source_view
++from services.retrieval.workspace.pipeline.execution_flow.owner_comparison_source import prepare_owner_sources
++
++
++class HiddenAnchorSourceTests(unittest.TestCase):
++    def observation(self, text, terms=('Symbol',)):
++        return DiscoveryObservation('id', SourceHandle('test.js', 10, 10+len(text.splitlines())-1), text,
++            (DiscoveryProvenance('dense', 'q', matched_terms=terms),),
++            source_views=(RetrievedSourceView('test.js', 10, 10+len(text.splitlines())-1, text),))
++
++    def repair(self, observation, request='Symbol conversion fails', **kwargs):
++        return prepare_hidden_anchor_source(observation, names=request_code_names(request),
++                                            compact=_compact_source_view, **kwargs)
++
++    def test_only_code_shaped_request_names(self):
++        self.assertEqual(request_code_names('value type Symbol getValue snake_name Symbol'),
++                         ('Symbol', 'getValue', 'snake_name'))
++
++    def test_hidden_symbol_restored_without_losing_old_view(self):
++        text="expect(errors.count()).toBe(0)\nexpect(other.count()).toBe(0)\n" + '\n'*4 + \
++             "it('symbol', () => {\n  makeInstance(Symbol('foo'), Symbol)\n  expect(errors.count()).toBe(0)\n  makeInstance({}, Symbol)\n  expect('Expected Symbol').toHaveBeenWarned()\n})"
++        original = self.observation(text)
++        repaired = self.repair(original)
++        self.assertEqual(repaired.reason, 'hidden_request_name_restored')
++        self.assertTrue(repaired.views[0].text.startswith(_compact_source_view(text)))
++        self.assertIn("makeInstance(Symbol('foo'), Symbol)", repaired.views[0].text)
++        self.assertIn('additional source lines', repaired.views[0].text)
++        self.assertLessEqual(sum(len(v.text) for v in repaired.views), 1024)
++        prepared = prepare_owner_sources((original,), workspace_root='.', source_ast=None,
++            mode='consistent', max_chars=1024, user_request='Symbol conversion fails').observations[0]
++        self.assertEqual(prepared.handle, original.handle)
++        self.assertEqual(prepared.provenance, original.provenance)
++        self.assertEqual(prepared.source_views, original.source_views)
++        self.assertEqual(prepared.comparison_source_views, repaired.views)
++
++    def test_generic_missing_terms_do_not_expand(self):
++        original = self.observation('expect(x.count()).toBe(0)\nexpect(y.count()).toBe(0)\nconst value = type;', ('value', 'type'))
++        self.assertEqual(self.repair(original, 'value type').reason, 'no_hidden_request_name')
++
++    def test_capitalized_prose_without_code_use_does_not_expand(self):
++        original = self.observation('expect(x.count()).toBe(0)\nexpect(y.count()).toBe(0)\n// The value Cannot convert', ('The', 'Cannot'))
++        self.assertFalse(self.repair(original, 'The value Cannot convert').views)
++
++    def test_visible_name_anywhere_in_candidate_does_not_expand(self):
++        original = self.observation('Symbol(value)\nother()')
++        extra = RetrievedSourceView('test.js', 50, 51, 'expect(x.count()).toBe(0)\nSymbol(y)')
++        self.assertFalse(self.repair(replace(original, source_views=(*original.source_views, extra))).views)
++
++    def test_request_source_and_retrieval_match_all_required(self):
++        text='expect(x.count()).toBe(0)\nexpect(y.count()).toBe(0)\nSymbol(value)'
++        self.assertFalse(self.repair(self.observation(text, ('value',))).views)
++        self.assertFalse(self.repair(self.observation(text), 'other issue').views)
++        self.assertFalse(self.repair(self.observation(text.replace('Symbol', 'symbol'))).views)
++
++    def test_complete_owner_never_changed(self):
++        o = self.observation('expect(x.count()).toBe(0)\nSymbol(value)')
++        o = replace(o, handle=replace(o.handle, node_id='function:x', full_line_start=10, full_line_end=11))
++        self.assertEqual(self.repair(o).reason, 'resolved_owner_unchanged')
++
++    def test_shared_budget_and_one_window(self):
++        text='expect(x.count()).toBe(0)\nexpect(y.count()).toBe(0)\nSymbol(value)'
++        original = self.observation(text)
++        original = replace(original, source_views=tuple(replace(original.source_views[0], line_start=10+i*5,
++                           line_end=12+i*5) for i in range(8)))
++        repaired = self.repair(original)
++        self.assertEqual(sum(v.text.count('[additional source lines') for v in repaired.views), 1)
++        self.assertLessEqual(sum(len(v.text) for v in repaired.views), 1024)
++        self.assertFalse(self.repair(original, max_chars=10).views)
++
++    def test_overlong_witness_not_silently_clipped(self):
++        o = self.observation('expect(x.count()).toBe(0)\nexpect(y.count()).toBe(0)\n' + 'a'*600 + ' Symbol(value)')
++        self.assertEqual(self.repair(o).reason, 'anchor_context_does_not_fit')
++
++
++if __name__ == '__main__':
++    unittest.main()

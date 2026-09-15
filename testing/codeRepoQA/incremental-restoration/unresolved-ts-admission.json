@@ -1,0 +1,764 @@
+[
+  {
+    "run": "run-20260915T013159Z",
+    "current_exact": true,
+    "current_count": 58,
+    "old_count": 64,
+    "current_chars": 61006,
+    "old_chars": 60361,
+    "current_ids": [
+      "obs_dec5815897dd1f84",
+      "obs_55806b5e3787a5ac",
+      "obs_08e16e7bffcc6df3",
+      "obs_4b1568a315ce4ec5",
+      "obs_3902f7bea8551306",
+      "obs_b3c8b015cc525bb0",
+      "obs_a228bc5dd8eb4a06",
+      "obs_2025d80037898616",
+      "obs_0f0be3774e18b53a",
+      "obs_a23095f231904da1",
+      "obs_a40abfb48ac3e453",
+      "obs_d6a1a15f81e64eec",
+      "obs_cf77ea0f2f365dfe",
+      "obs_9dcdf91ada8b21ff",
+      "obs_542f6ec5c50e9373",
+      "obs_ba0c46e9f101710e",
+      "obs_58e03dd873adc228",
+      "obs_4087490ba40382dd",
+      "obs_fe78810dd1c6f774",
+      "obs_8b2e7f1026d19eb6",
+      "obs_96587518d7cf8a6a",
+      "obs_cc0d9870ce8e39e9",
+      "obs_f7526dae3e819fb1",
+      "obs_ada082b641087817",
+      "obs_55f0ccda461bd3c9",
+      "obs_93916b240ca3eb4a",
+      "obs_18cfc6ad7b85b74c",
+      "obs_181702603a452f66",
+      "obs_7606d1128ec7e1ba",
+      "obs_1264089c6cb39ea2",
+      "obs_0ee2bfa4a625d221",
+      "obs_1777dcf1daf145ba",
+      "obs_43bb1e720d98d63a",
+      "obs_d1ccacdaddc9df40",
+      "obs_158e2d5a3ab67ecb",
+      "obs_dd99513a546b5aa6",
+      "obs_4ba453749d37df14",
+      "obs_425e5394c9513b7c",
+      "obs_134bfb083fdb51a4",
+      "obs_1e6d213210a63bc4",
+      "obs_8d2d1bc55abbe062",
+      "obs_a8e613c4bd140f86",
+      "obs_b0a467d6dfde3b4a",
+      "obs_3a49ff96c38d75e4",
+      "obs_96d9d5358b551584",
+      "obs_2236ece9b200787c",
+      "obs_2b5d38a0f8eccc31",
+      "obs_8c3d37bbb40bb16c",
+      "obs_e52f85137f778100",
+      "obs_9a8e902693532fc6",
+      "obs_0b2b8394df6b0d7e",
+      "obs_68a5e396a13bca10",
+      "obs_5bda40fbae4415b2",
+      "obs_fcaab250269fb734",
+      "obs_6895da1c7227a970",
+      "obs_2e829972dce8daa4",
+      "obs_081a6e6aa1068bbe",
+      "obs_6b03c66381f5ac24"
+    ],
+    "old_ids": [
+      "obs_dec5815897dd1f84",
+      "obs_55806b5e3787a5ac",
+      "obs_08e16e7bffcc6df3",
+      "obs_4b1568a315ce4ec5",
+      "obs_3902f7bea8551306",
+      "obs_b3c8b015cc525bb0",
+      "obs_a228bc5dd8eb4a06",
+      "obs_2025d80037898616",
+      "obs_0f0be3774e18b53a",
+      "obs_a23095f231904da1",
+      "obs_a40abfb48ac3e453",
+      "obs_d6a1a15f81e64eec",
+      "obs_cf77ea0f2f365dfe",
+      "obs_9dcdf91ada8b21ff",
+      "obs_542f6ec5c50e9373",
+      "obs_ba0c46e9f101710e",
+      "obs_58e03dd873adc228",
+      "obs_4087490ba40382dd",
+      "obs_fe78810dd1c6f774",
+      "obs_8b2e7f1026d19eb6",
+      "obs_96587518d7cf8a6a",
+      "obs_cc0d9870ce8e39e9",
+      "obs_f7526dae3e819fb1",
+      "obs_ada082b641087817",
+      "obs_55f0ccda461bd3c9",
+      "obs_93916b240ca3eb4a",
+      "obs_18cfc6ad7b85b74c",
+      "obs_181702603a452f66",
+      "obs_7606d1128ec7e1ba",
+      "obs_1264089c6cb39ea2",
+      "obs_0ee2bfa4a625d221",
+      "obs_1777dcf1daf145ba",
+      "obs_43bb1e720d98d63a",
+      "obs_d1ccacdaddc9df40",
+      "obs_158e2d5a3ab67ecb",
+      "obs_dd99513a546b5aa6",
+      "obs_4ba453749d37df14",
+      "obs_425e5394c9513b7c",
+      "obs_134bfb083fdb51a4",
+      "obs_1e6d213210a63bc4",
+      "obs_8d2d1bc55abbe062",
+      "obs_a8e613c4bd140f86",
+      "obs_b0a467d6dfde3b4a",
+      "obs_3a49ff96c38d75e4",
+      "obs_96d9d5358b551584",
+      "obs_2236ece9b200787c",
+      "obs_2b5d38a0f8eccc31",
+      "obs_8c3d37bbb40bb16c",
+      "obs_e52f85137f778100",
+      "obs_9a8e902693532fc6",
+      "obs_0b2b8394df6b0d7e",
+      "obs_68a5e396a13bca10",
+      "obs_5bda40fbae4415b2",
+      "obs_fcaab250269fb734",
+      "obs_6895da1c7227a970",
+      "obs_2e829972dce8daa4",
+      "obs_081a6e6aa1068bbe",
+      "obs_6b03c66381f5ac24",
+      "obs_32e3786ca731a3c4",
+      "obs_4eb716df4de654d6",
+      "obs_b88dc9516053ca5a",
+      "obs_b2f6fe3473b73193",
+      "obs_fd0fe12152a65dc6",
+      "obs_28f4b5ded118e159"
+    ],
+    "additionally_admitted_with_old_renderer": [
+      {
+        "id": "obs_32e3786ca731a3c4",
+        "path": "src/server/editorServices.ts",
+        "symbol": "ProjectService::reloadConfiguredProject",
+        "lines": [
+          2034,
+          2048
+        ]
+      },
+      {
+        "id": "obs_4eb716df4de654d6",
+        "path": "src/server/editorServices.ts",
+        "symbol": "ProjectService::getOrCreateInferredProjectForProjectRootPathIfEnabled",
+        "lines": [
+          2082,
+          2096
+        ]
+      },
+      {
+        "id": "obs_b88dc9516053ca5a",
+        "path": "src/server/editorServices.ts",
+        "symbol": "ProjectService::getSymlinkedProjects::combineProjects",
+        "lines": [
+          2197,
+          2215
+        ]
+      },
+      {
+        "id": "obs_b2f6fe3473b73193",
+        "path": "src/server/editorServices.ts",
+        "symbol": "ProjectService::watchClosedScriptInfo",
+        "lines": [
+          2218,
+          2236
+        ]
+      },
+      {
+        "id": "obs_fd0fe12152a65dc6",
+        "path": "src/server/editorServices.ts",
+        "symbol": "ProjectService::assignProjectToOpenedScriptInfo",
+        "lines": [
+          2811,
+          2850
+        ]
+      },
+      {
+        "id": "obs_28f4b5ded118e159",
+        "path": "src/server/editorServices.ts",
+        "symbol": "ProjectService::createAncestorProjects",
+        "lines": [
+          2871,
+          2889
+        ]
+      }
+    ]
+  },
+  {
+    "run": "run-20260915T013209Z",
+    "current_exact": true,
+    "current_count": 58,
+    "old_count": 70,
+    "current_chars": 61363,
+    "old_chars": 60713,
+    "current_ids": [
+      "obs_68a5e396a13bca10",
+      "obs_cf77ea0f2f365dfe",
+      "obs_a228bc5dd8eb4a06",
+      "obs_08e16e7bffcc6df3",
+      "obs_80735e47003b1789",
+      "obs_b3c8b015cc525bb0",
+      "obs_1777dcf1daf145ba",
+      "obs_542f6ec5c50e9373",
+      "obs_ba0c46e9f101710e",
+      "obs_d1ccacdaddc9df40",
+      "obs_158e2d5a3ab67ecb",
+      "obs_4087490ba40382dd",
+      "obs_3b19207c23f80ce8",
+      "obs_99ff729dfabbd2ee",
+      "obs_08506ee556f6e0df",
+      "obs_d8da5b1d980e347c",
+      "obs_9dcdf91ada8b21ff",
+      "obs_dd041a96fedc014d",
+      "obs_58e03dd873adc228",
+      "obs_94fe4ec1ab457634",
+      "obs_ea66bce638f61508",
+      "obs_3902f7bea8551306",
+      "obs_cc0d9870ce8e39e9",
+      "obs_a40abfb48ac3e453",
+      "obs_dec5815897dd1f84",
+      "obs_f429d6d76ec512a2",
+      "obs_dd99513a546b5aa6",
+      "obs_e54443a55de204a6",
+      "obs_1bbd4860e36854b1",
+      "obs_fe78810dd1c6f774",
+      "obs_425e5394c9513b7c",
+      "obs_68f9613a4b0af75f",
+      "obs_0ee2bfa4a625d221",
+      "obs_d6a1a15f81e64eec",
+      "obs_43bb1e720d98d63a",
+      "obs_be5aee6b6626fd09",
+      "obs_5bda40fbae4415b2",
+      "obs_55806b5e3787a5ac",
+      "obs_2025d80037898616",
+      "obs_6b03c66381f5ac24",
+      "obs_0f0be3774e18b53a",
+      "obs_181702603a452f66",
+      "obs_7606d1128ec7e1ba",
+      "obs_a23095f231904da1",
+      "obs_96587518d7cf8a6a",
+      "obs_5ef93d462c7cc276",
+      "obs_ddf7999247384fd5",
+      "obs_4c35dd088a1737a7",
+      "obs_c57494f23c28b38b",
+      "obs_ef79e33c180110cd",
+      "obs_e7c875b5df6c52f9",
+      "obs_70ab956630713908",
+      "obs_48fd36b2eacf411d",
+      "obs_6c7cfa24fad42dfd",
+      "obs_8b2e7f1026d19eb6",
+      "obs_96d9d5358b551584",
+      "obs_ca7dad9c0876263c",
+      "obs_f948ce54bf062eff"
+    ],
+    "old_ids": [
+      "obs_68a5e396a13bca10",
+      "obs_cf77ea0f2f365dfe",
+      "obs_a228bc5dd8eb4a06",
+      "obs_08e16e7bffcc6df3",
+      "obs_80735e47003b1789",
+      "obs_b3c8b015cc525bb0",
+      "obs_1777dcf1daf145ba",
+      "obs_542f6ec5c50e9373",
+      "obs_ba0c46e9f101710e",
+      "obs_d1ccacdaddc9df40",
+      "obs_158e2d5a3ab67ecb",
+      "obs_4087490ba40382dd",
+      "obs_3b19207c23f80ce8",
+      "obs_99ff729dfabbd2ee",
+      "obs_08506ee556f6e0df",
+      "obs_d8da5b1d980e347c",
+      "obs_9dcdf91ada8b21ff",
+      "obs_dd041a96fedc014d",
+      "obs_58e03dd873adc228",
+      "obs_94fe4ec1ab457634",
+      "obs_ea66bce638f61508",
+      "obs_3902f7bea8551306",
+      "obs_cc0d9870ce8e39e9",
+      "obs_a40abfb48ac3e453",
+      "obs_dec5815897dd1f84",
+      "obs_f429d6d76ec512a2",
+      "obs_dd99513a546b5aa6",
+      "obs_e54443a55de204a6",
+      "obs_1bbd4860e36854b1",
+      "obs_fe78810dd1c6f774",
+      "obs_425e5394c9513b7c",
+      "obs_68f9613a4b0af75f",
+      "obs_0ee2bfa4a625d221",
+      "obs_d6a1a15f81e64eec",
+      "obs_43bb1e720d98d63a",
+      "obs_be5aee6b6626fd09",
+      "obs_5bda40fbae4415b2",
+      "obs_55806b5e3787a5ac",
+      "obs_2025d80037898616",
+      "obs_6b03c66381f5ac24",
+      "obs_0f0be3774e18b53a",
+      "obs_181702603a452f66",
+      "obs_7606d1128ec7e1ba",
+      "obs_a23095f231904da1",
+      "obs_96587518d7cf8a6a",
+      "obs_5ef93d462c7cc276",
+      "obs_ddf7999247384fd5",
+      "obs_4c35dd088a1737a7",
+      "obs_c57494f23c28b38b",
+      "obs_ef79e33c180110cd",
+      "obs_e7c875b5df6c52f9",
+      "obs_70ab956630713908",
+      "obs_48fd36b2eacf411d",
+      "obs_6c7cfa24fad42dfd",
+      "obs_8b2e7f1026d19eb6",
+      "obs_96d9d5358b551584",
+      "obs_ca7dad9c0876263c",
+      "obs_f948ce54bf062eff",
+      "obs_50e7e412e106ea09",
+      "obs_f765e3840f10fe5a",
+      "obs_4b1568a315ce4ec5",
+      "obs_ad3c3da59fa1d1a1",
+      "obs_1b292db5bd3cf816",
+      "obs_d2ee33fc289cfbe5",
+      "obs_4ba453749d37df14",
+      "obs_ada082b641087817",
+      "obs_55f0ccda461bd3c9",
+      "obs_fd0fe12152a65dc6",
+      "obs_6895da1c7227a970",
+      "obs_2e829972dce8daa4"
+    ],
+    "additionally_admitted_with_old_renderer": [
+      {
+        "id": "obs_50e7e412e106ea09",
+        "path": "src/testRunner/unittests/tsbuild/watchEnvironment.ts",
+        "symbol": "verifyWatchFileOnMultipleProjects",
+        "lines": [
+          44,
+          72
+        ]
+      },
+      {
+        "id": "obs_f765e3840f10fe5a",
+        "path": "src/compiler/checker.ts",
+        "symbol": "",
+        "lines": [
+          7152,
+          7171
+        ]
+      },
+      {
+        "id": "obs_4b1568a315ce4ec5",
+        "path": "src/compiler/watch.ts",
+        "symbol": "ProgramToEmitFilesAndReportErrors",
+        "lines": [
+          119,
+          130
+        ]
+      },
+      {
+        "id": "obs_ad3c3da59fa1d1a1",
+        "path": "src/compiler/watch.ts",
+        "symbol": "emitFilesAndReportErrors",
+        "lines": [
+          200,
+          200
+        ]
+      },
+      {
+        "id": "obs_1b292db5bd3cf816",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "projectPath",
+        "lines": [
+          39,
+          41
+        ]
+      },
+      {
+        "id": "obs_d2ee33fc289cfbe5",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "lines": [
+          339,
+          349
+        ]
+      },
+      {
+        "id": "obs_4ba453749d37df14",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "createSolutionAndWatchModeOfProject",
+        "lines": [
+          564,
+          578
+        ]
+      },
+      {
+        "id": "obs_ada082b641087817",
+        "path": "src/server/editorServices.ts",
+        "symbol": "ProjectService::onConfigChangedForConfiguredProject",
+        "lines": [
+          1137,
+          1163
+        ]
+      },
+      {
+        "id": "obs_55f0ccda461bd3c9",
+        "path": "src/server/editorServices.ts",
+        "symbol": "ProjectService::removeProject",
+        "lines": [
+          1183,
+          1205
+        ]
+      },
+      {
+        "id": "obs_fd0fe12152a65dc6",
+        "path": "src/server/editorServices.ts",
+        "symbol": "ProjectService::assignProjectToOpenedScriptInfo",
+        "lines": [
+          2811,
+          2850
+        ]
+      },
+      {
+        "id": "obs_6895da1c7227a970",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "watchInputFiles",
+        "lines": [
+          1849,
+          1868
+        ]
+      },
+      {
+        "id": "obs_2e829972dce8daa4",
+        "path": "src/compiler/tsbuildPublic.ts",
+        "symbol": "startWatching",
+        "lines": [
+          1870,
+          1886
+        ]
+      }
+    ]
+  },
+  {
+    "run": "run-20260915T013219Z",
+    "current_exact": true,
+    "current_count": 54,
+    "old_count": 74,
+    "current_chars": 60855,
+    "old_chars": 60322,
+    "current_ids": [
+      "obs_d1ccacdaddc9df40",
+      "obs_17c15c98e1cbe24f",
+      "obs_8b2e7f1026d19eb6",
+      "obs_95d14831d5e2cbe1",
+      "obs_80735e47003b1789",
+      "obs_0b809b82d32a4d10",
+      "obs_ff5ccc7092bc2722",
+      "obs_960765c3409317f4",
+      "obs_7a9859602d25ea97",
+      "obs_55806b5e3787a5ac",
+      "obs_a228bc5dd8eb4a06",
+      "obs_0f0be3774e18b53a",
+      "obs_181702603a452f66",
+      "obs_7606d1128ec7e1ba",
+      "obs_d6a1a15f81e64eec",
+      "obs_cf77ea0f2f365dfe",
+      "obs_d2ee33fc289cfbe5",
+      "obs_99c8a8bf2ea2a64c",
+      "obs_8f48634fec925df7",
+      "obs_6c7cfa24fad42dfd",
+      "obs_fe78810dd1c6f774",
+      "obs_10408bf642295252",
+      "obs_425e5394c9513b7c",
+      "obs_96587518d7cf8a6a",
+      "obs_cc0d9870ce8e39e9",
+      "obs_f7526dae3e819fb1",
+      "obs_ada082b641087817",
+      "obs_2025d80037898616",
+      "obs_55f0ccda461bd3c9",
+      "obs_c56666e78fcc4188",
+      "obs_93916b240ca3eb4a",
+      "obs_18cfc6ad7b85b74c",
+      "obs_32e3786ca731a3c4",
+      "obs_1264089c6cb39ea2",
+      "obs_a23095f231904da1",
+      "obs_a40abfb48ac3e453",
+      "obs_fd0fe12152a65dc6",
+      "obs_28f4b5ded118e159",
+      "obs_dec5815897dd1f84",
+      "obs_158e2d5a3ab67ecb",
+      "obs_ef102b91f9ebb9b7",
+      "obs_96d9d5358b551584",
+      "obs_6c3a56c1e2dec895",
+      "obs_d0edaeda6581656f",
+      "obs_d52ade094a947dca",
+      "obs_21aaa32074e616d0",
+      "obs_b3c8b015cc525bb0",
+      "obs_b88dc9516053ca5a",
+      "obs_b2f6fe3473b73193",
+      "obs_003b40d813000d01",
+      "obs_6b03c66381f5ac24",
+      "obs_621663b4601f2d39",
+      "obs_0e8f00faf4de3430",
+      "obs_506bb90866492c46"
+    ],
+    "old_ids": [
+      "obs_d1ccacdaddc9df40",
+      "obs_17c15c98e1cbe24f",
+      "obs_8b2e7f1026d19eb6",
+      "obs_95d14831d5e2cbe1",
+      "obs_80735e47003b1789",
+      "obs_0b809b82d32a4d10",
+      "obs_ff5ccc7092bc2722",
+      "obs_960765c3409317f4",
+      "obs_7a9859602d25ea97",
+      "obs_55806b5e3787a5ac",
+      "obs_a228bc5dd8eb4a06",
+      "obs_0f0be3774e18b53a",
+      "obs_181702603a452f66",
+      "obs_7606d1128ec7e1ba",
+      "obs_d6a1a15f81e64eec",
+      "obs_cf77ea0f2f365dfe",
+      "obs_d2ee33fc289cfbe5",
+      "obs_99c8a8bf2ea2a64c",
+      "obs_8f48634fec925df7",
+      "obs_6c7cfa24fad42dfd",
+      "obs_fe78810dd1c6f774",
+      "obs_10408bf642295252",
+      "obs_425e5394c9513b7c",
+      "obs_96587518d7cf8a6a",
+      "obs_cc0d9870ce8e39e9",
+      "obs_f7526dae3e819fb1",
+      "obs_ada082b641087817",
+      "obs_2025d80037898616",
+      "obs_55f0ccda461bd3c9",
+      "obs_c56666e78fcc4188",
+      "obs_93916b240ca3eb4a",
+      "obs_18cfc6ad7b85b74c",
+      "obs_32e3786ca731a3c4",
+      "obs_1264089c6cb39ea2",
+      "obs_a23095f231904da1",
+      "obs_a40abfb48ac3e453",
+      "obs_fd0fe12152a65dc6",
+      "obs_28f4b5ded118e159",
+      "obs_dec5815897dd1f84",
+      "obs_158e2d5a3ab67ecb",
+      "obs_ef102b91f9ebb9b7",
+      "obs_96d9d5358b551584",
+      "obs_6c3a56c1e2dec895",
+      "obs_d0edaeda6581656f",
+      "obs_d52ade094a947dca",
+      "obs_21aaa32074e616d0",
+      "obs_b3c8b015cc525bb0",
+      "obs_b88dc9516053ca5a",
+      "obs_b2f6fe3473b73193",
+      "obs_003b40d813000d01",
+      "obs_6b03c66381f5ac24",
+      "obs_621663b4601f2d39",
+      "obs_0e8f00faf4de3430",
+      "obs_506bb90866492c46",
+      "obs_1777dcf1daf145ba",
+      "obs_134bfb083fdb51a4",
+      "obs_1e6d213210a63bc4",
+      "obs_8d2d1bc55abbe062",
+      "obs_a8e613c4bd140f86",
+      "obs_b0a467d6dfde3b4a",
+      "obs_3a49ff96c38d75e4",
+      "obs_33b2db138d68869a",
+      "obs_ee2669891634c1f3",
+      "obs_9dcdf91ada8b21ff",
+      "obs_542f6ec5c50e9373",
+      "obs_dd041a96fedc014d",
+      "obs_58e03dd873adc228",
+      "obs_4087490ba40382dd",
+      "obs_ea66bce638f61508",
+      "obs_59ae0a3c9f8304a0",
+      "obs_e1819e86e2a30f78",
+      "obs_5279c02bc44052b2",
+      "obs_de4f8a5c34ca659c",
+      "obs_4f0cfce4370e24b8"
+    ],
+    "additionally_admitted_with_old_renderer": [
+      {
+        "id": "obs_1777dcf1daf145ba",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "buildLogic",
+        "lines": [
+          305,
+          309
+        ]
+      },
+      {
+        "id": "obs_134bfb083fdb51a4",
+        "path": "src/server/project.ts",
+        "symbol": "Project::onInvalidatedResolution",
+        "lines": [
+          483,
+          485
+        ]
+      },
+      {
+        "id": "obs_1e6d213210a63bc4",
+        "path": "src/server/project.ts",
+        "symbol": "Project::watchTypeRootsDirectory",
+        "lines": [
+          488,
+          498
+        ]
+      },
+      {
+        "id": "obs_8d2d1bc55abbe062",
+        "path": "src/server/project.ts",
+        "symbol": "Project::onChangedAutomaticTypeDirectiveNames",
+        "lines": [
+          501,
+          504
+        ]
+      },
+      {
+        "id": "obs_a8e613c4bd140f86",
+        "path": "src/server/project.ts",
+        "symbol": "Project::getGlobalCache",
+        "lines": [
+          507,
+          509
+        ]
+      },
+      {
+        "id": "obs_b0a467d6dfde3b4a",
+        "path": "src/server/project.ts",
+        "symbol": "Project::fileIsOpen",
+        "lines": [
+          515,
+          517
+        ]
+      },
+      {
+        "id": "obs_3a49ff96c38d75e4",
+        "path": "src/server/project.ts",
+        "symbol": "Project::writeLog",
+        "lines": [
+          520,
+          520
+        ]
+      },
+      {
+        "id": "obs_33b2db138d68869a",
+        "path": "src/server/session.ts",
+        "symbol": "Projects",
+        "lines": [
+          261,
+          264
+        ]
+      },
+      {
+        "id": "obs_ee2669891634c1f3",
+        "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+        "symbol": "",
+        "lines": [
+          135,
+          153
+        ]
+      },
+      {
+        "id": "obs_9dcdf91ada8b21ff",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "lines": [
+          355,
+          394
+        ]
+      },
+      {
+        "id": "obs_542f6ec5c50e9373",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "introduceError",
+        "lines": [
+          504,
+          508
+        ]
+      },
+      {
+        "id": "obs_dd041a96fedc014d",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "lines": [
+          534,
+          542
+        ]
+      },
+      {
+        "id": "obs_58e03dd873adc228",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "lines": [
+          675,
+          687
+        ]
+      },
+      {
+        "id": "obs_4087490ba40382dd",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "lines": [
+          1157,
+          1196
+        ]
+      },
+      {
+        "id": "obs_ea66bce638f61508",
+        "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "symbol": "",
+        "lines": [
+          1187,
+          1213
+        ]
+      },
+      {
+        "id": "obs_59ae0a3c9f8304a0",
+        "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+        "symbol": "",
+        "lines": [
+          75,
+          114
+        ]
+      },
+      {
+        "id": "obs_e1819e86e2a30f78",
+        "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+        "symbol": "",
+        "lines": [
+          105,
+          144
+        ]
+      },
+      {
+        "id": "obs_5279c02bc44052b2",
+        "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+        "symbol": "",
+        "lines": [
+          1032,
+          1071
+        ]
+      },
+      {
+        "id": "obs_de4f8a5c34ca659c",
+        "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+        "symbol": "",
+        "lines": [
+          1212,
+          1234
+        ]
+      },
+      {
+        "id": "obs_4f0cfce4370e24b8",
+        "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+        "symbol": "verifySession",
+        "lines": [
+          1459,
+          1488
+        ]
+      }
+    ]
+  }
+]

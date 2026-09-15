@@ -1,0 +1,1030 @@
+[
+  {
+    "run": "run-20260915T013159Z",
+    "tokens": 89011,
+    "stage_tokens": {
+      "connected_source_context": 4226,
+      "initial_owner_comparison": 16366,
+      "evidence_qualification": 27916,
+      "retrieval_coverage": 23992,
+      "obligation_evidence_consolidation": 12103,
+      "unresolved_file_evidence_selection": 4408
+    },
+    "comparison_budget": [
+      {
+        "auto_selected_group_count": 0,
+        "budget_overshoot_chars": 0,
+        "budget_policy": "append_crossing_snippet_then_stop",
+        "candidate_count": 58,
+        "compared_group_count": 11,
+        "input_char_budget": 100000,
+        "prompt_chars": 3157,
+        "schema_chars": 4557,
+        "serialized_chars": 53292,
+        "total_input_chars": 61006
+      }
+    ],
+    "admitted_files": [
+      "src/compiler/tsbuildpublic.ts",
+      "src/server/editorservices.ts",
+      "src/compiler/builderstate.ts",
+      "src/compiler/watch.ts",
+      "src/testrunner/unittests/tsbuild/watchmode.ts",
+      "src/testrunner/unittests/tsserver/projectreferences.ts",
+      "src/server/project.ts",
+      "src/compiler/watchpublic.ts",
+      "src/compiler/tsbuild.ts",
+      "src/server/protocol.ts",
+      "src/services/shims.ts"
+    ],
+    "admitted_owner_count": 58,
+    "selected": [
+      {
+        "id": "obs_2236ece9b200787c",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 142,
+          "full_line_start": 138,
+          "language": "typescript",
+          "line_end": 138,
+          "line_start": 138,
+          "node_id": "interface:afd60a8ceaab6912d4e9e359f2cfc2d5",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuild.ts",
+          "symbol": "OutOfDateWithUpstream"
+        }
+      },
+      {
+        "id": "obs_0b2b8394df6b0d7e",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1736,
+          "full_line_start": 1732,
+          "language": "typescript",
+          "line_end": 1736,
+          "line_start": 1732,
+          "node_id": "function:e9b4dcb84c194c87104f73e0e9ee18eb",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "invalidateProjectAndScheduleBuilds"
+        }
+      },
+      {
+        "id": "obs_dec5815897dd1f84",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        }
+      },
+      {
+        "id": "obs_96587518d7cf8a6a",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1770,
+          "full_line_start": 1749,
+          "language": "typescript",
+          "line_end": 1770,
+          "line_start": 1749,
+          "node_id": "function:94121753e270cdfe67fe6e1a59c6cb40",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "buildNextInvalidatedProject"
+        }
+      },
+      {
+        "id": "obs_134bfb083fdb51a4",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 485,
+          "full_line_start": 483,
+          "language": "typescript",
+          "line_end": 485,
+          "line_start": 483,
+          "node_id": "method:aed1ec1d30387ddeea8b4d3e3967a54c",
+          "outer_line_end": 1539,
+          "outer_line_start": 121,
+          "outer_node_id": "class:832e7c1d54eee01eff8fc29515578c7c",
+          "outer_symbol": "Project",
+          "path": "src/server/project.ts",
+          "symbol": "Project::onInvalidatedResolution"
+        }
+      },
+      {
+        "id": "obs_96d9d5358b551584",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1098,
+          "full_line_start": 971,
+          "language": "typescript",
+          "line_end": 1060,
+          "line_start": 1021,
+          "node_id": "method:a085983a8baf18ea094fc9c90e2798e0",
+          "outer_line_end": 1539,
+          "outer_line_start": 121,
+          "outer_node_id": "class:832e7c1d54eee01eff8fc29515578c7c",
+          "outer_symbol": "Project",
+          "path": "src/server/project.ts",
+          "symbol": "Project::updateGraphWorker"
+        }
+      },
+      {
+        "id": "obs_d6a1a15f81e64eec",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 245,
+          "full_line_start": 164,
+          "language": "typescript",
+          "line_end": 193,
+          "line_start": 185,
+          "node_id": "function:a33338c6c9363ff02277bfc18363b3ab",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyProjectChanges"
+        }
+      },
+      {
+        "id": "obs_43bb1e720d98d63a",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 405,
+          "full_line_start": 385,
+          "language": "",
+          "line_end": 405,
+          "line_start": 385,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_158e2d5a3ab67ecb",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1064,
+          "full_line_start": 770,
+          "language": "typescript",
+          "line_end": 805,
+          "line_start": 770,
+          "node_id": "function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyTransitiveReferences"
+        }
+      },
+      {
+        "id": "obs_425e5394c9513b7c",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 1221,
+          "full_line_start": 1182,
+          "language": "",
+          "line_end": 1221,
+          "line_start": 1182,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+          "symbol": ""
+        }
+      }
+    ],
+    "target_views": [],
+    "target_raw": [],
+    "target_canonical": [],
+    "target_resolution": [],
+    "target_actions": [],
+    "target_qualification": [],
+    "final_pool_files": [
+      [
+        "src/compiler/tsbuild.ts",
+        "src/compiler/tsbuildPublic.ts",
+        "src/harness/virtualFileSystemWithWatch.ts",
+        "src/server/editorServices.ts",
+        "src/server/project.ts",
+        "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "src/testRunner/unittests/tscWatch/helpers.ts"
+      ]
+    ],
+    "target_final": [],
+    "scorecard": {
+      "case_id": "microsoft-TypeScript-35468",
+      "implementation_overlap_count": 2,
+      "oracle_file_count": 46,
+      "oracle_source": {
+        "hidden_resolution_summary": "PR #35757: Use resolvedPath consistently in the builder",
+        "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+        "subsystem": "compiler/build pipeline",
+        "thread_file_refs": true,
+        "verification_case_id": "microsoft-TypeScript-35468",
+        "verification_group": "testing_build_tooling",
+        "verification_json": true
+      },
+      "overlap_count": 2,
+      "retrieved_source_file_count": 7,
+      "top_k": {
+        "found_positions": {
+          "src/testRunner/unittests/tsbuild/watchMode.ts": 2,
+          "src/testRunner/unittests/tscWatch/helpers.ts": 6
+        },
+        "found_within_10": true,
+        "found_within_20": true,
+        "found_within_5": true,
+        "k_values": [
+          5,
+          10,
+          20
+        ]
+      },
+      "top_retrieved_files": [
+        "src/compiler/tsbuildPublic.ts",
+        "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "src/server/project.ts",
+        "src/server/editorServices.ts",
+        "src/compiler/tsbuild.ts"
+      ],
+      "verification_json_used": true
+    },
+    "coverage_status": "partial",
+    "sufficient": false
+  },
+  {
+    "run": "run-20260915T013209Z",
+    "tokens": 109420,
+    "stage_tokens": {
+      "connected_source_context": 4317,
+      "initial_owner_comparison": 16737,
+      "evidence_qualification": 37854,
+      "retrieval_coverage": 29204,
+      "obligation_evidence_consolidation": 17667,
+      "unresolved_file_evidence_selection": 3641
+    },
+    "comparison_budget": [
+      {
+        "auto_selected_group_count": 0,
+        "budget_overshoot_chars": 0,
+        "budget_policy": "append_crossing_snippet_then_stop",
+        "candidate_count": 58,
+        "compared_group_count": 14,
+        "input_char_budget": 100000,
+        "prompt_chars": 3157,
+        "schema_chars": 5507,
+        "serialized_chars": 52699,
+        "total_input_chars": 61363
+      }
+    ],
+    "admitted_files": [
+      "src/compiler/tsbuildpublic.ts",
+      "src/testrunner/unittests/tsbuild/watchmode.ts",
+      "src/server/editorservices.ts",
+      "src/compiler/builderstate.ts",
+      "src/compiler/watch.ts",
+      "src/compiler/commandlineparser.ts",
+      "src/compiler/builder.ts",
+      "src/compiler/watchpublic.ts",
+      "src/testrunner/unittests/tsserver/projectreferences.ts",
+      "src/compiler/watchutilities.ts",
+      "src/testrunner/unittests/tscwatch/incremental.ts",
+      "src/server/project.ts",
+      "src/harness/runnerbase.ts",
+      "src/compiler/parser.ts"
+    ],
+    "admitted_owner_count": 58,
+    "selected": [
+      {
+        "id": "obs_f429d6d76ec512a2",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 541,
+          "full_line_start": 495,
+          "language": "typescript",
+          "line_end": 541,
+          "line_start": 522,
+          "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+        }
+      },
+      {
+        "id": "obs_5ef93d462c7cc276",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 386,
+          "full_line_start": 333,
+          "language": "typescript",
+          "line_end": 386,
+          "line_start": 357,
+          "node_id": "function:70d91fa7b61cda64a11e60ff45579147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "getNextAffectedFile"
+        }
+      },
+      {
+        "id": "obs_08e16e7bffcc6df3",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 523,
+          "full_line_start": 515,
+          "language": "typescript",
+          "line_end": 523,
+          "line_start": 515,
+          "node_id": "function:3196e566885d332462cbdb90495baa8a",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builderState.ts",
+          "symbol": "getFilesAffectedByUpdatedShapeWhenNonModuleEmit"
+        }
+      },
+      {
+        "id": "obs_d8da5b1d980e347c",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 2880,
+          "full_line_start": 2846,
+          "language": "typescript",
+          "line_end": 2874,
+          "line_start": 2846,
+          "node_id": "function:8cee28fe9b3fa22711b34b5dee214f75",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/commandLineParser.ts",
+          "symbol": "matchFileNames"
+        }
+      },
+      {
+        "id": "obs_ef79e33c180110cd",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 3058,
+          "full_line_start": 3008,
+          "language": "typescript",
+          "line_end": 3044,
+          "line_start": 3008,
+          "node_id": "function:148733f8bb5cf3ecd8cf6a8360bd99de",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/commandLineParser.ts",
+          "symbol": "getWildcardDirectories"
+        }
+      },
+      {
+        "id": "obs_dec5815897dd1f84",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        }
+      },
+      {
+        "id": "obs_96587518d7cf8a6a",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1770,
+          "full_line_start": 1749,
+          "language": "typescript",
+          "line_end": 1770,
+          "line_start": 1749,
+          "node_id": "function:94121753e270cdfe67fe6e1a59c6cb40",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "buildNextInvalidatedProject"
+        }
+      },
+      {
+        "id": "obs_70ab956630713908",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 720,
+          "full_line_start": 215,
+          "language": "typescript",
+          "line_end": 329,
+          "line_start": 317,
+          "node_id": "function:3f2bdc55d5b1eba952e61c76e7172be0",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/watchPublic.ts",
+          "symbol": "createWatchProgram"
+        }
+      },
+      {
+        "id": "obs_dd99513a546b5aa6",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 62,
+          "full_line_start": 50,
+          "language": "typescript",
+          "line_end": 62,
+          "line_start": 50,
+          "node_id": "interface:9f1598839c04c76de1141353ca269a3f",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/watchPublic.ts",
+          "symbol": "WatchHost"
+        }
+      },
+      {
+        "id": "obs_68f9613a4b0af75f",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 330,
+          "full_line_start": 295,
+          "language": "typescript",
+          "line_end": 312,
+          "line_start": 295,
+          "node_id": "function:23d7e6bcf1fb33ad1d95f9f2fc2b2190",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/watchUtilities.ts",
+          "symbol": "updateWatchingWildcardDirectories"
+        }
+      },
+      {
+        "id": "obs_96d9d5358b551584",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1098,
+          "full_line_start": 971,
+          "language": "typescript",
+          "line_end": 1060,
+          "line_start": 1021,
+          "node_id": "method:a085983a8baf18ea094fc9c90e2798e0",
+          "outer_line_end": 1539,
+          "outer_line_start": 121,
+          "outer_node_id": "class:832e7c1d54eee01eff8fc29515578c7c",
+          "outer_symbol": "Project",
+          "path": "src/server/project.ts",
+          "symbol": "Project::updateGraphWorker"
+        }
+      },
+      {
+        "id": "obs_d6a1a15f81e64eec",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 245,
+          "full_line_start": 164,
+          "language": "typescript",
+          "line_end": 193,
+          "line_start": 185,
+          "node_id": "function:a33338c6c9363ff02277bfc18363b3ab",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyProjectChanges"
+        }
+      },
+      {
+        "id": "obs_542f6ec5c50e9373",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 508,
+          "full_line_start": 504,
+          "language": "typescript",
+          "line_end": 508,
+          "line_start": 504,
+          "node_id": "function:68b87ef75d2dbfb56b352061dbb863fd",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "introduceError"
+        }
+      },
+      {
+        "id": "obs_48fd36b2eacf411d",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 219,
+          "full_line_start": 180,
+          "language": "",
+          "line_end": 219,
+          "line_start": 180,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tscWatch/incremental.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_fe78810dd1c6f774",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 1161,
+          "full_line_start": 1122,
+          "language": "",
+          "line_end": 1161,
+          "line_start": 1122,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_425e5394c9513b7c",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 1221,
+          "full_line_start": 1182,
+          "language": "",
+          "line_end": 1221,
+          "line_start": 1182,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+          "symbol": ""
+        }
+      }
+    ],
+    "target_views": [],
+    "target_raw": [],
+    "target_canonical": [],
+    "target_resolution": [],
+    "target_actions": [],
+    "target_qualification": [],
+    "final_pool_files": [
+      [
+        "src/compiler/builder.ts",
+        "src/compiler/builderState.ts",
+        "src/compiler/commandLineParser.ts",
+        "src/compiler/tsbuildPublic.ts",
+        "src/compiler/watchPublic.ts",
+        "src/compiler/watchUtilities.ts",
+        "src/server/project.ts",
+        "src/testRunner/unittests/tsbuild/watchEnvironment.ts",
+        "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "src/testRunner/unittests/tscWatch/helpers.ts",
+        "src/testRunner/unittests/tscWatch/incremental.ts"
+      ]
+    ],
+    "target_final": [],
+    "scorecard": {
+      "case_id": "microsoft-TypeScript-35468",
+      "implementation_overlap_count": 4,
+      "oracle_file_count": 46,
+      "oracle_source": {
+        "hidden_resolution_summary": "PR #35757: Use resolvedPath consistently in the builder",
+        "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+        "subsystem": "compiler/build pipeline",
+        "thread_file_refs": true,
+        "verification_case_id": "microsoft-TypeScript-35468",
+        "verification_group": "testing_build_tooling",
+        "verification_json": true
+      },
+      "overlap_count": 4,
+      "retrieved_source_file_count": 8,
+      "top_k": {
+        "found_positions": {
+          "src/compiler/builder.ts": 2,
+          "src/compiler/builderState.ts": 3,
+          "src/testRunner/unittests/tsbuild/watchMode.ts": 5,
+          "src/testRunner/unittests/tscWatch/helpers.ts": 8
+        },
+        "found_within_10": true,
+        "found_within_20": true,
+        "found_within_5": true,
+        "k_values": [
+          5,
+          10,
+          20
+        ]
+      },
+      "top_retrieved_files": [
+        "src/compiler/tsbuildPublic.ts",
+        "src/compiler/builder.ts",
+        "src/compiler/builderState.ts",
+        "src/testRunner/unittests/tscWatch/incremental.ts",
+        "src/testRunner/unittests/tsbuild/watchMode.ts"
+      ],
+      "verification_json_used": true
+    },
+    "coverage_status": "partial",
+    "sufficient": false
+  },
+  {
+    "run": "run-20260915T013219Z",
+    "tokens": 101239,
+    "stage_tokens": {
+      "connected_source_context": 4218,
+      "initial_owner_comparison": 16310,
+      "evidence_qualification": 32240,
+      "retrieval_coverage": 29982,
+      "obligation_evidence_consolidation": 18489
+    },
+    "comparison_budget": [
+      {
+        "auto_selected_group_count": 0,
+        "budget_overshoot_chars": 0,
+        "budget_policy": "append_crossing_snippet_then_stop",
+        "candidate_count": 54,
+        "compared_group_count": 10,
+        "input_char_budget": 100000,
+        "prompt_chars": 3157,
+        "schema_chars": 4183,
+        "serialized_chars": 53515,
+        "total_input_chars": 60855
+      }
+    ],
+    "admitted_files": [
+      "src/testrunner/unittests/tsbuild/watchmode.ts",
+      "src/server/session.ts",
+      "src/server/project.ts",
+      "src/testrunner/unittests/tsserver/projectreferences.ts",
+      "src/compiler/watch.ts",
+      "src/server/editorservices.ts",
+      "src/compiler/tsbuildpublic.ts",
+      "src/testrunner/unittests/tsserver/events/projectloading.ts",
+      "src/compiler/tsbuild.ts",
+      "src/testrunner/unittests/tsserver/projects.ts"
+    ],
+    "admitted_owner_count": 54,
+    "selected": [
+      {
+        "id": "obs_0e8f00faf4de3430",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 83,
+          "full_line_start": 79,
+          "language": "typescript",
+          "line_end": 79,
+          "line_start": 79,
+          "node_id": "interface:541d3748e15649fa09f88fabdd699a7c",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuild.ts",
+          "symbol": "OutOfDateWithPrepend"
+        }
+      },
+      {
+        "id": "obs_96587518d7cf8a6a",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1770,
+          "full_line_start": 1749,
+          "language": "typescript",
+          "line_end": 1770,
+          "line_start": 1749,
+          "node_id": "function:94121753e270cdfe67fe6e1a59c6cb40",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "buildNextInvalidatedProject"
+        }
+      },
+      {
+        "id": "obs_dec5815897dd1f84",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        }
+      },
+      {
+        "id": "obs_7606d1128ec7e1ba",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 2028,
+          "full_line_start": 2021,
+          "language": "typescript",
+          "line_end": 2028,
+          "line_start": 2021,
+          "node_id": "method:e646a4f0a6a0a25fd11e755010e355a1",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::reloadFileNamesOfConfiguredProject"
+        }
+      },
+      {
+        "id": "obs_a228bc5dd8eb4a06",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1128,
+          "full_line_start": 1084,
+          "language": "typescript",
+          "line_end": 1115,
+          "line_start": 1084,
+          "node_id": "method:8d6be090993d0eb52dc754c9d62c4854",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::watchWildcardDirectory"
+        }
+      },
+      {
+        "id": "obs_0f0be3774e18b53a",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 2004,
+          "full_line_start": 1933,
+          "language": "typescript",
+          "line_end": 2004,
+          "line_start": 1992,
+          "node_id": "method:91f6235038b42928dd6f5357a0e2c41e",
+          "outer_line_end": 3493,
+          "outer_line_start": 506,
+          "outer_node_id": "class:572a40cace5e635f33737a0b25886ad8",
+          "outer_symbol": "ProjectService",
+          "path": "src/server/editorServices.ts",
+          "symbol": "ProjectService::updateNonInferredProjectFiles"
+        }
+      },
+      {
+        "id": "obs_96d9d5358b551584",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1098,
+          "full_line_start": 971,
+          "language": "typescript",
+          "line_end": 1060,
+          "line_start": 1021,
+          "node_id": "method:a085983a8baf18ea094fc9c90e2798e0",
+          "outer_line_end": 1539,
+          "outer_line_start": 121,
+          "outer_node_id": "class:832e7c1d54eee01eff8fc29515578c7c",
+          "outer_symbol": "Project",
+          "path": "src/server/project.ts",
+          "symbol": "Project::updateGraphWorker"
+        }
+      },
+      {
+        "id": "obs_8f48634fec925df7",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 906,
+          "full_line_start": 855,
+          "language": "typescript",
+          "line_end": 893,
+          "line_start": 855,
+          "node_id": "method:92eeb1c7588f22cba0095bc4aca39690",
+          "outer_line_end": 2623,
+          "outer_line_start": 589,
+          "outer_node_id": "class:2d696a27c80de5ce02ce3a459b2deb16",
+          "outer_symbol": "Session",
+          "path": "src/server/session.ts",
+          "symbol": "Session::updateErrorCheck"
+        }
+      },
+      {
+        "id": "obs_158e2d5a3ab67ecb",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1064,
+          "full_line_start": 770,
+          "language": "typescript",
+          "line_end": 805,
+          "line_start": 770,
+          "node_id": "function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyTransitiveReferences"
+        }
+      },
+      {
+        "id": "obs_d6a1a15f81e64eec",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 245,
+          "full_line_start": 164,
+          "language": "typescript",
+          "line_end": 217,
+          "line_start": 199,
+          "node_id": "function:a33338c6c9363ff02277bfc18363b3ab",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyProjectChanges"
+        }
+      },
+      {
+        "id": "obs_621663b4601f2d39",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 132,
+          "full_line_start": 84,
+          "language": "typescript",
+          "line_end": 132,
+          "line_start": 114,
+          "node_id": "function:37685d5cd437bca5ccc6a68774ea1a68",
+          "outer_line_end": 177,
+          "outer_line_start": 15,
+          "outer_node_id": "function:6d1c3c6b24b3f4b1e9799e7543117e9d",
+          "outer_symbol": "verifyProjectLoadingStartAndFinish",
+          "path": "src/testRunner/unittests/tsserver/events/projectLoading.ts",
+          "symbol": "verifyProjectLoadingStartAndFinish::verify"
+        }
+      },
+      {
+        "id": "obs_21aaa32074e616d0",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 966,
+          "full_line_start": 853,
+          "language": "typescript",
+          "line_end": 892,
+          "line_start": 853,
+          "node_id": "function:b5bceb75a7e9e4e4cb02e71d2011ccbf",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+          "symbol": "verifyScenarioWorker"
+        }
+      },
+      {
+        "id": "obs_425e5394c9513b7c",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 1221,
+          "full_line_start": 1182,
+          "language": "",
+          "line_end": 1221,
+          "line_start": 1182,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_506bb90866492c46",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 1504,
+          "full_line_start": 1465,
+          "language": "",
+          "line_end": 1504,
+          "line_start": 1465,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsserver/projects.ts",
+          "symbol": ""
+        }
+      }
+    ],
+    "target_views": [],
+    "target_raw": [],
+    "target_canonical": [],
+    "target_resolution": [],
+    "target_actions": [],
+    "target_qualification": [],
+    "final_pool_files": [
+      [
+        "src/compiler/tsbuild.ts",
+        "src/compiler/tsbuildPublic.ts",
+        "src/server/editorServices.ts",
+        "src/server/project.ts",
+        "src/server/session.ts",
+        "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "src/testRunner/unittests/tsserver/events/projectLoading.ts",
+        "src/testRunner/unittests/tsserver/projectReferences.ts",
+        "src/testRunner/unittests/tsserver/projects.ts"
+      ]
+    ],
+    "target_final": [],
+    "scorecard": {
+      "case_id": "microsoft-TypeScript-35468",
+      "implementation_overlap_count": 1,
+      "oracle_file_count": 46,
+      "oracle_source": {
+        "hidden_resolution_summary": "PR #35757: Use resolvedPath consistently in the builder",
+        "responsibility_summary": "Relevant code is responsible for compiler/build pipeline behavior described by the issue and fixed by the selected PR.",
+        "subsystem": "compiler/build pipeline",
+        "thread_file_refs": true,
+        "verification_case_id": "microsoft-TypeScript-35468",
+        "verification_group": "testing_build_tooling",
+        "verification_json": true
+      },
+      "overlap_count": 1,
+      "retrieved_source_file_count": 5,
+      "top_k": {
+        "found_positions": {
+          "src/testRunner/unittests/tsbuild/watchMode.ts": 4
+        },
+        "found_within_10": true,
+        "found_within_20": true,
+        "found_within_5": true,
+        "k_values": [
+          5,
+          10,
+          20
+        ]
+      },
+      "top_retrieved_files": [
+        "src/server/editorServices.ts",
+        "src/compiler/tsbuildPublic.ts",
+        "src/server/session.ts",
+        "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "src/server/project.ts"
+      ],
+      "verification_json_used": true
+    },
+    "coverage_status": "partial",
+    "sufficient": false
+  }
+]

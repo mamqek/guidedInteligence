@@ -1,0 +1,199 @@
+{
+  "source_run": "run-20260915T013219Z",
+  "original_prepared_admission_verified": true,
+  "names": [
+    "Explain",
+    "Title",
+    "The",
+    "Setup",
+    "Two",
+    "Then",
+    "Restarting",
+    "Observations",
+    "TypeScript",
+    "Code",
+    "Search",
+    "Terms",
+    "wereHamster",
+    "Clone",
+    "node_modules",
+    "Session",
+    "Expected",
+    "Actual"
+  ],
+  "changes": [
+    {
+      "id": "obs_95d14831d5e2cbe1",
+      "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+      "anchor": "The",
+      "witness": [
+        1015,
+        1021
+      ],
+      "source_chars": 566
+    },
+    {
+      "id": "obs_5279c02bc44052b2",
+      "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+      "anchor": "The",
+      "witness": [
+        1032,
+        1037
+      ],
+      "source_chars": 537
+    },
+    {
+      "id": "obs_b99b47c7222c233f",
+      "path": "src/testRunner/unittests/tsserver/session.ts",
+      "anchor": "Session",
+      "witness": [
+        558,
+        561
+      ],
+      "source_chars": 210
+    },
+    {
+      "id": "obs_32d925b5d5a2437e",
+      "path": "src/testRunner/unittests/tsserver/session.ts",
+      "anchor": "Session",
+      "witness": [
+        419,
+        425
+      ],
+      "source_chars": 362
+    },
+    {
+      "id": "obs_e52e53942a16bfbf",
+      "path": "src/compiler/diagnosticMessages.json",
+      "anchor": "The",
+      "witness": [
+        4359,
+        4365
+      ],
+      "source_chars": 297
+    },
+    {
+      "id": "obs_e03d6683a35a111b",
+      "path": "tests/lib/lib.d.ts",
+      "anchor": "The",
+      "witness": [
+        10622,
+        10628
+      ],
+      "source_chars": 395
+    },
+    {
+      "id": "obs_3f671d4389233faa",
+      "path": "tests/lib/lib.d.ts",
+      "anchor": "The",
+      "witness": [
+        17116,
+        17121
+      ],
+      "source_chars": 282
+    },
+    {
+      "id": "obs_6dbaf02c943ecbf6",
+      "path": "tests/lib/react.d.ts",
+      "anchor": "The",
+      "witness": [
+        1610,
+        1615
+      ],
+      "source_chars": 204
+    },
+    {
+      "id": "obs_b07296d7623cb26f",
+      "path": "tests/lib/react.d.ts",
+      "anchor": "The",
+      "witness": [
+        1661,
+        1667
+      ],
+      "source_chars": 461
+    },
+    {
+      "id": "obs_54b0bf9745f98566",
+      "path": "src/lib/scripthost.d.ts",
+      "anchor": "The",
+      "witness": [
+        118,
+        123
+      ],
+      "source_chars": 278
+    },
+    {
+      "id": "obs_b49d9562be051255",
+      "path": "src/testRunner/unittests/tscWatch/watchApi.ts",
+      "anchor": "The",
+      "witness": [
+        60,
+        66
+      ],
+      "source_chars": 499
+    },
+    {
+      "id": "obs_0f362dae4b7c0a65",
+      "path": "tests/cases/fourslash/fourslash.ts",
+      "anchor": "The",
+      "witness": [
+        31,
+        37
+      ],
+      "source_chars": 603
+    },
+    {
+      "id": "obs_8aeaaa8b09d2d82e",
+      "path": "tests/lib/react.d.ts",
+      "anchor": "The",
+      "witness": [
+        1525,
+        1531
+      ],
+      "source_chars": 374
+    },
+    {
+      "id": "obs_9f1475352ea8808b",
+      "path": "src/compiler/transformers/generators.ts",
+      "anchor": "The",
+      "witness": [
+        53,
+        59
+      ],
+      "source_chars": 388
+    }
+  ],
+  "old_count": 74,
+  "new_count": 73,
+  "old_chars": 60322,
+  "new_chars": 60168,
+  "displaced": [
+    {
+      "id": "obs_4f0cfce4370e24b8",
+      "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+      "symbol": "verifySession"
+    }
+  ],
+  "admitted_changes": [
+    {
+      "id": "obs_95d14831d5e2cbe1",
+      "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+      "anchor": "The",
+      "witness": [
+        1015,
+        1021
+      ],
+      "source_chars": 566
+    },
+    {
+      "id": "obs_5279c02bc44052b2",
+      "path": "src/testRunner/unittests/tsserver/projectReferences.ts",
+      "anchor": "The",
+      "witness": [
+        1032,
+        1037
+      ],
+      "source_chars": 537
+    }
+  ]
+}
