@@ -1,0 +1,675 @@
+[
+  {
+    "run": "run-20260915T050616Z",
+    "checked": 23,
+    "changes": [
+      {
+        "round": 0,
+        "island_id": "island_615063e91ca26115",
+        "old": "obs_68f9613a4b0af75f",
+        "new": "obs_dec5815897dd1f84",
+        "counts": {
+          "obs_f429d6d76ec512a2": 4,
+          "obs_fc92f7a292255e31": 2,
+          "obs_dec5815897dd1f84": 4,
+          "obs_5c69863ba51eee0c": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 330,
+          "full_line_start": 295,
+          "language": "typescript",
+          "line_end": 312,
+          "line_start": 295,
+          "node_id": "function:23d7e6bcf1fb33ad1d95f9f2fc2b2190",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/watchUtilities.ts",
+          "symbol": "updateWatchingWildcardDirectories"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        }
+      },
+      {
+        "round": 1,
+        "island_id": "island_8ab0ab53d28cf3e1",
+        "old": "obs_03047c7d6afe13aa",
+        "new": "obs_f429d6d76ec512a2",
+        "counts": {
+          "obs_f429d6d76ec512a2": 4,
+          "obs_fc92f7a292255e31": 1,
+          "obs_03047c7d6afe13aa": 2,
+          "obs_dec5815897dd1f84": 4,
+          "obs_68f9613a4b0af75f": 1,
+          "obs_5c69863ba51eee0c": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 453,
+          "full_line_start": 449,
+          "language": "",
+          "line_end": 453,
+          "line_start": 449,
+          "node_id": "function:30a8c58d8d1b02679033b37851233006",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builderState.ts",
+          "symbol": "getReferencedByPaths"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 541,
+          "full_line_start": 495,
+          "language": "typescript",
+          "line_end": 541,
+          "line_start": 522,
+          "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+        }
+      },
+      {
+        "round": 1,
+        "island_id": "island_cf3fa843eaf650c1",
+        "old": "obs_68f9613a4b0af75f",
+        "new": "obs_dec5815897dd1f84",
+        "counts": {
+          "obs_f429d6d76ec512a2": 4,
+          "obs_fc92f7a292255e31": 1,
+          "obs_03047c7d6afe13aa": 2,
+          "obs_dec5815897dd1f84": 4,
+          "obs_68f9613a4b0af75f": 1,
+          "obs_5c69863ba51eee0c": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 330,
+          "full_line_start": 295,
+          "language": "typescript",
+          "line_end": 312,
+          "line_start": 295,
+          "node_id": "function:23d7e6bcf1fb33ad1d95f9f2fc2b2190",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/watchUtilities.ts",
+          "symbol": "updateWatchingWildcardDirectories"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        }
+      },
+      {
+        "round": 2,
+        "island_id": "island_cf3fa843eaf650c1",
+        "old": "obs_320d23b5d27ef2c6",
+        "new": "obs_dec5815897dd1f84",
+        "counts": {
+          "obs_320d23b5d27ef2c6": 2,
+          "obs_f429d6d76ec512a2": 2,
+          "obs_fc92f7a292255e31": 1,
+          "obs_03047c7d6afe13aa": 2,
+          "obs_dec5815897dd1f84": 4,
+          "obs_68f9613a4b0af75f": 1,
+          "obs_5c69863ba51eee0c": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1051,
+          "full_line_start": 1017,
+          "language": "",
+          "line_end": 1051,
+          "line_start": 1017,
+          "node_id": "function:65665f4b84d4e5aba2a622258554cda6",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        }
+      },
+      {
+        "round": 3,
+        "island_id": "island_cf3fa843eaf650c1",
+        "old": "obs_320d23b5d27ef2c6",
+        "new": "obs_dec5815897dd1f84",
+        "counts": {
+          "obs_320d23b5d27ef2c6": 2,
+          "obs_f429d6d76ec512a2": 2,
+          "obs_fc92f7a292255e31": 1,
+          "obs_03047c7d6afe13aa": 2,
+          "obs_dec5815897dd1f84": 4,
+          "obs_68f9613a4b0af75f": 1,
+          "obs_5c69863ba51eee0c": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1051,
+          "full_line_start": 1017,
+          "language": "",
+          "line_end": 1051,
+          "line_start": 1017,
+          "node_id": "function:65665f4b84d4e5aba2a622258554cda6",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "createBuilderProgram::getSemanticDiagnosticsOfNextAffectedFile"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        }
+      }
+    ]
+  },
+  {
+    "run": "run-20260915T050625Z",
+    "checked": 22,
+    "changes": [
+      {
+        "round": 0,
+        "island_id": "island_7f0e232813e543b1",
+        "old": "obs_dec5815897dd1f84",
+        "new": "obs_6895da1c7227a970",
+        "counts": {
+          "obs_f429d6d76ec512a2": 3,
+          "obs_6895da1c7227a970": 3,
+          "obs_96d9d5358b551584": 1,
+          "obs_542f6ec5c50e9373": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1868,
+          "full_line_start": 1849,
+          "language": "typescript",
+          "line_end": 1868,
+          "line_start": 1849,
+          "node_id": "function:c8bb9809ccc000a6385f7eacfc0f7045",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "watchInputFiles"
+        }
+      },
+      {
+        "round": 1,
+        "island_id": "island_8ab0ab53d28cf3e1",
+        "old": "obs_03047c7d6afe13aa",
+        "new": "obs_f429d6d76ec512a2",
+        "counts": {
+          "obs_f429d6d76ec512a2": 3,
+          "obs_5ef93d462c7cc276": 1,
+          "obs_03047c7d6afe13aa": 1,
+          "obs_6895da1c7227a970": 3,
+          "obs_70ab956630713908": 1,
+          "obs_96d9d5358b551584": 1,
+          "obs_542f6ec5c50e9373": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 453,
+          "full_line_start": 449,
+          "language": "",
+          "line_end": 453,
+          "line_start": 449,
+          "node_id": "function:30a8c58d8d1b02679033b37851233006",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builderState.ts",
+          "symbol": "getReferencedByPaths"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 541,
+          "full_line_start": 495,
+          "language": "typescript",
+          "line_end": 541,
+          "line_start": 522,
+          "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+        }
+      },
+      {
+        "round": 1,
+        "island_id": "island_7f0e232813e543b1",
+        "old": "obs_dec5815897dd1f84",
+        "new": "obs_6895da1c7227a970",
+        "counts": {
+          "obs_f429d6d76ec512a2": 3,
+          "obs_5ef93d462c7cc276": 1,
+          "obs_03047c7d6afe13aa": 1,
+          "obs_6895da1c7227a970": 3,
+          "obs_70ab956630713908": 1,
+          "obs_96d9d5358b551584": 1,
+          "obs_542f6ec5c50e9373": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1868,
+          "full_line_start": 1849,
+          "language": "typescript",
+          "line_end": 1868,
+          "line_start": 1849,
+          "node_id": "function:c8bb9809ccc000a6385f7eacfc0f7045",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "watchInputFiles"
+        }
+      },
+      {
+        "round": 2,
+        "island_id": "island_8ab0ab53d28cf3e1",
+        "old": "obs_4d85bb7aba967f36",
+        "new": "obs_f429d6d76ec512a2",
+        "counts": {
+          "obs_f429d6d76ec512a2": 3,
+          "obs_5ef93d462c7cc276": 1,
+          "obs_4d85bb7aba967f36": 2,
+          "obs_6895da1c7227a970": 3,
+          "obs_70ab956630713908": 1,
+          "obs_96d9d5358b551584": 1,
+          "obs_542f6ec5c50e9373": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 354,
+          "full_line_start": 304,
+          "language": "typescript",
+          "line_end": 354,
+          "line_start": 331,
+          "node_id": "function:fc5e0c1d952a60d32b4da99e9f988257",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builderState.ts",
+          "symbol": "updateShapeSignature"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 541,
+          "full_line_start": 495,
+          "language": "typescript",
+          "line_end": 541,
+          "line_start": 522,
+          "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+        }
+      },
+      {
+        "round": 2,
+        "island_id": "island_4bdf7a9a5439c598",
+        "old": "obs_dec5815897dd1f84",
+        "new": "obs_6895da1c7227a970",
+        "counts": {
+          "obs_f429d6d76ec512a2": 3,
+          "obs_5ef93d462c7cc276": 1,
+          "obs_4d85bb7aba967f36": 2,
+          "obs_6895da1c7227a970": 3,
+          "obs_70ab956630713908": 1,
+          "obs_96d9d5358b551584": 1,
+          "obs_542f6ec5c50e9373": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1868,
+          "full_line_start": 1849,
+          "language": "typescript",
+          "line_end": 1868,
+          "line_start": 1849,
+          "node_id": "function:c8bb9809ccc000a6385f7eacfc0f7045",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "watchInputFiles"
+        }
+      },
+      {
+        "round": 3,
+        "island_id": "island_8ab0ab53d28cf3e1",
+        "old": "obs_4d85bb7aba967f36",
+        "new": "obs_f429d6d76ec512a2",
+        "counts": {
+          "obs_f429d6d76ec512a2": 3,
+          "obs_5ef93d462c7cc276": 1,
+          "obs_4d85bb7aba967f36": 2,
+          "obs_6895da1c7227a970": 3,
+          "obs_70ab956630713908": 1,
+          "obs_96d9d5358b551584": 1,
+          "obs_542f6ec5c50e9373": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 354,
+          "full_line_start": 304,
+          "language": "typescript",
+          "line_end": 354,
+          "line_start": 331,
+          "node_id": "function:fc5e0c1d952a60d32b4da99e9f988257",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builderState.ts",
+          "symbol": "updateShapeSignature"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 541,
+          "full_line_start": 495,
+          "language": "typescript",
+          "line_end": 541,
+          "line_start": 522,
+          "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/builder.ts",
+          "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+        }
+      },
+      {
+        "round": 3,
+        "island_id": "island_4bdf7a9a5439c598",
+        "old": "obs_dec5815897dd1f84",
+        "new": "obs_6895da1c7227a970",
+        "counts": {
+          "obs_f429d6d76ec512a2": 3,
+          "obs_5ef93d462c7cc276": 1,
+          "obs_4d85bb7aba967f36": 2,
+          "obs_6895da1c7227a970": 3,
+          "obs_70ab956630713908": 1,
+          "obs_96d9d5358b551584": 1,
+          "obs_542f6ec5c50e9373": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1233,
+          "full_line_start": 1124,
+          "language": "typescript",
+          "line_end": 1193,
+          "line_start": 1154,
+          "node_id": "function:200b27b361a344e4e112e12f1b151456",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "getNextInvalidatedProject"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1868,
+          "full_line_start": 1849,
+          "language": "typescript",
+          "line_end": 1868,
+          "line_start": 1849,
+          "node_id": "function:c8bb9809ccc000a6385f7eacfc0f7045",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/compiler/tsbuildPublic.ts",
+          "symbol": "watchInputFiles"
+        }
+      }
+    ]
+  },
+  {
+    "run": "run-20260915T050636Z",
+    "checked": 4,
+    "changes": []
+  },
+  {
+    "run": "run-20260915T050646Z",
+    "checked": 14,
+    "changes": [
+      {
+        "round": 1,
+        "island_id": "island_a587f7c1b4e1af40",
+        "old": "obs_0fa4f1a86225e86b",
+        "new": "obs_de4d233e4b26a557",
+        "counts": {
+          "obs_de4d233e4b26a557": 3
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 147,
+          "full_line_start": 100,
+          "language": "javascript",
+          "line_end": 147,
+          "line_start": 122,
+          "node_id": "source_owner:src/core/util/props.js:100:147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/core/util/props.js",
+          "symbol": "assertProp"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 222,
+          "full_line_start": 203,
+          "language": "javascript",
+          "line_end": 222,
+          "line_start": 203,
+          "node_id": "function:7ba39ad6968ab7cb618eb764bdc18509",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/core/util/props.js",
+          "symbol": "getInvalidTypeMessage"
+        }
+      },
+      {
+        "round": 2,
+        "island_id": "island_a587f7c1b4e1af40",
+        "old": "obs_0fa4f1a86225e86b",
+        "new": "obs_de4d233e4b26a557",
+        "counts": {
+          "obs_de4d233e4b26a557": 3
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 147,
+          "full_line_start": 100,
+          "language": "javascript",
+          "line_end": 147,
+          "line_start": 122,
+          "node_id": "source_owner:src/core/util/props.js:100:147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/core/util/props.js",
+          "symbol": "assertProp"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 222,
+          "full_line_start": 203,
+          "language": "javascript",
+          "line_end": 222,
+          "line_start": 203,
+          "node_id": "function:7ba39ad6968ab7cb618eb764bdc18509",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/core/util/props.js",
+          "symbol": "getInvalidTypeMessage"
+        }
+      },
+      {
+        "round": 3,
+        "island_id": "island_a587f7c1b4e1af40",
+        "old": "obs_0fa4f1a86225e86b",
+        "new": "obs_de4d233e4b26a557",
+        "counts": {
+          "obs_de4d233e4b26a557": 3,
+          "obs_64b46e2f9b1eac61": 1
+        },
+        "old_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 147,
+          "full_line_start": 100,
+          "language": "javascript",
+          "line_end": 147,
+          "line_start": 122,
+          "node_id": "source_owner:src/core/util/props.js:100:147",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/core/util/props.js",
+          "symbol": "assertProp"
+        },
+        "new_symbol": {
+          "adapter": "codegraph_node",
+          "full_line_end": 222,
+          "full_line_start": 203,
+          "language": "javascript",
+          "line_end": 222,
+          "line_start": 203,
+          "node_id": "function:7ba39ad6968ab7cb618eb764bdc18509",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/core/util/props.js",
+          "symbol": "getInvalidTypeMessage"
+        }
+      }
+    ]
+  }
+]

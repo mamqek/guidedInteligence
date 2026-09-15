@@ -1,0 +1,795 @@
+[
+  {
+    "run": "run-20260915T051437Z",
+    "target": "src/testRunner/unittests/tsbuild/watchMode.ts",
+    "raw": {
+      "dense_results": 112,
+      "sparse_results": 6,
+      "hybrid_results": 5
+    },
+    "canonical": [
+      {
+        "id": "obs_d6a1a15f81e64eec",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 245,
+          "full_line_start": 164,
+          "language": "typescript",
+          "line_end": 193,
+          "line_start": 185,
+          "node_id": "function:a33338c6c9363ff02277bfc18363b3ab",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyProjectChanges"
+        }
+      },
+      {
+        "id": "obs_1777dcf1daf145ba",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 309,
+          "full_line_start": 305,
+          "language": "typescript",
+          "line_end": 309,
+          "line_start": 305,
+          "node_id": "function:c5f8f390740e0202d8529f8891e6e00d",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "buildLogic"
+        }
+      },
+      {
+        "id": "obs_58e03dd873adc228",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 687,
+          "full_line_start": 675,
+          "language": "",
+          "line_end": 687,
+          "line_start": 675,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_d1ccacdaddc9df40",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 716,
+          "full_line_start": 688,
+          "language": "",
+          "line_end": 716,
+          "line_start": 688,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_4087490ba40382dd",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 1196,
+          "full_line_start": 1157,
+          "language": "",
+          "line_end": 1196,
+          "line_start": 1157,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_cf77ea0f2f365dfe",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 304,
+          "full_line_start": 270,
+          "language": "",
+          "line_end": 304,
+          "line_start": 270,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_43bb1e720d98d63a",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 405,
+          "full_line_start": 385,
+          "language": "",
+          "line_end": 405,
+          "line_start": 385,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_4d7f32ec83f6923b",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 458,
+          "full_line_start": 436,
+          "language": "",
+          "line_end": 458,
+          "line_start": 436,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_542f6ec5c50e9373",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 508,
+          "full_line_start": 504,
+          "language": "typescript",
+          "line_end": 508,
+          "line_start": 504,
+          "node_id": "function:68b87ef75d2dbfb56b352061dbb863fd",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "introduceError"
+        }
+      },
+      {
+        "id": "obs_ba0c46e9f101710e",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 602,
+          "full_line_start": 600,
+          "language": "typescript",
+          "line_end": 602,
+          "line_start": 600,
+          "node_id": "function:8bca4300ccabaea30f77935a43ed0722",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyDependencies"
+        }
+      },
+      {
+        "id": "obs_158e2d5a3ab67ecb",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1064,
+          "full_line_start": 770,
+          "language": "typescript",
+          "line_end": 1064,
+          "line_start": 1056,
+          "node_id": "function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyTransitiveReferences"
+        }
+      },
+      {
+        "id": "obs_94fe4ec1ab457634",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 1166,
+          "full_line_start": 1127,
+          "language": "",
+          "line_end": 1166,
+          "line_start": 1127,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_ea66bce638f61508",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 1213,
+          "full_line_start": 1187,
+          "language": "",
+          "line_end": 1213,
+          "line_start": 1187,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_d2ee33fc289cfbe5",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 349,
+          "full_line_start": 339,
+          "language": "",
+          "line_end": 349,
+          "line_start": 339,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_dd041a96fedc014d",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 542,
+          "full_line_start": 534,
+          "language": "",
+          "line_end": 542,
+          "line_start": 534,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_4ba453749d37df14",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 578,
+          "full_line_start": 564,
+          "language": "typescript",
+          "line_end": 578,
+          "line_start": 564,
+          "node_id": "function:6deb76080968aee7e111cb13b53a3f6b",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "createSolutionAndWatchModeOfProject"
+        }
+      },
+      {
+        "id": "obs_67b8d3b3577f8cac",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 875,
+          "full_line_start": 863,
+          "language": "typescript",
+          "line_end": 875,
+          "line_start": 863,
+          "node_id": "interface:654b3121e4743b06955389b2c292399f",
+          "outer_line_end": 1064,
+          "outer_line_start": 770,
+          "outer_node_id": "function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "outer_symbol": "verifyTransitiveReferences",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyTransitiveReferences::VerifyScenario"
+        }
+      },
+      {
+        "id": "obs_9dcdf91ada8b21ff",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 394,
+          "full_line_start": 355,
+          "language": "",
+          "line_end": 394,
+          "line_start": 355,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_5c69863ba51eee0c",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 431,
+          "full_line_start": 406,
+          "language": "typescript",
+          "line_end": 431,
+          "line_start": 406,
+          "node_id": "function:138f79a95ab0b21290f1ff62d668bc34",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyIncrementalErrors"
+        }
+      },
+      {
+        "id": "obs_3738c8cae42c9bba",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 475,
+          "full_line_start": 471,
+          "language": "typescript",
+          "line_end": 475,
+          "line_start": 471,
+          "node_id": "function:6d164eed422eee4d7d0eb059ad6dee3c",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "changeFileWithoutError"
+        }
+      },
+      {
+        "id": "obs_eb3e2222b132aa2d",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 912,
+          "full_line_start": 876,
+          "language": "typescript",
+          "line_end": 912,
+          "line_start": 876,
+          "node_id": "function:cce974608658f81914b01c2d1da2b219",
+          "outer_line_end": 1064,
+          "outer_line_start": 770,
+          "outer_node_id": "function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "outer_symbol": "verifyTransitiveReferences",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyTransitiveReferences::verifyScenario"
+        }
+      },
+      {
+        "id": "obs_014928e6e41380f9",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 469,
+          "full_line_start": 464,
+          "language": "typescript",
+          "line_end": 469,
+          "line_start": 464,
+          "node_id": "function:520a13a54022afe79c78d377d123ec77",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "fixError"
+        }
+      },
+      {
+        "id": "obs_d2ff576cd800775a",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 503,
+          "full_line_start": 501,
+          "language": "",
+          "line_end": 503,
+          "line_start": 501,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_9f4a58ffd4bc8067",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 335,
+          "full_line_start": 335,
+          "language": "",
+          "line_end": 335,
+          "line_start": 335,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_687ae8deca4fd81d",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 654,
+          "full_line_start": 630,
+          "language": "typescript",
+          "line_end": 654,
+          "line_start": 630,
+          "node_id": "function:395f1b222c9df0f1988f56d0f190f1e2",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyScenario"
+        }
+      },
+      {
+        "id": "obs_aa0e81f93cf17368",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 674,
+          "full_line_start": 660,
+          "language": "",
+          "line_end": 674,
+          "line_start": 660,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_0ee2bfa4a625d221",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 4,
+          "full_line_start": 1,
+          "language": "",
+          "line_end": 4,
+          "line_start": 1,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_a7730607e3e4be16",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 34,
+          "full_line_start": 33,
+          "language": "",
+          "line_end": 34,
+          "line_start": 33,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_b0a3a3feaaf6ba3f",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 1249,
+          "full_line_start": 1248,
+          "language": "",
+          "line_end": 1249,
+          "line_start": 1248,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_be5aee6b6626fd09",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 1097,
+          "full_line_start": 1086,
+          "language": "",
+          "line_end": 1097,
+          "line_start": 1086,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_5d21e5edb43660d0",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 338,
+          "full_line_start": 336,
+          "language": "",
+          "line_end": 338,
+          "line_start": 336,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_590e4f58dc853d2b",
+        "handle": {
+          "adapter": "indexed_chunk",
+          "full_line_end": 354,
+          "full_line_start": 350,
+          "language": "",
+          "line_end": 354,
+          "line_start": 350,
+          "node_id": "",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": ""
+        }
+      },
+      {
+        "id": "obs_bdf038908e427f57",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 843,
+          "full_line_start": 836,
+          "language": "typescript",
+          "line_end": 843,
+          "line_start": 836,
+          "node_id": "interface:852dcdaf34530581311b074d43d7184c",
+          "outer_line_end": 1064,
+          "outer_line_start": 770,
+          "outer_node_id": "function:010ba3b9c3d49d91958f67a4f5d3c335",
+          "outer_symbol": "verifyTransitiveReferences",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "verifyTransitiveReferences::VerifyServerState"
+        }
+      },
+      {
+        "id": "obs_52ed2a1c01ff0805",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 1100,
+          "full_line_start": 1098,
+          "language": "typescript",
+          "line_end": 1100,
+          "line_start": 1098,
+          "node_id": "function:252a1f7055d3290bc2dd89ad38ed3814",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tsbuild/watchMode.ts",
+          "symbol": "getOutputFileStamps"
+        }
+      }
+    ],
+    "admitted": [
+      {
+        "id": "g2",
+        "obligations": [
+          "explain_subject",
+          "explain_trigger",
+          "explain_ordered_mechanism",
+          "explain_resulting_effect",
+          "explain_why"
+        ],
+        "owners": [
+          "o8",
+          "o9",
+          "o10",
+          "o11",
+          "o12",
+          "o13",
+          "o14",
+          "o15",
+          "o16",
+          "o17",
+          "o18",
+          "o19",
+          "o20",
+          "o21",
+          "o22",
+          "o23",
+          "o24",
+          "o25",
+          "o26",
+          "o27",
+          "o28",
+          "o29",
+          "o30"
+        ],
+        "path": "src/testrunner/unittests/tsbuild/watchmode.ts"
+      }
+    ],
+    "initial_selected_ids": [
+      "obs_158e2d5a3ab67ecb",
+      "obs_ea66bce638f61508"
+    ],
+    "qualification_decisions": [
+      {
+        "round": 0,
+        "disposition": "defer",
+        "local_follow_up": "Retrieve the omitted verifyScenario cases that edit the referenced source and assert the consuming project diagnostics.",
+        "missing_information": [
+          "The scenario that edits the interface source.",
+          "Any direct-versus-wildcard import assertions or consuming-project diagnostic expectation."
+        ],
+        "observation_id": "obs_158e2d5a3ab67ecb",
+        "reason": "The test exercises transitive project-reference watch behavior and expected watched files, but the visible portion concerns deleting a configuration rather than a type edit through a wildcard re-export.",
+        "support_level": "navigation_only",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "The test verifies a transitive-reference watch scenario.",
+          "It checks expected edit errors, project files, and watched files after deleting a project config."
+        ]
+      },
+      {
+        "round": 0,
+        "disposition": "defer",
+        "local_follow_up": "Retrieve the connected verifyTscWatch assertions for the bad-reference update.",
+        "missing_information": [
+          "The expected diagnostics and project-reference structure.",
+          "Any wildcard re-export or direct-import comparison."
+        ],
+        "observation_id": "obs_ea66bce638f61508",
+        "reason": "The visible test runs a watch build after prepending an import and labels the scenario as a bad reference update, but it provides no assertion about interface changes, wildcard re-exports, or the missing consuming-project error.",
+        "support_level": "insufficient",
+        "supported_obligation_ids": [],
+        "visible_support": [
+          "The test uses -b -w -verbose.",
+          "It rewrites a source file and runs the scheduled build."
+        ]
+      }
+    ],
+    "promoted_history": [],
+    "selected_actions": [],
+    "final_pool": []
+  },
+  {
+    "run": "run-20260915T051437Z",
+    "target": "src/testRunner/unittests/tscWatch/helpers.ts",
+    "raw": {
+      "dense_results": 4,
+      "sparse_results": 0,
+      "hybrid_results": 1
+    },
+    "canonical": [
+      {
+        "id": "obs_dbba1203f4aa59d0",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 79,
+          "full_line_start": 76,
+          "language": "typescript",
+          "line_end": 79,
+          "line_start": 76,
+          "node_id": "interface:f705c4bb050f17b1a3552d9e4cd4ee6f",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+          "symbol": "HostOutputWatchDiagnostic"
+        }
+      },
+      {
+        "id": "obs_1df2beaffbe01f8b",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 140,
+          "full_line_start": 127,
+          "language": "typescript",
+          "line_end": 140,
+          "line_start": 127,
+          "node_id": "function:eac9066fcc08892fb7dbd083a4058f26",
+          "outer_line_end": 152,
+          "outer_line_start": 83,
+          "outer_node_id": "function:2d02db578f1b33174446d889b0bae932",
+          "outer_symbol": "checkOutputErrors",
+          "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+          "symbol": "checkOutputErrors::assertWatchDiagnostic"
+        }
+      },
+      {
+        "id": "obs_b9f8c71d8e8b0101",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 202,
+          "full_line_start": 190,
+          "language": "typescript",
+          "line_end": 202,
+          "line_start": 190,
+          "node_id": "function:801ed01a04af2bfe239c04a232e15c9c",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+          "symbol": "checkOutputErrorsIncremental"
+        }
+      },
+      {
+        "id": "obs_6c707a643c49b280",
+        "handle": {
+          "adapter": "codegraph_node",
+          "full_line_end": 175,
+          "full_line_start": 173,
+          "language": "typescript",
+          "line_end": 175,
+          "line_start": 173,
+          "node_id": "function:955fa30b631fc6a60e3ba37454097479",
+          "outer_line_end": 0,
+          "outer_line_start": 0,
+          "outer_node_id": "",
+          "outer_symbol": "",
+          "path": "src/testRunner/unittests/tscWatch/helpers.ts",
+          "symbol": "fileChangeDetected"
+        }
+      }
+    ],
+    "admitted": [],
+    "initial_selected_ids": [],
+    "qualification_decisions": [],
+    "promoted_history": [],
+    "selected_actions": [],
+    "final_pool": []
+  }
+]

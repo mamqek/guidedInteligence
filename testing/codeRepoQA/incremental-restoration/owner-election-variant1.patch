@@ -1,0 +1,105 @@
+diff --git a/services/retrieval/workspace/pipeline/execution_flow/evidence_islands.py b/services/retrieval/workspace/pipeline/execution_flow/evidence_islands.py
+index 3ec9366..bb8a4c7 100644
+--- a/services/retrieval/workspace/pipeline/execution_flow/evidence_islands.py
++++ b/services/retrieval/workspace/pipeline/execution_flow/evidence_islands.py
+@@ -67,6 +67,11 @@ def build_semantic_islands(
+         if decision_by_id.get(item.id, _REJECT).disposition == "promote"
+     }
+     card_by_id = {item.observation_id: item for item in cards}
++    from services.retrieval.workspace.pipeline.execution_flow.owner_representation import elect_owner_primaries
++    primary_counts, primary_elections = elect_owner_primaries(observation_by_id, decision_by_id)
++
++    def ranking_key(observation: DiscoveryObservation, decision: QualificationDecision) -> tuple[Any, ...]:
++        return (-primary_counts.get(observation.id, 0), *_root_key(observation, decision))
+     unresolved = {
+         item.obligation_id for item in coverage
+         if item.status not in {"covered", "external"}
+@@ -153,13 +158,13 @@ def build_semantic_islands(
+     islands = tuple(
+         _make_island(
+             tuple(ids), observation_by_id, decision_by_id, card_by_id, unresolved,
+-            component_by_observation, previous_by_observation,
++            component_by_observation, previous_by_observation, ranking_key,
+         )
+         for ids in sorted(grouped.values(), key=lambda values: tuple(sorted(values)))
+     )
+     ranked = sorted(
+         islands,
+-        key=lambda item: _root_key(
++        key=lambda item: ranking_key(
+             observation_by_id[item.representative_observation_id],
+             decision_by_id[item.representative_observation_id],
+         ),
+@@ -170,7 +175,7 @@ def build_semantic_islands(
+         for island in active
+         for observation_id in sorted(
+             island.observation_ids,
+-            key=lambda value: _root_key(observation_by_id[value], decision_by_id[value]),
++            key=lambda value: ranking_key(observation_by_id[value], decision_by_id[value]),
+         )
+     )
+     active_observations = set(active_roots)
+@@ -191,6 +196,16 @@ def build_semantic_islands(
+         selection_reasons=reasons,
+     )
+     if trace is not None:
++        from services.retrieval.workspace.pipeline.execution_flow.owner_reevaluation_audit import audit_owner_elections
++        trace.record("owner_reevaluation_audited", {
++            "round": round_index,
++            "trace_only": False,
++            "primary_elections": primary_elections,
++            "primary_counts": primary_counts,
++            "elections": audit_owner_elections(
++                result, previous, observation_by_id, decision_by_id, card_by_id, ranking_key,
++            ),
++        })
+         trace.record(
+             "semantic_islands_created",
+             {
+@@ -223,9 +238,10 @@ def _make_island(
+     unresolved: set[str],
+     component_by_observation: Mapping[str, str],
+     previous_by_observation: Mapping[str, str],
++    ranking_key: Any,
+ ) -> EvidenceIsland:
+     ordered_ids = tuple(sorted(ids))
+-    representative = min(ordered_ids, key=lambda value: _root_key(observations[value], decisions[value]))
++    representative = min(ordered_ids, key=lambda value: ranking_key(observations[value], decisions[value]))
+     files = tuple(sorted({observations[item].handle.path.casefold() for item in ordered_ids}))
+     owners = tuple(sorted(filter(None, (_owner_identity(observations[item], cards.get(item)) for item in ordered_ids))))
+     obligations = tuple(sorted({value for item in ordered_ids for value in observations[item].obligation_ids}))
+
+diff --git a/services/retrieval/workspace/pipeline/execution_flow/owner_representation.py b/services/retrieval/workspace/pipeline/execution_flow/owner_representation.py
+new file mode 100644
+--- /dev/null
++++ b/services/retrieval/workspace/pipeline/execution_flow/owner_representation.py
+@@ -0,0 +1,29 @@
++"""Qualified per-file/obligation primary election, independent of candidate retention.
++
++Uses this checkpoint's explicit supported-obligation contract. It does not infer the
++later partial-contribution contract, nominate inspections, or grant final evidence.
++"""
++from collections import Counter
++
++
++def elect_owner_primaries(observations, decisions):
++    groups = {}
++    for oid, observation in observations.items():
++        decision = decisions.get(oid)
++        if decision is None or decision.disposition != 'promote':
++            continue
++        for obligation in decision.supported_obligation_ids:
++            groups.setdefault((observation.handle.path.casefold(), obligation), []).append(oid)
++    elections = []
++    for (path, obligation), ids in sorted(groups.items()):
++        def key(oid):
++            observation, decision = observations[oid], decisions[oid]
++            return (0 if decision.support_level == 'direct_evidence' else 1,
++                    0 if observation.exact_anchor_matches else 1,
++                    -len(set(decision.supported_obligation_ids)),
++                    -observation.recurrence, observation.best_rank,
++                    observation.handle.line_start, oid)
++        ordered = sorted(ids, key=key)
++        elections.append({'path': path, 'obligation_id': obligation, 'primary': ordered[0],
++                          'complements': ordered[1:]})
++    return dict(Counter(row['primary'] for row in elections)), elections

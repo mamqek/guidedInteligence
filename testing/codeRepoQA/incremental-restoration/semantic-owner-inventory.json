@@ -1,0 +1,566 @@
+{
+  "kind": "fixture_inventory",
+  "rows": [
+    {
+      "run": "run-20260915T051437Z",
+      "round": 1,
+      "obligation": "explain_ordered_mechanism",
+      "incumbent_id": "obs_f429d6d76ec512a2",
+      "challenger_id": "obs_69dd45b9a4cc4bbe",
+      "payload": {
+        "question": "The evidence does not trace the changed referenced-project source through wildcard re-export/module resolution into the consuming project, nor preserve the direct-import contrast.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 541,
+            "full_line_start": 495,
+            "language": "typescript",
+            "line_end": 541,
+            "line_start": 522,
+            "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builder.ts",
+            "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+          },
+          "source_text": "    function forEachReferencingModulesOfExportOfAffectedFile(state: BuilderProgramState, affectedFile: SourceFile, fn: (state: BuilderProgramState, filePath: Path) => boolean) {\n        // If there was change in signature (dts output) for the changed file,\n        // then only we need to handle pending file emit\n        if (!state.exportedModulesMap || !state.changedFilesSet.has(affectedFile.path)) {\n            return;\n        }\n\n        if (!isChangedSignagure(state, affectedFile.path)) return;\n\n        // Since isolated modules dont change js files, files affected by change in signature is itself\n        // But we need to cleanup semantic diagnostics and queue dts emit for affected files\n        if (state.compilerOptions.isolatedModules) {\n            const seenFileNamesMap = createMap<true>();\n            seenFileNamesMap.set(affectedFile.path, true);\n            const queue = BuilderState.getReferencedByPaths(state, affectedFile.resolvedPath);\n            while (queue.length > 0) {\n                const currentPath = queue.pop()!;\n                if (!seenFileNamesMap.has(currentPath)) {\n                    seenFileNamesMap.set(currentPath, true);\n                    const result = fn(state, currentPath);\n                    if (result && isChangedSignagure(state, currentPath)) {\n// ... complete source lines omitted; use the stable source handle ...",
+          "source_mode": "full",
+          "truncation_reason": "qualification_source_budget_complete_lines"
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 591,
+            "full_line_start": 555,
+            "language": "typescript",
+            "line_end": 591,
+            "line_start": 582,
+            "node_id": "function:92d9413de992d6c7b2e164ee96a49c14",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builder.ts",
+            "symbol": "forEachFileAndExportsOfFile"
+          },
+          "source_text": "    function forEachFileAndExportsOfFile(state: BuilderProgramState, filePath: Path, seenFileAndExportsOfFile: Map<true>, fn: (state: BuilderProgramState, filePath: Path) => boolean): boolean {\n        if (!addToSeen(seenFileAndExportsOfFile, filePath)) {\n            return false;\n        }\n\n        if (fn(state, filePath)) {\n            // If there are no more diagnostics from old cache, done\n            return true;\n        }\n\n        Debug.assert(!!state.currentAffectedFilesExportedModulesMap);\n        // Go through exported modules from cache first\n        // If exported modules has path, all files referencing file exported from are affected\n        if (forEachEntry(state.currentAffectedFilesExportedModulesMap!, (exportedModules, exportedFromPath) =>\n            exportedModules &&\n            exportedModules.has(filePath) &&\n            forEachFileAndExportsOfFile(state, exportedFromPath as Path, seenFileAndExportsOfFile, fn)\n        )) {\n            return true;\n        }\n\n        // If exported from path is not from cache and exported modules has path, all files referencing file exported from are affected\n        if (forEachEntry(state.exportedModulesMap!, (exportedModules, exportedFromPath) =>\n            !state.currentAffectedFilesExportedModulesMap!.has(exportedFromPath) && // If we already iterated this through cache, ignore it\n            exportedModules.has(filePath) &&\n            forEachFileAndExportsOfFile(state, exportedFromPath as Path, seenFileAndExportsOfFile, fn)\n        )) {\n            return true;\n        }\n\n        // Remove diagnostics of files that import this file (without going to exports of referencing files)\n        return !!forEachEntry(state.referencedMap!, (referencesInFile, referencingFilePath) =>\n            referencesInFile.has(filePath) &&\n            !seenFileAndExportsOfFile.has(referencingFilePath) && // Not already removed diagnostic file\n            fn(state, referencingFilePath as Path) // Dont add to seen since this is not yet done with the export removal\n        );\n    }",
+          "source_mode": "full",
+          "truncation_reason": ""
+        }
+      },
+      "repeats": []
+    },
+    {
+      "run": "run-20260915T051437Z",
+      "round": 1,
+      "obligation": "explain_ordered_mechanism",
+      "incumbent_id": "obs_f429d6d76ec512a2",
+      "challenger_id": "obs_fe584ecc96bd4a46",
+      "payload": {
+        "question": "The evidence does not trace the changed referenced-project source through wildcard re-export/module resolution into the consuming project, nor preserve the direct-import contrast.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 541,
+            "full_line_start": 495,
+            "language": "typescript",
+            "line_end": 541,
+            "line_start": 522,
+            "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builder.ts",
+            "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+          },
+          "source_text": "    function forEachReferencingModulesOfExportOfAffectedFile(state: BuilderProgramState, affectedFile: SourceFile, fn: (state: BuilderProgramState, filePath: Path) => boolean) {\n        // If there was change in signature (dts output) for the changed file,\n        // then only we need to handle pending file emit\n        if (!state.exportedModulesMap || !state.changedFilesSet.has(affectedFile.path)) {\n            return;\n        }\n\n        if (!isChangedSignagure(state, affectedFile.path)) return;\n\n        // Since isolated modules dont change js files, files affected by change in signature is itself\n        // But we need to cleanup semantic diagnostics and queue dts emit for affected files\n        if (state.compilerOptions.isolatedModules) {\n            const seenFileNamesMap = createMap<true>();\n            seenFileNamesMap.set(affectedFile.path, true);\n            const queue = BuilderState.getReferencedByPaths(state, affectedFile.resolvedPath);\n            while (queue.length > 0) {\n                const currentPath = queue.pop()!;\n                if (!seenFileNamesMap.has(currentPath)) {\n                    seenFileNamesMap.set(currentPath, true);\n                    const result = fn(state, currentPath);\n                    if (result && isChangedSignagure(state, currentPath)) {\n// ... complete source lines omitted; use the stable source handle ...",
+          "source_mode": "full",
+          "truncation_reason": "qualification_source_budget_complete_lines"
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 1085,
+            "full_line_start": 1061,
+            "language": "typescript",
+            "line_end": 1085,
+            "line_start": 1061,
+            "node_id": "function:440f39428a6d506792cce2efd459f338",
+            "outer_line_end": 1086,
+            "outer_line_start": 859,
+            "outer_node_id": "function:081440be0202dd2f37a8a45ea2e5a0ae",
+            "outer_symbol": "createBuilderProgram",
+            "path": "src/compiler/builder.ts",
+            "symbol": "createBuilderProgram::getSemanticDiagnostics"
+          },
+          "source_text": "    export function createBuilderProgram(kind: BuilderProgramKind, { newProgram, host, oldProgram, configFileParsingDiagnostics }: BuilderCreationParameters) {\n        // Return same program if underlying program doesnt change\n        let oldState = oldProgram && oldProgram.getState();\n// ... outer owner lines omitted ...\n        function getSemanticDiagnostics(sourceFile?: SourceFile, cancellationToken?: CancellationToken): readonly Diagnostic[] {\n            assertSourceFileOkWithoutNextAffectedCall(state, sourceFile);\n            const compilerOptions = Debug.assertDefined(state.program).getCompilerOptions();\n            if (compilerOptions.outFile || compilerOptions.out) {\n                Debug.assert(!state.semanticDiagnosticsPerFile);\n                // We dont need to cache the diagnostics just return them from program\n                return Debug.assertDefined(state.program).getSemanticDiagnostics(sourceFile, cancellationToken);\n            }\n\n            if (sourceFile) {\n                return getSemanticDiagnosticsOfFile(state, sourceFile, cancellationToken);\n            }\n\n            // When semantic builder asks for diagnostics of the whole program,\n            // ensure that all the affected files are handled\n            // eslint-disable-next-line no-empty\n            while (getSemanticDiagnosticsOfNextAffectedFile(cancellationToken)) {\n            }\n\n            let diagnostics: Diagnostic[] | undefined;\n            for (const sourceFile of Debug.assertDefined(state.program).getSourceFiles()) {\n                diagnostics = addRange(diagnostics, getSemanticDiagnosticsOfFile(state, sourceFile, cancellationToken));\n            }\n            return diagnostics || emptyArray;\n        }",
+          "source_mode": "preview",
+          "truncation_reason": "nested_owner_context_and_complete_member"
+        }
+      },
+      "repeats": []
+    },
+    {
+      "run": "run-20260915T051437Z",
+      "round": 2,
+      "obligation": "explain_ordered_mechanism",
+      "incumbent_id": "obs_03047c7d6afe13aa",
+      "challenger_id": "obs_08e16e7bffcc6df3",
+      "payload": {
+        "question": "The ordered path is not established from the changed referenced-project source through wildcard re-export/module resolution to semantic checking of the consuming project, nor is it contrasted with direct import.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 453,
+            "full_line_start": 449,
+            "language": "",
+            "line_end": 453,
+            "line_start": 449,
+            "node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getReferencedByPaths"
+          },
+          "source_text": "        export function getReferencedByPaths(state: Readonly<BuilderState>, referencedFilePath: Path) {\n            return arrayFrom(mapDefinedIterator(state.referencedMap!.entries(), ([filePath, referencesInFile]) =>\n                referencesInFile.has(referencedFilePath) ? filePath as Path : undefined\n            ));\n        }",
+          "source_mode": "full",
+          "truncation_reason": ""
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 523,
+            "full_line_start": 515,
+            "language": "typescript",
+            "line_end": 523,
+            "line_start": 515,
+            "node_id": "function:3196e566885d332462cbdb90495baa8a",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getFilesAffectedByUpdatedShapeWhenNonModuleEmit"
+          },
+          "source_text": "        function getFilesAffectedByUpdatedShapeWhenNonModuleEmit(state: BuilderState, programOfThisState: Program, sourceFileWithUpdatedShape: SourceFile) {\n            const compilerOptions = programOfThisState.getCompilerOptions();\n            // If `--out` or `--outFile` is specified, any new emit will result in re-emitting the entire project,\n            // so returning the file itself is good enough.\n            if (compilerOptions && (compilerOptions.out || compilerOptions.outFile)) {\n                return [sourceFileWithUpdatedShape];\n            }\n            return getAllFilesExcludingDefaultLibraryFile(state, programOfThisState, sourceFileWithUpdatedShape);\n        }",
+          "source_mode": "full",
+          "truncation_reason": ""
+        }
+      },
+      "repeats": []
+    },
+    {
+      "run": "run-20260915T051437Z",
+      "round": 2,
+      "obligation": "explain_ordered_mechanism",
+      "incumbent_id": "obs_03047c7d6afe13aa",
+      "challenger_id": "obs_c2421716b29c47c9",
+      "payload": {
+        "question": "The ordered path is not established from the changed referenced-project source through wildcard re-export/module resolution to semantic checking of the consuming project, nor is it contrasted with direct import.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 453,
+            "full_line_start": 449,
+            "language": "",
+            "line_end": 453,
+            "line_start": 449,
+            "node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getReferencedByPaths"
+          },
+          "source_text": "        export function getReferencedByPaths(state: Readonly<BuilderState>, referencedFilePath: Path) {\n            return arrayFrom(mapDefinedIterator(state.referencedMap!.entries(), ([filePath, referencesInFile]) =>\n                referencesInFile.has(referencedFilePath) ? filePath as Path : undefined\n            ));\n        }",
+          "source_mode": "full",
+          "truncation_reason": ""
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 560,
+            "full_line_start": 528,
+            "language": "typescript",
+            "line_end": 560,
+            "line_start": 528,
+            "node_id": "function:527911fba78843cb1e07cd2dcdee2f0e",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getFilesAffectedByUpdatedShapeWhenModuleEmit"
+          },
+          "source_text": "        function getFilesAffectedByUpdatedShapeWhenModuleEmit(state: BuilderState, programOfThisState: Program, sourceFileWithUpdatedShape: SourceFile, cacheToUpdateSignature: Map<string>, cancellationToken: CancellationToken | undefined, computeHash: ComputeHash | undefined, exportedModulesMapCache: ComputingExportedModulesMap | undefined) {\n            if (isFileAffectingGlobalScope(sourceFileWithUpdatedShape)) {\n                return getAllFilesExcludingDefaultLibraryFile(state, programOfThisState, sourceFileWithUpdatedShape);\n            }\n\n            const compilerOptions = programOfThisState.getCompilerOptions();\n            if (compilerOptions && (compilerOptions.isolatedModules || compilerOptions.out || compilerOptions.outFile)) {\n                return [sourceFileWithUpdatedShape];\n            }\n\n            // Now we need to if each file in the referencedBy list has a shape change as well.\n            // Because if so, its own referencedBy files need to be saved as well to make the\n            // emitting result consistent with files on disk.\n            const seenFileNamesMap = createMap<SourceFile>();\n\n            // Start with the paths this file was referenced by\n            seenFileNamesMap.set(sourceFileWithUpdatedShape.path, sourceFileWithUpdatedShape);\n            const queue = getReferencedByPaths(state, sourceFileWithUpdatedShape.resolvedPath);\n            while (queue.length > 0) {\n                const currentPath = queue.pop()!;\n                if (!seenFileNamesMap.has(currentPath)) {\n                    const currentSourceFile = programOfThisState.getSourceFileByPath(currentPath)!;\n                    seenFileNamesMap.set(currentPath, currentSourceFile);\n                    if (currentSourceFile && updateShapeSignature(state, programOfThisState, currentSourceFile, cacheToUpdateSignature, cancellationToken, computeHash!, exportedModulesMapCache)) { // TODO: GH#18217\n                        queue.push(...getReferencedByPaths(state, currentSourceFile.resolvedPath));\n                    }\n                }\n            }\n\n            // Return array of values that needs emit\n            // Return array of values that needs emit\n            return arrayFrom(mapDefinedIterator(seenFileNamesMap.values(), value => value));\n        }",
+          "source_mode": "full",
+          "truncation_reason": ""
+        }
+      },
+      "repeats": []
+    },
+    {
+      "run": "run-20260915T051447Z",
+      "round": 1,
+      "obligation": "explain_ordered_mechanism",
+      "incumbent_id": "obs_66e01670a8dbf2bf",
+      "challenger_id": "obs_03047c7d6afe13aa",
+      "payload": {
+        "question": "The ordered path through the specific wildcard re-export and project-reference boundary, including the contrast with direct import of session.ts, is not established.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 433,
+            "full_line_start": 400,
+            "language": "typescript",
+            "line_end": 433,
+            "line_start": 400,
+            "node_id": "function:44a488a71f31d39078dc5e79af4d3dea",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getAllDependencies"
+          },
+          "source_text": "        export function getAllDependencies(state: BuilderState, programOfThisState: Program, sourceFile: SourceFile): readonly string[] {\n            const compilerOptions = programOfThisState.getCompilerOptions();\n            // With --out or --outFile all outputs go into single file, all files depend on each other\n            if (compilerOptions.outFile || compilerOptions.out) {\n                return getAllFileNames(state, programOfThisState);\n            }\n\n            // If this is non module emit, or its a global file, it depends on all the source files\n            if (!state.referencedMap || isFileAffectingGlobalScope(sourceFile)) {\n                return getAllFileNames(state, programOfThisState);\n            }\n\n            // Get the references, traversing deep from the referenceMap\n            const seenMap = createMap<true>();\n            const queue = [sourceFile.path];\n            while (queue.length) {\n                const path = queue.pop()!;\n                if (!seenMap.has(path)) {\n                    seenMap.set(path, true);\n                    const references = state.referencedMap.get(path);\n                    if (references) {\n// ... complete source lines omitted; use the stable source handle ...",
+          "source_mode": "full",
+          "truncation_reason": "qualification_source_budget_complete_lines"
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 453,
+            "full_line_start": 449,
+            "language": "",
+            "line_end": 453,
+            "line_start": 449,
+            "node_id": "function:30a8c58d8d1b02679033b37851233006",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getReferencedByPaths"
+          },
+          "source_text": "        export function getReferencedByPaths(state: Readonly<BuilderState>, referencedFilePath: Path) {\n            return arrayFrom(mapDefinedIterator(state.referencedMap!.entries(), ([filePath, referencesInFile]) =>\n                referencesInFile.has(referencedFilePath) ? filePath as Path : undefined\n            ));\n        }",
+          "source_mode": "full",
+          "truncation_reason": ""
+        }
+      },
+      "repeats": []
+    },
+    {
+      "run": "run-20260915T051447Z",
+      "round": 1,
+      "obligation": "explain_state_changes",
+      "incumbent_id": "obs_66e01670a8dbf2bf",
+      "challenger_id": "obs_4d07851fba198f49",
+      "payload": {
+        "question": "The evidence does not show whether the wildcard re-export records, updates, or reuses the changed declaration/signature differently from the direct session-file import.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 433,
+            "full_line_start": 400,
+            "language": "typescript",
+            "line_end": 433,
+            "line_start": 400,
+            "node_id": "function:44a488a71f31d39078dc5e79af4d3dea",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getAllDependencies"
+          },
+          "source_text": "        export function getAllDependencies(state: BuilderState, programOfThisState: Program, sourceFile: SourceFile): readonly string[] {\n            const compilerOptions = programOfThisState.getCompilerOptions();\n            // With --out or --outFile all outputs go into single file, all files depend on each other\n            if (compilerOptions.outFile || compilerOptions.out) {\n                return getAllFileNames(state, programOfThisState);\n            }\n\n            // If this is non module emit, or its a global file, it depends on all the source files\n            if (!state.referencedMap || isFileAffectingGlobalScope(sourceFile)) {\n                return getAllFileNames(state, programOfThisState);\n            }\n\n            // Get the references, traversing deep from the referenceMap\n            const seenMap = createMap<true>();\n            const queue = [sourceFile.path];\n            while (queue.length) {\n                const path = queue.pop()!;\n                if (!seenMap.has(path)) {\n                    seenMap.set(path, true);\n                    const references = state.referencedMap.get(path);\n                    if (references) {\n// ... complete source lines omitted; use the stable source handle ...",
+          "source_mode": "full",
+          "truncation_reason": "qualification_source_budget_complete_lines"
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 71,
+            "full_line_start": 68,
+            "language": "typescript",
+            "line_end": 71,
+            "line_start": 68,
+            "node_id": "interface:4943b8e30194057690cdda1438d9f81b",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "FileInfo"
+          },
+          "source_text": "        export interface FileInfo {\n            readonly version: string;\n            signature: string | undefined;\n        }",
+          "source_mode": "full",
+          "truncation_reason": ""
+        }
+      },
+      "repeats": []
+    },
+    {
+      "run": "run-20260915T051447Z",
+      "round": 1,
+      "obligation": "explain_ordered_mechanism",
+      "incumbent_id": "obs_f429d6d76ec512a2",
+      "challenger_id": "obs_5ef93d462c7cc276",
+      "payload": {
+        "question": "The ordered path through the specific wildcard re-export and project-reference boundary, including the contrast with direct import of session.ts, is not established.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 541,
+            "full_line_start": 495,
+            "language": "typescript",
+            "line_end": 541,
+            "line_start": 522,
+            "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builder.ts",
+            "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+          },
+          "source_text": "    function forEachReferencingModulesOfExportOfAffectedFile(state: BuilderProgramState, affectedFile: SourceFile, fn: (state: BuilderProgramState, filePath: Path) => boolean) {\n        // If there was change in signature (dts output) for the changed file,\n        // then only we need to handle pending file emit\n        if (!state.exportedModulesMap || !state.changedFilesSet.has(affectedFile.path)) {\n            return;\n        }\n\n        if (!isChangedSignagure(state, affectedFile.path)) return;\n\n        // Since isolated modules dont change js files, files affected by change in signature is itself\n        // But we need to cleanup semantic diagnostics and queue dts emit for affected files\n        if (state.compilerOptions.isolatedModules) {\n            const seenFileNamesMap = createMap<true>();\n            seenFileNamesMap.set(affectedFile.path, true);\n            const queue = BuilderState.getReferencedByPaths(state, affectedFile.resolvedPath);\n            while (queue.length > 0) {\n                const currentPath = queue.pop()!;\n                if (!seenFileNamesMap.has(currentPath)) {\n                    seenFileNamesMap.set(currentPath, true);\n// ... complete source lines omitted; use the stable source handle ...",
+          "source_mode": "full",
+          "truncation_reason": "qualification_source_budget_complete_lines"
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 386,
+            "full_line_start": 333,
+            "language": "typescript",
+            "line_end": 366,
+            "line_start": 333,
+            "node_id": "function:70d91fa7b61cda64a11e60ff45579147",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builder.ts",
+            "symbol": "getNextAffectedFile"
+          },
+          "source_text": "    function getNextAffectedFile(state: BuilderProgramState, cancellationToken: CancellationToken | undefined, computeHash: BuilderState.ComputeHash): SourceFile | Program | undefined {\n        while (true) {\n            const { affectedFiles } = state;\n            if (affectedFiles) {\n                const seenAffectedFiles = state.seenAffectedFiles!;\n                let affectedFilesIndex = state.affectedFilesIndex!; // TODO: GH#18217\n                while (affectedFilesIndex < affectedFiles.length) {\n                    const affectedFile = affectedFiles[affectedFilesIndex];\n                    if (!seenAffectedFiles.has(affectedFile.path)) {\n                        // Set the next affected file as seen and remove the cached semantic diagnostics\n                        state.affectedFilesIndex = affectedFilesIndex;\n                        handleDtsMayChangeOfAffectedFile(state, affectedFile, cancellationToken, computeHash);\n                        return affectedFile;\n                    }\n                    affectedFilesIndex++;\n                }\n\n                // Remove the changed file from the change set\n                state.changedFilesSet.delete(state.currentChangedFilePath!);\n                state.currentChangedFilePath = undefined;\n                // Commit the changes in file signature\n                BuilderState.updateSignaturesFromCache(state, state.currentAffectedFilesSignatures!);\n                state.currentAffectedFilesSignatures!.clear();\n                BuilderState.updateExportedFilesMapFromCache(state, state.currentAffectedFilesExportedModulesMap);\n                state.affectedFiles = undefined;\n            }\n\n            // Get next changed file\n            const nextKey = state.changedFilesSet.keys().next();\n            if (nextKey.done) {\n                // Done\n                return undefined;\n            }\n\n            // With --out or --outFile all outputs go into single file\n            // so operations are performed directly on program, return program\n            const program = Debug.assertDefined(state.program);\n            const compilerOptions = program.getCompilerOptions();\n            if (compilerOptions.outFile || compilerOptions.out) {\n                Debug.assert(!state.semanticDiagnosticsPerFile);\n                return program;\n            }\n\n            // Get next batch of affected files\n            state.currentAffectedFilesSignatures = state.currentAffectedFilesSignatures || createMap();\n            if (state.exportedModulesMap) {\n                state.currentAffectedFilesExportedModulesMap = state.currentAffectedFilesExportedModulesMap || createMap<BuilderState.ReferencedSet | false>();\n            }\n            state.affectedFiles = BuilderState.getFilesAffectedBy(state, program, nextKey.value as Path, cancellationToken, computeHash, state.currentAffectedFilesSignatures, state.currentAffectedFilesExportedModulesMap);\n            state.currentChangedFilePath = nextKey.value as Path;\n            state.affectedFilesIndex = 0;\n            state.seenAffectedFiles = state.seenAffectedFiles || createMap<true>();\n        }\n    }",
+          "source_mode": "full",
+          "truncation_reason": ""
+        }
+      },
+      "repeats": []
+    },
+    {
+      "run": "run-20260915T051447Z",
+      "round": 1,
+      "obligation": "explain_ordered_mechanism",
+      "incumbent_id": "obs_66e01670a8dbf2bf",
+      "challenger_id": "obs_c2421716b29c47c9",
+      "payload": {
+        "question": "The ordered path through the specific wildcard re-export and project-reference boundary, including the contrast with direct import of session.ts, is not established.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 433,
+            "full_line_start": 400,
+            "language": "typescript",
+            "line_end": 433,
+            "line_start": 400,
+            "node_id": "function:44a488a71f31d39078dc5e79af4d3dea",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getAllDependencies"
+          },
+          "source_text": "        export function getAllDependencies(state: BuilderState, programOfThisState: Program, sourceFile: SourceFile): readonly string[] {\n            const compilerOptions = programOfThisState.getCompilerOptions();\n            // With --out or --outFile all outputs go into single file, all files depend on each other\n            if (compilerOptions.outFile || compilerOptions.out) {\n                return getAllFileNames(state, programOfThisState);\n            }\n\n            // If this is non module emit, or its a global file, it depends on all the source files\n            if (!state.referencedMap || isFileAffectingGlobalScope(sourceFile)) {\n                return getAllFileNames(state, programOfThisState);\n            }\n\n            // Get the references, traversing deep from the referenceMap\n            const seenMap = createMap<true>();\n            const queue = [sourceFile.path];\n            while (queue.length) {\n                const path = queue.pop()!;\n                if (!seenMap.has(path)) {\n                    seenMap.set(path, true);\n                    const references = state.referencedMap.get(path);\n                    if (references) {\n// ... complete source lines omitted; use the stable source handle ...",
+          "source_mode": "full",
+          "truncation_reason": "qualification_source_budget_complete_lines"
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 560,
+            "full_line_start": 528,
+            "language": "typescript",
+            "line_end": 560,
+            "line_start": 528,
+            "node_id": "function:527911fba78843cb1e07cd2dcdee2f0e",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builderState.ts",
+            "symbol": "getFilesAffectedByUpdatedShapeWhenModuleEmit"
+          },
+          "source_text": "        function getFilesAffectedByUpdatedShapeWhenModuleEmit(state: BuilderState, programOfThisState: Program, sourceFileWithUpdatedShape: SourceFile, cacheToUpdateSignature: Map<string>, cancellationToken: CancellationToken | undefined, computeHash: ComputeHash | undefined, exportedModulesMapCache: ComputingExportedModulesMap | undefined) {\n            if (isFileAffectingGlobalScope(sourceFileWithUpdatedShape)) {\n                return getAllFilesExcludingDefaultLibraryFile(state, programOfThisState, sourceFileWithUpdatedShape);\n            }\n\n            const compilerOptions = programOfThisState.getCompilerOptions();\n            if (compilerOptions && (compilerOptions.isolatedModules || compilerOptions.out || compilerOptions.outFile)) {\n                return [sourceFileWithUpdatedShape];\n            }\n\n            // Now we need to if each file in the referencedBy list has a shape change as well.\n            // Because if so, its own referencedBy files need to be saved as well to make the\n            // emitting result consistent with files on disk.\n            const seenFileNamesMap = createMap<SourceFile>();\n\n            // Start with the paths this file was referenced by\n            seenFileNamesMap.set(sourceFileWithUpdatedShape.path, sourceFileWithUpdatedShape);\n            const queue = getReferencedByPaths(state, sourceFileWithUpdatedShape.resolvedPath);\n            while (queue.length > 0) {\n                const currentPath = queue.pop()!;\n                if (!seenFileNamesMap.has(currentPath)) {\n                    const currentSourceFile = programOfThisState.getSourceFileByPath(currentPath)!;\n                    seenFileNamesMap.set(currentPath, currentSourceFile);\n                    if (currentSourceFile && updateShapeSignature(state, programOfThisState, currentSourceFile, cacheToUpdateSignature, cancellationToken, computeHash!, exportedModulesMapCache)) { // TODO: GH#18217\n                        queue.push(...getReferencedByPaths(state, currentSourceFile.resolvedPath));\n                    }\n                }\n            }\n\n            // Return array of values that needs emit\n            // Return array of values that needs emit\n            return arrayFrom(mapDefinedIterator(seenFileNamesMap.values(), value => value));\n        }",
+          "source_mode": "full",
+          "truncation_reason": ""
+        }
+      },
+      "repeats": []
+    },
+    {
+      "run": "run-20260915T051447Z",
+      "round": 1,
+      "obligation": "explain_ordered_mechanism",
+      "incumbent_id": "obs_f429d6d76ec512a2",
+      "challenger_id": "obs_fe584ecc96bd4a46",
+      "payload": {
+        "question": "The ordered path through the specific wildcard re-export and project-reference boundary, including the contrast with direct import of session.ts, is not established.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 541,
+            "full_line_start": 495,
+            "language": "typescript",
+            "line_end": 541,
+            "line_start": 522,
+            "node_id": "function:9e4209e679583a4639e64a8a980cf3a4",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/builder.ts",
+            "symbol": "forEachReferencingModulesOfExportOfAffectedFile"
+          },
+          "source_text": "    function forEachReferencingModulesOfExportOfAffectedFile(state: BuilderProgramState, affectedFile: SourceFile, fn: (state: BuilderProgramState, filePath: Path) => boolean) {\n        // If there was change in signature (dts output) for the changed file,\n        // then only we need to handle pending file emit\n        if (!state.exportedModulesMap || !state.changedFilesSet.has(affectedFile.path)) {\n            return;\n        }\n\n        if (!isChangedSignagure(state, affectedFile.path)) return;\n\n        // Since isolated modules dont change js files, files affected by change in signature is itself\n        // But we need to cleanup semantic diagnostics and queue dts emit for affected files\n        if (state.compilerOptions.isolatedModules) {\n            const seenFileNamesMap = createMap<true>();\n            seenFileNamesMap.set(affectedFile.path, true);\n            const queue = BuilderState.getReferencedByPaths(state, affectedFile.resolvedPath);\n            while (queue.length > 0) {\n                const currentPath = queue.pop()!;\n                if (!seenFileNamesMap.has(currentPath)) {\n                    seenFileNamesMap.set(currentPath, true);\n// ... complete source lines omitted; use the stable source handle ...",
+          "source_mode": "full",
+          "truncation_reason": "qualification_source_budget_complete_lines"
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 1085,
+            "full_line_start": 1061,
+            "language": "typescript",
+            "line_end": 1085,
+            "line_start": 1061,
+            "node_id": "function:440f39428a6d506792cce2efd459f338",
+            "outer_line_end": 1086,
+            "outer_line_start": 859,
+            "outer_node_id": "function:081440be0202dd2f37a8a45ea2e5a0ae",
+            "outer_symbol": "createBuilderProgram",
+            "path": "src/compiler/builder.ts",
+            "symbol": "createBuilderProgram::getSemanticDiagnostics"
+          },
+          "source_text": "    export function createBuilderProgram(kind: BuilderProgramKind, { newProgram, host, oldProgram, configFileParsingDiagnostics }: BuilderCreationParameters) {\n        // Return same program if underlying program doesnt change\n        let oldState = oldProgram && oldProgram.getState();\n// ... outer owner lines omitted ...\n        function getSemanticDiagnostics(sourceFile?: SourceFile, cancellationToken?: CancellationToken): readonly Diagnostic[] {\n            assertSourceFileOkWithoutNextAffectedCall(state, sourceFile);\n            const compilerOptions = Debug.assertDefined(state.program).getCompilerOptions();\n            if (compilerOptions.outFile || compilerOptions.out) {\n                Debug.assert(!state.semanticDiagnosticsPerFile);\n                // We dont need to cache the diagnostics just return them from program\n                return Debug.assertDefined(state.program).getSemanticDiagnostics(sourceFile, cancellationToken);\n            }\n\n            if (sourceFile) {\n                return getSemanticDiagnosticsOfFile(state, sourceFile, cancellationToken);\n            }\n\n            // When semantic builder asks for diagnostics of the whole program,\n            // ensure that all the affected files are handled\n            // eslint-disable-next-line no-empty\n            while (getSemanticDiagnosticsOfNextAffectedFile(cancellationToken)) {\n            }\n\n            let diagnostics: Diagnostic[] | undefined;\n            for (const sourceFile of Debug.assertDefined(state.program).getSourceFiles()) {\n                diagnostics = addRange(diagnostics, getSemanticDiagnosticsOfFile(state, sourceFile, cancellationToken));\n            }\n            return diagnostics || emptyArray;\n        }",
+          "source_mode": "preview",
+          "truncation_reason": "nested_owner_context_and_complete_member"
+        }
+      },
+      "repeats": []
+    },
+    {
+      "run": "run-20260915T051447Z",
+      "round": 3,
+      "obligation": "explain_state_changes",
+      "incumbent_id": "obs_dec5815897dd1f84",
+      "challenger_id": "obs_3be6a1f37cdd966c",
+      "payload": {
+        "question": "The evidence does not show whether the wildcard re-export path records or reuses changed declaration information differently from the direct session-file path.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 1233,
+            "full_line_start": 1124,
+            "language": "typescript",
+            "line_end": 1193,
+            "line_start": 1154,
+            "node_id": "function:200b27b361a344e4e112e12f1b151456",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "getNextInvalidatedProject"
+          },
+          "source_text": "    function getNextInvalidatedProject<T extends BuilderProgram>(\n        state: SolutionBuilderState<T>,\n        buildOrder: AnyBuildOrder,\n// ... lines 1127-1141 omitted ...\n            const reloadLevel = state.projectPendingBuild.get(projectPath);\n            if (reloadLevel === undefined) continue;\n\n            if (reportQueue) {\n                reportQueue = false;\n                reportBuildQueue(state, buildOrder);\n            }\n\n            const config = parseConfigFile(state, project, projectPath);\n            if (!config) {\n                reportParseConfigFileDiagnostic(state, projectPath);\n                projectPendingBuild.delete(projectPath);\n                continue;\n            }\n\n            if (reloadLevel === ConfigFileProgramReloadLevel.Full) {\n                watchConfigFile(state, project, projectPath, config);\n                watchWildCardDirectories(state, project, projectPath, config);\n                watchInputFiles(state, project, projectPath, config);\n            }\n            else if (reloadLevel === ConfigFileProgramReloadLevel.Partial) {\n                // Update file names\n// ... complete source lines omitted; use the stable source handle ...",
+          "source_mode": "preview",
+          "truncation_reason": "qualification_source_budget_complete_lines"
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 1522,
+            "full_line_start": 1329,
+            "language": "typescript",
+            "line_end": 1456,
+            "line_start": 1433,
+            "node_id": "function:ba8a11ff344d7128e7738a8783fb4c37",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "getUpToDateStatusWorker"
+          },
+          "source_text": "    function getUpToDateStatusWorker(state: SolutionBuilderState, project: ParsedCommandLine, resolvedPath: ResolvedConfigFilePath): UpToDateStatus {\n        let newestInputFileName: string = undefined!;\n        let newestInputFileTime = minimumDate;\n// ... lines 1332-1420 omitted ...\n                if (refStatus.type === UpToDateStatusType.Unbuildable ||\n                    refStatus.type === UpToDateStatusType.UpstreamBlocked) {\n                    return {\n                        type: UpToDateStatusType.UpstreamBlocked,\n                        upstreamProjectName: ref.path,\n                        upstreamProjectBlocked: refStatus.type === UpToDateStatusType.UpstreamBlocked\n                    };\n                }\n\n                // If the upstream project is out of date, then so are we (someone shouldn't have asked, though?)\n                if (refStatus.type !== UpToDateStatusType.UpToDate) {\n                    return {\n                        type: UpToDateStatusType.UpstreamOutOfDate,\n                        upstreamProjectName: ref.path\n                    };\n                }\n\n                // Check oldest output file name only if there is no missing output file name\n                if (!missingOutputFileName) {\n                    // If the upstream project's newest file is older than our oldest output, we\n                    // can't be out of date because of it\n                    if (refStatus.newestInputFileTime && refStatus.newestInputFileTime <= oldestOutputFileTime) {\n                        continue;\n                    }\n\n                    // If the upstream project has only change .d.ts files, and we've built\n                    // *after* those files, then we're \"psuedo up to date\" and eligible for a fast rebuild\n                    if (refStatus.newestDeclarationFileContentChangedTime && refStatus.newestDeclarationFileContentChangedTime <= oldestOutputFileTime) {\n                        pseudoUpToDate = true;\n                        upstreamChangedProject = ref.path;\n                        continue;\n                    }\n\n                    // We have an output older than an upstream output - we are out of date\n                    Debug.assert(oldestOutputFileName !== undefined, \"Should have an oldest output filename here\");\n                    return {\n                        type: UpToDateStatusType.OutOfDateWithUpstream,\n                        outOfDateOutputFileName: oldestOutputFileName,\n                        newerProjectName: ref.path\n                    };\n                }\n            }\n        }\n\n        if (missingOutputFileName !== undefined) {\n            return {\n                type: UpToDateStatusType.OutputMissing,\n                missingOutputFileName",
+          "source_mode": "preview",
+          "truncation_reason": "large_owner_skeleton_and_local_excerpt"
+        }
+      },
+      "repeats": []
+    },
+    {
+      "run": "run-20260915T051508Z",
+      "round": 1,
+      "obligation": "explain_ordered_mechanism",
+      "incumbent_id": "obs_0fa4f1a86225e86b",
+      "challenger_id": "obs_f121fa3924e63073",
+      "payload": {
+        "question": "The source does not show the formatter or runtime step that attempts to coerce the Symbol while constructing the message.",
+        "incumbent": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 147,
+            "full_line_start": 100,
+            "language": "javascript",
+            "line_end": 121,
+            "line_start": 100,
+            "node_id": "source_owner:src/core/util/props.js:100:147",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/core/util/props.js",
+            "symbol": "assertProp"
+          },
+          "source_text": "function assertProp (\n  prop: PropOptions,\n  name: string,\n  value: any,\n  vm: ?Component,\n  absent: boolean\n) {\n  if (prop.required && absent) {\n    warn(\n      'Missing required prop: \"' + name + '\"',\n      vm\n    )\n    return\n  }\n  if (value == null && !prop.required) {\n    return\n  }\n  let type = prop.type\n  let valid = !type || type === true\n  const expectedTypes = []\n  if (type) {\n    if (!Array.isArray(type)) {\n      type = [type]\n    }\n    for (let i = 0; i < type.length && !valid; i++) {\n      const assertedType = assertType(value, type[i])\n      expectedTypes.push(assertedType.expectedType || '')\n      valid = assertedType.valid\n    }\n  }\n\n  if (!valid) {\n    warn(\n      getInvalidTypeMessage(name, value, expectedTypes),\n      vm\n    )\n    return\n  }\n  const validator = prop.validator\n  if (validator) {\n    if (!validator(value)) {\n      warn(\n        'Invalid prop: custom validator check failed for prop \"' + name + '\".',\n        vm\n      )\n    }\n  }\n}",
+          "source_mode": "full",
+          "truncation_reason": ""
+        },
+        "challenger": {
+          "handle": {
+            "adapter": "codegraph_node",
+            "full_line_end": 62,
+            "full_line_start": 21,
+            "language": "javascript",
+            "line_end": 60,
+            "line_start": 21,
+            "node_id": "source_owner:src/core/util/props.js:21:62",
+            "outer_line_end": 0,
+            "outer_line_start": 0,
+            "outer_node_id": "",
+            "outer_symbol": "",
+            "path": "src/core/util/props.js",
+            "symbol": "validateProp"
+          },
+          "source_text": "export function validateProp (\n  key: string,\n  propOptions: Object,\n  propsData: Object,\n  vm?: Component\n): any {\n  const prop = propOptions[key]\n  const absent = !hasOwn(propsData, key)\n  let value = propsData[key]\n  // boolean casting\n  const booleanIndex = getTypeIndex(Boolean, prop.type)\n  if (booleanIndex > -1) {\n    if (absent && !hasOwn(prop, 'default')) {\n      value = false\n    } else if (value === '' || value === hyphenate(key)) {\n      // only cast empty string / same name to boolean if\n      // boolean has higher priority\n      const stringIndex = getTypeIndex(String, prop.type)\n      if (stringIndex < 0 || booleanIndex < stringIndex) {\n        value = true\n      }\n    }\n  }\n  // check default value\n  if (value === undefined) {\n    value = getPropDefaultValue(vm, prop, key)\n    // since the default value is a fresh copy,\n    // make sure to observe it.\n    const prevShouldObserve = shouldObserve\n    toggleObserving(true)\n    observe(value)\n    toggleObserving(prevShouldObserve)\n  }\n  if (\n    process.env.NODE_ENV !== 'production' &&\n    // skip validation for weex recycle-list child component props\n    !(__WEEX__ && isObject(value) && ('@binding' in value))\n  ) {\n    assertProp(prop, key, value, vm, absent)\n  }\n  return value\n}",
+          "source_mode": "full",
+          "truncation_reason": ""
+        }
+      },
+      "repeats": []
+    }
+  ]
+}

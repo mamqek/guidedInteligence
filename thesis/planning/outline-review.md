@@ -53,6 +53,8 @@ Do not turn the ablation into a separate chapter and do not weave result claims 
 
 The current aggregate results justify a nuanced “surprisingly competitive localization” claim, not “CodeGraph was unnecessary.” Across four runs on 35 cases, graphless has stronger early-rank precision and NDCG than full Workspace, similar R@5, fewer mean files, and lower mean flow-token use. Full Workspace retains a somewhat higher full-Oracle rate. Both conditions have almost no `sufficient` outcomes, so the existing aggregate alone does not demonstrate mechanism completion. Stage traces and representative cases are necessary before attributing gains or losses to CodeGraph.
 
+<!-- POST-REPAIR PLANNING NOTE: The paragraph above is superseded for final thesis planning. Replace its interpretation using the completed repaired campaign. The current ten-case direction is a controller-dependent CodeGraph result rather than a general graphless advantage; retain the pandas 10068 regression and incomplete mechanism coverage. -->
+
 This treatment can fit the existing word budget. Reserve roughly 150-250 words in Design Rationale, 300-450 in Evaluation in addition to a shared comparison table, 300-450 in Discussion, and two or three sentences in the Conclusion. Recover that space by removing repeated configuration descriptions, moving full per-case tables to an appendix, and letting the Discussion reference Evaluation results rather than restating every value.
 
 ## Research-question alignment

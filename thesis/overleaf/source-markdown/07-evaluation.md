@@ -1,3 +1,3 @@
 # Evaluation
 
-<!-- TODO CodeGraph contribution ablation: report the numerical comparison of Full Workspace, Workspace without CodeGraph, and the corresponding conditions without the adaptive controller. Separate file-ranking and Oracle-overlap results from structural-owner grounding and mechanism-completeness outcomes. Include only a small number of source-backed examples needed to explain aggregate patterns; keep full per-case results outside the chapter. -->
+<!-- TODO CodeGraph contribution ablation: replace the superseded statistics with the completed repaired campaign. Compare Full Workspace with and without CodeGraph under both controller settings. Use repaired Vue 10519 as the representative improvement and pandas 10068 as contrary evidence. Separate ranking improvements from total Oracle recall and mechanism completeness, and do not insert the interim ten-case statistics as final aggregates. -->

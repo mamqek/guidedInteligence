@@ -1,5 +1,21 @@
 # Retrieval Changelog
 
+## 2026-09-15 — Source-grounded semantic owner comparison, isolated only
+
+- [Experiment and per-contest review](decisions/semantic-owner-comparison.md).
+- Replayed 11 real saved same-file contests twice with gpt-5.6-luna, exact visible
+  source and one recorded unresolved question; no rank/recurrence/label-count input.
+- Final contract: 4 replace, 9 complementary, 9 no-clear-improvement decisions.
+  Lookup → module propagation repeats twice; 21/22 outcomes defensible, but only
+  17/22 outcomes plus explanations fully accepted (four unseen-loop overclaims,
+  one question-irrelevant Vue complementary decision). Ten pairs repeat exactly.
+- Corrected literal-receipt failures and quoted-code schema HTTP 400 using exact
+  line IDs. No deterministic substitute for failed LLM decisions.
+- Prototype remains testing-only; unchanged live runtime, no new full runs or
+  Oracle/coverage/sufficiency claims. Final batch 50851 tokens; complete isolated
+  experiment 175092 provider-reported tokens including failed attempts. 122 focused
+  tests pass. Thesis and existing experimental changes preserved.
+
 ## 2026-09-15: Narrow Hidden Request-Name Witness — Reverted
 
 Record: [gate, paired comparisons and full-run audit](decisions/hidden-request-anchor-experiment.md).
@@ -5383,6 +5399,28 @@ Verification:
   Twelve complete actual runs total 815600 retrieval tokens; diagnostics and failed attempt
   bring recorded retrieval/selector usage to 933253. Explanation generation disabled.
   Vue Qdrant collection populated to 4350; TS existing 83408 reused. Thesis untouched.
+
+## 2026-09-15 — Owner reevaluation audit and rejected election variant
+
+- [Full per-event review](decisions/owner-reevaluation-restoration.md), checkpoint 6f5c17b.
+  Existing island reevaluation already replaces owners; historical per-file voting and
+  challenger scheduling are separate. Tested voting only with current qualification IDs.
+- Trace-only baseline: TS 050616Z/050625Z 4/4,4/4, tokens 106276/109283;
+  Vue 050636Z/050646Z 1/2,1/2, tokens 53692/60753.
+- Variant: TS 051437Z/051447Z 2/4,4/4, tokens 103292/110969;
+  Vue 051458Z/051508Z 1/2,1/2, tokens 54675/58271. Prefix run-20260915T.
+  All partial/false, final selection enabled, explanations off; no index rebuild.
+- Baseline 13 new-owner island competitions: reviewer agrees with 9, disputes 4.
+  Variant 11 island competitions: agrees 10, disputes 1; different populations, not
+  a causal accuracy estimate. Core new per-file election: 12 nontrivial competitions,
+  agrees 8, disputes 4. Only two actual per-file replacements, neither a clear desired gain.
+- Same-input deterministic replay repeats exactly. Vote counts fix both anchored lookup
+  island winners but leave same-file semantic mistakes. Variant reverted, prototypes
+  preserved. Trace-only recording retained; 117 focused tests pass after rollback.
+- 051437Z loss audit: WatchMode selected then deferred by qualification before election;
+  Helpers retrieved but outside initial admission. No later handoff, no final candidates.
+  Do not attribute those initial losses to the changed priority. Total usage 657211 tokens
+  across eight actual runs, excluding request analysis/embeddings; no additional LLM stage.
 
 ## 2026-09-15 — Eight fresh current-checkpoint verification runs
 
