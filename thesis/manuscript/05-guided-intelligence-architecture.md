@@ -1,0 +1,128 @@
+# Guided Intelligence Architecture
+
+## Overall System Architecture
+
+Guided Intelligence is a controlled pipeline that transforms a repository question into grounded evidence, an intent-specific response, and guided follow-up interaction. The orchestration layer owns the execution sequence and passes structured results between intent classification, source policy, retrieval, response generation, and follow-up guidance. LLMs make bounded semantic decisions within these stages, while application logic validates their outputs and controls stage transitions.
+
+A run begins with a user prompt, selected repository and external connected sources selected in the interface. The service creates the run state, classifies the requested outcome, and derives the context needed by later stages. A separate policy decision determines whether the request is allowed and which connected sources may be used. Disallowed requests terminate at this boundary instead of entering retrieval.
+
+Guided Intelligence supports two repository-retrieval modes: the native Workspace pipeline and Codex retrieval. The native Workspace mode is Guided Intelligence’s pipeline-based implementation of repository retrieval, using pre-built indexes and explicitly orchestrated evidence-processing stages: initial evidence construction for the request's obligations, bounded adaptive completion of unresolved owners and handoffs, and final evidence selection for downstream use. Repository search and navigation are therefore controlled by the pipeline rather than delegated to an agent. Codex provides an alternative implementation of the retrieval contract through the same downstream interface.
+
+The retrieval result contains ranked evidence, coverage and sufficiency assessments, and a record of the retrieval process. For an allowed request, the selected evidence and validated intent flow guide response generation and the production of understanding checks. Submitted answers can then enter a separate evaluation and follow-up path tied to the original run. Structured logging spans the complete lifecycle; its evidence identities, decisions, budgets, and failures are described in the final subsection.
+
+## Intent Classification, Retrieval Context, and Source Policy
+
+Intent classification maps each request onto one or more categories that approximate the requested outcome and provide a consistent structure for retrieval and response generation. The taxonomy was informed by empirical work on developers' information needs [@Ko2007InformationNeeds] and adapted to the repository-assistance tasks supported by Guided Intelligence. The classifier supports eight task intents.
+
+| Intent | Approximate requested outcome |
+|---|---|
+| `explore` | Locate and map relevant repository elements |
+| `explain` | Trace how or why behaviour occurs |
+| `use` | Apply an existing interface or capability |
+| `debug` | Diagnose a reported failure |
+| `change` | Modify existing behaviour |
+| `plan` | Organise future implementation work |
+| `review` | Assess an existing implementation |
+| `verify` | Determine whether a claim is supported |
+
+The distinction between `explore` and `explain` reflects the difference between locating relevant focus points and understanding the execution relationships connecting them, as described by Sillito et al. [@Sillito2008ProgrammingQuestions]. A request to diagnose a failure remains `debug` even when retrieval must first locate unfamiliar code, and multiple intents are retained only when the request genuinely seeks several outcomes.
+
+Classification also constructs the context used to begin repository retrieval. It extracts literal paths, symbols, identifiers, error messages, and other anchors, proposes related search terms, and defines evidence obligations for the required response stages. Workspace uses the anchors for exact grounding, combines search terms with obligation descriptions in its repository queries, and tracks the obligations throughout evidence construction. Schema validation rejects unknown or duplicate intents and malformed obligations, while deterministic normalization removes an allegedly explicit target when its name does not occur in the prompt. If no valid result can be produced, the run stops before retrieval rather than substituting a deterministic classification.
+
+Each task intent has a fixed contract defining its retrieval purpose, response stages, stopping condition, question prerequisites, and permitted assistance. The permitted-assistance field limits how far the response and subsequent guidance may proceed, such as identifying a change surface without supplying a complete implementation when that boundary applies. The complete mappings are provided in the [Implemented Intent Contract Registry](appendix-implemented-intent-contract-registry.md). A single intent supplies the required response flow; a multi-intent request combines the relevant stages without assigning a primary intent. An LLM may order those stages, but deterministic validation requires an exact permutation of their identifiers. The model therefore chooses a coherent presentation while code ensures that no required stage is added, omitted, renamed, merged, or duplicated.
+
+After classification defines what evidence is required, source policy determines which connected sources may contribute it. The backend validates the source keys selected in the front-end and maps each permitted source to its category and retrieval adapter; unselected connected sources cannot be queried or included in the evidence set.
+
+Once source policy has established which connected sources are permitted, those sources are queried before repository retrieval begins. Relevant results can contribute file and symbol hints, retrieval terms, and suggested subqueries. These signals extend the context derived from the user's prompt: file and symbol hints enter anchor grounding, while retrieval terms and subqueries refine the subsequent repository searches. Accepted connected-source material may also be retained as evidence in its own right.
+
+The policy contract also allows retrieval to be bypassed when evidence is already present in the conversation state. This option was intended for evidence reuse across later turns, but the current front-end starts each request without retained evidence and therefore does not use it.
+
+## Repository Retrieval Capabilities
+
+Within the permitted source scope, Workspace uses hybrid search over indexed ranges, exact source inspection, CodeGraph queries, and language-specific source analysis. These operations produce candidates; later stages decide whether the returned source supports an evidence obligation.
+
+Qdrant is the active backend for both lexical and semantic retrieval. For each obligation, its description forms the semantic query, while identifiers and other literal terms are preserved in a separate lexical query. Qdrant evaluates these queries against repository chunks represented by dense embeddings and sparse vectors, then combines the two ranked result lists through reciprocal-rank fusion. Searches may be restricted by path or source category. Results retain their source range, score, and retrieval-channel information; rank indicates discovery priority rather than semantic relevance.
+
+Exact source inspection is used when retrieval or structural analysis has identified a concrete file and approximate location. It exposes a bounded source range without initiating another semantic search. Exact-symbol lookup is provided separately by CodeGraph, which maps an identifier to matching structural nodes rather than merely opening nearby source.
+
+CodeGraph supplies structural owner identity and relationships. It resolves retrieved ranges to enclosing owners, exposes file outlines, and supports navigation through calls, references, dependencies, and file-level neighbourhoods. These operations can turn an isolated textual match into a named implementation responsibility or reveal a cross-file transition that similarity search misses. CodeGraph proposes and verifies possible connections but is not standalone evidence: every retained relationship must remain grounded in inspectable source.
+
+Language-aware analysis supplements the graph with owner boundaries and calls derived directly from source. A shared router sends TypeScript and JavaScript-family files to an adapter based on the TypeScript compiler API, while Python files and stubs use the standard-library AST. The adapters can also recover assignment-defined functions that lack a suitable CodeGraph owner. These remain source-derived records rather than new graph nodes. The implemented language families match the evaluation repositories; other adapters remain unimplemented and untested.
+
+## Initial Evidence Construction
+
+Initial evidence construction converts repository obligations and the assembled retrieval context into the source observations available at round zero. Paths and symbols in that context are checked before broader retrieval. Confirmed anchors can supply exact leads or constrain an obligation's search; unresolved or ambiguous symbols become query terms instead. Each obligation then produces semantic and lexical query formulations, with dense, sparse, and fused results retained separately in the trace.
+
+The initial search does not immediately discard all but one range from each file. For every obligation, file groups retain a representative range and the other dense or sparse results as alternatives. These ranges are combined with exact-anchor leads and deduplicated globally by path and line range before structural resolution. A range found through several obligations or channels is therefore submitted to CodeGraph only once.
+
+CodeGraph maps each unique range to its narrowest applicable structural owners. A range can produce no owner, one owner, or several plausible owners, and every applicable pairing remains available at this boundary. The results form a canonical snippet pool: observations for the same structural node are merged, while unresolved observations retain their exact source range as identity. The merged record preserves the obligations, queries, channels, ranks, scores, and exact anchors through which the source was found. When nested owners cover the same material, the narrower owner represents it and the enclosing owner remains context.
+
+Canonical snippets are ranked globally for admission to the initial owner-comparison request using obligation coverage, exact anchors, recurrence across queries, rank, and score. Admission is bounded by a character limit on that request rather than a fixed number of files or candidates. The admitted snippets are then serialized by file, avoiding repeated metadata and allowing the owner-comparison LLM to select a primary owner and any nonredundant additional owners from each retained file. This serialization does not apply another file-level ranking or quota. Snippets outside the admitted request remain deferred observations.
+
+The owner-comparison LLM selects a primary owner and, where justified, semantically distinct additional owners from the admitted groups under a global round-zero limit. This resolves competition among owners but does not yet classify their source as evidence. Unselected owners are recorded as dormant. Selected owners are disclosed with source aligned to their boundaries and fitted to the qualification budget. A separate LLM then classifies each observation as a retained direct fact, a retained or deferred navigation lead, or insufficient material, while recording the obligations it contributes to or establishes alone. Retained observations form the grounded round-zero candidate set; deferred and dormant material remains available under bounded controller recovery rules.
+
+## Controller Evidence Completion
+
+The adaptive controller begins by evaluating qualified round-zero candidates against every repository obligation. A coverage LLM marks each obligation as covered, partial, missing, contradictory, or dependent on an external source, identifies its supporting candidates, and describes any missing claim and retrieval need. This assessment defines what remains unresolved but does not give the model control over repository tools. The controller stops after any round in which every required obligation is covered, including round zero.
+
+Retained observations are organised as structural components and evidence islands. Components connect observations through represented CodeGraph or source-derived relationships. Islands add continuity through shared owners, bounded action handoffs, unresolved obligations, and verified structural edges, while preserving earlier groupings that remain valid. Because the controller cannot explore every qualified observation in each round, it activates a limited set of evidence islands. Selection prioritizes the strongest islands while preserving coverage of different unresolved obligations and repository subsystems. Qualified observations within the active islands then serve as starting points for constructing the round's follow-up retrieval and navigation actions. Observations outside this selection remain recorded but do not generate ordinary exploration actions in that round.
+
+For each round, application code constructs typed actions from unresolved obligations, qualified observations, current island state, available structural operations, and material preserved during initial construction. Every action has a stable identity and purpose, a scope linking it to an obligation or evidence island, and a normalized effect describing the operation and target it would cover. The purpose assigns the action to a scheduler pool, whose capacity it shares with the other action families in that pool. The table lists the actions eligible for scheduling in the current controller. Its categories group related purposes for explanation; they do not create additional scheduler pools.
+
+| Category | Action | Role and scope | Effect used to detect repetition | Execution dependency | Scheduler pool |
+|---|---|---|---|---|---|
+| Recovery | Deferred discovery or owner disclosure | Inspect a preserved observation or disclose its resolved owner | Observation and requested source range | Preserved observation and exact source access | Ordinary |
+| Recovery | Owner continuation | Reveal an omitted portion of an identified owner | Observation and complete owner range | Resolved owner boundary and exact source access | Ordinary |
+| Recovery | Dormant-file alternatives | Inspect already retrieved owners from a file with no qualified observation | File and candidate-owner set | Preserved owner candidates and exact source access | Ordinary |
+| Exploration | Relationship expansion | Follow specified structural relationships from a qualified root | Root node, direction, relationship kinds, anchors, and cross-file boundary | CodeGraph | Ordinary |
+| Exploration | Within-file handoff or handoff completion | Search a known file for an unresolved mechanism or complete an earlier cross-file transition | File, source observation, action purpose, and query anchors | Qdrant, with structural resolution when available | Ordinary |
+| Exploration | New-island search | Search beyond represented islands for an unresolved obligation | Exact and lexical query targets | Qdrant, with structural resolution when available | Ordinary |
+| Recovery | Deferred-file rescue | Use a strong held owner to search its file for a missing mechanism | File, source observation, and query anchors | CodeGraph owner and Qdrant | Deferred-file rescue |
+| Maturation | Owner maturation | Extend an incomplete promoted implementation owner | Observation and complete owner range, or a focused same-file query | Exact source access or Qdrant; structural resolution when available | Owner-maturation preselection, followed by ordinary capacity |
+| Maturation | Test-scenario maturation | Find scenario or assertion code behind a promising test range | File, source observation, and query anchors | Qdrant, with structural resolution when available | Test maturation |
+| Verified continuation | Verified source lead or structural-child handoff | Inspect an exact node named by qualified source or follow its verified cross-file call | Exact target node or directed structural expansion | CodeGraph resolution and exact source access | Verified lead |
+
+All listed actions require the adaptive controller, which is enabled in the standard Workspace configuration and disabled in the controller ablations. Structural dependencies become unavailable in the graphless conditions, while Qdrant-based actions can continue with range-level results.
+
+An action is suppressed when a completed normalized effect already covers the same or a broader target. Identical requests to deterministic structural tools are memoized within the run, preventing repeated exploration while preserving suppression and cache records.
+
+The actions in the recovery category revisit material that was preserved rather than rejected during initial construction. They can inspect a deferred owner, compare stronger alternatives within a promising file, or reveal a later portion of an incomplete retained owner. Qualified source can also expose a concrete call or identifier. Such a lead becomes executable only when exact structural resolution identifies a repository node; its target inherits no semantic support and must be inspected and qualified independently.
+
+Scheduling is deterministic. Actions in the ordinary pool compete for a shared per-round limit, with selection preserving diversity across roots, files, islands, and effects. Specific recovery and maturation families receive separate bounded opportunities so that one family cannot silently consume another's capacity. Selected actions execute through exact-source, Qdrant, or structural operations.
+
+Every new or refined observation passes through the same disclosure and qualification boundary used at round zero. Only retained decisions enter the candidate pool; navigation leads may guide later actions without becoming direct factual support. The controller then updates owner representations, exact leads, obligation coverage, structural components, and evidence islands. Cross-file expansions can also produce traces linking their source, endpoint, relationship direction, and affected obligations. These traces remain inputs to final evidence selection rather than establishing a handoff by themselves.
+
+Otherwise, iteration ends when no executable action remains or a round produces no evidence, navigation, coverage, or pending-lead gain. The configured exploration budget normally permits three rounds, with a fourth available only for a productive exact-anchor follow-up or an unspent verified lead. The controller returns its qualified candidates, coverage, islands, relationships, file traces, round count, and stop reason. Final evidence selection compares this bounded pool across obligations and records which candidates are accepted, rejected, or left unresolved before producing the downstream evidence list.
+
+## Learning-Oriented Interaction
+
+After final evidence selection, response generation converts the selected source and its stated limitations into an intent-specific explanation. The validated intent stages define the content that must be covered, while an LLM may arrange them into a coherent presentation. Repository claims must cite supplied evidence; uncited text may organise the explanation or state an evidence limitation but cannot introduce new project facts.
+
+Understanding checks are intended to move the interaction beyond passive explanation by asking the user to reconstruct an evidence-supported relationship. This design is motivated by evidence that prompted self-explanation can support learning across varied instructional settings [@Bisra2018SelfExplanation] and that guided Socratic questioning can support source-code comprehension [@Tamang2021Socratic]. The checks are generated with the response so that they can target relationships established by its evidence. Each check records the relevant intent and stages, the reasoning relationship being assessed, expected answer points, and supporting evidence. Its form must be allowed by the selected intent contract: an `explain` check may ask how or why a transition occurs, for example, whereas a `verify` check may ask what evidence establishes a claim. Complete mappings remain in the [Implemented Intent Contract Registry](appendix-implemented-intent-contract-registry.md).
+
+Each check also contains a three-step hint ladder. The `direction` hint identifies the next reasoning operation, `focus` points to the relevant component or relationship, and `scaffold` begins the connection while leaving part of the expected answer unresolved. Deterministic validation checks the question, hints, stages, and evidence references against the applicable contracts, and a check is returned only if that validation succeeds.
+
+Answers submitted for an understanding check enter a separate path tied to the original run, not an arbitrary continuation of the chat. An evaluation LLM compares each answer with the expected points and classifies it as correct, partial, incorrect, or unanswered. The result identifies covered and missing reasoning and guides either repair, a deeper check, or completion. Any revised check must satisfy the same question, hint, and evidence contract as the original.
+
+The final retrieval campaign did not execute these response and follow-up stages. They are therefore described as implemented interaction support, not as evidence of improved user comprehension.
+
+## Provenance, Control, and Auditability
+
+Evidence remains identifiable as it moves through the pipeline. A resolved structural node provides the canonical identity where available; otherwise, the normalized path and exact line range identify the observation. When repeated retrievals reach the same source, their records are merged rather than represented as competing copies. The canonical observation retains the obligations, queries, dense and sparse channels, ranks, scores, exact anchors, and controller actions through which it was found. Source disclosure can change how much text is shown to an LLM without changing this underlying identity or provenance.
+
+The evidence lifecycle records decisions that would otherwise be hidden by the final result. Initial snippets may be selected for comparison or deferred by the input boundary; compared owners may be selected or remain dormant; qualification may retain direct facts and navigation leads or reject insufficient material. Controller discoveries pass through the same qualification boundary. Final evidence selection then records accepted and rejected candidate IDs, obligation-level support, unresolved reasons, and selected file traces. Consequently, an item that is absent from the final evidence can still be traced to the first stage at which it was deferred, rejected, or left outside a bounded selection.
+
+Control is divided between semantic judgement and application-owned enforcement.
+
+| Decision type | Responsible mechanism |
+|---|---|
+| Intent selection, evidence qualification, coverage assessment, and final semantic selection | LLM |
+| Schema validation, source policy, input and action budgets, action construction, scheduling, execution, and stopping enforcement | Application logic |
+| Factual grounding | Inspectable repository source |
+| Structural relationships | CodeGraph or source analysis, retained only with source grounding |
+
+Each LLM response is constrained by a schema and recorded with its stage context. Intent classification also preserves the short reasons supplied for selected labels as audit information; these reasons do not control retrieval or response generation. Invalid required outputs fail explicitly rather than invoking a deterministic semantic substitute. Application decisions record their inputs and outcomes, including admitted and excluded items, scheduled and suppressed actions, cache hits, tool responses, and stop reasons.
+
+To keep LLM inputs and repository exploration bounded, the LLM-backed retrieval stages enforce configurable character limits on the material they receive. These limits provide predictable context boundaries and indirectly constrain token use, cost, and latency; they are not exact token budgets. Controller rounds and action families are bounded separately by execution limits. The trace records the capacity used, material omitted or truncated at each boundary, action counts, and tool output that could not be converted into an observation. This allows retrieved-but-omitted evidence to be distinguished from material that was never retrieved or was later rejected.
+
+The architecture also marks the boundary of its claims. Chapter 6 separates retained design from rejected experiments. Evidence reuse across independent requests and support for additional language families remain unexercised or future behaviour. Logs expose these boundaries and failures; they do not convert experimental, rejected, or planned behaviour into implemented capability.
