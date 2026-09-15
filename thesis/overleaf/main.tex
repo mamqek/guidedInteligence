@@ -1,0 +1,117 @@
+% !TeX program = lualatex
+% Overleaf project derived from the official UvA MSc Software Engineering template.
+% Replace the marked metadata before submission.
+%
+\RequirePackage[l2tabu]{nag}
+\documentclass{mscthesis}
+
+\usepackage{import}
+\usepackage[final]{microtype}
+\usepackage{polyglossia}
+\setmainlanguage[variant=british]{english}
+\usepackage[backend=biber,
+            hyperref=true,
+            isbn=true,
+            backref=false,
+            maxcitenames=3,
+            maxbibnames=100,
+            block=none,
+            style=numeric-comp,
+            giveninits=true,
+            sortlocale=auto]{biblatex}
+\addbibresource{references.bib}
+\DefineBibliographyStrings{english}{bibliography={References},references={References}}
+
+\usepackage[svgnames]{xcolor}
+\usepackage{graphicx}
+\graphicspath{{./figures/}}
+\setkeys{Gin}{width=0.9\linewidth}
+\usepackage{subcaption}
+\captionsetup{margin=1pt}
+\usepackage[colorlinks=false,pdfborder={0 0 0},pdfusetitle]{hyperref}
+\urlstyle{same}
+\usepackage{booktabs}
+\usepackage{mathtools}
+\usepackage{cleveref}
+\usepackage[british,xlatin,abbreviations]{foreign}
+\usepackage[cachedir=_minted-\jobname,chapter]{minted}
+\setminted{style=tango,frame=lines,framesep=2mm,fontsize=\small,linenos,breaklines,breakafter=-/,tabsize=2}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[acronym,shortcuts=ac,nomain,nonumberlist]{glossaries-extra}
+\makeglossaries{}
+\setabbreviationstyle[acronym]{long-short}
+\loadglsentries{acronyms}
+\usepackage[shortlabels,inline]{enumitem}
+\setlist{noitemsep}
+\usepackage{etoolbox}
+\AtBeginEnvironment{tabular}{\addfontfeatures{Numbers={Lining}}}
+
+% Additions used by the converted Markdown tables.
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{pdflscape}
+\usepackage{ragged2e}
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\setlength{\LTpre}{0.5\baselineskip}
+\setlength{\LTpost}{0.5\baselineskip}
+
+% --------------------------------------------------------------------
+% Draft metadata - replace before submission
+% --------------------------------------------------------------------
+\title{Guided Intelligence}
+\subtitle{Controlled and Auditable Repository Evidence Construction}
+\date{\today}
+\author{Author Name} % TODO: replace with the student's full name.
+\examiner{Academic Supervisor}{University of Amsterdam} % TODO
+\reviewer{Second Reviewer}{University of Amsterdam} % TODO
+% Add \dailysupervisor, \externalsupervisor, \hostorganisation, or
+% \coverpicture here if applicable.
+
+\begin{document}
+\frontmatter
+\makecoverpage
+\cleartorecto{}
+\makeformaltitlepages
+
+\cleartorecto{}
+\chapter{Abstract}
+\import{frontmatter/}{abstract.tex}
+\glsresetall{}
+
+\cleartorecto{}
+\chapter{Declaration on GenAI Use}
+\import{frontmatter/}{declaration.tex}
+\clearpage{}
+
+\cleartorecto{}
+\tableofcontents{}
+\clearpage{}
+\listoffigures{}
+\clearpage{}
+\listoftables{}
+\clearpage{}
+
+\cleartorecto{}
+\chapter{Acknowledgements}
+\import{frontmatter/}{acknowledgement.tex}
+
+\mainmatter
+\import{chapters/}{01-introduction.tex}
+\import{chapters/}{02-background.tex}
+\import{chapters/}{03-related-work.tex}
+\import{chapters/}{04-research-method.tex}
+\import{chapters/}{05-guided-intelligence-architecture.tex}
+\import{chapters/}{06-retrieval-design-rationale-and-evolution.tex}
+\import{chapters/}{07-evaluation.tex}
+\import{chapters/}{08-discussion.tex}
+\import{chapters/}{09-conclusion.tex}
+
+\appendix
+\import{appendix/}{implemented-intent-contract-registry.tex}
+
+\backmatter
+\printbibliography{}
+\cleardoublepage{}
+\printacronyms[style=long,title={Acronyms}]
+\cleardoublepage{}
+\end{document}
