@@ -191,6 +191,14 @@ def build_semantic_islands(
         selection_reasons=reasons,
     )
     if trace is not None:
+        from services.retrieval.workspace.pipeline.execution_flow.owner_reevaluation_audit import audit_owner_elections
+        trace.record("owner_reevaluation_audited", {
+            "round": round_index,
+            "trace_only": True,
+            "elections": audit_owner_elections(
+                result, previous, observation_by_id, decision_by_id, card_by_id, _root_key,
+            ),
+        })
         trace.record(
             "semantic_islands_created",
             {

@@ -1,0 +1,1079 @@
+[
+  {
+    "run": "run-20260915T051458Z",
+    "counts": {
+      "initial": 4,
+      "merge": 1,
+      "preserved": 3
+    },
+    "new_owner_competitions": 1,
+    "opportunities": [
+      {
+        "active": true,
+        "candidates": [
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 147,
+              "full_line_start": 100,
+              "language": "javascript",
+              "line_end": 147,
+              "line_start": 122,
+              "node_id": "source_owner:src/core/util/props.js:100:147",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "assertProp"
+            },
+            "id": "obs_0fa4f1a86225e86b",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Inspect getInvalidTypeMessage and styleValue to determine how the invalid value is formatted.",
+              "missing_information": [
+                "The implementation of getInvalidTypeMessage and its value-formatting helpers is needed to establish the Symbol conversion failure."
+              ],
+              "observation_id": "obs_0fa4f1a86225e86b",
+              "reason": "assertProp checks the declared type, records expected types, and enters the invalid branch that calls getInvalidTypeMessage before warning, establishing the local validation-to-diagnostic handoff.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_trigger",
+                "explain_ordered_mechanism"
+              ],
+              "visible_support": [
+                "assertProp invokes assertType for each declared type and stores expectedType values.",
+                "When valid is false, assertProp calls getInvalidTypeMessage(name, value, expectedTypes) and passes the result to warn."
+              ]
+            },
+            "ranking_key": [
+              -3,
+              1,
+              -8,
+              0,
+              1,
+              "src/core/util/props.js",
+              122
+            ],
+            "retrieved_obligation_ids": [
+              "explain_subject",
+              "explain_trigger",
+              "explain_ordered_mechanism",
+              "explain_state_changes",
+              "explain_resulting_effect",
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "function assertProp (\n  prop: PropOptions,\n  name: string,\n  value: any,\n  vm: ?Component,\n  absent: boolean\n) {\n  if (prop.required && absent) {\n    warn(\n      'Missing required prop: \"' + name + '\"',\n      vm\n    )\n    return\n  }\n  if (value == null && !prop.required) {\n    return\n  }\n  let type = prop.type\n  let valid = !type || type === true\n  const expectedTypes = []\n  if (type) {\n    if (!Array.isArray(type)) {\n      type = [type]\n    }\n    for (let i = 0; i < type.length && !valid; i++) {\n      const assertedType = assertType(value, type[i])\n      expectedTypes.push(assertedType.expectedType || '')\n      valid = assertedType.valid\n    }\n  }\n\n  if (!valid) {\n    warn(\n      getInvalidTypeMessage(name, value, expectedTypes),\n      vm\n    )\n    return\n  }\n  const validator = prop.validator\n  if (validator) {\n    if (!validator(value)) {\n      warn(\n        'Invalid prop: custom validator check failed for prop \"' + name + '\".',\n        vm\n      )\n    }\n  }\n}",
+            "truncation_reason": ""
+          },
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 1876,
+              "full_line_start": 1829,
+              "language": "javascript",
+              "line_end": 1876,
+              "line_start": 1829,
+              "node_id": "function:7367b72277e3bc9ef3deaf32e9f3ac65",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "packages/vue-server-renderer/build.dev.js",
+              "symbol": "assertProp"
+            },
+            "id": "obs_8a5c3ff870502037",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Retrieve getInvalidTypeMessage and assertType to inspect Symbol value formatting after the !valid branch.",
+              "missing_information": [
+                "The implementations of assertType and getInvalidTypeMessage are needed to show how the Symbol value is formatted and why conversion fails."
+              ],
+              "observation_id": "obs_8a5c3ff870502037",
+              "reason": "This function validates the received prop against declared types and, when validation fails, begins constructing a warning through getInvalidTypeMessage.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_trigger"
+              ],
+              "visible_support": [
+                "assertProp computes validity using assertType(value, type[i]).",
+                "When !valid, it calls getInvalidTypeMessage(name, value, expectedTypes) and passes the result to warn.",
+                "The loop records each asserted type's expectedType before message construction."
+              ]
+            },
+            "ranking_key": [
+              -2,
+              1,
+              -1,
+              0,
+              10000,
+              "packages/vue-server-renderer/build.dev.js",
+              1829
+            ],
+            "retrieved_obligation_ids": [
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "function assertProp (\n  prop,\n  name,\n  value,\n  vm,\n  absent\n) {\n  if (prop.required && absent) {\n    warn(\n      'Missing required prop: \"' + name + '\"',\n      vm\n    );\n    return\n  }\n  if (value == null && !prop.required) {\n    return\n  }\n  var type = prop.type;\n  var valid = !type || type === true;\n  var expectedTypes = [];\n  if (type) {\n    if (!Array.isArray(type)) {\n      type = [type];\n    }\n    for (var i = 0; i < type.length && !valid; i++) {\n      var assertedType = assertType(value, type[i]);\n      expectedTypes.push(assertedType.expectedType || '');\n      valid = assertedType.valid;\n    }\n  }\n\n  if (!valid) {\n    warn(\n      getInvalidTypeMessage(name, value, expectedTypes),\n      vm\n    );\n    return\n  }\n  var validator = prop.validator;\n  if (validator) {\n    if (!validator(value)) {\n      warn(\n        'Invalid prop: custom validator check failed for prop \"' + name + '\".',\n        vm\n      );\n    }\n  }\n}",
+            "truncation_reason": ""
+          },
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 222,
+              "full_line_start": 203,
+              "language": "javascript",
+              "line_end": 222,
+              "line_start": 203,
+              "node_id": "function:7ba39ad6968ab7cb618eb764bdc18509",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "getInvalidTypeMessage"
+            },
+            "id": "obs_de4d233e4b26a557",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Inspect styleValue to identify its conversion operation for Symbol values.",
+              "missing_information": [
+                "The styleValue implementation is needed to prove the concrete Symbol-to-string operation and resulting TypeError."
+              ],
+              "observation_id": "obs_de4d233e4b26a557",
+              "reason": "getInvalidTypeMessage constructs the diagnostic by deriving expected and received representations and passing the prop value to styleValue, which is the visible formatting operation implicated in the failure.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_ordered_mechanism",
+                "explain_state_changes"
+              ],
+              "visible_support": [
+                "The function maps expected types into the expected-type text and computes receivedType with toRawType(value).",
+                "It calls styleValue(value, expectedType) and styleValue(value, receivedType) before interpolating formatted values into the message."
+              ]
+            },
+            "ranking_key": [
+              -1,
+              1,
+              -7,
+              0,
+              1,
+              "src/core/util/props.js",
+              203
+            ],
+            "retrieved_obligation_ids": [
+              "explain_subject",
+              "explain_trigger",
+              "explain_ordered_mechanism",
+              "explain_state_changes",
+              "explain_resulting_effect",
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "function getInvalidTypeMessage (name, value, expectedTypes) {\n  let message = `Invalid prop: type check failed for prop \"${name}\".` +\n    ` Expected ${expectedTypes.map(capitalize).join(', ')}`\n  const expectedType = expectedTypes[0]\n  const receivedType = toRawType(value)\n  const expectedValue = styleValue(value, expectedType)\n  const receivedValue = styleValue(value, receivedType)\n  // check if we need to specify expected value\n  if (expectedTypes.length === 1 &&\n      isExplicable(expectedType) &&\n      !isBoolean(expectedType, receivedType)) {\n    message += ` with value ${expectedValue}`\n  }\n  message += `, got ${receivedType} `\n  // check if we need to specify received value\n  if (isExplicable(receivedType)) {\n    message += `with value ${receivedValue}.`\n  }\n  return message\n}",
+            "truncation_reason": ""
+          },
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 62,
+              "full_line_start": 21,
+              "language": "javascript",
+              "line_end": 60,
+              "line_start": 21,
+              "node_id": "source_owner:src/core/util/props.js:21:62",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "validateProp"
+            },
+            "id": "obs_f121fa3924e63073",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Inspect the assertProp call target to follow the value into the invalid-validation branch.",
+              "missing_information": [
+                "The downstream type-check failure and validation-message formatting are implemented in assertProp and its callees."
+              ],
+              "observation_id": "obs_f121fa3924e63073",
+              "reason": "validateProp obtains the component prop value and, outside production, passes it to assertProp, establishing the entry path from received prop data into validation.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject"
+              ],
+              "visible_support": [
+                "validateProp reads propsData[key] and applies default-value handling before validation.",
+                "In non-production, validateProp calls assertProp(prop, key, value, vm, absent)."
+              ]
+            },
+            "ranking_key": [
+              0,
+              1,
+              -7,
+              0,
+              1,
+              "src/core/util/props.js",
+              21
+            ],
+            "retrieved_obligation_ids": [
+              "explain_subject",
+              "explain_trigger",
+              "explain_ordered_mechanism",
+              "explain_state_changes",
+              "explain_resulting_effect",
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "export function validateProp (\n  key: string,\n  propOptions: Object,\n  propsData: Object,\n  vm?: Component\n): any {\n  const prop = propOptions[key]\n  const absent = !hasOwn(propsData, key)\n  let value = propsData[key]\n  // boolean casting\n  const booleanIndex = getTypeIndex(Boolean, prop.type)\n  if (booleanIndex > -1) {\n    if (absent && !hasOwn(prop, 'default')) {\n      value = false\n    } else if (value === '' || value === hyphenate(key)) {\n      // only cast empty string / same name to boolean if\n      // boolean has higher priority\n      const stringIndex = getTypeIndex(String, prop.type)\n      if (stringIndex < 0 || booleanIndex < stringIndex) {\n        value = true\n      }\n    }\n  }\n  // check default value\n  if (value === undefined) {\n    value = getPropDefaultValue(vm, prop, key)\n    // since the default value is a fresh copy,\n    // make sure to observe it.\n    const prevShouldObserve = shouldObserve\n    toggleObserving(true)\n    observe(value)\n    toggleObserving(prevShouldObserve)\n  }\n  if (\n    process.env.NODE_ENV !== 'production' &&\n    // skip validation for weex recycle-list child component props\n    !(__WEEX__ && isObject(value) && ('@binding' in value))\n  ) {\n    assertProp(prop, key, value, vm, absent)\n  }\n  return value\n}",
+            "truncation_reason": ""
+          }
+        ],
+        "island_id": "island_a587f7c1b4e1af40",
+        "kind": "merge",
+        "new_owner_competition": true,
+        "newly_promoted_ids": [
+          "obs_8a5c3ff870502037"
+        ],
+        "previous_primaries": [
+          "obs_0fa4f1a86225e86b",
+          "obs_de4d233e4b26a557",
+          "obs_f121fa3924e63073"
+        ],
+        "same_file_outside_island": [
+          "obs_a6a16034036b16e0"
+        ],
+        "winner": "obs_0fa4f1a86225e86b",
+        "round": 1
+      }
+    ],
+    "tokens": 54675,
+    "actions": [
+      {
+        "round": 1,
+        "id": "action_c8f83a2a038a7498",
+        "type": "SearchWithinFile",
+        "path": "src/core/util/props.js",
+        "root_observation_id": null,
+        "source_observation_id": "obs_0fa4f1a86225e86b",
+        "obligation_id": "explain_ordered_mechanism",
+        "handoff_reason": "Inspect getInvalidTypeMessage and styleValue to determine how the invalid value is formatted."
+      },
+      {
+        "round": 1,
+        "id": "action_410831a1835f7830",
+        "type": "ExpandRelationship",
+        "path": null,
+        "root_observation_id": "obs_de4d233e4b26a557",
+        "source_observation_id": null,
+        "obligation_id": "explain_why",
+        "handoff_reason": "Inspect styleValue to identify its conversion operation for Symbol values."
+      },
+      {
+        "round": 2,
+        "id": "action_fcda669a0248c4e7",
+        "type": "InspectDeferredObservation",
+        "path": null,
+        "root_observation_id": null,
+        "source_observation_id": null,
+        "obligation_id": null,
+        "handoff_reason": null
+      },
+      {
+        "round": 2,
+        "id": "action_4d9a27329aa9970a",
+        "type": "ExpandRelationship",
+        "path": null,
+        "root_observation_id": "obs_8a5c3ff870502037",
+        "source_observation_id": null,
+        "obligation_id": "explain_why",
+        "handoff_reason": "Retrieve getInvalidTypeMessage and assertType to inspect Symbol value formatting after the !valid branch."
+      }
+    ],
+    "final_pool": [
+      {
+        "candidate_id": "node:source_owner:src/core/util/props.js:100:147",
+        "node_id": "source_owner:src/core/util/props.js:100:147",
+        "path": "src/core/util/props.js",
+        "symbol": "assertProp",
+        "origin": "qualified_direct_evidence"
+      },
+      {
+        "candidate_id": "node:source_owner:src/core/util/props.js:21:62",
+        "node_id": "source_owner:src/core/util/props.js:21:62",
+        "path": "src/core/util/props.js",
+        "symbol": "validateProp",
+        "origin": "qualified_direct_evidence"
+      },
+      {
+        "candidate_id": "node:function:7ba39ad6968ab7cb618eb764bdc18509",
+        "node_id": "function:7ba39ad6968ab7cb618eb764bdc18509",
+        "path": "src/core/util/props.js",
+        "symbol": "getInvalidTypeMessage",
+        "origin": "qualified_direct_evidence"
+      },
+      {
+        "candidate_id": "node:source_owner:src/core/util/props.js:151:175",
+        "node_id": "source_owner:src/core/util/props.js:151:175",
+        "path": "src/core/util/props.js",
+        "symbol": "assertType",
+        "origin": "qualified_direct_evidence"
+      },
+      {
+        "candidate_id": "node:function:7367b72277e3bc9ef3deaf32e9f3ac65",
+        "node_id": "function:7367b72277e3bc9ef3deaf32e9f3ac65",
+        "path": "packages/vue-server-renderer/build.dev.js",
+        "symbol": "assertProp",
+        "origin": "qualified_direct_evidence"
+      }
+    ],
+    "file_election_counts": {
+      "initial": 6,
+      "preserved": 10
+    },
+    "file_competitions": [],
+    "overlap": 1,
+    "final_files": {
+      "src/core/util/props.js": 1
+    },
+    "coverage": "partial",
+    "sufficient": false
+  },
+  {
+    "run": "run-20260915T051508Z",
+    "counts": {
+      "initial": 2,
+      "merge": 1,
+      "preserved": 2
+    },
+    "new_owner_competitions": 1,
+    "opportunities": [
+      {
+        "active": true,
+        "candidates": [
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 147,
+              "full_line_start": 100,
+              "language": "javascript",
+              "line_end": 121,
+              "line_start": 100,
+              "node_id": "source_owner:src/core/util/props.js:100:147",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "assertProp"
+            },
+            "id": "obs_0fa4f1a86225e86b",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Retrieve `assertType` and the caller that supplies the Symbol value to confirm the failed type-check path.",
+              "missing_information": [
+                "The `assertType` implementation and the concrete Symbol reproduction are not shown.",
+                "The implementation of `styleValue` and the JavaScript runtime coercion failure are not shown."
+              ],
+              "observation_id": "obs_0fa4f1a86225e86b",
+              "reason": "`assertProp` checks the declared type, marks the value invalid when no type matches, and passes the prop name, value, and expected types to `getInvalidTypeMessage` before calling `warn`; it does not itself show Symbol-specific coercion.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_ordered_mechanism",
+                "explain_state_changes"
+              ],
+              "visible_support": [
+                "`assertProp` normalizes the declared type and calls `assertType` for each candidate type.",
+                "When `valid` remains false, it calls `getInvalidTypeMessage(name, value, expectedTypes)` and then `warn`.",
+                "The invalid-type branch returns before custom-validator processing."
+              ]
+            },
+            "ranking_key": [
+              -3,
+              1,
+              -9,
+              0,
+              2,
+              "src/core/util/props.js",
+              100
+            ],
+            "retrieved_obligation_ids": [
+              "explain_subject",
+              "explain_trigger",
+              "explain_ordered_mechanism",
+              "explain_state_changes",
+              "explain_resulting_effect",
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "function assertProp (\n  prop: PropOptions,\n  name: string,\n  value: any,\n  vm: ?Component,\n  absent: boolean\n) {\n  if (prop.required && absent) {\n    warn(\n      'Missing required prop: \"' + name + '\"',\n      vm\n    )\n    return\n  }\n  if (value == null && !prop.required) {\n    return\n  }\n  let type = prop.type\n  let valid = !type || type === true\n  const expectedTypes = []\n  if (type) {\n    if (!Array.isArray(type)) {\n      type = [type]\n    }\n    for (let i = 0; i < type.length && !valid; i++) {\n      const assertedType = assertType(value, type[i])\n      expectedTypes.push(assertedType.expectedType || '')\n      valid = assertedType.valid\n    }\n  }\n\n  if (!valid) {\n    warn(\n      getInvalidTypeMessage(name, value, expectedTypes),\n      vm\n    )\n    return\n  }\n  const validator = prop.validator\n  if (validator) {\n    if (!validator(value)) {\n      warn(\n        'Invalid prop: custom validator check failed for prop \"' + name + '\".',\n        vm\n      )\n    }\n  }\n}",
+            "truncation_reason": ""
+          },
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 1876,
+              "full_line_start": 1829,
+              "language": "javascript",
+              "line_end": 1876,
+              "line_start": 1829,
+              "node_id": "function:7367b72277e3bc9ef3deaf32e9f3ac65",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "packages/vue-server-renderer/build.dev.js",
+              "symbol": "assertProp"
+            },
+            "id": "obs_8a5c3ff870502037",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Inspect getInvalidTypeMessage and assertType to determine how the mismatched value is represented.",
+              "missing_information": [
+                "The implementation of assertType and getInvalidTypeMessage is not shown, so Symbol-to-string coercion and the resulting TypeError are not directly established."
+              ],
+              "observation_id": "obs_8a5c3ff870502037",
+              "reason": "assertProp checks the value against each declared type, marks mismatches invalid, and passes the value and expected types to getInvalidTypeMessage before warning, establishing the validation failure and diagnostic-construction path.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_ordered_mechanism",
+                "explain_state_changes"
+              ],
+              "visible_support": [
+                "Declared types are normalized to an array and checked with assertType.",
+                "A failed check leaves valid false.",
+                "The invalid branch calls getInvalidTypeMessage(name, value, expectedTypes) and passes the result to warn.",
+                "The function returns after the invalid-prop warning path."
+              ]
+            },
+            "ranking_key": [
+              -3,
+              1,
+              -1,
+              0,
+              10000,
+              "packages/vue-server-renderer/build.dev.js",
+              1829
+            ],
+            "retrieved_obligation_ids": [
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "function assertProp (\n  prop,\n  name,\n  value,\n  vm,\n  absent\n) {\n  if (prop.required && absent) {\n    warn(\n      'Missing required prop: \"' + name + '\"',\n      vm\n    );\n    return\n  }\n  if (value == null && !prop.required) {\n    return\n  }\n  var type = prop.type;\n  var valid = !type || type === true;\n  var expectedTypes = [];\n  if (type) {\n    if (!Array.isArray(type)) {\n      type = [type];\n    }\n    for (var i = 0; i < type.length && !valid; i++) {\n      var assertedType = assertType(value, type[i]);\n      expectedTypes.push(assertedType.expectedType || '');\n      valid = assertedType.valid;\n    }\n  }\n\n  if (!valid) {\n    warn(\n      getInvalidTypeMessage(name, value, expectedTypes),\n      vm\n    );\n    return\n  }\n  var validator = prop.validator;\n  if (validator) {\n    if (!validator(value)) {\n      warn(\n        'Invalid prop: custom validator check failed for prop \"' + name + '\".',\n        vm\n      );\n    }\n  }\n}",
+            "truncation_reason": ""
+          },
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 222,
+              "full_line_start": 203,
+              "language": "javascript",
+              "line_end": 222,
+              "line_start": 203,
+              "node_id": "function:7ba39ad6968ab7cb618eb764bdc18509",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "getInvalidTypeMessage"
+            },
+            "id": "obs_de4d233e4b26a557",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Retrieve `styleValue` to inspect how a Symbol value is converted while formatting the expected and received values.",
+              "missing_information": [
+                "The `styleValue` implementation is not visible, so this snippet does not prove the exact Symbol coercion operation or the resulting TypeError.",
+                "No reproduction or caller is shown that supplies a Symbol against an incompatible declared type."
+              ],
+              "observation_id": "obs_de4d233e4b26a557",
+              "reason": "`getInvalidTypeMessage` assembles the invalid-prop diagnostic and formats the supplied value through `styleValue`, establishing the message-construction path while leaving the actual Symbol-to-string failure inside the unshown formatter or runtime.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_ordered_mechanism",
+                "explain_state_changes"
+              ],
+              "visible_support": [
+                "The function starts an `Invalid prop: type check failed` message using the prop name and expected types.",
+                "It derives the received type with `toRawType(value)` and calls `styleValue(value, expectedType)` and `styleValue(value, receivedType)`.",
+                "It conditionally interpolates the formatted values into the returned diagnostic string."
+              ]
+            },
+            "ranking_key": [
+              0,
+              1,
+              -7,
+              0,
+              1,
+              "src/core/util/props.js",
+              203
+            ],
+            "retrieved_obligation_ids": [
+              "explain_subject",
+              "explain_trigger",
+              "explain_ordered_mechanism",
+              "explain_state_changes",
+              "explain_resulting_effect",
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "function getInvalidTypeMessage (name, value, expectedTypes) {\n  let message = `Invalid prop: type check failed for prop \"${name}\".` +\n    ` Expected ${expectedTypes.map(capitalize).join(', ')}`\n  const expectedType = expectedTypes[0]\n  const receivedType = toRawType(value)\n  const expectedValue = styleValue(value, expectedType)\n  const receivedValue = styleValue(value, receivedType)\n  // check if we need to specify expected value\n  if (expectedTypes.length === 1 &&\n      isExplicable(expectedType) &&\n      !isBoolean(expectedType, receivedType)) {\n    message += ` with value ${expectedValue}`\n  }\n  message += `, got ${receivedType} `\n  // check if we need to specify received value\n  if (isExplicable(receivedType)) {\n    message += `with value ${receivedValue}.`\n  }\n  return message\n}",
+            "truncation_reason": ""
+          },
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 62,
+              "full_line_start": 21,
+              "language": "javascript",
+              "line_end": 60,
+              "line_start": 21,
+              "node_id": "source_owner:src/core/util/props.js:21:62",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "validateProp"
+            },
+            "id": "obs_f121fa3924e63073",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Inspect assertProp and its invalid-type message helper for the failed type-check branch.",
+              "missing_information": [
+                "The type-mismatch branch and invalid-type message construction are implemented in assertProp or its helpers, not shown here.",
+                "No Symbol-specific behavior is visible."
+              ],
+              "observation_id": "obs_f121fa3924e63073",
+              "reason": "validateProp obtains the supplied value, applies default handling, and invokes assertProp in the non-production validation path, establishing the ordered handoff into prop validation.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_ordered_mechanism"
+              ],
+              "visible_support": [
+                "The prop value is read from propsData.",
+                "Undefined values may receive a default.",
+                "assertProp(prop, key, value, vm, absent) is called when development validation is enabled."
+              ]
+            },
+            "ranking_key": [
+              0,
+              1,
+              -1,
+              0,
+              3,
+              "src/core/util/props.js",
+              21
+            ],
+            "retrieved_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "source_mode": "full",
+            "source_text": "export function validateProp (\n  key: string,\n  propOptions: Object,\n  propsData: Object,\n  vm?: Component\n): any {\n  const prop = propOptions[key]\n  const absent = !hasOwn(propsData, key)\n  let value = propsData[key]\n  // boolean casting\n  const booleanIndex = getTypeIndex(Boolean, prop.type)\n  if (booleanIndex > -1) {\n    if (absent && !hasOwn(prop, 'default')) {\n      value = false\n    } else if (value === '' || value === hyphenate(key)) {\n      // only cast empty string / same name to boolean if\n      // boolean has higher priority\n      const stringIndex = getTypeIndex(String, prop.type)\n      if (stringIndex < 0 || booleanIndex < stringIndex) {\n        value = true\n      }\n    }\n  }\n  // check default value\n  if (value === undefined) {\n    value = getPropDefaultValue(vm, prop, key)\n    // since the default value is a fresh copy,\n    // make sure to observe it.\n    const prevShouldObserve = shouldObserve\n    toggleObserving(true)\n    observe(value)\n    toggleObserving(prevShouldObserve)\n  }\n  if (\n    process.env.NODE_ENV !== 'production' &&\n    // skip validation for weex recycle-list child component props\n    !(__WEEX__ && isObject(value) && ('@binding' in value))\n  ) {\n    assertProp(prop, key, value, vm, absent)\n  }\n  return value\n}",
+            "truncation_reason": ""
+          }
+        ],
+        "island_id": "island_6bdfc126754f295c",
+        "kind": "merge",
+        "new_owner_competition": true,
+        "newly_promoted_ids": [
+          "obs_8a5c3ff870502037",
+          "obs_f121fa3924e63073"
+        ],
+        "previous_primaries": [
+          "obs_0fa4f1a86225e86b",
+          "obs_de4d233e4b26a557"
+        ],
+        "same_file_outside_island": [],
+        "winner": "obs_0fa4f1a86225e86b",
+        "round": 1
+      }
+    ],
+    "tokens": 58271,
+    "actions": [
+      {
+        "round": 1,
+        "id": "action_c8f83a2a038a7498",
+        "type": "SearchWithinFile",
+        "path": "src/core/util/props.js",
+        "root_observation_id": null,
+        "source_observation_id": "obs_0fa4f1a86225e86b",
+        "obligation_id": "explain_ordered_mechanism",
+        "handoff_reason": "Retrieve `assertType` and the caller that supplies the Symbol value to confirm the failed type-check path."
+      },
+      {
+        "round": 1,
+        "id": "action_410831a1835f7830",
+        "type": "ExpandRelationship",
+        "path": null,
+        "root_observation_id": "obs_de4d233e4b26a557",
+        "source_observation_id": null,
+        "obligation_id": "explain_why",
+        "handoff_reason": "Retrieve `styleValue` to inspect how a Symbol value is converted while formatting the expected and received values."
+      },
+      {
+        "round": 2,
+        "id": "action_af8c73de48be6986",
+        "type": "InspectDeferredObservation",
+        "path": null,
+        "root_observation_id": null,
+        "source_observation_id": null,
+        "obligation_id": null,
+        "handoff_reason": null
+      },
+      {
+        "round": 2,
+        "id": "action_a6e299c2e80cbe8e",
+        "type": "InspectDeferredObservation",
+        "path": null,
+        "root_observation_id": null,
+        "source_observation_id": null,
+        "obligation_id": null,
+        "handoff_reason": null
+      },
+      {
+        "round": 3,
+        "id": "action_ad96bb67bbf19dd4",
+        "type": "InspectDeferredObservation",
+        "path": null,
+        "root_observation_id": null,
+        "source_observation_id": null,
+        "obligation_id": null,
+        "handoff_reason": null
+      },
+      {
+        "round": 3,
+        "id": "action_4d9a27329aa9970a",
+        "type": "ExpandRelationship",
+        "path": null,
+        "root_observation_id": "obs_8a5c3ff870502037",
+        "source_observation_id": null,
+        "obligation_id": "explain_why",
+        "handoff_reason": "Inspect getInvalidTypeMessage and assertType to determine how the mismatched value is represented."
+      }
+    ],
+    "final_pool": [
+      {
+        "candidate_id": "node:source_owner:src/core/util/props.js:100:147",
+        "node_id": "source_owner:src/core/util/props.js:100:147",
+        "path": "src/core/util/props.js",
+        "symbol": "assertProp",
+        "origin": "qualified_direct_evidence"
+      },
+      {
+        "candidate_id": "node:function:7ba39ad6968ab7cb618eb764bdc18509",
+        "node_id": "function:7ba39ad6968ab7cb618eb764bdc18509",
+        "path": "src/core/util/props.js",
+        "symbol": "getInvalidTypeMessage",
+        "origin": "qualified_direct_evidence"
+      },
+      {
+        "candidate_id": "node:source_owner:src/core/util/props.js:21:62",
+        "node_id": "source_owner:src/core/util/props.js:21:62",
+        "path": "src/core/util/props.js",
+        "symbol": "validateProp",
+        "origin": "qualified_direct_evidence"
+      },
+      {
+        "candidate_id": "node:function:7367b72277e3bc9ef3deaf32e9f3ac65",
+        "node_id": "function:7367b72277e3bc9ef3deaf32e9f3ac65",
+        "path": "packages/vue-server-renderer/build.dev.js",
+        "symbol": "assertProp",
+        "origin": "qualified_direct_evidence"
+      }
+    ],
+    "file_election_counts": {
+      "initial": 6,
+      "preserved": 15
+    },
+    "file_competitions": [
+      {
+        "complements": [
+          "obs_de4d233e4b26a557",
+          "obs_f121fa3924e63073"
+        ],
+        "obligation_id": "explain_ordered_mechanism",
+        "path": "src/core/util/props.js",
+        "primary": "obs_0fa4f1a86225e86b",
+        "round": 1,
+        "previous": "obs_0fa4f1a86225e86b",
+        "new": [
+          "obs_f121fa3924e63073"
+        ],
+        "candidates": [
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 147,
+              "full_line_start": 100,
+              "language": "javascript",
+              "line_end": 121,
+              "line_start": 100,
+              "node_id": "source_owner:src/core/util/props.js:100:147",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "assertProp"
+            },
+            "id": "obs_0fa4f1a86225e86b",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Retrieve `assertType` and the caller that supplies the Symbol value to confirm the failed type-check path.",
+              "missing_information": [
+                "The `assertType` implementation and the concrete Symbol reproduction are not shown.",
+                "The implementation of `styleValue` and the JavaScript runtime coercion failure are not shown."
+              ],
+              "observation_id": "obs_0fa4f1a86225e86b",
+              "reason": "`assertProp` checks the declared type, marks the value invalid when no type matches, and passes the prop name, value, and expected types to `getInvalidTypeMessage` before calling `warn`; it does not itself show Symbol-specific coercion.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_ordered_mechanism",
+                "explain_state_changes"
+              ],
+              "visible_support": [
+                "`assertProp` normalizes the declared type and calls `assertType` for each candidate type.",
+                "When `valid` remains false, it calls `getInvalidTypeMessage(name, value, expectedTypes)` and then `warn`.",
+                "The invalid-type branch returns before custom-validator processing."
+              ]
+            },
+            "ranking_key": [
+              -3,
+              1,
+              -9,
+              0,
+              2,
+              "src/core/util/props.js",
+              100
+            ],
+            "retrieved_obligation_ids": [
+              "explain_subject",
+              "explain_trigger",
+              "explain_ordered_mechanism",
+              "explain_state_changes",
+              "explain_resulting_effect",
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "function assertProp (\n  prop: PropOptions,\n  name: string,\n  value: any,\n  vm: ?Component,\n  absent: boolean\n) {\n  if (prop.required && absent) {\n    warn(\n      'Missing required prop: \"' + name + '\"',\n      vm\n    )\n    return\n  }\n  if (value == null && !prop.required) {\n    return\n  }\n  let type = prop.type\n  let valid = !type || type === true\n  const expectedTypes = []\n  if (type) {\n    if (!Array.isArray(type)) {\n      type = [type]\n    }\n    for (let i = 0; i < type.length && !valid; i++) {\n      const assertedType = assertType(value, type[i])\n      expectedTypes.push(assertedType.expectedType || '')\n      valid = assertedType.valid\n    }\n  }\n\n  if (!valid) {\n    warn(\n      getInvalidTypeMessage(name, value, expectedTypes),\n      vm\n    )\n    return\n  }\n  const validator = prop.validator\n  if (validator) {\n    if (!validator(value)) {\n      warn(\n        'Invalid prop: custom validator check failed for prop \"' + name + '\".',\n        vm\n      )\n    }\n  }\n}",
+            "truncation_reason": ""
+          },
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 222,
+              "full_line_start": 203,
+              "language": "javascript",
+              "line_end": 222,
+              "line_start": 203,
+              "node_id": "function:7ba39ad6968ab7cb618eb764bdc18509",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "getInvalidTypeMessage"
+            },
+            "id": "obs_de4d233e4b26a557",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Retrieve `styleValue` to inspect how a Symbol value is converted while formatting the expected and received values.",
+              "missing_information": [
+                "The `styleValue` implementation is not visible, so this snippet does not prove the exact Symbol coercion operation or the resulting TypeError.",
+                "No reproduction or caller is shown that supplies a Symbol against an incompatible declared type."
+              ],
+              "observation_id": "obs_de4d233e4b26a557",
+              "reason": "`getInvalidTypeMessage` assembles the invalid-prop diagnostic and formats the supplied value through `styleValue`, establishing the message-construction path while leaving the actual Symbol-to-string failure inside the unshown formatter or runtime.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_ordered_mechanism",
+                "explain_state_changes"
+              ],
+              "visible_support": [
+                "The function starts an `Invalid prop: type check failed` message using the prop name and expected types.",
+                "It derives the received type with `toRawType(value)` and calls `styleValue(value, expectedType)` and `styleValue(value, receivedType)`.",
+                "It conditionally interpolates the formatted values into the returned diagnostic string."
+              ]
+            },
+            "ranking_key": [
+              0,
+              1,
+              -7,
+              0,
+              1,
+              "src/core/util/props.js",
+              203
+            ],
+            "retrieved_obligation_ids": [
+              "explain_subject",
+              "explain_trigger",
+              "explain_ordered_mechanism",
+              "explain_state_changes",
+              "explain_resulting_effect",
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "function getInvalidTypeMessage (name, value, expectedTypes) {\n  let message = `Invalid prop: type check failed for prop \"${name}\".` +\n    ` Expected ${expectedTypes.map(capitalize).join(', ')}`\n  const expectedType = expectedTypes[0]\n  const receivedType = toRawType(value)\n  const expectedValue = styleValue(value, expectedType)\n  const receivedValue = styleValue(value, receivedType)\n  // check if we need to specify expected value\n  if (expectedTypes.length === 1 &&\n      isExplicable(expectedType) &&\n      !isBoolean(expectedType, receivedType)) {\n    message += ` with value ${expectedValue}`\n  }\n  message += `, got ${receivedType} `\n  // check if we need to specify received value\n  if (isExplicable(receivedType)) {\n    message += `with value ${receivedValue}.`\n  }\n  return message\n}",
+            "truncation_reason": ""
+          },
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 62,
+              "full_line_start": 21,
+              "language": "javascript",
+              "line_end": 60,
+              "line_start": 21,
+              "node_id": "source_owner:src/core/util/props.js:21:62",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "validateProp"
+            },
+            "id": "obs_f121fa3924e63073",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Inspect assertProp and its invalid-type message helper for the failed type-check branch.",
+              "missing_information": [
+                "The type-mismatch branch and invalid-type message construction are implemented in assertProp or its helpers, not shown here.",
+                "No Symbol-specific behavior is visible."
+              ],
+              "observation_id": "obs_f121fa3924e63073",
+              "reason": "validateProp obtains the supplied value, applies default handling, and invokes assertProp in the non-production validation path, establishing the ordered handoff into prop validation.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_ordered_mechanism"
+              ],
+              "visible_support": [
+                "The prop value is read from propsData.",
+                "Undefined values may receive a default.",
+                "assertProp(prop, key, value, vm, absent) is called when development validation is enabled."
+              ]
+            },
+            "ranking_key": [
+              0,
+              1,
+              -1,
+              0,
+              3,
+              "src/core/util/props.js",
+              21
+            ],
+            "retrieved_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "source_mode": "full",
+            "source_text": "export function validateProp (\n  key: string,\n  propOptions: Object,\n  propsData: Object,\n  vm?: Component\n): any {\n  const prop = propOptions[key]\n  const absent = !hasOwn(propsData, key)\n  let value = propsData[key]\n  // boolean casting\n  const booleanIndex = getTypeIndex(Boolean, prop.type)\n  if (booleanIndex > -1) {\n    if (absent && !hasOwn(prop, 'default')) {\n      value = false\n    } else if (value === '' || value === hyphenate(key)) {\n      // only cast empty string / same name to boolean if\n      // boolean has higher priority\n      const stringIndex = getTypeIndex(String, prop.type)\n      if (stringIndex < 0 || booleanIndex < stringIndex) {\n        value = true\n      }\n    }\n  }\n  // check default value\n  if (value === undefined) {\n    value = getPropDefaultValue(vm, prop, key)\n    // since the default value is a fresh copy,\n    // make sure to observe it.\n    const prevShouldObserve = shouldObserve\n    toggleObserving(true)\n    observe(value)\n    toggleObserving(prevShouldObserve)\n  }\n  if (\n    process.env.NODE_ENV !== 'production' &&\n    // skip validation for weex recycle-list child component props\n    !(__WEEX__ && isObject(value) && ('@binding' in value))\n  ) {\n    assertProp(prop, key, value, vm, absent)\n  }\n  return value\n}",
+            "truncation_reason": ""
+          }
+        ]
+      },
+      {
+        "complements": [
+          "obs_de4d233e4b26a557",
+          "obs_f121fa3924e63073"
+        ],
+        "obligation_id": "explain_subject",
+        "path": "src/core/util/props.js",
+        "primary": "obs_0fa4f1a86225e86b",
+        "round": 1,
+        "previous": "obs_0fa4f1a86225e86b",
+        "new": [
+          "obs_f121fa3924e63073"
+        ],
+        "candidates": [
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 147,
+              "full_line_start": 100,
+              "language": "javascript",
+              "line_end": 121,
+              "line_start": 100,
+              "node_id": "source_owner:src/core/util/props.js:100:147",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "assertProp"
+            },
+            "id": "obs_0fa4f1a86225e86b",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Retrieve `assertType` and the caller that supplies the Symbol value to confirm the failed type-check path.",
+              "missing_information": [
+                "The `assertType` implementation and the concrete Symbol reproduction are not shown.",
+                "The implementation of `styleValue` and the JavaScript runtime coercion failure are not shown."
+              ],
+              "observation_id": "obs_0fa4f1a86225e86b",
+              "reason": "`assertProp` checks the declared type, marks the value invalid when no type matches, and passes the prop name, value, and expected types to `getInvalidTypeMessage` before calling `warn`; it does not itself show Symbol-specific coercion.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_ordered_mechanism",
+                "explain_state_changes"
+              ],
+              "visible_support": [
+                "`assertProp` normalizes the declared type and calls `assertType` for each candidate type.",
+                "When `valid` remains false, it calls `getInvalidTypeMessage(name, value, expectedTypes)` and then `warn`.",
+                "The invalid-type branch returns before custom-validator processing."
+              ]
+            },
+            "ranking_key": [
+              -3,
+              1,
+              -9,
+              0,
+              2,
+              "src/core/util/props.js",
+              100
+            ],
+            "retrieved_obligation_ids": [
+              "explain_subject",
+              "explain_trigger",
+              "explain_ordered_mechanism",
+              "explain_state_changes",
+              "explain_resulting_effect",
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "function assertProp (\n  prop: PropOptions,\n  name: string,\n  value: any,\n  vm: ?Component,\n  absent: boolean\n) {\n  if (prop.required && absent) {\n    warn(\n      'Missing required prop: \"' + name + '\"',\n      vm\n    )\n    return\n  }\n  if (value == null && !prop.required) {\n    return\n  }\n  let type = prop.type\n  let valid = !type || type === true\n  const expectedTypes = []\n  if (type) {\n    if (!Array.isArray(type)) {\n      type = [type]\n    }\n    for (let i = 0; i < type.length && !valid; i++) {\n      const assertedType = assertType(value, type[i])\n      expectedTypes.push(assertedType.expectedType || '')\n      valid = assertedType.valid\n    }\n  }\n\n  if (!valid) {\n    warn(\n      getInvalidTypeMessage(name, value, expectedTypes),\n      vm\n    )\n    return\n  }\n  const validator = prop.validator\n  if (validator) {\n    if (!validator(value)) {\n      warn(\n        'Invalid prop: custom validator check failed for prop \"' + name + '\".',\n        vm\n      )\n    }\n  }\n}",
+            "truncation_reason": ""
+          },
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 222,
+              "full_line_start": 203,
+              "language": "javascript",
+              "line_end": 222,
+              "line_start": 203,
+              "node_id": "function:7ba39ad6968ab7cb618eb764bdc18509",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "getInvalidTypeMessage"
+            },
+            "id": "obs_de4d233e4b26a557",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Retrieve `styleValue` to inspect how a Symbol value is converted while formatting the expected and received values.",
+              "missing_information": [
+                "The `styleValue` implementation is not visible, so this snippet does not prove the exact Symbol coercion operation or the resulting TypeError.",
+                "No reproduction or caller is shown that supplies a Symbol against an incompatible declared type."
+              ],
+              "observation_id": "obs_de4d233e4b26a557",
+              "reason": "`getInvalidTypeMessage` assembles the invalid-prop diagnostic and formats the supplied value through `styleValue`, establishing the message-construction path while leaving the actual Symbol-to-string failure inside the unshown formatter or runtime.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_ordered_mechanism",
+                "explain_state_changes"
+              ],
+              "visible_support": [
+                "The function starts an `Invalid prop: type check failed` message using the prop name and expected types.",
+                "It derives the received type with `toRawType(value)` and calls `styleValue(value, expectedType)` and `styleValue(value, receivedType)`.",
+                "It conditionally interpolates the formatted values into the returned diagnostic string."
+              ]
+            },
+            "ranking_key": [
+              0,
+              1,
+              -7,
+              0,
+              1,
+              "src/core/util/props.js",
+              203
+            ],
+            "retrieved_obligation_ids": [
+              "explain_subject",
+              "explain_trigger",
+              "explain_ordered_mechanism",
+              "explain_state_changes",
+              "explain_resulting_effect",
+              "explain_why"
+            ],
+            "source_mode": "full",
+            "source_text": "function getInvalidTypeMessage (name, value, expectedTypes) {\n  let message = `Invalid prop: type check failed for prop \"${name}\".` +\n    ` Expected ${expectedTypes.map(capitalize).join(', ')}`\n  const expectedType = expectedTypes[0]\n  const receivedType = toRawType(value)\n  const expectedValue = styleValue(value, expectedType)\n  const receivedValue = styleValue(value, receivedType)\n  // check if we need to specify expected value\n  if (expectedTypes.length === 1 &&\n      isExplicable(expectedType) &&\n      !isBoolean(expectedType, receivedType)) {\n    message += ` with value ${expectedValue}`\n  }\n  message += `, got ${receivedType} `\n  // check if we need to specify received value\n  if (isExplicable(receivedType)) {\n    message += `with value ${receivedValue}.`\n  }\n  return message\n}",
+            "truncation_reason": ""
+          },
+          {
+            "handle": {
+              "adapter": "codegraph_node",
+              "full_line_end": 62,
+              "full_line_start": 21,
+              "language": "javascript",
+              "line_end": 60,
+              "line_start": 21,
+              "node_id": "source_owner:src/core/util/props.js:21:62",
+              "outer_line_end": 0,
+              "outer_line_start": 0,
+              "outer_node_id": "",
+              "outer_symbol": "",
+              "path": "src/core/util/props.js",
+              "symbol": "validateProp"
+            },
+            "id": "obs_f121fa3924e63073",
+            "qualification": {
+              "disposition": "promote",
+              "local_follow_up": "Inspect assertProp and its invalid-type message helper for the failed type-check branch.",
+              "missing_information": [
+                "The type-mismatch branch and invalid-type message construction are implemented in assertProp or its helpers, not shown here.",
+                "No Symbol-specific behavior is visible."
+              ],
+              "observation_id": "obs_f121fa3924e63073",
+              "reason": "validateProp obtains the supplied value, applies default handling, and invokes assertProp in the non-production validation path, establishing the ordered handoff into prop validation.",
+              "support_level": "direct_evidence",
+              "supported_obligation_ids": [
+                "explain_subject",
+                "explain_ordered_mechanism"
+              ],
+              "visible_support": [
+                "The prop value is read from propsData.",
+                "Undefined values may receive a default.",
+                "assertProp(prop, key, value, vm, absent) is called when development validation is enabled."
+              ]
+            },
+            "ranking_key": [
+              0,
+              1,
+              -1,
+              0,
+              3,
+              "src/core/util/props.js",
+              21
+            ],
+            "retrieved_obligation_ids": [
+              "explain_ordered_mechanism"
+            ],
+            "source_mode": "full",
+            "source_text": "export function validateProp (\n  key: string,\n  propOptions: Object,\n  propsData: Object,\n  vm?: Component\n): any {\n  const prop = propOptions[key]\n  const absent = !hasOwn(propsData, key)\n  let value = propsData[key]\n  // boolean casting\n  const booleanIndex = getTypeIndex(Boolean, prop.type)\n  if (booleanIndex > -1) {\n    if (absent && !hasOwn(prop, 'default')) {\n      value = false\n    } else if (value === '' || value === hyphenate(key)) {\n      // only cast empty string / same name to boolean if\n      // boolean has higher priority\n      const stringIndex = getTypeIndex(String, prop.type)\n      if (stringIndex < 0 || booleanIndex < stringIndex) {\n        value = true\n      }\n    }\n  }\n  // check default value\n  if (value === undefined) {\n    value = getPropDefaultValue(vm, prop, key)\n    // since the default value is a fresh copy,\n    // make sure to observe it.\n    const prevShouldObserve = shouldObserve\n    toggleObserving(true)\n    observe(value)\n    toggleObserving(prevShouldObserve)\n  }\n  if (\n    process.env.NODE_ENV !== 'production' &&\n    // skip validation for weex recycle-list child component props\n    !(__WEEX__ && isObject(value) && ('@binding' in value))\n  ) {\n    assertProp(prop, key, value, vm, absent)\n  }\n  return value\n}",
+            "truncation_reason": ""
+          }
+        ]
+      }
+    ],
+    "overlap": 1,
+    "final_files": {
+      "src/core/util/props.js": 1
+    },
+    "coverage": "partial",
+    "sufficient": false
+  }
+]

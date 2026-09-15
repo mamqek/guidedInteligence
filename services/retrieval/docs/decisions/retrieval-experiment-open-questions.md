@@ -1,5 +1,30 @@
 # Retrieval Experiment Open Questions
 
+## ORE-1 — Owner reevaluation versus metadata-only primary election
+
+- [Semantic comparison follow-up](semantic-owner-comparison.md): diagnostic-only
+  source/question comparison over 11 saved contests, twice each. Correct lookup →
+  propagation replacements repeat twice, but four explanations import unseen
+  dependency traversal and one Vue complementary label is not question-specific.
+  Final review accepts 17/22 complete decisions/explanations; not enabled in live
+  retrieval. Line-ID receipt contract works; receipts alone do not ground reasoning.
+
+- [Owner reevaluation restoration](owner-reevaluation-restoration.md), baseline 6f5c17b:
+  existing island representatives already recompute after qualification. Fresh TS
+  050616Z/050625Z exercise two actual replacements each, without the historical policy.
+- Narrow qualified per-file/obligation voting variant tested separately from the newer
+  qualification contract and extra challenger inspections. Eight actual runs total;
+  TS baseline 4/4,4/4 versus variant 2/4,4/4; Vue 1/2 each in both conditions, all partial/false.
+- Reviewer accepts 8 of 12 nontrivial per-file elections, disputes 4: exact-anchor lookup
+  over propagation, dependency enumeration over propagation, status check as trigger.
+  Island-level winners often improve while the underlying same-file election remains weak.
+- Variant reverted; only trace instrumentation remains active. 051437Z WatchMode is
+  deferred during round-zero qualification before election, and Helpers is outside initial
+  admission; no causal claim that changed island priority produced the final file losses.
+- Next boundary: partial contribution versus established obligation and source-grounded
+  comparison for an unresolved question. Do not infer superiority from obligation-count,
+  recurrence or exact-symbol lookup alone; do not silently restore the full later contract.
+
 ## Unresolved comparison visibility, September 15
 
 - [Narrow hidden-request-name follow-up](hidden-request-anchor-experiment.md): repairs
