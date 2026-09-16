@@ -324,8 +324,14 @@ def evaluate_case(
 
     repo_clone_url = clone_url or _default_clone_url(seed_case)
     origin_repo_dir = _origin_repo_dir(case_paths=case_paths, visible_case=seed_case, shared_repo_root=shared_repo_root)
-    _clone_or_fetch_repo(repo_clone_url, origin_repo_dir)
-    resolution = resolve_repo_pre_snapshot(issue_path, origin_repo_dir, verification=verification)
+    resolution = _prepared_snapshot_resolution(
+        verification=verification,
+        origin_repo_dir=origin_repo_dir,
+        snapshots_dir=case_paths.snapshots_dir,
+    )
+    if resolution is None:
+        _clone_or_fetch_repo(repo_clone_url, origin_repo_dir)
+        resolution = resolve_repo_pre_snapshot(issue_path, origin_repo_dir, verification=verification)
     snapshot_dir = case_paths.snapshots_dir / resolution.repo_pre_commit[:12]
     if not snapshot_dir.exists():
         _materialize_snapshot(origin_repo_dir, resolution.repo_pre_commit, snapshot_dir)
@@ -1005,6 +1011,29 @@ def _origin_repo_dir(
         return case_paths.origin_repo_dir
     repo_name = f"{visible_case.repo_owner}-{visible_case.repo_name}"
     return Path(shared_repo_root) / repo_name / "origin"
+
+
+def _prepared_snapshot_resolution(
+    *,
+    verification: Mapping[str, Any] | None,
+    origin_repo_dir: Path,
+    snapshots_dir: Path,
+) -> SnapshotResolution | None:
+    """Reuse a verified prepared snapshot without mutating its shared origin clone."""
+    commit = _verification_pre_resolution_commit(verification)
+    if not commit:
+        return None
+    snapshot_dir = snapshots_dir / commit[:12]
+    if not origin_repo_dir.exists() or not snapshot_dir.exists():
+        return None
+    if not _commit_exists(origin_repo_dir, commit):
+        return None
+    return SnapshotResolution(
+        repo_pre_commit=commit,
+        strategy="verification_base_commit",
+        confidence="high",
+        details={"source": "verification_json", "prepared_snapshot_reused": True},
+    )
 
 
 def _default_verification_path(issue_path: Path) -> Path | None:

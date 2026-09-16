@@ -12,8 +12,20 @@ The student independently rewrites and verifies the final submitted prose. Worki
 
 ## Structural editing rules
 
-- Reorder first, then compress. Once chapters or subsections are in their intended sequence, reassess the transitions and remove explanations that were needed only to recover context across the previous, misplaced order. Retain any context that the new sequence still requires.
+- Reorder first, then compress. Once chapters or subsections are in their intended sequence, reassess the transitions and remove explanations that serve only to recover context across the previous, misplaced order. Retain any context that the new sequence still requires.
 - Do not vary paragraph or sentence length as an end in itself. Remove repeated explanatory templates and group ideas whose relationship is clearer when they are discussed together; let differences in purpose and complexity produce natural variation in length.
+
+## Prose and notation rules
+
+- Use present tense throughout the manuscript, including accounts of superseded experiments. Express chronology through explicit sequencing rather than shifts into past tense.
+- Prefer active constructions such as “we use,” “we construct,” and “we evaluate” when they identify responsibility more clearly than passive voice.
+- Present categorical definitions as lists when this makes their boundaries easier to inspect. Give substantial mathematical definitions as displayed equations rather than embedding them in long sentences.
+- Name an internal file only when the filename materially supports reproducibility or a concrete case analysis.
+- Define “retrieval testcase” at its first use; “case” thereafter means a retrieval testcase, not a software use case.
+- Choose causal connectors for clarity. “Because” is acceptable in academic prose, while “as” or a restructured sentence may read more cleanly for secondary explanations.
+- Define every project-specific term at first use. Cite external systems and research; define our own components and cross-reference their architectural descriptions.
+- Expand compressed compounds when their words do not tell a new reader what object, stage, or scope they denote.
+- Replace subjective acceptance language with observable criteria and measurements.
 
 ## Planned chapter files
 

@@ -24,6 +24,7 @@ from testing.codeRepoQA.run_case import (
     SnapshotResolution,
     _build_evaluator_oracle,
     _hidden_comment_refs,
+    _prepared_snapshot_resolution,
 )
 
 
@@ -31,6 +32,28 @@ class CodeRepoQAHarnessTests(unittest.TestCase):
     def setUp(self) -> None:
         _RecordingWorkspaceRetrievalStage.instances = []
         _RecordingWorkspaceRetrievalStage.captured_states = []
+
+    def test_prepared_snapshot_resolution_avoids_shared_clone_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "testing.codeRepoQA.run_case._commit_exists",
+            return_value=True,
+        ):
+            root = Path(temp_dir)
+            origin = root / "origin"
+            snapshots = root / "snapshots"
+            commit = "a" * 40
+            origin.mkdir()
+            (snapshots / commit[:12]).mkdir(parents=True)
+
+            resolution = _prepared_snapshot_resolution(
+                verification={"resolution_artifacts": {"github_prs": [{"base_sha": commit}]}},
+                origin_repo_dir=origin,
+                snapshots_dir=snapshots,
+            )
+
+            self.assertIsNotNone(resolution)
+            self.assertEqual(resolution.repo_pre_commit, commit)
+            self.assertTrue(resolution.details["prepared_snapshot_reused"])
 
     def test_case_loader_splits_visible_and_hidden_fields(self) -> None:
         from services.retrieval.cases import load_coderepoqa_case
