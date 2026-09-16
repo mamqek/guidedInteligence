@@ -7,8 +7,8 @@ Bibliography processing uses Biber.
 
 Current manuscript state:
 
-- Chapters 4 and 5 contain the converted Markdown prose.
-- Chapters 6, 7, and 8 contain the drafting notes currently present in the manuscript.
+- Chapters 4--7 contain the converted Markdown prose.
+- Chapter 8 contains the current discussion-planning note.
 - Chapters 1, 2, 3, and 9 are structural placeholders so chapter numbering remains stable.
 - The implemented intent-contract registry is included as an appendix.
 - Author, examiner, reviewer, abstract, declaration, and acknowledgements remain placeholders.

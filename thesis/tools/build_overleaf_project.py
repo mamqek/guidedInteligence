@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import argparse
 from pathlib import Path
 
 
@@ -26,17 +27,14 @@ CHAPTERS = {
 
 
 PLACEHOLDERS = {
-    "01-introduction.md": ("Introduction", "Draft from the approved thesis plan."),
-    "02-background.md": ("Background", "Draft from the approved thesis plan."),
-    "03-related-work.md": ("Related Work", "Draft from the approved thesis plan."),
-    "09-conclusion.md": ("Conclusion", "Draft after the findings and discussion are complete."),
+    "01-introduction.md": "Introduction",
+    "02-background.md": "Background",
+    "03-related-work.md": "Related Work",
+    "09-conclusion.md": "Conclusion",
 }
 
 
 MAIN_TEX = r"""% !TeX program = lualatex
-% Overleaf project derived from the official UvA MSc Software Engineering template.
-% Replace the marked metadata before submission.
-%
 \RequirePackage[l2tabu]{nag}
 \documentclass{mscthesis}
 
@@ -81,7 +79,6 @@ MAIN_TEX = r"""% !TeX program = lualatex
 \usepackage{etoolbox}
 \AtBeginEnvironment{tabular}{\addfontfeatures{Numbers={Lining}}}
 
-% Additions used by the converted Markdown tables.
 \usepackage{array}
 \usepackage{longtable}
 \usepackage{pdflscape}
@@ -90,18 +87,12 @@ MAIN_TEX = r"""% !TeX program = lualatex
 \setlength{\LTpre}{0.5\baselineskip}
 \setlength{\LTpost}{0.5\baselineskip}
 
-% --------------------------------------------------------------------
-% Draft metadata - replace before submission
-% --------------------------------------------------------------------
 \title{Guided Intelligence}
 \subtitle{Controlled and Auditable Repository Evidence Construction}
 \date{\today}
-\author{Author Name} % TODO: replace with the student's full name.
-\examiner{Academic Supervisor}{University of Amsterdam} % TODO
-\reviewer{Second Reviewer}{University of Amsterdam} % TODO
-% Add \dailysupervisor, \externalsupervisor, \hostorganisation, or
-% \coverpicture here if applicable.
-
+\author{Vladislav Mukhachev}
+\examiner{Academic Supervisor}{University of Amsterdam}
+\reviewer{Second Reviewer}{University of Amsterdam}
 \begin{document}
 \frontmatter
 \makecoverpage
@@ -162,8 +153,8 @@ Bibliography processing uses Biber.
 
 Current manuscript state:
 
-- Chapters 4 and 5 contain the converted Markdown prose.
-- Chapters 6, 7, and 8 contain the drafting notes currently present in the manuscript.
+- Chapters 4--7 contain the converted Markdown prose.
+- Chapter 8 contains the current discussion-planning note.
 - Chapters 1, 2, 3, and 9 are structural placeholders so chapter numbering remains stable.
 - The implemented intent-contract registry is included as an appendix.
 - Author, examiner, reviewer, abstract, declaration, and acknowledgements remain placeholders.
@@ -221,6 +212,17 @@ def inline(value: str) -> str:
         value,
     )
     value = re.sub(
+        r"\[([^\]]+)\]\(([^)]+)\)",
+        lambda match: token(
+            (
+                rf"\hyperref[ch:{slug(Path(match.group(2)).stem.removeprefix('appendix-'))}]{{{escape_latex(match.group(1))}}}"
+                if match.group(2).endswith(".md")
+                else rf"\href{{{escape_latex(match.group(2))}}}{{{escape_latex(match.group(1))}}}"
+            )
+        ),
+        value,
+    )
+    value = re.sub(
         r"\[(@[A-Za-z0-9_:-]+(?:\s*;\s*@[A-Za-z0-9_:-]+)*)\]",
         lambda match: token(
             r"\cite{" + ",".join(part.strip().removeprefix("@") for part in match.group(1).split(";")) + "}"
@@ -239,7 +241,8 @@ def inline(value: str) -> str:
         value,
     )
     rendered = escape_latex(value)
-    for index, content in enumerate(protected):
+    for index in range(len(protected) - 1, -1, -1):
+        content = protected[index]
         rendered = rendered.replace(f"ZZPROTECTED{index}ZZ", content)
     return rendered
 
@@ -255,6 +258,10 @@ def table_layout(columns: int, caption: str) -> str:
         return r"@{}L{0.18\linewidth}L{0.36\linewidth}L{0.38\linewidth}@{}"
     if "retrieval conditions" in caption.casefold():
         return r"@{}L{0.28\linewidth}L{0.12\linewidth}L{0.16\linewidth}L{0.34\linewidth}@{}"
+    if columns == 6:
+        return r"@{}L{0.16\linewidth}L{0.16\linewidth}L{0.16\linewidth}L{0.16\linewidth}L{0.16\linewidth}L{0.16\linewidth}@{}"
+    if columns == 7:
+        return r"@{}L{0.19\linewidth}L{0.125\linewidth}L{0.125\linewidth}L{0.125\linewidth}L{0.125\linewidth}L{0.125\linewidth}L{0.125\linewidth}@{}"
     return r"@{}L{0.13\linewidth}L{0.25\linewidth}L{0.31\linewidth}L{0.23\linewidth}@{}"
 
 
@@ -357,16 +364,22 @@ def markdown_to_latex(source: str, *, appendix: bool = False) -> str:
                 raw_rows.pop(1)
             table_number += 1
             caption = section_name if appendix else {
-                "Evaluated Systems and Comparison Design": "Evaluated retrieval conditions",
-                "Intent Classification, Retrieval Context, and Source Policy": "Implemented task-intent taxonomy",
-            }.get(section_name, section_name)
+                ("Evaluated Systems and Comparison Design", 1): "Evaluated retrieval conditions",
+                ("Intent Classification, Retrieval Context, and Source Policy", 1): "Implemented task-intent taxonomy",
+                ("Controller Evidence Completion", 2): "Controller action families and scheduling dependencies",
+                ("Decision Ownership, Provenance, and Operational Boundaries", 3): "Decision ownership and validation boundaries",
+                ("Overall Retrieval Performance", 1): "Aggregate file-ranking results",
+                ("Overall Retrieval Performance", 2): "File-ranking results by data partition",
+                ("Component Effects and Mechanism Coverage", 3): "Factorial capability contrasts",
+                ("Operational Cost and Stability", 4): "Operational cost and repeated-run stability",
+            }.get((section_name, table_number), section_name)
             rendered.extend(
                 [
                     render_table(
                         raw_rows,
                         caption,
                         f"tab:{slug(caption)}-{table_number}",
-                        landscape=appendix and len(raw_rows[0]) >= 3,
+                        landscape=(appendix and len(raw_rows[0]) >= 3) or len(raw_rows[0]) >= 6,
                     ),
                     "",
                 ]
@@ -383,13 +396,46 @@ def markdown_to_latex(source: str, *, appendix: bool = False) -> str:
             rendered.extend([r"\end{itemize}", ""])
             continue
 
-        if re.match(r"\d+\.\s+", stripped):
-            items = []
-            while index < len(lines) and re.match(r"\d+\.\s+", lines[index].strip()):
-                items.append(re.sub(r"^\d+\.\s+", "", lines[index].strip()))
+        if stripped == "$$":
+            equation: list[str] = []
+            index += 1
+            while index < len(lines) and lines[index].strip() != "$$":
+                equation.append(lines[index].strip())
                 index += 1
+            if index >= len(lines):
+                raise ValueError("Unclosed display-math block")
+            rendered.extend([r"\[", "\n".join(equation), r"\]", ""])
+            index += 1
+            continue
+
+        if re.match(r"\d+\.\s+", stripped):
             rendered.append(r"\begin{enumerate}")
-            rendered.extend(r"\item " + inline(item) for item in items)
+            while index < len(lines) and re.match(r"\d+\.\s+", lines[index].strip()):
+                rendered.append(r"\item " + inline(re.sub(r"^\d+\.\s+", "", lines[index].strip())))
+                index += 1
+                while index < len(lines):
+                    continuation = lines[index]
+                    continuation_stripped = continuation.strip()
+                    if re.match(r"\d+\.\s+", continuation_stripped):
+                        break
+                    if continuation_stripped and not continuation.startswith((" ", "\t")):
+                        break
+                    if not continuation_stripped:
+                        index += 1
+                        continue
+                    if continuation_stripped == "$$":
+                        equation = []
+                        index += 1
+                        while index < len(lines) and lines[index].strip() != "$$":
+                            equation.append(lines[index].strip())
+                            index += 1
+                        if index >= len(lines):
+                            raise ValueError("Unclosed display-math block in ordered list")
+                        rendered.extend([r"\[", "\n".join(equation), r"\]"])
+                        index += 1
+                    else:
+                        rendered.extend([inline(continuation_stripped), ""])
+                        index += 1
             rendered.extend([r"\end{enumerate}", ""])
             continue
 
@@ -402,56 +448,48 @@ def markdown_to_latex(source: str, *, appendix: bool = False) -> str:
     return "\n".join(rendered).rstrip() + "\n"
 
 
-def build() -> None:
-    if OUTPUT.exists():
-        raise RuntimeError(f"Refusing to overwrite existing output directory: {OUTPUT}")
-    shutil.copytree(TEMPLATE, OUTPUT)
+def build(output: Path = OUTPUT) -> None:
+    if output.exists():
+        raise RuntimeError(f"Refusing to overwrite existing output directory: {output}")
+    shutil.copytree(TEMPLATE, output)
 
     for example_path in (
-        OUTPUT / "figures" / "hilbert.pdf",
-        OUTPUT / "figures" / "maze.pdf",
-        OUTPUT / "frontmatter" / "epigraph.tex",
+        output / "figures" / "hilbert.pdf",
+        output / "figures" / "maze.pdf",
+        output / "frontmatter" / "epigraph.tex",
     ):
         example_path.unlink(missing_ok=True)
 
-    shutil.rmtree(OUTPUT / "chapters")
-    shutil.rmtree(OUTPUT / "appendix")
-    (OUTPUT / "chapters").mkdir()
-    (OUTPUT / "appendix").mkdir()
-    (OUTPUT / "source-markdown").mkdir()
+    shutil.rmtree(output / "chapters")
+    shutil.rmtree(output / "appendix")
+    (output / "chapters").mkdir()
+    (output / "appendix").mkdir()
+    (output / "source-markdown").mkdir()
 
-    (OUTPUT / "main.tex").write_text(MAIN_TEX, encoding="utf-8")
-    (OUTPUT / "README.md").write_text(README, encoding="utf-8")
-    (OUTPUT / "acronyms.tex").write_text("% Add project acronyms here as they are introduced.\n", encoding="utf-8")
-    (OUTPUT / "frontmatter" / "abstract.tex").write_text(
-        "% TODO: write a 200-word to one-page abstract without citations.\n", encoding="utf-8"
-    )
-    (OUTPUT / "frontmatter" / "acknowledgement.tex").write_text(
-        "% TODO: add acknowledgements if required.\n", encoding="utf-8"
-    )
-    (OUTPUT / "frontmatter" / "declaration.tex").write_text(
-        "% TODO: replace this comment with the final GenAI declaration required by the student manual.\n"
-        "% State the tools and purposes accurately, and retain author responsibility for the submitted work.\n",
-        encoding="utf-8",
-    )
+    (output / "main.tex").write_text(MAIN_TEX, encoding="utf-8")
+    (output / "README.md").write_text(README, encoding="utf-8")
+    (output / "acronyms.tex").write_text("", encoding="utf-8")
+    (output / "frontmatter" / "abstract.tex").write_text("", encoding="utf-8")
+    (output / "frontmatter" / "acknowledgement.tex").write_text("", encoding="utf-8")
+    (output / "frontmatter" / "declaration.tex").write_text("", encoding="utf-8")
 
     for markdown_name, tex_name in CHAPTERS.items():
         source_path = MANUSCRIPT / markdown_name
         if source_path.exists():
             markdown = source_path.read_text(encoding="utf-8")
         else:
-            title, note = PLACEHOLDERS[markdown_name]
-            markdown = f"# {title}\n\n<!-- TODO: {note} -->\n"
-        (OUTPUT / "chapters" / tex_name).write_text(markdown_to_latex(markdown), encoding="utf-8")
-        (OUTPUT / "source-markdown" / markdown_name).write_text(markdown, encoding="utf-8")
+            title = PLACEHOLDERS[markdown_name]
+            markdown = f"# {title}\n"
+        (output / "chapters" / tex_name).write_text(markdown_to_latex(markdown), encoding="utf-8")
+        (output / "source-markdown" / markdown_name).write_text(markdown, encoding="utf-8")
 
     appendix_name = "appendix-implemented-intent-contract-registry.md"
     appendix_markdown = (MANUSCRIPT / appendix_name).read_text(encoding="utf-8")
-    (OUTPUT / "appendix" / "implemented-intent-contract-registry.tex").write_text(
+    (output / "appendix" / "implemented-intent-contract-registry.tex").write_text(
         markdown_to_latex(appendix_markdown, appendix=True), encoding="utf-8"
     )
-    (OUTPUT / "source-markdown" / appendix_name).write_text(appendix_markdown, encoding="utf-8")
-    shutil.copy2(THESIS / "sources" / "thesis-plan.md", OUTPUT / "source-markdown" / "thesis-plan.md")
+    (output / "source-markdown" / appendix_name).write_text(appendix_markdown, encoding="utf-8")
+    shutil.copy2(THESIS / "sources" / "thesis-plan.md", output / "source-markdown" / "thesis-plan.md")
 
     bibliography = (MANUSCRIPT / "references.bib").read_text(encoding="utf-8").rstrip()
     template_bibliography = (TEMPLATE / "references.bib").read_text(encoding="utf-8")
@@ -460,8 +498,11 @@ def build() -> None:
     )
     if code_repo_entry and "Hu2025CodeRepoQA" not in bibliography:
         bibliography += "\n\n" + code_repo_entry.group(0)
-    (OUTPUT / "references.bib").write_text(bibliography + "\n", encoding="utf-8")
+    (output / "references.bib").write_text(bibliography + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
-    build()
+    parser = argparse.ArgumentParser(description="Build the Overleaf thesis project from Markdown sources.")
+    parser.add_argument("--output", type=Path, default=OUTPUT)
+    args = parser.parse_args()
+    build(args.output.resolve())
