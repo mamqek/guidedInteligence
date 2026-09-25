@@ -82,7 +82,7 @@ Codex uses approximately 3.6 times the flow tokens of Full Workspace but complet
 
 Repeated-run agreement is moderate for every condition. Codex has the highest mean file-set Jaccard similarity and the lowest R@10 variation. Removing the controller increases Workspace file-set agreement from 0.555 to 0.608 and lowers mean R@10 standard deviation from 0.118 to 0.073, consistent with eliminating stochastic later exploration, although round-zero semantic stages and final evidence selection remain model-backed. CodeGraph's stability effect is mixed: with the controller it raises file-set agreement but also raises recall variation, while without the controller it has the opposite Jaccard effect and slightly lowers recall variation.
 
-## Representative Trace Cases
+## Illustrative Case Analyses
 
 Vue 9042 illustrates a difference in retrieval consistency. Each configuration processes the case independently four times. With CodeGraph enabled, the file containing the responsible implementation appears among the first five results in every run. Without CodeGraph, it appears in two of four runs when the adaptive controller is enabled and in only one run when the controller is also disabled. Related files are still returned in the unsuccessful runs, but the file that directly explains the failure is lost before final selection. CodeGraph therefore makes that central evidence substantially more likely to survive, while the controller provides only partial recovery when structural information is unavailable.
 

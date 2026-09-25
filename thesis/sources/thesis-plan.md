@@ -1,52 +1,81 @@
 ## 1. **Introduction** — ~1,200–1,500 words
 
 
-- **Problem statement and research gap** — the difficulty of progressing from plausible repository matches to a complete and auditable account of an implementation mechanism.
-    
-    - File localization versus source-level evidence
-    - Structural-owner localization versus causal understanding
-    - Evidence discovery versus evidence survival
-    - Controlled retrieval versus flexible agentic navigation
-    - Limited stage-aware evaluation of complete evidence-construction pipelines
-      
-- **Context and motivation** — unfamiliar-codebase understanding, repository-level AI assistance, and the importance of relevant, connected, and source-grounded project evidence.
-    
-    - Repository questions spanning multiple files, symbols, and responsibilities
-    - Limitations of explanations based on generic model knowledge
-    - Need for inspectable project-specific evidence
-    - Learning-oriented assistance as the motivating application
-    
-- **Research questions** — investigation of controlled evidence construction, retrieval-component contributions, and native-versus-agentic behavior.
-    
-    - **Main RQ:** How can a controlled and auditable repository-evidence pipeline combine hybrid retrieval, structural localization, semantic qualification, and bounded iterative navigation to support unfamiliar-codebase understanding?
-    - **RQ1:** How can repository candidates be progressively converted into grounded and auditable evidence?
-    - **RQ2:** What do CodeGraph-based structural resolution and bounded adaptive-controller navigation contribute to localization quality, evidence survival, mechanism completeness, stability, and cost?
-    - **RQ3:** How does the native evidence pipeline compare with agentic retrieval in localization quality, mechanism completeness, stability, and cost?
-- **Research approach** — artifact-oriented development combined with formative experiments and frozen empirical evaluation.
-    
-    - Guided Intelligence system construction
-    - Incremental retrieval experiments
-    - Stage-aware pipeline analysis
-    - CodeRepoQA evaluation
-    - Native adaptive-controller ablation
-    - CodeGraph ablation
-    - Combined CodeGraph and adaptive-controller ablation
-    - Native-versus-Codex comparison
-- **Contributions** — architectural, methodological, and empirical outcomes of the research.
-    
-    - Complete Guided Intelligence orchestration architecture
-    - Controlled repository-evidence pipeline
-    - Explicit evidence lifecycle and provenance model
-    - Stage-aware retrieval evaluation methodology
-    - Findings about localization and mechanism completion
-    - Findings about structural retrieval and adaptive-controller navigation
-    - Findings about native and Codex retrieval
-- **Scope and thesis structure** — retrieval as the principal empirical subject and learning-oriented interaction as the downstream application.
-    
-    - Repository understanding rather than patch generation
-    - Source retrieval and evidence construction rather than final-answer similarity
-    - Designed learning behavior without a direct learning-outcome claim
-    - Overview of the remaining chapters
+- **Opening motivation and problem context** — establish why repository-level assistance requires inspectable project evidence rather than generic model knowledge or isolated code matches.
+
+    - Begin with unfamiliar-codebase questions whose answers depend on several files, functions, and responsibilities.
+    - Explain that locating a plausible file is useful but may leave the responsible function, caller, state transition, or downstream effect unsupported.
+    - Introduce learning-oriented assistance as the motivating application: explanations and follow-up questions require source that can be inspected and traced back to the repository.
+    - Do not define retrieval techniques here. Chapter 2 introduces evidence units and retrieval terminology; Chapter 3 reviews the relevant research.
+
+- **Problem statement and research gap** — narrow the thesis problem from general repository understanding to the controlled construction and preservation of repository evidence.
+
+    - Distinguish file localization from source-level evidence, structural-owner identification from causal explanation, and initial discovery from survival into the final bounded context.
+    - Explain that flexible agentic navigation and application-controlled retrieval allocate search, validation, stopping, and evidence-selection decisions differently.
+    - State the gap at the level supported by Chapter 3: prior work addresses localization, repository question answering, structural navigation, agentic exploration, and grounding, but provides limited stage-aware evaluation of how evidence is constructed, transformed, rejected, restored, and retained across an end-to-end controlled pipeline.
+    - Avoid claiming that no previous system combines these ideas unless the related-work evidence supports that stronger statement.
+
+- **Research objective and questions** — present one overarching objective followed by three questions with distinct evidential roles.
+
+    - **Overarching question:** How can a controlled and auditable repository-evidence pipeline combine hybrid retrieval, structural resolution, semantic qualification, and bounded iterative navigation to support unfamiliar-codebase understanding?
+        - This frames the complete thesis rather than a single experiment.
+        - Chapters 5 and 6 establish the implemented answer; Chapters 7 and 8 evaluate and interpret its behaviour.
+        - “Support” means constructing inspectable repository evidence for downstream explanation. It does not mean that the thesis measures developer learning outcomes.
+    - **RQ1:** How can retrieved repository candidates be progressively converted into source-grounded, provenance-preserving evidence sets?
+        - This is the artifact and process question.
+        - Answer it through the implemented evidence lifecycle, stage contracts, provenance records, bounded context construction, and formative design evidence in Chapters 5 and 6.
+        - Do not present RQ1 as a causal component comparison or claim that every pipeline stage is independently validated by an ablation.
+    - **RQ2:** What effects do CodeGraph-based structural resolution and bounded adaptive-controller navigation have on file-level localization quality, evidence survival, stability, and retrieval cost?
+        - This is the native component question and is answered by the four-condition factorial Workspace comparison in Chapter 7.
+        - The measured outcomes are file-level ranking and recovery, repeated-run stability, runtime, and model-token use.
+        - Mechanism coverage may be discussed through explicitly labelled snippet-level or trace cases, but the current 35-case evaluation does not support a corpus-wide mechanism-completeness rate.
+    - **RQ3:** How does the complete native evidence pipeline compare with Codex retrieval in file-level localization quality, stability, and retrieval cost?
+        - This is a complete-system comparison rather than an ablation or a universal ranking of controlled and agentic architectures.
+        - Differences may arise from several coupled decisions, including search, navigation, stopping, context construction, and final evidence selection.
+        - Case analyses may illustrate mechanism coverage or evidence loss, but aggregate conclusions remain bounded by the file-level Oracle.
+
+- **Research approach** — summarize the design without reproducing Chapter 4.
+
+    - Construct Guided Intelligence as the research artifact.
+    - Use formative experiments to diagnose retrieval failures and justify retained or rejected design decisions.
+    - Freeze the evaluated configurations and compare four Workspace conditions across 35 historical CodeRepoQA-derived retrieval testcases, with four repetitions per case-condition cell.
+    - Use the factorial Workspace conditions to study CodeGraph and adaptive navigation, then compare Full Workspace with Codex as complete retrieval systems.
+    - State that the primary quantitative evaluation concerns retrieved evidence rather than generated-answer similarity. Leave corpus construction, validity rules, metrics, model configuration, and statistical aggregation to Chapter 4.
+
+- **Contributions** — state concrete outputs rather than broad aspirations.
+
+    - A complete Guided Intelligence architecture that separates retrieval orchestration, bounded model decisions, evidence validation, response generation, and learning-oriented interaction.
+    - A controlled repository-evidence pipeline with explicit evidence identities, provenance, qualification, budgets, stopping decisions, and final selection.
+    - A stage-aware development and evaluation method that distinguishes discovery from later evidence loss and separates infrastructure failures from valid retrieval failures.
+    - Empirical findings about the effects and costs of structural resolution and bounded adaptive exploration within Workspace.
+    - A complete-system comparison showing the trade-offs between native Workspace retrieval and Codex retrieval.
+    - Keep detailed numerical findings in Chapter 7 and their interpretation in Chapter 8; the introduction may preview only the principal direction of the results.
+
+- **Scope and claim boundaries** — declare exclusions before the chapter roadmap.
+
+    - The thesis studies repository understanding, not code generation, patch production, or repair correctness.
+    - Its principal empirical subject is retrieval and evidence construction, not final-answer similarity.
+    - File-level Oracles support aggregate localization claims; they do not independently establish corpus-wide function-level or causal-mechanism completeness.
+    - Learning-oriented interaction motivates the system design, but the study does not measure learning outcomes or compare teaching strategies with users.
+    - The Codex comparison concerns the evaluated configurations and corpus, not all agentic and pipeline-based retrieval systems.
+
+- **Thesis roadmap** — close with one compact paragraph that gives each later chapter a distinct role.
+
+    - Chapter 2 defines repository-comprehension, retrieval, evidence, graph, provenance, and evaluation concepts.
+    - Chapter 3 positions the work relative to localisation, repository retrieval, structural navigation, agentic exploration, grounding, and learning-oriented assistance.
+    - Chapter 4 defines the research design, corpus, conditions, measures, validity rules, and analysis procedure.
+    - Chapter 5 describes the final Guided Intelligence architecture and evidence lifecycle.
+    - Chapter 6 explains the formative experiments and design decisions that produce that architecture.
+    - Chapter 7 reports the frozen evaluation without answering the questions beyond the measured results.
+    - Chapter 8 interprets the results through RQ1–RQ3 and discusses implications, limitations, and future work.
+    - Chapter 9 consolidates the answers to the research questions, contributions, boundaries, and closing claim.
+
+- **Introduction writing constraints**
+
+    - Maintain a single progression: practical motivation → precise problem → research gap → objective and questions → approach → contributions → scope → roadmap.
+    - Do not duplicate Chapter 2 definitions, Chapter 3 study-by-study discussion, Chapter 4 procedural details, Chapter 5 implementation internals, or Chapter 7 result tables.
+    - Define only the minimum project-specific language needed to understand the questions; use later chapter cross-references for detail.
+    - Ensure every contribution maps to at least one research question and one later chapter that supplies its evidence.
 
 ---
 
@@ -570,11 +599,12 @@
 - **Priorities for future work** — include only directions supported directly by the observed limitations.
     
     1. Owner- and mechanism-level evaluation Oracles
-    2. Stronger source-span preservation and evidence-selection methods
-    3. Dynamic relationship and data-flow recovery
-    4. More efficient adaptive exploration
-    5. User studies of evidence-grounded explanations and understanding checks
-    6. Multi-turn evidence reuse and invalidation
+    2. Per-snippet lifecycle lineage attached directly to each snippet and final evidence item. The current stable identities and structured run trace make it possible to reconstruct how an item was retrieved, canonicalised, admitted or deferred, qualified, explored, and accepted or rejected by final selection, while the evidence object itself carries only summary provenance and qualification metadata. Future work could materialise that distributed log history as one inspectable trace on the item.
+    3. Stronger source-span preservation and evidence-selection methods
+    4. Dynamic relationship and data-flow recovery
+    5. More efficient adaptive exploration
+    6. User studies of evidence-grounded explanations and understanding checks
+    7. Multi-turn evidence reuse and invalidation
 
     - Relate findings to prior work within the relevant RQ and implication sections rather than isolating that comparison at the end
 
