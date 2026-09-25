@@ -35174,7 +35174,7 @@
   "selection": {
     "codex_excluded_policy_blocked_ledger": "C:\\Programming\\guidedInteligence\\testing\\codeRepoQA\\statistics\\runs\\2026-08-26-codex-luna-four-runs.json",
     "codex_valid_run_boundary": "2026-09-02T00:00:00+00:00",
-    "rule": "First four valid matching Workspace runs after each campaign start; first four strong/sufficient GPT-5.6 Luna efficient Codex runs after the policy-corrected 2026-09-02 boundary. The August 26 ledger is excluded because 134/140 runs returned no evidence after command-policy rejection.",
+    "rule": "First four valid matching Workspace runs after each campaign start; all four completed GPT-5.6 Luna efficient Codex runs per case from the policy-corrected 2026-09-02 campaign. Two additional Codex attempts are excluded because required artifacts were missing. The August 26 ledger is excluded because 134/140 runs returned no evidence after command-policy rejection.",
     "workspace_first_10": "C:\\Programming\\guidedInteligence_testcases\\statistics-20260915-checkpoint-6f5c17b\\campaign.json",
     "workspace_remaining_25": "C:\\Programming\\guidedInteligence_testcases\\statistics-20260916-remaining25-checkpoint-6f5c17b\\campaign.json"
   },
