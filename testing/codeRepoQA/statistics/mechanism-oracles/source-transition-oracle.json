@@ -1,0 +1,3118 @@
+{
+  "schema_version": 2,
+  "oracle_name": "final-september-required-evidence-reference",
+  "review_status": "validated_for_scoring",
+  "campaign_inventory": "testing/codeRepoQA/statistics/runs/2026-09-16-five-mode-four-runs.json",
+  "construction_policy": {
+    "source_state": "pre_resolution_snapshot_only",
+    "resolution_use": "identify_required_pre_resolution_evidence_only",
+    "file_presence_is_not_snippet_presence": true,
+    "run_outcomes_used_to_define_oracle": false
+  },
+  "cases": [
+    {
+      "case_id": "vuejs-vue-10803",
+      "repository": "vuejs/vue",
+      "issue_number": 10803,
+      "title": "SSR: textarea domProps keeps falsy values",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "6390f70c2e4e"
+      },
+      "resolution_oracle": [
+        {
+          "number": 11121,
+          "title": "fix(ssr): textarea keeps undefined/null values",
+          "url": "https://github.com/vuejs/vue/pull/11121",
+          "base_sha": "6390f70c2e4ec7e51cce1d2a4ba35e2d0d328205",
+          "head_sha": "ec792389b6f1d577c205448736a2231c3aa90471"
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/platforms/web/server/modules/dom-props.js"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "SSR routes a textarea DOM value through renderDOMProps into a text VNode child; the pre-resolution path passes null through without string normalization.",
+      "evidence_units": [
+        {
+          "id": "R",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/platforms/web/server/modules/dom-props.js",
+            "symbol": "renderDOMProps",
+            "line_start": 8,
+            "line_end": 44,
+            "source_presence": "present",
+            "sha256": "2cf091276e072e4bd6186f2398edde6929faacbe95fdbc257817489d80caf461"
+          },
+          "anchors": [
+            "function renderDOMProps",
+            "key === 'value' && node.tag === 'textarea'"
+          ],
+          "description": "Reads DOM properties and identifies the textarea value branch."
+        },
+        {
+          "id": "H",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/platforms/web/server/modules/dom-props.js",
+            "symbol": "setText",
+            "line_start": 46,
+            "line_end": 50,
+            "source_presence": "present",
+            "sha256": "a252e700e15c22575644eb16c741212f057f71648001cd1d759a155fb2c4e2c2"
+          },
+          "anchors": [
+            "function setText",
+            "new VNode",
+            "node.children = [child]"
+          ],
+          "description": "Constructs a text VNode and installs it as the element's child."
+        }
+      ],
+      "supporting_units": [
+        {
+          "id": "S",
+          "required": false,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "test/ssr/ssr-string.spec.js",
+            "symbol": "textarea SSR tests",
+            "line_start": 1200,
+            "line_end": 1222,
+            "source_presence": "present",
+            "sha256": "a18688c42649889f04f0a1216e728ceb5680971d4e8cc534f701e079742b4c70"
+          },
+          "anchors": [
+            "render v-model with textarea"
+          ],
+          "description": "Pre-existing textarea SSR tests; the later null-value regression test is absent from this snapshot."
+        }
+      ],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "R",
+          "to": "H",
+          "required": true,
+          "description": "The textarea value branch calls setText, which turns that value into the child VNode later serialized as textarea content."
+        }
+      ],
+      "completeness_rule": "R and H must both be present and their call handoff must be visible; the pre-existing test is supporting only.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-2953",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 2953,
+      "title": "`DataView` and other interfaces missing from lib.d.ts",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "0d2e50b16794"
+      },
+      "resolution_oracle": [
+        {
+          "number": 2960,
+          "title": "Fix #2953: Put DataView definition back into lib.d.ts",
+          "url": "https://github.com/microsoft/TypeScript/pull/2960",
+          "base_sha": "0d2e50b1679400e5e7ac97756fcd50bc12f2cbba",
+          "head_sha": "31fe7c4a66604092d479d927dc9a476889b12385"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/lib/extensions.d.ts"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "scoped_absence",
+      "mechanism_applicable": false,
+      "mechanism_summary": "The standard declaration surface contains ArrayBuffer types but omits DataView and its constructor.",
+      "evidence_units": [
+        {
+          "id": "D",
+          "required": true,
+          "evidence_type": "scoped_absence",
+          "source": {
+            "path": "src/lib/extensions.d.ts",
+            "symbol": "ArrayBuffer declaration region",
+            "line_start": 1,
+            "line_end": 45,
+            "source_presence": "present",
+            "sha256": "66c252659296f6aa8931edaceb2c6db6654786cc4077920894ecd57d99b71f9e"
+          },
+          "anchors": [
+            "interface ArrayBuffer",
+            "interface ArrayBufferView"
+          ],
+          "description": "Establishes the declaration scope in which DataView is missing."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "Enough of the declaration scope must be selected to establish the missing DataView surface; this case has no source transition and is excluded from transition-coverage rates.",
+      "applicability_note": "The resolution adds declarations rather than repairing a pre-existing executable path.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-10068",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 10068,
+      "title": "BUG/API: Series arithmetic ops inconsistently hold names",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "ed000e98f711"
+      },
+      "resolution_oracle": [
+        {
+          "number": 10240,
+          "title": "BUG: Series arithmetic methods incorrectly hold name",
+          "url": "https://github.com/pandas-dev/pandas/pull/10240",
+          "base_sha": "ed000e98f71119c4a8e9c9b35b638a6d070970e3",
+          "head_sha": "a7a02f45fd459f19e2e5b4553d42578e94fd2f54"
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 3,
+      "implementation_oracle_files": [
+        "pandas/core/series.py"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Series.add dispatches through a generated flexible arithmetic wrapper into Series._binop, which calculates a common name but constructs and finalizes the result without using it.",
+      "evidence_units": [
+        {
+          "id": "W",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/ops.py",
+            "symbol": "_flex_method_SERIES.flex_wrapper",
+            "line_start": 755,
+            "line_end": 771,
+            "source_presence": "present",
+            "sha256": "bfdc39b190afb8453588139a1d07057f8e8b429fed7c06bcb6b6afe9bc12a41d"
+          },
+          "anchors": [
+            "def flex_wrapper",
+            "return self._binop(other, op"
+          ],
+          "description": "Routes Series operands into Series._binop."
+        },
+        {
+          "id": "M",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/common.py",
+            "symbol": "_maybe_match_name",
+            "line_start": 3324,
+            "line_end": 3336,
+            "source_presence": "present",
+            "sha256": "f2551f0f8c6052c7efec949e26ef4cab90c109d5778ae60597ccb72b60d8fc33"
+          },
+          "anchors": [
+            "def _maybe_match_name",
+            "if a.name == b.name",
+            "return None"
+          ],
+          "description": "Defines the common-name decision for equal and unequal operand names."
+        },
+        {
+          "id": "B",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/series.py",
+            "symbol": "Series._binop",
+            "line_start": 1466,
+            "line_end": 1511,
+            "source_presence": "present",
+            "sha256": "7fa904cad2058ffc410b4f9a9bcd5b25b8f0af7c675ca5afddf27de8d1256182"
+          },
+          "anchors": [
+            "def _binop",
+            "name = _maybe_match_name",
+            "return self._constructor(result, index=new_index).__finalize__(self)"
+          ],
+          "description": "Combines the values, calculates the name, and constructs/finalizes the resulting Series."
+        }
+      ],
+      "supporting_units": [
+        {
+          "id": "G",
+          "required": false,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/series.py",
+            "symbol": "Series arithmetic registration",
+            "line_start": 2732,
+            "line_end": 2737,
+            "source_presence": "present",
+            "sha256": "4b62cc282cf2a81a6047a902bb856bd452e2187d8ae21dcce1d683eabb190821"
+          },
+          "anchors": [
+            "ops.add_flex_arithmetic_methods(Series"
+          ],
+          "description": "Installs the generated flexible arithmetic methods on Series."
+        }
+      ],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "W",
+          "to": "B",
+          "required": true,
+          "description": "The generated Series.add wrapper invokes Series._binop."
+        },
+        {
+          "id": "T2",
+          "from": "B",
+          "to": "M",
+          "required": true,
+          "description": "Series._binop delegates name choice to _maybe_match_name."
+        },
+        {
+          "id": "T3",
+          "from": "M",
+          "to": "B",
+          "required": true,
+          "description": "The calculated name returns to _binop, where the pre-resolution constructor/finalizer path fails to preserve the intended result."
+        }
+      ],
+      "completeness_rule": "W, M, and B must be present in the same run and jointly expose all three handoffs; G strengthens dispatch attribution but is not mandatory.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-10519",
+      "repository": "vuejs/vue",
+      "issue_number": 10519,
+      "title": "prop validator fails to generate validation error message when using Symbols",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "b97606cdc658"
+      },
+      "resolution_oracle": [
+        {
+          "number": 10529,
+          "title": "fix: avoid stringifying Symbols in prop validation messages",
+          "url": "https://github.com/vuejs/vue/pull/10529",
+          "base_sha": "b97606cdc658448b56518ac27af98fc82999d05f",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/core/util/props.js"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Prop-validation error construction eagerly formats the received Symbol using an expected primitive type, causing the diagnostic path itself to fail.",
+      "evidence_units": [
+        {
+          "id": "V",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/core/util/props.js",
+            "symbol": "getInvalidTypeMessage",
+            "line_start": 203,
+            "line_end": 222,
+            "source_presence": "present",
+            "sha256": "a1edd0b907db0903f05bdb736d460c1bd00237d91c2982a89a13a571ec67ca4a"
+          },
+          "anchors": [
+            "function getInvalidTypeMessage",
+            "const expectedValue = styleValue",
+            "const receivedValue = styleValue"
+          ],
+          "description": "Builds the invalid-prop message and eagerly asks styleValue to format both expected and received representations."
+        },
+        {
+          "id": "F",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/core/util/props.js",
+            "symbol": "styleValue/isExplicable",
+            "line_start": 224,
+            "line_end": 238,
+            "source_presence": "present",
+            "sha256": "5c34948071bfe38e90fae4f4982f2217568899760e59fc48bec30276d0ee5237"
+          },
+          "anchors": [
+            "function styleValue",
+            "return `${value}`",
+            "function isExplicable"
+          ],
+          "description": "Shows the primitive formatting and explicable-type checks that are unsafe when applied under the wrong inferred type."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "V",
+          "to": "F",
+          "required": true,
+          "description": "Message generation passes the Symbol value into primitive formatting before checking whether that value is explicable."
+        }
+      ],
+      "completeness_rule": "Both V and F and the eager formatting handoff must be visible.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-6301",
+      "repository": "vuejs/vue",
+      "issue_number": 6301,
+      "title": "Provide a Typescript declaration file for `vue-server-renderer/client-plugin`",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "1b96ba701907"
+      },
+      "resolution_oracle": [
+        {
+          "number": 6325,
+          "title": "feat(vue-server-renderer): add TypeScript declarations of webpack plugins (fix #6301)",
+          "url": "https://github.com/vuejs/vue/pull/6325",
+          "base_sha": "1b96ba7019077235bc3ad0888b00ab9285789edb",
+          "head_sha": "3f0c6d891b4eeff312a610d83adda5d11fa69a48"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 3,
+      "implementation_oracle_files": [
+        "build/release-weex.sh",
+        "packages/vue-server-renderer/client-plugin.d.ts",
+        "packages/vue-server-renderer/package.json",
+        "packages/vue-server-renderer/server-plugin.d.ts",
+        "packages/vue-server-renderer/types/plugin.d.ts",
+        "packages/vue-server-renderer/types/test.ts",
+        "packages/weex-template-compiler/build.js",
+        "packages/weex-template-compiler/package.json",
+        "packages/weex-vue-framework/factory.js",
+        "packages/weex-vue-framework/index.js",
+        "packages/weex-vue-framework/package.json"
+      ],
+      "implementation_oracle_file_count": 11,
+      "oracle_kind": "api_surface_absence",
+      "mechanism_applicable": false,
+      "mechanism_summary": "The package exposes JavaScript client/server webpack-plugin entry points but provides no corresponding declaration entry points.",
+      "evidence_units": [
+        {
+          "id": "P",
+          "required": true,
+          "evidence_type": "scoped_absence",
+          "source": {
+            "path": "packages/vue-server-renderer/package.json",
+            "symbol": "package type metadata",
+            "line_start": 1,
+            "line_end": 40,
+            "source_presence": "present",
+            "sha256": "d9bc423788843edf7d042846ba12de4f3bcefe140a9a6107d5c7c2b5d6bbca80"
+          },
+          "anchors": [
+            "\"types\": \"types/index.d.ts\""
+          ],
+          "description": "Shows the package-level type declaration and scripts but no plugin-specific declaration mapping."
+        },
+        {
+          "id": "C",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "packages/vue-server-renderer/client-plugin.js",
+            "symbol": "client plugin runtime entry point",
+            "line_start": 17,
+            "line_end": 86,
+            "source_presence": "present",
+            "sha256": "c2b161263c96b4ae868e7266a6241e52d906f355b0be474c7664331c1263e800"
+          },
+          "anchors": [
+            "var VueSSRClientPlugin",
+            "module.exports = VueSSRClientPlugin"
+          ],
+          "description": "Shows the existing client-plugin implementation and public runtime export for which a declaration entry point is missing."
+        },
+        {
+          "id": "S",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "packages/vue-server-renderer/server-plugin.js",
+            "symbol": "server plugin runtime entry point",
+            "line_start": 32,
+            "line_end": 99,
+            "source_presence": "present",
+            "sha256": "13ae94f23a5b77aedb763bd76fde278272d7e45c62f3463bdc6f28f6cd55c1c6"
+          },
+          "anchors": [
+            "var VueSSRServerPlugin",
+            "module.exports = VueSSRServerPlugin"
+          ],
+          "description": "Shows the existing server-plugin implementation and public runtime export for which a declaration entry point is missing."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "P, C, and S must jointly expose the package declaration scope and both existing runtime plugin entry points.",
+      "applicability_note": "The relevant change creates type declarations rather than changing an executable mechanism.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-45713",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 45713,
+      "title": "[CLI DX] Improve the 'x errors' message in the CLI",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "016d78b09e36"
+      },
+      "resolution_oracle": [
+        {
+          "number": 45742,
+          "title": "fix(45713) Improve error report summaries",
+          "url": "https://github.com/microsoft/TypeScript/pull/45742",
+          "base_sha": "016d78b09e36c934705cd8601b69d3e1ae6af440",
+          "head_sha": "db56f9f3651f492654aecb5d95d2dc419d3fe8ef"
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 2,
+      "implementation_oracle_files": [
+        "src/compiler/diagnosticMessages.json",
+        "src/compiler/tsbuildPublic.ts",
+        "src/compiler/watch.ts",
+        "src/executeCommandLine/executeCommandLine.ts",
+        "src/harness/harnessIO.ts",
+        "src/testRunner/unittests/tsbuild/publicApi.ts",
+        "src/testRunner/unittests/tscWatch/helpers.ts"
+      ],
+      "implementation_oracle_file_count": 7,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Watch/build paths count diagnostics and forward only a scalar error count to a formatter that can print no per-file breakdown.",
+      "evidence_units": [
+        {
+          "id": "C",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/watch.ts",
+            "symbol": "getErrorCountForSummary/getErrorSummaryText",
+            "line_start": 96,
+            "line_end": 117,
+            "source_presence": "present",
+            "sha256": "11b55427fba5625ed18859a3fa5748262f28904d8c4baf20ed5ebc86c0d7789d"
+          },
+          "anchors": [
+            "getErrorCountForSummary",
+            "getErrorSummaryText(errorCount: number"
+          ],
+          "description": "Counts errors and formats only the aggregate count."
+        },
+        {
+          "id": "W",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/watch.ts",
+            "symbol": "watch status reporter",
+            "line_start": 340,
+            "line_end": 360,
+            "source_presence": "present",
+            "sha256": "2b49d56697826a64f2846670e5150c982147dfa8a4820d4a64ece8c125c51bc1"
+          },
+          "anchors": [
+            "reportSummary(getErrorCountForSummary(diagnostics))"
+          ],
+          "description": "Passes only the count from watch diagnostics to the summary formatter."
+        },
+        {
+          "id": "B",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "ReportEmitErrorSummary/reportErrorSummary",
+            "line_start": 75,
+            "line_end": 109,
+            "source_presence": "present",
+            "sha256": "cf90a5b505c86ca1a7e14fa0712ec217932a3bdacf105b21eec7c39bfa87fa07"
+          },
+          "anchors": [
+            "ReportEmitErrorSummary = (errorCount: number)"
+          ],
+          "description": "Defines the build-host summary callback as accepting only an error count."
+        },
+        {
+          "id": "R",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/tsbuildPublic.ts",
+            "symbol": "solution-builder reportErrorSummary",
+            "line_start": 2000,
+            "line_end": 2027,
+            "source_presence": "present",
+            "sha256": "a92a90d683e70bea58012065c46d232a214b4aaa8adca471a4991c6304627154"
+          },
+          "anchors": [
+            "function reportErrorSummary",
+            "state.host.reportErrorSummary(totalErrors)"
+          ],
+          "description": "Aggregates project errors and calls the host with only totalErrors."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "W",
+          "to": "C",
+          "required": true,
+          "description": "Watch diagnostics are reduced to a scalar before formatting."
+        },
+        {
+          "id": "T2",
+          "from": "R",
+          "to": "B",
+          "required": true,
+          "description": "The solution builder sends the same scalar through its public callback contract."
+        }
+      ],
+      "completeness_rule": "C, W, B, and R must show both watch and solution-build summary paths losing file identity before formatting.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-4542",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 4542,
+      "title": "ENH: Adding XlsxWriter as an ExcelWriter() option",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "ebfb4c8a91d8"
+      },
+      "resolution_oracle": [
+        {
+          "number": 4857,
+          "title": "ENH: Added xlsxwriter as an ExcelWriter option.",
+          "url": "https://github.com/pandas-dev/pandas/pull/4857",
+          "base_sha": "ebfb4c8a91d8d566317d9a973f827a165d15e4ae",
+          "head_sha": "b0c290f4879a542b027b4c36a922f5ae2216ed5a"
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 2,
+      "implementation_oracle_files": [
+        "pandas/core/frame.py",
+        "pandas/io/excel.py",
+        "pandas/util/print_versions.py"
+      ],
+      "implementation_oracle_file_count": 3,
+      "oracle_kind": "plugin_integration",
+      "mechanism_applicable": true,
+      "mechanism_summary": "DataFrame.to_excel delegates through ExcelWriter's engine registry, whose pre-resolution implementations support openpyxl and xlwt but not xlsxwriter.",
+      "evidence_units": [
+        {
+          "id": "D",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/frame.py",
+            "symbol": "DataFrame.to_excel",
+            "line_start": 1356,
+            "line_end": 1415,
+            "source_presence": "present",
+            "sha256": "8a5e9cd70074cf78ec7bd34156dfe9fcdeb231484e3bff834c883923e9ccb3ca"
+          },
+          "anchors": [
+            "def to_excel",
+            "from pandas.io.excel import ExcelWriter"
+          ],
+          "description": "Exposes the public DataFrame export entry point and its ExcelWriter delegation."
+        },
+        {
+          "id": "R",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/io/excel.py",
+            "symbol": "writer registry and ExcelWriter",
+            "line_start": 20,
+            "line_end": 40,
+            "source_presence": "present",
+            "sha256": "a0b3432e166295e501829aad9f7bddace7600fba8d387fcaf0a67824c5170074"
+          },
+          "anchors": [
+            "def register_writer",
+            "_writers[engine_name]"
+          ],
+          "description": "Registers writer classes by engine name."
+        },
+        {
+          "id": "E",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/io/excel.py",
+            "symbol": "ExcelWriter",
+            "line_start": 284,
+            "line_end": 411,
+            "source_presence": "present",
+            "sha256": "741ed37c1322c83a47dffbd34333569ceaac97f38cd629d07fce88e4811c9dff"
+          },
+          "anchors": [
+            "class ExcelWriter",
+            "class ExcelWriterMeta"
+          ],
+          "description": "Selects a registered engine from the extension/configuration and instantiates it."
+        },
+        {
+          "id": "X",
+          "required": true,
+          "evidence_type": "scoped_absence",
+          "source": {
+            "path": "pandas/io/excel.py",
+            "symbol": "writer implementations",
+            "line_start": 412,
+            "line_end": 612,
+            "source_presence": "present",
+            "sha256": "414cd3d9ddc9430bfb59952f5ad0a12598b61858e8e8de1dd078947024e2b09f"
+          },
+          "anchors": [
+            "class _OpenpyxlWriter",
+            "register_writer(_XlwtWriter)"
+          ],
+          "description": "Shows the complete pre-resolution writer implementation region ending with xlwt and lacking an xlsxwriter writer."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "D",
+          "to": "E",
+          "required": true,
+          "description": "DataFrame.to_excel creates or uses an ExcelWriter."
+        },
+        {
+          "id": "T2",
+          "from": "E",
+          "to": "R",
+          "required": true,
+          "description": "ExcelWriter resolves an engine through the registry."
+        },
+        {
+          "id": "T3",
+          "from": "R",
+          "to": "X",
+          "required": true,
+          "description": "The registry can dispatch only to registered implementations, and xlsxwriter is absent."
+        }
+      ],
+      "completeness_rule": "D, R, E, and the scoped absence X must jointly establish dispatch and the missing engine implementation.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-10020",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 10020,
+      "title": "Support 'Organize Imports' feature",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "4d284d617f78"
+      },
+      "resolution_oracle": [
+        {
+          "number": 22087,
+          "title": "Support Organize Imports",
+          "url": "https://github.com/microsoft/TypeScript/pull/22087",
+          "base_sha": "4d284d617f78a12461af62840b096133e63605d8",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 2,
+      "implementation_oracle_files": [
+        "src/compiler/utilities.ts",
+        "src/services/organizeImports.ts"
+      ],
+      "implementation_oracle_file_count": 2,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Organize Imports collects only top-level import declarations even though the compiler can identify ambient modules, so imports nested in those modules never enter grouping and edit generation.",
+      "evidence_units": [
+        {
+          "id": "O",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/services/organizeImports.ts",
+            "symbol": "OrganizeImports.organizeImports",
+            "line_start": 10,
+            "line_end": 57,
+            "source_presence": "present",
+            "sha256": "69eacdee7d046fd1ca476a07ecf7b308c522b87ef1b5943db51d9564e3ecd7ca"
+          },
+          "anchors": [
+            "function organizeImports",
+            "TODO",
+            "sourceFile.statements.filter(isImportDeclaration)"
+          ],
+          "description": "Collects, groups, rewrites, and deletes only sourceFile.statements imports; the TODO names ambient modules explicitly."
+        },
+        {
+          "id": "A",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/utilities.ts",
+            "symbol": "isAmbientModule",
+            "line_start": 423,
+            "line_end": 433,
+            "source_presence": "present",
+            "sha256": "c9efead63b382ab75a4b69b889df987d6de615b5bf212a7b066410544d7c1678"
+          },
+          "anchors": [
+            "function isAmbientModule",
+            "SyntaxKind.ModuleDeclaration"
+          ],
+          "description": "Provides the predicate that can identify string-named or global ambient modules."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "A",
+          "to": "O",
+          "required": true,
+          "description": "Ambient modules are identifiable, but organizeImports never traverses their module blocks before grouping imports and creating edits."
+        }
+      ],
+      "completeness_rule": "A and O must both be present and the missing traversal between them must be explicit.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-14942",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 14942,
+      "title": "groupby with category column and two additional columns eats up all main memory",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "28edd0649898"
+      },
+      "resolution_oracle": [
+        {
+          "number": 20583,
+          "title": "API: categorical grouping will no longer return the cartesian product",
+          "url": "https://github.com/pandas-dev/pandas/pull/20583",
+          "base_sha": "28edd06498987972953b5c8e1c98b7f55d24b8d2",
+          "head_sha": "bdf7525812ca670f9406ab8df333030d36d30947"
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 3,
+      "implementation_oracle_files": [
+        "pandas/conftest.py",
+        "pandas/core/arrays/categorical.py",
+        "pandas/core/generic.py",
+        "pandas/core/groupby/groupby.py",
+        "pandas/core/indexes/category.py",
+        "pandas/core/reshape/pivot.py"
+      ],
+      "implementation_oracle_file_count": 6,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Categorical groupby carries every category into grouping and later re-expands the Cartesian result space, even when only a small subset is observed.",
+      "evidence_units": [
+        {
+          "id": "P",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/generic.py",
+            "symbol": "NDFrame.groupby",
+            "line_start": 6601,
+            "line_end": 6668,
+            "source_presence": "present",
+            "sha256": "8ffc7fa6ee8e11bb6fd29e826cc09ae69d0bd63f5e8b90580cc6410fbedbf842"
+          },
+          "anchors": [
+            "def groupby",
+            "return groupby(self",
+            "squeeze=squeeze"
+          ],
+          "description": "Exposes the public groupby entry point, which has no observed parameter and forwards no observed choice."
+        },
+        {
+          "id": "C",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/arrays/categorical.py",
+            "symbol": "Categorical._codes_for_groupby",
+            "line_start": 650,
+            "line_end": 689,
+            "source_presence": "present",
+            "sha256": "0ac9ea539807fb0a9eac01e543afbe04ecc7c1927094f159739c037601aebe95"
+          },
+          "anchors": [
+            "def _codes_for_groupby(self, sort)"
+          ],
+          "description": "Returns category codes for grouping without an observed-only mode."
+        },
+        {
+          "id": "G",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/groupby/groupby.py",
+            "symbol": "_GroupBy.__init__",
+            "line_start": 553,
+            "line_end": 590,
+            "source_presence": "present",
+            "sha256": "a90f2b87e8d7b13174e0eb2aa7eb8326d61aff6c2f4e05ce1744f5bc5cc3b940"
+          },
+          "anchors": [
+            "class _GroupBy",
+            "_get_grouper(obj, keys"
+          ],
+          "description": "Builds the grouper without carrying an observed option."
+        },
+        {
+          "id": "I",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/groupby/groupby.py",
+            "symbol": "Grouping.__init__",
+            "line_start": 2874,
+            "line_end": 2990,
+            "source_presence": "present",
+            "sha256": "e68724ba1605f9cf7674ea40a55c105d414c9cc174fd80b3500b2e7cddadb310"
+          },
+          "anchors": [
+            "class Grouping",
+            "_codes_for_groupby(self.sort)"
+          ],
+          "description": "Recodes categorical groupers against the complete category set."
+        },
+        {
+          "id": "R",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/groupby/groupby.py",
+            "symbol": "_GroupBy._reindex_output",
+            "line_start": 4690,
+            "line_end": 4725,
+            "source_presence": "present",
+            "sha256": "e1108bee16e78b5fbae5756b3981ded7e8f6069e474a05fdb96eafe46d4d9f44"
+          },
+          "anchors": [
+            "def _reindex_output",
+            "This can re-expand the output space"
+          ],
+          "description": "Re-expands results to the product of group levels."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T0",
+          "from": "P",
+          "to": "G",
+          "required": true,
+          "description": "The public groupby entry point constructs GroupBy without an observed-only option."
+        },
+        {
+          "id": "T1",
+          "from": "G",
+          "to": "I",
+          "required": true,
+          "description": "GroupBy construction delegates categorical grouping without an observed-only choice."
+        },
+        {
+          "id": "T2",
+          "from": "I",
+          "to": "C",
+          "required": true,
+          "description": "Grouping obtains codes that retain the full category space."
+        },
+        {
+          "id": "T3",
+          "from": "C",
+          "to": "R",
+          "required": true,
+          "description": "Those complete category levels are used to re-expand the output, producing the memory-heavy Cartesian product."
+        }
+      ],
+      "completeness_rule": "P, C, G, I, and R must be present and expose the propagation from the public API through categorical codes to output re-expansion.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-16764",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 16764,
+      "title": "PERF: pandas' import time",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "2781b18008a7"
+      },
+      "resolution_oracle": [
+        {
+          "number": 17710,
+          "title": "Delay import",
+          "url": "https://github.com/pandas-dev/pandas/pull/17710",
+          "base_sha": "2781b18008a7dca575a4f3496c8f11c1ea05cced",
+          "head_sha": "9d0f74a73aa26f8ba7a6e59e797dfa3638272eb5"
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 5,
+      "implementation_oracle_files": [
+        ".travis.yml",
+        "pandas/core/computation/__init__.py",
+        "pandas/core/computation/check.py",
+        "pandas/core/computation/eval.py",
+        "pandas/core/computation/expressions.py",
+        "pandas/core/config_init.py",
+        "pandas/core/frame.py",
+        "pandas/core/internals.py",
+        "pandas/core/ops.py",
+        "pandas/core/panel.py",
+        "pandas/io/common.py",
+        "pandas/io/excel.py",
+        "pandas/plotting/__init__.py",
+        "pandas/plotting/_core.py",
+        "pandas/plotting/_style.py",
+        "pandas/util/_tester.py",
+        "pandas/util/testing.py"
+      ],
+      "implementation_oracle_file_count": 17,
+      "oracle_kind": "import_dependency_chain",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Importing core pandas modules eagerly imports computation, plotting, and optional I/O dependencies before their features are used.",
+      "evidence_units": [
+        {
+          "id": "F",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/frame.py",
+            "symbol": "frame module imports",
+            "line_start": 65,
+            "line_end": 105,
+            "source_presence": "present",
+            "sha256": "a1565b56d2faf43bb5fea6bcc91f321870649ef36eef3aa787d3c91bfa733cbd"
+          },
+          "anchors": [
+            "pandas.core.computation.expressions",
+            "pandas.plotting._core"
+          ],
+          "description": "Eagerly imports computation expression/eval and plotting modules while loading DataFrame."
+        },
+        {
+          "id": "O",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/ops.py",
+            "symbol": "ops module imports",
+            "line_start": 1,
+            "line_end": 25,
+            "source_presence": "present",
+            "sha256": "d158b50d2f5a0c1e7b190e3446a6542700c380bbeb8d258fa424aa14ff8dce7b"
+          },
+          "anchors": [
+            "pandas.core.computation.expressions as expressions"
+          ],
+          "description": "Eagerly imports the computation expression engine while loading arithmetic operations."
+        },
+        {
+          "id": "C",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/computation/__init__.py",
+            "symbol": "computation package initialization",
+            "line_start": 1,
+            "line_end": 23,
+            "source_presence": "present",
+            "sha256": "de3084182704931d87a6acd93df3604fb83ac658090cccb0980ac63f38909460"
+          },
+          "anchors": [],
+          "description": "Performs dependency checks and imports computation components at package import time."
+        },
+        {
+          "id": "P",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/plotting/__init__.py",
+            "symbol": "plotting package initialization",
+            "line_start": 1,
+            "line_end": 19,
+            "source_presence": "present",
+            "sha256": "e215645818081f3408df012b868a43cc4b65fd74707cafbb034ae822b1f37b13"
+          },
+          "anchors": [
+            "from pandas.plotting import _converter",
+            "from pandas.plotting._core import boxplot"
+          ],
+          "description": "Imports plotting conversion, core, style, and tools modules eagerly."
+        },
+        {
+          "id": "I",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/io/common.py",
+            "symbol": "optional I/O imports",
+            "line_start": 1,
+            "line_end": 45,
+            "source_presence": "present",
+            "sha256": "30cef181560e8c7e44e3c5fb400298314d574d91934aadb486646a476e35db52"
+          },
+          "anchors": [
+            "from s3fs import S3File"
+          ],
+          "description": "Attempts optional cloud-filesystem imports while loading common I/O helpers."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "F",
+          "to": "C",
+          "required": true,
+          "description": "Loading DataFrame imports the computation package before eval/query is invoked."
+        },
+        {
+          "id": "T2",
+          "from": "F",
+          "to": "P",
+          "required": true,
+          "description": "Loading DataFrame imports plotting before any plot operation is requested."
+        },
+        {
+          "id": "T3",
+          "from": "O",
+          "to": "C",
+          "required": true,
+          "description": "Loading arithmetic operations imports computation expressions before an arithmetic call needs them."
+        },
+        {
+          "id": "T4",
+          "from": "F",
+          "to": "I",
+          "required": true,
+          "description": "The general import surface reaches optional I/O dependencies during module initialization."
+        }
+      ],
+      "completeness_rule": "The selected evidence must expose each eager dependency branch F→C, F→P, O→C, and F→I; isolated imports are partial.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-10041",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 10041,
+      "title": "RegExpMatchArray has lost some compatibility with Array since 2.1.0-dev.20160729",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "36b611334dff"
+      },
+      "resolution_oracle": [
+        {
+          "number": 10069,
+          "title": "Fix best common type selection for RegExpMatchArray compatibility",
+          "url": "https://github.com/microsoft/TypeScript/pull/10069",
+          "base_sha": "36b611334dff29d6edf5f6be0ff95f796e98f14e",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/compiler/checker.ts"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Logical-or and conditional expressions reduce their alternatives directly through getUnionType, which can choose a less specific array type despite one alternative being assignable to the other.",
+      "evidence_units": [
+        {
+          "id": "B",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/checker.ts",
+            "symbol": "checkBinaryExpression",
+            "line_start": 12900,
+            "line_end": 13055,
+            "source_presence": "present",
+            "sha256": "0e6be616a238da83cb6ab1e7f5a495adfd3eb5bbb7c41053dc92e8d194fab8ea"
+          },
+          "anchors": [
+            "function checkBinaryExpression",
+            "case SyntaxKind.BarBarToken",
+            "getUnionType([removeDefinitelyFalsyTypes(leftType), rightType]"
+          ],
+          "description": "Checks logical-or expressions and sends the two possible types directly to getUnionType."
+        },
+        {
+          "id": "C",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/checker.ts",
+            "symbol": "checkConditionalExpression",
+            "line_start": 13165,
+            "line_end": 13180,
+            "source_presence": "present",
+            "sha256": "caf38d4dde710000fd035261779ae67d36131760d36b1a74ec492afdaeb89936"
+          },
+          "anchors": [
+            "function checkConditionalExpression",
+            "getUnionType([type1, type2]"
+          ],
+          "description": "Combines conditional branches through the same direct union reduction."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "B",
+          "to": "C",
+          "required": true,
+          "description": "Both choice-producing expressions share the same reduction rule and therefore the same subtype-selection defect."
+        }
+      ],
+      "completeness_rule": "B and C must show both affected choice paths and their common direct-union behavior.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-10473",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 10473,
+      "title": "TSServer: config file diagnostics event not sent if config file changes",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "81fc759530c3"
+      },
+      "resolution_oracle": [
+        {
+          "number": 11285,
+          "title": "Send config file diagnostics when configuration changes",
+          "url": "https://github.com/microsoft/TypeScript/pull/11285",
+          "base_sha": "81fc759530c3245011d13e7f9f23f17b687a97e6",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 2,
+      "implementation_oracle_files": [
+        "src/server/editorServices.ts",
+        "src/server/session.ts"
+      ],
+      "implementation_oracle_file_count": 2,
+      "oracle_kind": "event_delivery_chain",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Configuration diagnostics are emitted only when the diagnostics array is non-empty, and Session separately gates the open-file event, so a config change that clears errors produces no event.",
+      "evidence_units": [
+        {
+          "id": "P",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/server/editorServices.ts",
+            "symbol": "ProjectService.reportConfigFileDiagnostics",
+            "line_start": 750,
+            "line_end": 770,
+            "source_presence": "present",
+            "sha256": "eecd983b8928797dc45dcfe944555cdfb4252bede0dd4e7bc7393c275721661e"
+          },
+          "anchors": [
+            "reportConfigFileDiagnostics",
+            "diagnostics.length > 0",
+            "eventName: \"configFileDiag\""
+          ],
+          "description": "Suppresses configFileDiag when diagnostics is empty."
+        },
+        {
+          "id": "S",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/server/session.ts",
+            "symbol": "Session constructor/handleEvent",
+            "line_start": 150,
+            "line_end": 205,
+            "source_presence": "present",
+            "sha256": "79e1def10f4088fff132011cd9edb7bddaa63a2054a45d5d79eb3a0cdb143de6"
+          },
+          "anchors": [
+            "const eventHandler",
+            "this.handleEvent(event)"
+          ],
+          "description": "Creates the ProjectService event handler only when events are enabled and routes configFileDiag events."
+        },
+        {
+          "id": "O",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/server/session.ts",
+            "symbol": "Session.openClientFile",
+            "line_start": 710,
+            "line_end": 730,
+            "source_presence": "present",
+            "sha256": "74310a728f68cb6a53c6de4912ba0822a4506720e4a32563672fe12414582973"
+          },
+          "anchors": [
+            "private openClientFile",
+            "if (configFileErrors)"
+          ],
+          "description": "Emits the open-file config diagnostic only when configFileErrors is truthy."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "P",
+          "to": "S",
+          "required": true,
+          "description": "ProjectService diagnostics reach Session only when the non-empty guard permits an event."
+        },
+        {
+          "id": "T2",
+          "from": "O",
+          "to": "S",
+          "required": true,
+          "description": "The open-file path independently applies the same presence guard before event delivery."
+        }
+      ],
+      "completeness_rule": "P, S, and O must establish both suppression points and the event-handler handoff.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-16278",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 16278,
+      "title": "New refactor API",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "b217c39bb160"
+      },
+      "resolution_oracle": [
+        {
+          "number": 16307,
+          "title": "New refactor API",
+          "url": "https://github.com/microsoft/TypeScript/pull/16307",
+          "base_sha": "b217c39bb16008a57723b7faa662b2f11447c942",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 6,
+      "implementation_oracle_files": [
+        "scripts/buildProtocol.ts",
+        "src/server/client.ts",
+        "src/server/protocol.ts",
+        "src/server/session.ts",
+        "src/services/refactorProvider.ts",
+        "src/services/refactors/convertFunctionToEs6Class.ts",
+        "src/services/services.ts",
+        "src/services/types.ts"
+      ],
+      "implementation_oracle_file_count": 8,
+      "oracle_kind": "api_protocol_chain",
+      "mechanism_applicable": true,
+      "mechanism_summary": "The old refactor API exposes applicable refactor names and then requests a whole refactor's code actions, without a distinct selected-action edit request and rename metadata contract.",
+      "evidence_units": [
+        {
+          "id": "T",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/services/types.ts",
+            "symbol": "LanguageService refactor contracts",
+            "line_start": 255,
+            "line_end": 375,
+            "source_presence": "present",
+            "sha256": "c35a50471c3dc64c7184e40b9420d246056eead16a65d64c47d73b8013667659"
+          },
+          "anchors": [
+            "getApplicableRefactors",
+            "getRefactorCodeActions",
+            "interface ApplicableRefactorInfo"
+          ],
+          "description": "Defines applicable-refactor and getRefactorCodeActions contracts but no selected-action edit result."
+        },
+        {
+          "id": "P",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/services/refactorProvider.ts",
+            "symbol": "refactor registry/provider",
+            "line_start": 1,
+            "line_end": 59,
+            "source_presence": "present",
+            "sha256": "908563c7416c00bb59c6e9bdc34785ff43a1bbdd1c01791a8e413d462e7a4c9f"
+          },
+          "anchors": [
+            "registerRefactor",
+            "getApplicableRefactors",
+            "getRefactorCodeActions"
+          ],
+          "description": "Finds applicable refactors and asks a named provider for code actions."
+        },
+        {
+          "id": "L",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/services/services.ts",
+            "symbol": "LanguageService refactor implementation",
+            "line_start": 1988,
+            "line_end": 2022,
+            "source_presence": "present",
+            "sha256": "4ca30b7e22b26bc41de23114176b13eb589c45545e3dbaaed68fb4bf3853608c"
+          },
+          "anchors": [
+            "function getApplicableRefactors",
+            "function getRefactorCodeActions"
+          ],
+          "description": "Adapts the public LanguageService request into provider calls."
+        },
+        {
+          "id": "Q",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/server/protocol.ts",
+            "symbol": "refactor protocol contracts",
+            "line_start": 390,
+            "line_end": 448,
+            "source_presence": "present",
+            "sha256": "85d4ab99cd510405a72bbaecca3d7866ee8e6646451dda3c3df0d0485476d15d"
+          },
+          "anchors": [
+            "GetApplicableRefactorsRequest",
+            "GetRefactorCodeActionsRequest",
+            "refactorName: string"
+          ],
+          "description": "Defines discovery and whole-refactor code-action requests, with no selected-action edit command."
+        },
+        {
+          "id": "S",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/server/session.ts",
+            "symbol": "Session refactor commands",
+            "line_start": 1418,
+            "line_end": 1455,
+            "source_presence": "present",
+            "sha256": "67b1c245cf6cec951853c3f036fcfeba1039accafc467a4da5b18a7b2de5f33b"
+          },
+          "anchors": [
+            "private getApplicableRefactors",
+            "private getRefactorCodeActions"
+          ],
+          "description": "Handles protocol requests and returns the refactor code actions."
+        },
+        {
+          "id": "C",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/server/client.ts",
+            "symbol": "SessionClient refactor adapter",
+            "line_start": 710,
+            "line_end": 745,
+            "source_presence": "present",
+            "sha256": "c6d66f1a281fcaf37eaa90ca0fde4f87db8250a97713a551c78e04cf78670fc9"
+          },
+          "anchors": [
+            "getApplicableRefactors",
+            "getRefactorCodeActions"
+          ],
+          "description": "Sends the refactor request and converts returned code actions for the client."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "C",
+          "to": "Q",
+          "required": true,
+          "description": "The client constructs the old refactor protocol request."
+        },
+        {
+          "id": "T2",
+          "from": "Q",
+          "to": "S",
+          "required": true,
+          "description": "Session receives the discovery or whole-refactor code-action command."
+        },
+        {
+          "id": "T3",
+          "from": "S",
+          "to": "L",
+          "required": true,
+          "description": "Session invokes the LanguageService refactor API."
+        },
+        {
+          "id": "T4",
+          "from": "L",
+          "to": "P",
+          "required": true,
+          "description": "LanguageService delegates discovery/action generation to the registered refactor provider."
+        },
+        {
+          "id": "T5",
+          "from": "P",
+          "to": "T",
+          "required": true,
+          "description": "Provider output is constrained by the old whole-refactor CodeAction contract."
+        }
+      ],
+      "completeness_rule": "T, P, L, Q, S, and C must expose the end-to-end old API/protocol path and the missing selected-action edit boundary.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-19074",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 19074,
+      "title": "Clean up LSHost mentions",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "a97c18f227c2"
+      },
+      "resolution_oracle": [
+        {
+          "number": 32018,
+          "title": "Clean up LSHost mentions",
+          "url": "https://github.com/microsoft/TypeScript/pull/32018",
+          "base_sha": "a97c18f227c22d3d6e0e5d413d91d3eb06065410",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 2,
+      "implementation_oracle_files": [
+        "src/compiler/moduleNameResolver.ts",
+        "src/server/project.ts"
+      ],
+      "implementation_oracle_file_count": 2,
+      "oracle_kind": "comment_only_maintenance",
+      "mechanism_applicable": false,
+      "mechanism_summary": "The change updates stale LSHost terminology in comments without altering runtime behavior.",
+      "evidence_units": [
+        {
+          "id": "M",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/moduleNameResolver.ts",
+            "symbol": "loadModuleFromGlobalCache comment",
+            "line_start": 1484,
+            "line_end": 1494,
+            "source_presence": "present",
+            "sha256": "301d1178a70c98ef8ae8414fe3c9ff0fecdaef7b141675dad94996b124414c30"
+          },
+          "anchors": [
+            "LSHost may load a module"
+          ],
+          "description": "Contains the stale LSHost terminology in the resolver comment."
+        },
+        {
+          "id": "P",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/server/project.ts",
+            "symbol": "external-file comment",
+            "line_start": 946,
+            "line_end": 960,
+            "source_presence": "present",
+            "sha256": "fcaf62bb705a79874c3c9f708d5ec08ae904a15e70797e0d36c09041d8ba85b3"
+          },
+          "anchors": [
+            "by the LSHost for files"
+          ],
+          "description": "Contains the stale LSHost terminology in the project comment."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "Both comment sites define the maintenance surface; the case is excluded from mechanism-transition rates.",
+      "applicability_note": "No executable source transition changes.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-24625",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 24625,
+      "title": "TypeScript 2.9 Watch API change breaking watch support in ts-loader?",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "34e68efdae72"
+      },
+      "resolution_oracle": [
+        {
+          "number": 24664,
+          "title": "Fix the issue with createSemanticDiagnosticsBuilderProgram, createEmitAndSemanticDiagnosticsBuilderProgram and createAbstractBuilder not assignable to CreateProgram<T>",
+          "url": "https://github.com/microsoft/TypeScript/pull/24664",
+          "base_sha": "34e68efdae72aa9857964cc19d8c8b02df0d1ba9",
+          "head_sha": "e88305173ddf53ba25dc1b8bb43df735de6dd02e"
+        },
+        {
+          "number": 24665,
+          "title": "[release-2.9] Fix the issue with createSemanticDiagnosticsBuilderProgram, createEmitAndSemanticDiagnosticsBuilderProgram and createAbstractBuilder not assignable to CreateProgram<T>",
+          "url": "https://github.com/microsoft/TypeScript/pull/24665",
+          "base_sha": "3bf21bea5e816fa81ce967f7de13fb5541e68058",
+          "head_sha": "42a1164f9bb055c522fa59ea92c4cbdbc606c4ab"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/compiler/builder.ts"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "api_type_surface",
+      "mechanism_applicable": false,
+      "mechanism_summary": "Three watch-builder factory overloads require rootNames and options even though the CreateProgram callback contract can supply undefined values.",
+      "evidence_units": [
+        {
+          "id": "B",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/builder.ts",
+            "symbol": "builder factory overloads",
+            "line_start": 545,
+            "line_end": 577,
+            "source_presence": "present",
+            "sha256": "b2fdeba83345257b19fe17d8e05fab180eef1b1bee9343cf9f9c7e8c92a494c9"
+          },
+          "anchors": [
+            "createSemanticDiagnosticsBuilderProgram(rootNames: ReadonlyArray<string>",
+            "createEmitAndSemanticDiagnosticsBuilderProgram(rootNames: ReadonlyArray<string>",
+            "createAbstractBuilder(rootNames: ReadonlyArray<string>"
+          ],
+          "description": "Shows the required rootNames/options parameters on all three builder factories."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "B must expose all three incompatible overloads; the case is an API type-surface defect rather than a source-transition case.",
+      "applicability_note": "The resolution widens type signatures and does not alter the builder execution path.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-35468",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 35468,
+      "title": "TS does not recompile correctly when using a combination of project references, wildcard re-exports and watch mode",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "f7860b048037"
+      },
+      "resolution_oracle": [
+        {
+          "number": 35757,
+          "title": "Use resolvedPath consistently in the builder",
+          "url": "https://github.com/microsoft/TypeScript/pull/35757",
+          "base_sha": "f7860b048037bd74021ec0557a62688ec57e33c1",
+          "head_sha": "95565387b4d260880226a25ccf11abbe3d66ffa6"
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 2,
+      "implementation_oracle_files": [
+        "src/compiler/builder.ts",
+        "src/compiler/builderState.ts",
+        "src/testRunner/unittests/tsbuild/watchMode.ts",
+        "src/testRunner/unittests/tscWatch/helpers.ts"
+      ],
+      "implementation_oracle_file_count": 4,
+      "oracle_kind": "state_identity_chain",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Incremental builder state keys dependency, signature, affected-file, and emit maps by sourceFile.path even though project-reference aliases require the canonical resolvedPath identity.",
+      "evidence_units": [
+        {
+          "id": "I",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/builderState.ts",
+            "symbol": "BuilderState.create",
+            "line_start": 120,
+            "line_end": 235,
+            "source_presence": "present",
+            "sha256": "4eee1625eff5b8cc2f0e40c1f9f492eec06a48f60c28841b4f7a1758ed12050e"
+          },
+          "anchors": [
+            "sourceFile.path",
+            "fileInfos.set(sourceFile.path"
+          ],
+          "description": "Builds file information and reference/export maps using sourceFile.path."
+        },
+        {
+          "id": "U",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/builderState.ts",
+            "symbol": "updateShapeSignature",
+            "line_start": 304,
+            "line_end": 370,
+            "source_presence": "present",
+            "sha256": "b46a83c3afb0df41db190649ad31d733347e500d2265886c82afd7b331042b90"
+          },
+          "anchors": [
+            "function updateShapeSignature",
+            "fileInfos.get(sourceFile.path",
+            "cacheToUpdateSignature.set(sourceFile.path"
+          ],
+          "description": "Reads and updates signature/export caches using sourceFile.path."
+        },
+        {
+          "id": "A",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/builderState.ts",
+            "symbol": "affected-file traversal",
+            "line_start": 405,
+            "line_end": 560,
+            "source_presence": "present",
+            "sha256": "972b49520a2e21e228cedb52773dd1347a0aa8fb4d55e0ea9b5188ca5039e5a3"
+          },
+          "anchors": [
+            "const queue = [sourceFile.path]",
+            "seenFileNamesMap.set(sourceFileWithUpdatedShape.path"
+          ],
+          "description": "Seeds and deduplicates affected-file traversal with path rather than resolvedPath."
+        },
+        {
+          "id": "E",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/builder.ts",
+            "symbol": "builder affected/emit state",
+            "line_start": 315,
+            "line_end": 425,
+            "source_presence": "present",
+            "sha256": "62912a665a4e55ac40c8bf36d5ad6b1e6aaf3d03f53d72d150a52ece9c2a51a2"
+          },
+          "anchors": [
+            "seenAffectedFiles",
+            "affectedFile.path",
+            "seenEmittedFiles"
+          ],
+          "description": "Uses affectedFile.path for semantic-diagnostic and emit bookkeeping."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "I",
+          "to": "U",
+          "required": true,
+          "description": "The identity chosen while building state is reused for signature lookup and updates."
+        },
+        {
+          "id": "T2",
+          "from": "U",
+          "to": "A",
+          "required": true,
+          "description": "Signature changes drive dependency traversal keyed by the same non-canonical path."
+        },
+        {
+          "id": "T3",
+          "from": "A",
+          "to": "E",
+          "required": true,
+          "description": "Affected files enter diagnostic and emit bookkeeping under that inconsistent identity."
+        }
+      ],
+      "completeness_rule": "I, U, A, and E must show the same path identity crossing state creation, signature update, dependency propagation, and emission.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-46770",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 46770,
+      "title": "Cannot import some packages when tsconfig.json specifies \"module\": \"nodenext\"",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "7e57c81802b4"
+      },
+      "resolution_oracle": [
+        {
+          "number": 47893,
+          "title": "Allow extensionless `main`s for cjs mode packages even from an esm import",
+          "url": "https://github.com/microsoft/TypeScript/pull/47893",
+          "base_sha": "7e57c81802b41a9a0a9b720dd7a20bb503448d48",
+          "head_sha": "201ba553e5844579dca5a9ca907d3a4d814c4759"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/compiler/moduleNameResolver.ts"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "NodeNext package resolution keeps ESM-mode extension rules active while resolving the main field of a CommonJS package, so an extensionless main target is rejected.",
+      "evidence_units": [
+        {
+          "id": "R",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/moduleNameResolver.ts",
+            "symbol": "loadNodeModuleFromDirectoryWorker",
+            "line_start": 1784,
+            "line_end": 1826,
+            "source_presence": "present",
+            "sha256": "e4c45a57b5e3fb980e53371fa1a2f6a215b9b158e7f7995cf5113880e0273395"
+          },
+          "anchors": [
+            "function loadNodeModuleFromDirectoryWorker",
+            "readPackageJsonMainField",
+            "nodeLoadModuleByRelativeName(nextExtensions"
+          ],
+          "description": "Reads package fields and resolves the selected package path with the unchanged NodeNext feature state."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "R",
+          "to": "R",
+          "required": true,
+          "description": "The package main value is handed to relative-name resolution without disabling ESM-mode rules for a CommonJS package."
+        }
+      ],
+      "completeness_rule": "R must show package-main selection, the retained feature state, and the relative-name resolution call.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "microsoft-TypeScript-52695",
+      "repository": "microsoft/TypeScript",
+      "issue_number": 52695,
+      "title": "Reduce number of fs.stat call for files under node modules",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "2291afc18735"
+      },
+      "resolution_oracle": [
+        {
+          "number": 52809,
+          "title": "Skip resolving files directly inside node_modules",
+          "url": "https://github.com/microsoft/TypeScript/pull/52809",
+          "base_sha": "2291afc187359593f9926195f3b2d683ccd0e675",
+          "head_sha": "11faca6282e67f5ef91aaf02c2d1b2022967e1a4"
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/compiler/diagnosticMessages.json",
+        "src/compiler/moduleNameResolver.ts",
+        "src/testRunner/unittests/tsserver/configuredProjects.ts"
+      ],
+      "implementation_oracle_file_count": 3,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Node-module resolution performs file probes for URI-like specifiers and package-root candidates before directory/package handling, producing avoidable filesystem stat calls.",
+      "evidence_units": [
+        {
+          "id": "N",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/moduleNameResolver.ts",
+            "symbol": "nodeModuleNameResolverWorker",
+            "line_start": 1706,
+            "line_end": 1820,
+            "source_presence": "present",
+            "sha256": "06261b3fe835e93a3d9e92cdbc17f8e21f8b2ac8ab8efc31971fced549e77031"
+          },
+          "anchors": [
+            "function nodeModuleNameResolverWorker",
+            "Loading_module_0_from_node_modules_folder"
+          ],
+          "description": "Falls through unresolved non-relative names into node_modules lookup without rejecting URI-like names."
+        },
+        {
+          "id": "L",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/compiler/moduleNameResolver.ts",
+            "symbol": "loadModuleFromSpecificNodeModulesDirectory",
+            "line_start": 2868,
+            "line_end": 2910,
+            "source_presence": "present",
+            "sha256": "41551710690cbdc8e19ab96557fd0bd327e5c31e26d0cce8d098a9ca381aa12e"
+          },
+          "anchors": [
+            "function loadModuleFromSpecificNodeModulesDirectory",
+            "loadModuleFromFile(extensions, candidate"
+          ],
+          "description": "Probes the package-root candidate as a file before loading it as a directory/package."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "N",
+          "to": "L",
+          "required": true,
+          "description": "Unfiltered module names reach node_modules resolution, whose loader performs the unnecessary file probe."
+        }
+      ],
+      "completeness_rule": "N and L must jointly show the unfiltered entry and the unnecessary file probe.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-10150",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 10150,
+      "title": "BUG/API: inconsistent name handling in value_counts ",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "3908ad53e33c"
+      },
+      "resolution_oracle": [
+        {
+          "number": 10419,
+          "title": "BUG/API: make value_counts name handling consistent",
+          "url": "https://github.com/pandas-dev/pandas/pull/10419",
+          "base_sha": "3908ad53e33c74096eb5a682256dc13fb6e91e3a",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 2,
+      "implementation_oracle_files": [
+        "pandas/core/algorithms.py",
+        "pandas/core/base.py"
+      ],
+      "implementation_oracle_file_count": 2,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "The value_counts wrapper delegates to algorithms.value_counts, which converts away the input object's name and constructs the count Series unnamed; index reconstruction then incorrectly applies the original name to the result index.",
+      "evidence_units": [
+        {
+          "id": "A",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/algorithms.py",
+            "symbol": "algorithms.value_counts",
+            "line_start": 176,
+            "line_end": 255,
+            "source_presence": "present",
+            "sha256": "85916a468d82bf58ceacb59d7023d7f026677d8581ba1aada736c3b4f11c38ac"
+          },
+          "anchors": [
+            "def value_counts",
+            "values = Series(values).values",
+            "result = Series(counts"
+          ],
+          "description": "Converts the input to raw values and constructs the result Series without preserving its name."
+        },
+        {
+          "id": "B",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/base.py",
+            "symbol": "IndexOpsMixin.value_counts",
+            "line_start": 399,
+            "line_end": 445,
+            "source_presence": "present",
+            "sha256": "397c757d39cd34b8a91c89ae99a20c86f6029421b46d0875c96113413a2309ff"
+          },
+          "anchors": [
+            "def value_counts",
+            "from pandas.core.algorithms import value_counts",
+            "self._simple_new(result.index.values, self.name"
+          ],
+          "description": "Calls algorithms.value_counts and uses self.name when rebuilding Period/Datetime indexes."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "B",
+          "to": "A",
+          "required": true,
+          "description": "The public wrapper passes the named object into algorithms.value_counts, where conversion and result construction lose the name before the wrapper rebuilds the index."
+        }
+      ],
+      "completeness_rule": "A and B must expose both the delegation and the two inconsistent name assignments.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-16499",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 16499,
+      "title": "TST: ujson tests are not being run",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "e81f3cc30725"
+      },
+      "resolution_oracle": [
+        {
+          "number": 16500,
+          "title": "TST: ujson tests are not being run (#16499)",
+          "url": "https://github.com/pandas-dev/pandas/pull/16500",
+          "base_sha": "e81f3cc30725443a1d36ec27279f3fec4eed60ec",
+          "head_sha": "a74afa14fabb69be287e8237ef304fbdbb40f453"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "pandas/tests/io/json/test_ujson.py"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "test_discovery_surface",
+      "mechanism_applicable": false,
+      "mechanism_summary": "Pytest cannot collect the ujson test groups because their class names do not begin with Test.",
+      "evidence_units": [
+        {
+          "id": "U",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/tests/io/json/test_ujson.py",
+            "symbol": "UltraJSONTests",
+            "line_start": 25,
+            "line_end": 45,
+            "source_presence": "present",
+            "sha256": "7ed8f18d7ba44b6d3fe5db464bed8f092d326c598d02f30b9cde036ced78e6cf"
+          },
+          "anchors": [
+            "class UltraJSONTests"
+          ],
+          "description": "Defines the first uncollectable test class.",
+          "partial_range": {
+            "line_start": 30,
+            "line_end": 946
+          }
+        },
+        {
+          "id": "N",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/tests/io/json/test_ujson.py",
+            "symbol": "NumpyJSONTests",
+            "line_start": 940,
+            "line_end": 965,
+            "source_presence": "present",
+            "sha256": "719dd237c777b4ef788c3aa71d7467c9e117b63ef0710ea13e8f6740562befb9"
+          },
+          "anchors": [
+            "class NumpyJSONTests"
+          ],
+          "description": "Defines the NumPy ujson tests under an uncollectable class name.",
+          "partial_range": {
+            "line_start": 947,
+            "line_end": 1222
+          }
+        },
+        {
+          "id": "P",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/tests/io/json/test_ujson.py",
+            "symbol": "PandasJSONTests",
+            "line_start": 1218,
+            "line_end": 1240,
+            "source_presence": "present",
+            "sha256": "cbece5b01632c958b7a8fb265972ee9a8c5cac9f4b2b5f1958da0533b858d345"
+          },
+          "anchors": [
+            "class PandasJSONTests"
+          ],
+          "description": "Defines the pandas-object ujson tests under an uncollectable class name.",
+          "partial_range": {
+            "line_start": 1223,
+            "line_end": 1642
+          }
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "U, N, and P must all be present to cover the test-discovery defect; the case is excluded from runtime transition rates.",
+      "applicability_note": "The repository's pytest collector implementation is external to this snapshot, so there is no internal source handoff to score.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-22698",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 22698,
+      "title": "Handle FutureWarning from NumPy in Series Construction",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "cfd65e98e694"
+      },
+      "resolution_oracle": [
+        {
+          "number": 26966,
+          "title": "Surface NumPy FutureWarning about comparisons",
+          "url": "https://github.com/pandas-dev/pandas/pull/26966",
+          "base_sha": "cfd65e98e694b2ad40e97d06ffdd9096a3dea909",
+          "head_sha": "add926f261c6539b26913980969d73a3a707d8f4"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "pandas/core/indexes/base.py"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Index comparison deliberately records and suppresses NumPy's invalid-elementwise-comparison FutureWarning before returning the comparison result.",
+      "evidence_units": [
+        {
+          "id": "C",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/indexes/base.py",
+            "symbol": "Index comparison cmp_method",
+            "line_start": 60,
+            "line_end": 95,
+            "source_presence": "present",
+            "sha256": "f34da329640e889c9f605ec1e7c8c3ec25ac60c06227ff57473e67458ed42e64"
+          },
+          "anchors": [
+            "def cmp_method",
+            "warnings.catch_warnings(record=True)",
+            "warnings.filterwarnings(\"ignore\", \"elementwise\", FutureWarning)"
+          ],
+          "description": "Wraps the NumPy comparison in a warning-catching block that ignores FutureWarning."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "C",
+          "to": "C",
+          "required": true,
+          "description": "NumPy emits the warning inside a catch-and-ignore scope, preventing it from reaching the Series/Index constructor caller."
+        }
+      ],
+      "completeness_rule": "C must show both the comparison and the warning-suppression scope.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-22872",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 22872,
+      "title": "Replace bare excepts by explicit excepts in pandas/tests/",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "960a73f0c81d"
+      },
+      "resolution_oracle": [
+        {
+          "number": 23370,
+          "title": "STYLE: Specify bare exceptions in pandas/tests",
+          "url": "https://github.com/pandas-dev/pandas/pull/23370",
+          "base_sha": "960a73f0c81d877fc40c77f66c834fe6af51760f",
+          "head_sha": "6a86779a12c68d15035d3e71192a79d6235f4283"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 2,
+      "implementation_oracle_files": [
+        ".pep8speaks.yml",
+        "setup.cfg"
+      ],
+      "implementation_oracle_file_count": 2,
+      "oracle_kind": "static_cleanup",
+      "mechanism_applicable": false,
+      "mechanism_summary": "Both repository lint configurations explicitly ignore E722, permitting bare except clauses in the test suite.",
+      "evidence_units": [
+        {
+          "id": "S",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "setup.cfg",
+            "symbol": "pycodestyle ignore list",
+            "line_start": 10,
+            "line_end": 25,
+            "source_presence": "present",
+            "sha256": "9247cebb6a7c95cb2783096b2a66adb98d0c46ab375655c2ef1e996320391d19"
+          },
+          "anchors": [
+            "E722,  # do not use bare except"
+          ],
+          "description": "Disables E722 for the repository lint configuration."
+        },
+        {
+          "id": "P",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": ".pep8speaks.yml",
+            "symbol": "pep8speaks ignore list",
+            "line_start": 8,
+            "line_end": 20,
+            "source_presence": "present",
+            "sha256": "cf46a259e678e1ca071a14fdf5558649f33b4fcdadc7968acc9e085582866f2f"
+          },
+          "anchors": [
+            "E722,  # do not use bare except"
+          ],
+          "description": "Disables E722 for the review-bot lint configuration."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "S and P define the policy surface; the individual one-off test cleanups are not treated as a runtime mechanism.",
+      "applicability_note": "This is a static style cleanup, not an executable repository mechanism.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-25183",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 25183,
+      "title": "DataFrame.merge with empty frame and Int64 column gives object dtype",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "f74aba614554"
+      },
+      "resolution_oracle": [
+        {
+          "number": 25289,
+          "title": "BUG: fixed merging with empty frame containing an Int64 column (#25183)",
+          "url": "https://github.com/pandas-dev/pandas/pull/25289",
+          "base_sha": "f74aba614554d1de4d7986fef6296a4eda951ac9",
+          "head_sha": "5d3e6912a15a83a39d5e854fa2a67da14e7ea8af"
+        },
+        {
+          "number": 25289,
+          "title": "BUG: fixed merging with empty frame containing an Int64 column (#25183)",
+          "url": "https://github.com/pandas-dev/pandas/pull/25289",
+          "base_sha": "f74aba614554d1de4d7986fef6296a4eda951ac9",
+          "head_sha": "5d3e6912a15a83a39d5e854fa2a67da14e7ea8af"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "pandas/core/internals/concat.py"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Concat reindexing treats an all-missing extension block like a NumPy block and replaces it with an array of the common empty dtype, losing the nullable Int64 extension dtype during merge.",
+      "evidence_units": [
+        {
+          "id": "J",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/internals/concat.py",
+            "symbol": "JoinUnit.get_reindexed_values",
+            "line_start": 165,
+            "line_end": 215,
+            "source_presence": "present",
+            "sha256": "3a49dfa1ae25ea57638689c3104d19715d7d322af62672bc1fa13531d3e66d39"
+          },
+          "anchors": [
+            "def get_reindexed_values",
+            "missing_arr = np.empty",
+            "missing_arr.fill(fill_value)"
+          ],
+          "description": "Shows the missing-value branch and its NumPy replacement array, without an extension-block exemption."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "J",
+          "to": "J",
+          "required": true,
+          "description": "An empty extension-backed join unit enters the generic missing-array construction and emerges with the common NumPy dtype."
+        }
+      ],
+      "completeness_rule": "J must expose the extension-block input condition and the generic replacement-array branch.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-32289",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 32289,
+      "title": "CI Failing - Linux py37_np_dev - test_constructor_list_frames",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "f6fb2576be6f"
+      },
+      "resolution_oracle": [
+        {
+          "number": 34991,
+          "title": "DOC/TST: DataFrame constructor with a list of DataFrames",
+          "url": "https://github.com/pandas-dev/pandas/pull/34991",
+          "base_sha": "f6fb2576be6fdafb36da3bc1cb94b1f8df23893e",
+          "head_sha": "769d564d0df3ad01085995b94e78cf78305d5f21"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "pandas/core/internals/construction.py"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "diagnostic_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "DataFrame construction converts each nested value with np.asarray, then rejects non-two-dimensional results with a generic error that omits the observed shape.",
+      "evidence_units": [
+        {
+          "id": "C",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "pandas/core/internals/construction.py",
+            "symbol": "to_arrays.convert",
+            "line_start": 290,
+            "line_end": 328,
+            "source_presence": "present",
+            "sha256": "6a5c532f5281ff65ef2d948fff86aea7708fa12760ac191420724671ba4ee1eb"
+          },
+          "anchors": [
+            "def convert(v)",
+            "return maybe_convert_platform(v)",
+            "raise ValueError(\"Must pass 2-d input\")"
+          ],
+          "description": "Converts list elements and raises the generic dimensionality error."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "C",
+          "to": "C",
+          "required": true,
+          "description": "The converted array's ndim triggers an error response that discards the shape information needed to diagnose the constructor failure."
+        }
+      ],
+      "completeness_rule": "C must show conversion, the dimensionality check, and the generic error.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-35925",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 35925,
+      "title": "CLN remove unnecessary trailing commas to get ready for new version of black",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "a0d6d061de42"
+      },
+      "resolution_oracle": [
+        {
+          "number": 36493,
+          "title": "CI: Update version of 'black'",
+          "url": "https://github.com/pandas-dev/pandas/pull/36493",
+          "base_sha": "a0d6d061de42c54b8071d28a4bf60cd69853c388",
+          "head_sha": "5fd78c06d2685633c84dabd73c3660e8f382f6f7"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        ".pre-commit-config.yaml",
+        "environment.yml",
+        "pandas/_vendored/typing_extensions.py",
+        "pandas/core/aggregation.py",
+        "pandas/core/algorithms.py",
+        "pandas/core/array_algos/replace.py",
+        "pandas/core/frame.py",
+        "pandas/core/series.py",
+        "pandas/core/sorting.py",
+        "pandas/core/util/numba_.py",
+        "pandas/io/formats/format.py",
+        "pandas/io/formats/latex.py",
+        "versioneer.py"
+      ],
+      "implementation_oracle_file_count": 13,
+      "oracle_kind": "formatting_migration",
+      "mechanism_applicable": false,
+      "mechanism_summary": "The repository pins Black 19.10b0; updating the formatter changes accepted trailing-comma formatting across many otherwise unrelated files.",
+      "evidence_units": [
+        {
+          "id": "B",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": ".pre-commit-config.yaml",
+            "symbol": "Black pre-commit hook",
+            "line_start": 1,
+            "line_end": 7,
+            "source_presence": "present",
+            "sha256": "89636d80a72bb1806393db2cedf535540c4a8cec25cbc18a662aa6d16f89ab54"
+          },
+          "anchors": [
+            "repo: https://github.com/python/black",
+            "rev: 19.10b0"
+          ],
+          "description": "Pins the formatter version that motivates the mechanical source rewrite."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "B identifies the maintenance cause; mechanical formatting edits are not scored as a source mechanism.",
+      "applicability_note": "This case is a formatter migration with no coherent runtime transition.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "pandas-dev-pandas-36617",
+      "repository": "pandas-dev/pandas",
+      "issue_number": 36617,
+      "title": "DOC: Replace single with double backticks in RST files",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "e088ea31a897"
+      },
+      "resolution_oracle": [
+        {
+          "number": 36632,
+          "title": "Replace single with double backticks in RST file #36617",
+          "url": "https://github.com/pandas-dev/pandas/pull/36632",
+          "base_sha": "e088ea31a897929848caa4b5ce3db9d308c604db",
+          "head_sha": "a53b240d949100adfa892c960db89f8baea15f88"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        ".pre-commit-config.yaml"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "documentation_cleanup",
+      "mechanism_applicable": false,
+      "mechanism_summary": "The rst-backticks hook excludes a named set of documentation files, leaving their single-backtick markup outside automated enforcement.",
+      "evidence_units": [
+        {
+          "id": "R",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": ".pre-commit-config.yaml",
+            "symbol": "rst-backticks hook",
+            "line_start": 33,
+            "line_end": 53,
+            "source_presence": "present",
+            "sha256": "82b157715a7402874969b699366b5273077ce8009c4927bda2feeca9f00d7396"
+          },
+          "anchors": [
+            "id: rst-backticks",
+            "exclude: (?x)("
+          ],
+          "description": "Shows the documentation hook and its explicit exclusion list."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "R defines the maintenance scope; the case is excluded from mechanism-transition rates.",
+      "applicability_note": "The resolution is a documentation-wide markup cleanup plus removal of exclusions.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-10004",
+      "repository": "vuejs/vue",
+      "issue_number": 10004,
+      "title": "Memory leak with component with input with v-model",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "509de2af793a"
+      },
+      "resolution_oracle": [
+        {
+          "number": 10085,
+          "title": "fix: remove stale model listeners for deactivated components",
+          "url": "https://github.com/vuejs/vue/pull/10085",
+          "base_sha": "509de2af793a770c7c29897980b27dfe5278d274",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/platforms/web/runtime/modules/events.js"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "lifecycle_cleanup_chain",
+      "mechanism_applicable": true,
+      "mechanism_summary": "DOM listeners are reconciled on create/update only; destroying a deactivated component has no hook that reuses the old element to remove stale v-model listeners.",
+      "evidence_units": [
+        {
+          "id": "E",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/platforms/web/runtime/modules/events.js",
+            "symbol": "updateDOMListeners/module hooks",
+            "line_start": 100,
+            "line_end": 120,
+            "source_presence": "present",
+            "sha256": "86c7581e5acc11e1b2e661fff822d64628dcf9f39f6a33e9dd4f83fa6f7aad84"
+          },
+          "anchors": [
+            "function updateDOMListeners",
+            "target = vnode.elm",
+            "create: updateDOMListeners",
+            "update: updateDOMListeners"
+          ],
+          "description": "Targets vnode.elm and exports only create/update hooks, leaving no destroy cleanup path."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "E",
+          "to": "E",
+          "required": true,
+          "description": "Listener reconciliation has no destroy lifecycle entry and cannot target oldVnode.elm when vnode.elm is absent."
+        }
+      ],
+      "completeness_rule": "E must show target selection and the missing destroy hook together.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-11718",
+      "repository": "vuejs/vue",
+      "issue_number": 11718,
+      "title": "vuejs/vue-ssr-webpack-plugin and webpack 5",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "38f71de380d5"
+      },
+      "resolution_oracle": [
+        {
+          "number": 12002,
+          "title": "fix: support webpack 5 in vue-server-renderer plugins",
+          "url": "https://github.com/vuejs/vue/pull/12002",
+          "base_sha": "38f71de380d566e4eef60968a8eca6bd6f482dd5",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 3,
+      "implementation_oracle_files": [
+        "src/server/webpack-plugin/client.js",
+        "src/server/webpack-plugin/server.js",
+        "src/server/webpack-plugin/util.js"
+      ],
+      "implementation_oracle_file_count": 3,
+      "oracle_kind": "compatibility_adapter_chain",
+      "mechanism_applicable": true,
+      "mechanism_summary": "The SSR webpack plugins assume webpack 4's emit hook, string entry assets, space-suffixed module hashes, and the legacy libraryTarget shape.",
+      "evidence_units": [
+        {
+          "id": "U",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/server/webpack-plugin/util.js",
+            "symbol": "validate/onEmit",
+            "line_start": 1,
+            "line_end": 34,
+            "source_presence": "present",
+            "sha256": "70d369f73746125662d8df98a9c9b3d1904f2d66d76aab64fb231145c34476cb"
+          },
+          "anchors": [
+            "export const validate",
+            "output.libraryTarget",
+            "export const onEmit",
+            "compiler.hooks.emit.tapAsync"
+          ],
+          "description": "Validates legacy output.libraryTarget and selects only legacy or webpack-4 emit hooks."
+        },
+        {
+          "id": "C",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/server/webpack-plugin/client.js",
+            "symbol": "VueSSRClientPlugin.apply",
+            "line_start": 1,
+            "line_end": 55,
+            "source_presence": "present",
+            "sha256": "2c4a7cc40da4807ff8bce7fd8dd08823a17d0e8dc3500fd5576a579faa614280"
+          },
+          "anchors": [
+            "onEmit(compiler, 'vue-client-plugin'",
+            "m.identifier.replace(/\\s\\w+$/"
+          ],
+          "description": "Passes webpack stats assets/module identifiers through string-only assumptions."
+        },
+        {
+          "id": "S",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/server/webpack-plugin/server.js",
+            "symbol": "VueSSRServerPlugin.apply",
+            "line_start": 1,
+            "line_end": 60,
+            "source_presence": "present",
+            "sha256": "bfd63a4b82e83dd68ba894864e01d3a5dfc09f1d9e8cce746f8e6886fc989a9b"
+          },
+          "anchors": [
+            "onEmit(compiler, 'vue-server-plugin'",
+            "entryInfo.assets.filter(isJS)",
+            "stats.assets.forEach"
+          ],
+          "description": "Filters entry assets and consumes stats.assets under webpack-4 shapes."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "C",
+          "to": "U",
+          "required": true,
+          "description": "The client plugin delegates emission through the legacy hook adapter."
+        },
+        {
+          "id": "T2",
+          "from": "S",
+          "to": "U",
+          "required": true,
+          "description": "The server plugin delegates through the same adapter and legacy output validation."
+        },
+        {
+          "id": "T3",
+          "from": "U",
+          "to": "C",
+          "required": true,
+          "description": "Webpack output then reaches client manifest construction under string/hash assumptions."
+        },
+        {
+          "id": "T4",
+          "from": "U",
+          "to": "S",
+          "required": true,
+          "description": "Webpack output reaches server bundle construction under legacy asset shapes."
+        }
+      ],
+      "completeness_rule": "U, C, and S must expose the shared hook/validation boundary and both consumers' incompatible data-shape assumptions.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-11782",
+      "repository": "vuejs/vue",
+      "issue_number": 11782,
+      "title": "npm test fails on Windows",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "b800e8e9ee4f"
+      },
+      "resolution_oracle": [
+        {
+          "number": 11784,
+          "title": "fix: make npm test work on Windows",
+          "url": "https://github.com/vuejs/vue/pull/11784",
+          "base_sha": "b800e8e9ee4fa4be9b3d6130b5ee82d668066870",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "package.json"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "dependency_configuration",
+      "mechanism_applicable": false,
+      "mechanism_summary": "The test toolchain pins an http-server version whose command behavior is incompatible with the Windows test workflow.",
+      "evidence_units": [
+        {
+          "id": "H",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "package.json",
+            "symbol": "http-server development dependency",
+            "line_start": 96,
+            "line_end": 108,
+            "source_presence": "present",
+            "sha256": "6cab50838d0bdba0a6f1c77c9499825821549f65ac10c12321d8f7594559960a"
+          },
+          "anchors": [
+            "\"http-server\": \"^0.11.1\""
+          ],
+          "description": "Pins the incompatible test-server version."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "H defines the dependency configuration; external package behavior is not a repository source transition.",
+      "applicability_note": "The fix is a dependency upgrade, while the failing behavior resides in the external package.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-13052",
+      "repository": "vuejs/vue",
+      "issue_number": 13052,
+      "title": "compiler-sfc not compatible with prettier v3",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "0ad8e8d94f3a"
+      },
+      "resolution_oracle": [
+        {
+          "number": 13053,
+          "title": "fix(compiler-sfc): support Prettier 3",
+          "url": "https://github.com/vuejs/vue/pull/13053",
+          "base_sha": "0ad8e8d94f3a3bf4429f25850c85a6bbb2b81364",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "packages/compiler-sfc/package.json"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "dependency_configuration",
+      "mechanism_applicable": false,
+      "mechanism_summary": "The compiler-sfc package has no explicit optional Prettier dependency range, leaving compatibility to an undeclared host installation.",
+      "evidence_units": [
+        {
+          "id": "P",
+          "required": true,
+          "evidence_type": "scoped_absence",
+          "source": {
+            "path": "packages/compiler-sfc/package.json",
+            "symbol": "compiler-sfc dependency metadata",
+            "line_start": 1,
+            "line_end": 34,
+            "source_presence": "present",
+            "sha256": "7a8b86126ef2d9c8a1de2a2cbf371b04b656938955a7564f052129dc29febc72"
+          },
+          "anchors": [
+            "\"name\": \"@vue/compiler-sfc\""
+          ],
+          "description": "Shows the package dependency scope in which a compatible Prettier range is absent."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "P must establish the missing package dependency declaration; the case is excluded from source-transition rates.",
+      "applicability_note": "The resolution changes package metadata rather than a source execution path.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-5884",
+      "repository": "vuejs/vue",
+      "issue_number": 5884,
+      "title": "Vue.set Api strange behavior if path is a numerical string",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "080c387d49cd"
+      },
+      "resolution_oracle": [
+        {
+          "number": 5889,
+          "title": "Be able to use string type index in array, fix #5884",
+          "url": "https://github.com/vuejs/vue/pull/5889",
+          "base_sha": "080c387d49cd5cc43726d73ab886650dedd244db",
+          "head_sha": "0231b68e250a6e080bb32cc04ca6711e907d8dcc"
+        },
+        {
+          "number": 5889,
+          "title": "Be able to use string type index in array, fix #5884",
+          "url": "https://github.com/vuejs/vue/pull/5889",
+          "base_sha": "080c387d49cd5cc43726d73ab886650dedd244db",
+          "head_sha": "0231b68e250a6e080bb32cc04ca6711e907d8dcc"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/core/observer/index.js"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Vue.set recognizes only numeric-typed array keys, so a numeric string bypasses splice-based reactive array assignment and follows object-property handling.",
+      "evidence_units": [
+        {
+          "id": "S",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/core/observer/index.js",
+            "symbol": "set",
+            "line_start": 185,
+            "line_end": 225,
+            "source_presence": "present",
+            "sha256": "c0bc1bfb558cf0d4e2b8b35678b679ccec63da0c4de496b246d19dc52cf5d7a8"
+          },
+          "anchors": [
+            "export function set",
+            "Array.isArray(target) && typeof key === 'number'",
+            "target.splice(key, 1, val)"
+          ],
+          "description": "Branches to array splice only when key has JavaScript number type."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "S",
+          "to": "S",
+          "required": true,
+          "description": "A numeric-string key fails the array-index guard and therefore misses the splice/reactivity path."
+        }
+      ],
+      "completeness_rule": "S must show the key guard, splice path, and fall-through context.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-6097",
+      "repository": "vuejs/vue",
+      "issue_number": 6097,
+      "title": "Allow defining optional inject dependency with default values",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "b3cd9bc3940e"
+      },
+      "resolution_oracle": [
+        {
+          "number": 6322,
+          "title": "feat: allow default values for injected dependencies",
+          "url": "https://github.com/vuejs/vue/pull/6322",
+          "base_sha": "b3cd9bc3940eb1e01da7081450929557d9c1651e",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 2,
+      "implementation_oracle_files": [
+        "src/core/instance/inject.js",
+        "src/core/util/options.js"
+      ],
+      "implementation_oracle_file_count": 2,
+      "oracle_kind": "configuration_runtime_chain",
+      "mechanism_applicable": true,
+      "mechanism_summary": "Inject options normalize only array syntax into plain provider-name strings, and runtime resolution treats every normalized entry as a required provider key with no default path.",
+      "evidence_units": [
+        {
+          "id": "N",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/core/util/options.js",
+            "symbol": "normalizeInject",
+            "line_start": 265,
+            "line_end": 282,
+            "source_presence": "present",
+            "sha256": "fa0743d2fa00328e821b53297d1f5e4cb01b8c01af617254f6db136b31b5d580"
+          },
+          "anchors": [
+            "function normalizeInject",
+            "normalized[inject[i]] = inject[i]"
+          ],
+          "description": "Normalizes array entries to strings and has no object/default representation."
+        },
+        {
+          "id": "R",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/core/instance/inject.js",
+            "symbol": "resolveInject",
+            "line_start": 39,
+            "line_end": 67,
+            "source_presence": "present",
+            "sha256": "fe52616858160a32e153175ea6ad29858f4cfc35acf2f22c5f71ce16214b3d9f"
+          },
+          "anchors": [
+            "function resolveInject",
+            "const provideKey = inject[key]",
+            "Injection \"${key}\" not found"
+          ],
+          "description": "Uses the normalized value directly as provideKey and warns when no provider is found."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "N",
+          "to": "R",
+          "required": true,
+          "description": "Normalized inject entries are consumed as bare provider keys, leaving no place for a default value to survive into resolution."
+        }
+      ],
+      "completeness_rule": "N and R must expose the option normalization and runtime missing-provider path.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-8528",
+      "repository": "vuejs/vue",
+      "issue_number": 8528,
+      "title": "Better comments in `shared/util.js` code",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "5e912976c45c"
+      },
+      "resolution_oracle": [
+        {
+          "number": 8529,
+          "title": "docs: improve comments in shared utilities",
+          "url": "https://github.com/vuejs/vue/pull/8529",
+          "base_sha": "5e912976c45ca19d8524657bffe6883723027ed2",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/shared/util.js"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "comment_only_maintenance",
+      "mechanism_applicable": false,
+      "mechanism_summary": "The requested change rewrites explanatory comments for shared utility functions without changing their implementations.",
+      "evidence_units": [
+        {
+          "id": "U",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/shared/util.js",
+            "symbol": "shared utility comments",
+            "line_start": 1,
+            "line_end": 308,
+            "source_presence": "present",
+            "sha256": "eb6e97120c71101bd4bfcef9ae42da168411aa019b866895ad5cb919356af05e"
+          },
+          "anchors": [
+            "export function isUndef",
+            "export function looseEqual"
+          ],
+          "description": "Contains the utility implementations and the comment surface revised by the resolution."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [],
+      "completeness_rule": "U identifies the documentation surface; this case has no executable transition to score.",
+      "applicability_note": "The pull request changes comments only.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-9042",
+      "repository": "vuejs/vue",
+      "issue_number": 9042,
+      "title": "First character or paste is not accepted for watch when assigning placeholder to \"\" in <textarea> tag with IE11",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "dbc0582587f9"
+      },
+      "resolution_oracle": [
+        {
+          "number": 9297,
+          "title": "fix #9042, #7138: handle empty placeholder case in IE",
+          "url": "https://github.com/vuejs/vue/pull/9297",
+          "base_sha": "dbc0582587f90e78867809bb6ae683301cd0626b",
+          "head_sha": "9e58a635bc5bd711f1ef321d7a42f6a563b67744"
+        }
+      ],
+      "connected_required_evidence": false,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/platforms/web/runtime/modules/attrs.js"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "causal_code_path",
+      "mechanism_applicable": true,
+      "mechanism_summary": "On IE, assigning any placeholder to an input or textarea installs a one-shot input-event blocker; an empty textarea placeholder therefore consumes the first real user input event.",
+      "evidence_units": [
+        {
+          "id": "A",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/platforms/web/runtime/modules/attrs.js",
+            "symbol": "baseSetAttr",
+            "line_start": 88,
+            "line_end": 115,
+            "source_presence": "present",
+            "sha256": "80d3a434ebd14b6ceb0eb4845fe4c49d016d0e21d9a08499a6dcd9974fb37070"
+          },
+          "anchors": [
+            "function baseSetAttr",
+            "el.tagName === 'TEXTAREA' || el.tagName === 'INPUT'",
+            "e.stopImmediatePropagation()"
+          ],
+          "description": "Sets the placeholder attribute and installs the IE input blocker for both input and textarea without excluding the empty value."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "A",
+          "to": "A",
+          "required": true,
+          "description": "The empty placeholder assignment creates a blocker whose next input event is stopped before v-model can retain the user's change."
+        }
+      ],
+      "completeness_rule": "A must show the empty-placeholder-eligible guard and the stopped input event.",
+      "oracle_revision": 1
+    },
+    {
+      "case_id": "vuejs-vue-9842",
+      "repository": "vuejs/vue",
+      "issue_number": 9842,
+      "title": "Memory leak when using \"transition\" and \"keep-alive\"",
+      "review_status": "validated_for_scoring",
+      "pre_resolution": {
+        "snapshot": "2b93e86aa143"
+      },
+      "resolution_oracle": [
+        {
+          "number": 12015,
+          "title": "fix: prune keep-alive cache entries correctly",
+          "url": "https://github.com/vuejs/vue/pull/12015",
+          "base_sha": "2b93e86aa1437168476cbb5100cfb3bbbac55efa",
+          "head_sha": ""
+        }
+      ],
+      "connected_required_evidence": true,
+      "required_file_count": 1,
+      "implementation_oracle_files": [
+        "src/core/components/keep-alive.js"
+      ],
+      "implementation_oracle_file_count": 1,
+      "oracle_kind": "lifecycle_state_chain",
+      "mechanism_applicable": true,
+      "mechanism_summary": "KeepAlive stores the rendered VNode in its cache immediately, while transition patching can still replace its component instance; later pruning destroys the stale cached instance and leaves the live instance retained.",
+      "evidence_units": [
+        {
+          "id": "P",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/core/components/keep-alive.js",
+            "symbol": "pruneCache/pruneCacheEntry",
+            "line_start": 20,
+            "line_end": 55,
+            "source_presence": "present",
+            "sha256": "a02a3fe9187f3f8954ab15010e6f6581f7b9f4a399e69c388dcbf6f148b488a7"
+          },
+          "anchors": [
+            "function pruneCache",
+            "function pruneCacheEntry",
+            "cached.componentInstance.$destroy()"
+          ],
+          "description": "Reads cached VNodes and destroys the cached component instance when pruning."
+        },
+        {
+          "id": "L",
+          "required": true,
+          "evidence_type": "scoped_absence",
+          "source": {
+            "path": "src/core/components/keep-alive.js",
+            "symbol": "KeepAlive lifecycle",
+            "line_start": 60,
+            "line_end": 82,
+            "source_presence": "present",
+            "sha256": "717958cde7c61e9453f711ba271f75aa6075cc13bc7560a053733772dbc67d88"
+          },
+          "anchors": [
+            "created ()",
+            "mounted ()"
+          ],
+          "description": "Initializes and prunes the cache but has no mounted/updated cache-commit step."
+        },
+        {
+          "id": "R",
+          "required": true,
+          "evidence_type": "source_range",
+          "source": {
+            "path": "src/core/components/keep-alive.js",
+            "symbol": "KeepAlive.render",
+            "line_start": 83,
+            "line_end": 124,
+            "source_presence": "present",
+            "sha256": "860cbc7932870658ee829d16457b657f728bd88d0787849dbc09097a9e8967e6"
+          },
+          "anchors": [
+            "render ()",
+            "cache[key] = vnode",
+            "vnode.data.keepAlive = true"
+          ],
+          "description": "Writes the current VNode directly into the cache during render."
+        }
+      ],
+      "supporting_units": [],
+      "transitions": [
+        {
+          "id": "T1",
+          "from": "R",
+          "to": "L",
+          "required": true,
+          "description": "Render commits the pre-patch VNode immediately instead of deferring cache commitment until mounted/updated."
+        },
+        {
+          "id": "T2",
+          "from": "L",
+          "to": "P",
+          "required": true,
+          "description": "Later include/exclude or capacity pruning reads that stale cache entry and destroys its component instance."
+        }
+      ],
+      "completeness_rule": "R, L, and P must jointly expose immediate cache storage, the missing post-update commit boundary, and stale-entry destruction.",
+      "oracle_revision": 1
+    }
+  ]
+}

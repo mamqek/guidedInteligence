@@ -1,81 +1,52 @@
 ## 1. **Introduction** — ~1,200–1,500 words
 
 
-- **Opening motivation and problem context** — establish why repository-level assistance requires inspectable project evidence rather than generic model knowledge or isolated code matches.
-
-    - Begin with unfamiliar-codebase questions whose answers depend on several files, functions, and responsibilities.
-    - Explain that locating a plausible file is useful but may leave the responsible function, caller, state transition, or downstream effect unsupported.
-    - Introduce learning-oriented assistance as the motivating application: explanations and follow-up questions require source that can be inspected and traced back to the repository.
-    - Do not define retrieval techniques here. Chapter 2 introduces evidence units and retrieval terminology; Chapter 3 reviews the relevant research.
-
-- **Problem statement and research gap** — narrow the thesis problem from general repository understanding to the controlled construction and preservation of repository evidence.
-
-    - Distinguish file localization from source-level evidence, structural-owner identification from causal explanation, and initial discovery from survival into the final bounded context.
-    - Explain that flexible agentic navigation and application-controlled retrieval allocate search, validation, stopping, and evidence-selection decisions differently.
-    - State the gap at the level supported by the drafted Chapter 3: prior work addresses localization, repository question answering, structural navigation, agentic exploration, and grounding, but gives limited visibility into what happens to source between initial retrieval and final selection.
-    - Avoid claiming that no previous system combines these ideas unless the related-work evidence supports that stronger statement.
-
-- **Research objective and questions** — present one overarching objective followed by three questions with distinct evidential roles.
-
-    - **Overarching objective:** Construct and examine a controlled repository-retrieval pipeline that makes its source evidence and selection decisions inspectable for unfamiliar-codebase questions.
-        - This frames the complete thesis rather than adding a fourth research question or implying measured developer learning.
-        - Chapters 5 and 6 establish the implemented answer; Chapters 7 and 8 evaluate and interpret its behaviour.
-        - “Support” means constructing inspectable repository evidence for downstream explanation. It does not mean that the thesis measures developer learning outcomes.
-    - **RQ1:** How can retrieved source be turned into an evidence set whose support and selection history can be inspected?
-        - This is the artifact and process question.
-        - Answer it through the implemented evidence lifecycle, stage contracts, provenance records, bounded context construction, and formative design evidence in Chapters 5 and 6.
-        - Do not present RQ1 as a causal component comparison or claim that every pipeline stage is independently validated by an ablation.
-    - **RQ2:** What effects do structural resolution using CodeGraph and bounded adaptive exploration have on file retrieval quality, exact required-evidence survival, stability, and cost?
-        - This is the native component question and is answered by the four-condition factorial Workspace comparison in Chapter 7.
-        - The aggregate outcomes are file-level ranking and recovery, required-unit survival and joint completeness, repeated-run stability, runtime, and model-token use.
-        - Workspace traces identify the first recorded boundary where incomplete units become unavailable; selected cases explain recurring or diagnostically distinct patterns without substituting for the corpus-wide audit.
-    - **RQ3:** How does the complete native evidence pipeline compare with Codex retrieval in file-level localization, required-evidence completeness, stability, and retrieval cost?
-        - This is a complete-system comparison rather than an ablation or a universal ranking of controlled and agentic architectures.
-        - Differences may arise from several coupled decisions, including search, navigation, stopping, context construction, and final evidence selection.
-        - The final selected source is scored against the same required-evidence reference, but Codex does not expose an equivalent internal lifecycle trace and therefore supports no comparable boundary analysis.
-
-- **Research approach** — summarize the design without reproducing Chapter 4.
-
-    - Construct Guided Intelligence as the research artifact.
-    - Use formative experiments to diagnose retrieval failures and justify retained or rejected design decisions.
-    - Freeze the evaluated configurations and compare four Workspace conditions and one Codex condition across 35 CodeRepoQA-derived retrieval testcases, with four valid repetitions per case-condition pair.
-    - Use the factorial Workspace conditions to study CodeGraph and adaptive navigation, then compare Full Workspace with Codex as complete retrieval systems.
-    - State that the primary quantitative evaluation concerns retrieved evidence rather than generated-answer similarity. Leave corpus construction, validity rules, metrics, model configuration, and statistical aggregation to Chapter 4.
-
-- **Contributions** — state concrete outputs rather than broad aspirations.
-
-    - A complete Guided Intelligence architecture that separates retrieval orchestration, bounded model decisions, evidence validation, response generation, and learning-oriented interaction.
-    - A controlled repository-evidence pipeline with explicit evidence identities, provenance, qualification, budgets, stopping decisions, and final selection.
-    - An evaluation procedure that combines file-level measures with a corpus-wide exact-source audit, standardised Workspace loss boundaries, and selected diagnostic traces, while separating infrastructure failures from valid retrieval failures.
-    - Empirical findings about the effects and costs of structural resolution and bounded adaptive exploration within Workspace.
-    - A complete-system comparison showing the trade-offs between native Workspace retrieval and Codex retrieval.
-    - Keep detailed numerical findings in Chapter 7 and their interpretation in Chapter 8; the introduction may preview only the principal direction of the results.
-
-- **Scope and claim boundaries** — declare exclusions before the chapter roadmap.
-
-    - The thesis studies repository understanding, not code generation, patch production, or repair correctness.
-    - Its principal empirical subject is retrieval and evidence construction, not final-answer similarity.
-    - File-level Oracles support localization claims. A separate required-evidence reference establishes whether defined pre-resolution snippets survive together, but not whether a response model understands their relationships.
-    - Learning-oriented interaction motivates the system design, but the study does not measure learning outcomes or compare teaching strategies with users.
-    - The Codex comparison concerns the evaluated configurations and corpus, not all agentic and pipeline-based retrieval systems.
-
-- **Thesis roadmap** — close with one compact paragraph that gives each later chapter a distinct role.
-
-    - Chapter 2 defines repository-comprehension, retrieval, evidence, graph, provenance, and evaluation concepts.
-    - Chapter 3 positions the work relative to localisation, repository retrieval, structural navigation, agentic exploration, grounding, and learning-oriented assistance.
-    - Chapter 4 defines the research design, corpus, conditions, measures, validity rules, and analysis procedure.
-    - Chapter 5 describes the final Guided Intelligence architecture and evidence lifecycle.
-    - Chapter 6 explains the formative experiments and design decisions that produce that architecture.
-    - Chapter 7 reports the frozen evaluation without answering the questions beyond the measured results.
-    - Chapter 8 interprets the results through RQ1–RQ3 and discusses implications, limitations, and future work.
-    - Chapter 9 consolidates the answers to the research questions, contributions, boundaries, and closing claim.
-
-- **Introduction writing constraints**
-
-    - Maintain a single progression: practical motivation → precise problem → research gap → objective and questions → approach → contributions → scope → roadmap.
-    - Do not duplicate Chapter 2 definitions, Chapter 3 study-by-study discussion, Chapter 4 procedural details, Chapter 5 implementation internals, or Chapter 7 result tables.
-    - Define only the minimum project-specific language needed to understand the questions; use later chapter cross-references for detail.
-    - Ensure every contribution maps to at least one research question and one later chapter that supplies its evidence.
+- **Problem statement and research gap** — the difficulty of progressing from plausible repository matches to a complete and auditable account of an implementation mechanism.
+    
+    - File localization versus source-level evidence
+    - Structural-owner localization versus causal understanding
+    - Evidence discovery versus evidence survival
+    - Controlled retrieval versus flexible agentic navigation
+    - Limited stage-aware evaluation of complete evidence-construction pipelines
+      
+- **Context and motivation** — unfamiliar-codebase understanding, repository-level AI assistance, and the importance of relevant, connected, and source-grounded project evidence.
+    
+    - Repository questions spanning multiple files, symbols, and responsibilities
+    - Limitations of explanations based on generic model knowledge
+    - Need for inspectable project-specific evidence
+    - Learning-oriented assistance as the motivating application
+    
+- **Research questions** — investigation of controlled evidence construction, retrieval-component contributions, and native-versus-agentic behavior.
+    
+    - **Main RQ:** How can a controlled and auditable repository-evidence pipeline combine hybrid retrieval, structural localization, semantic qualification, and bounded iterative navigation to support unfamiliar-codebase understanding?
+    - **RQ1:** How can repository candidates be progressively converted into grounded and auditable evidence?
+    - **RQ2:** What do CodeGraph-based structural resolution and bounded adaptive-controller navigation contribute to localization quality, evidence survival, mechanism completeness, stability, and cost?
+    - **RQ3:** How does the native evidence pipeline compare with agentic retrieval in localization quality, mechanism completeness, stability, and cost?
+- **Research approach** — artifact-oriented development combined with formative experiments and frozen empirical evaluation.
+    
+    - Guided Intelligence system construction
+    - Incremental retrieval experiments
+    - Stage-aware pipeline analysis
+    - CodeRepoQA evaluation
+    - Native adaptive-controller ablation
+    - CodeGraph ablation
+    - Combined CodeGraph and adaptive-controller ablation
+    - Native-versus-Codex comparison
+- **Contributions** — architectural, methodological, and empirical outcomes of the research.
+    
+    - Complete Guided Intelligence orchestration architecture
+    - Controlled repository-evidence pipeline
+    - Explicit evidence lifecycle and provenance model
+    - Stage-aware retrieval evaluation methodology
+    - Findings about localization and mechanism completion
+    - Findings about structural retrieval and adaptive-controller navigation
+    - Findings about native and Codex retrieval
+- **Scope and thesis structure** — retrieval as the principal empirical subject and learning-oriented interaction as the downstream application.
+    
+    - Repository understanding rather than patch generation
+    - Source retrieval and evidence construction rather than final-answer similarity
+    - Designed learning behavior without a direct learning-outcome claim
+    - Overview of the remaining chapters
 
 ---
 
@@ -209,16 +180,15 @@
     - Hidden resolution artifacts
     - Leakage prevention
     - Repository-aware index exclusions
-- **File Oracles and required-evidence reference** — ground truth used for file-level and exact-source evaluation.
+- **Oracle and mechanism construction** — ground truth used for quantitative and qualitative evaluation.
     
     - Implementation Oracle files
     - Supporting test, validation, and documentation files
     - Exact file normalization
     - Oracle limitations
-    - Exact pre-resolution source units identified from the fixing artifact
-    - Present, partial, and absent unit judgements
-    - Whether required units are source-connected, and the number of files they span
-    - Distinction between file overlap, joint source availability, and model understanding
+    - Representative structural-owner annotations
+    - Required mechanism entry points and handoffs
+    - Distinction between file overlap and complete causal evidence
 - **Evaluated systems and configurations** — reproducible definition of the native variants and external retrieval condition.
     
     - Narrative boundary: retain only the short three-phase summary of initial evidence construction, bounded adaptive completion, and final evidence consolidation needed to define the ablations; defer the detailed pipeline mechanics to Chapter 5
@@ -235,16 +205,15 @@
     - **Structural-retrieval ablation:** complete native pipeline versus no-CodeGraph native
     - **Two-factor interaction comparison:** use the combined ablation to measure the CodeGraph effect with and without adaptive exploration and the adaptive-controller effect with and without CodeGraph
     - **External-system comparison:** complete native pipeline versus Codex retrieval
-    - Localization quality, required-evidence completeness, stability, runtime, tool use, and token cost across all conditions
+    - Localization quality, mechanism completeness, stability, runtime, tool use, and token cost across all conditions
     - Separation of component-level causal comparisons from complete-system comparisons
 - **Quantitative evaluation measures** — ranking, survival, efficiency, and stability metrics.
     
     - P@1, P@2, P@5, and P@10
     - R@1, R@2, R@5, and R@10
     - NDCG at the same cutoffs
-    - Required-unit survival and joint required-evidence completeness
-    - Standardised first-unavailable boundaries for Workspace evidence
-    - Final selected-file count, required files represented, and implementation-Oracle files represented
+    - Raw, admitted, qualified, and final Oracle survival
+    - Candidate, snippet, file, and evidence counts
     - Tool calls, payload characters, runtime, and tokens
     - Repeated-run variation
     - Infrastructure and schema failure rates
@@ -257,8 +226,8 @@
     - Round-zero qualification
     - Controller discovery
     - Final evidence selection
-    - First recorded unavailability boundary
-    - Required-evidence completeness
+    - First evidence-loss boundary
+    - Mechanism completeness
     - False-completeness and honest-partial cases
 - **Reproducibility, validity, and ethics** — boundaries affecting interpretation of the results.
     
@@ -267,7 +236,7 @@
     - Index construction and reuse
     - Model stochasticity
     - Mixed-model comparisons
-    - File-Oracle and required-evidence-reference validity
+    - Oracle and mechanism validity
     - Repository and language generalizability
     - Use of generative AI during research
 
@@ -378,7 +347,7 @@
     - Verified source-grounded leads
     - Qualification of controller discoveries
     - Final-selection survival
-    - First-unavailable-boundary observability
+    - First-loss-boundary observability
 - **From repeated exploration to bounded controller discovery** — control of iterative source navigation and relationship discovery.
     
     - Repeated high-level and structural requests
@@ -403,7 +372,7 @@
     - Expected contribution of graph-dependent controller navigation
     - Possibility that direct lexical/semantic ranges already localize issue-relevant files well
     - Risk that structural expansion introduces candidate competition or dilution
-    - Need to distinguish early ranking and file overlap from structural grounding and required-evidence completeness
+    - Need to distinguish early ranking and file overlap from structural grounding and mechanism completeness
     - Reserve approximately 150–250 words here; state hypotheses and design motivation, not evaluation conclusions
 - **Controlled and agentic retrieval experiments** — comparison of alternative allocations of navigation and consolidation responsibility.
     
@@ -458,7 +427,7 @@
     - Round-zero qualification
     - Controller candidate survival
     - Final evidence ranking
-    - First-unavailable-boundary distribution
+    - First-loss-boundary distribution
 - **Adaptive-controller contribution ablation** — effect of bypassing adaptive exploration after unchanged round-zero evidence construction.
     
     - Shared initial evidence
@@ -480,17 +449,17 @@
     - Source disclosure and qualification
     - Cross-file navigation
     - Graph-dependent controller actions
-    - Oracle survival and first-unavailable boundaries
-    - Required-evidence completeness
+    - Oracle survival and first-loss boundaries
+    - Mechanism completeness
     - Indexing, runtime, and token cost
     - CodeGraph contribution with adaptive exploration enabled versus disabled, using the combined ablation
     - Aggregate contrast between unexpectedly competitive graphless localization and any loss of structural grounding or mechanism-chain evidence
-    - Representative traces that test candidate dilution, direct lexical/semantic matching, and first-unavailable-boundary explanations
+    - Representative traces that test candidate dilution, direct lexical/semantic matching, and first-loss-boundary explanations
     - Reserve approximately 300–450 words plus a shared comparison table; keep full per-case results in the appendix
 - **Native-versus-Codex comparison** — comparison between the complete native pipeline and external Codex retrieval.
     
     - File and owner localization
-    - Required-evidence completeness
+    - Mechanism completeness
     - Retrieval flexibility
     - Evidence grounding and provenance
     - Navigation and stopping
@@ -499,15 +468,16 @@
     - Runtime and token cost
     - Repeated-run stability
     - Complementary failure boundaries
-- **Required-evidence completeness and pipeline sufficiency** — evaluation of whether all defined pre-resolution source units survive together.
-
-    - Present, partial, and absent required units
-    - Connected versus independent evidence layouts as a descriptive case characteristic
-    - Required-file count and final selected-file count
-    - Complete runs and per-unit survival
-    - First recorded unavailability across standardised Workspace boundaries
+- **Mechanism completeness and pipeline sufficiency** — evaluation of the complete source-grounded chains required by the issues.
+    
+    - Entry-point coverage
+    - Intermediate handoffs
+    - State changes
+    - Resulting effects
+    - Supporting validation
+    - Unresolved claims
     - `coverage_status` and `sufficient`
-    - Differences between selector confidence and independently scored completeness
+    - False-completeness and honest-partial cases
 - **Cross-configuration component and efficiency analysis** — combined reporting of structural capability, adaptive-controller contribution, and system-level cost.
     
     - Contribution of CodeGraph
@@ -529,68 +499,66 @@
     - Repeated or unproductive navigation
     - CodeGraph-dependent owner or relationship recovery
     - Divergence between native and Codex retrieval paths
-    - Select pandas 10068, pandas 16499, Vue 10803, and TypeScript 16278 after corpus-wide scoring to cover cross-run fragmentation, structural ownership, final-selection loss, and result-set capacity
-    - State explicitly that this purposive selection is diagnostic rather than statistically representative
-    - Place all 35 case-by-condition run tables in the appendix
 
 ---
 
 ## 8. **Discussion** — ~1,900–2,400 words
 
-- **Interpretive frame: localisation, availability, and understanding** — establish the vocabulary used throughout the discussion before answering the research questions.
+- **RQ1: Constructing auditable repository evidence** — interpret what the artifact and formative evidence establish without redescribing the pipeline.
+    
+    - Canonical source identity
+    - Provenance preservation
+    - Semantic qualification
+    - Lifecycle accounting
+    - Candidate survival
+    - Final evidence selection as a separate loss boundary
+- **RQ2: Contributions of structure and adaptive exploration** — interpret CodeGraph and the controller together because the factorial evaluation measures them together.
+    
+    - Graphless Workspace localization
+    - Conditional CodeGraph contribution to ownership, identity, recall, and evidence survival
+    - Adaptive-controller contribution to native quality and cost
+    - Interaction between structural retrieval and adaptive exploration
+    - Component-level quality and cost trade-offs
+    - Small recall and full-recall gains from CodeGraph alongside slightly weaker early-rank precision
+    - Limited interaction between the two capabilities
+    - Do not claim a general CodeGraph ranking or mechanism-completion benefit
+    - Refer to Chapter 7's values and cases instead of repeating them
+- **RQ3: Controlled versus agentic retrieval** — interpret the complete-system comparison as a trade-off rather than ranking architectures universally.
 
-    - File overlap establishes localisation of a known fixing file.
-    - Required-evidence completeness establishes that every defined pre-resolution source unit is jointly available in final evidence.
-    - Neither measure establishes that a response model correctly understands the relationships among those units.
-    - Structural-owner recovery and graph relationships provide additional navigation and identity evidence, but are not causal explanations by themselves.
-    - Selector-produced `coverage_status` and `sufficient` values remain system outputs rather than independent truth.
-    - Use this distinction once here, then apply it consistently instead of repeatedly re-explaining it under every RQ.
+    - Codex's stronger Oracle recovery and broader result sets
+    - Full Workspace's stronger first-rank precision
+    - Substantially higher Codex model-token use but lower elapsed time
+    - Controlled execution versus flexible exploration
+    - Lifecycle visibility and conservative versus confident sufficiency outputs
+    - Do not treat Codex's `strong` and `sufficient` outputs as external proof of completeness
+- **What file-level evaluation does not capture** — give the localization-versus-mechanism distinction one definitive treatment.
+    
+    - File overlap as localization evidence
+    - Owner overlap as structural evidence
+    - Connected handoffs as mechanism evidence
+    - Selector-produced `coverage_status` as a system output rather than an independent mechanism Oracle
+    - File-ranking measures as localization evidence rather than proof of complete understanding
+- **Implications for repository assistance and learning** — combine the architectural and learning implications while keeping retrieval as the empirical subject.
+    
+    - Evidence lifecycle visibility as a system capability
+    - Evaluation of intermediate evidence loss rather than only final files
+    
+    - Evidence-grounded explanation
+    - Visibility of uncertainty
+    - Incomplete-evidence handling
+    - Avoidance of unsupported causal claims
+    - Designed pedagogical behavior
+    - Boundary of unmeasured learning outcomes
+    - Current single-request execution and absence of an evaluated multi-turn conversation
+    - Unvalidated reuse of evidence between turns
+    - Future retrieval-refresh and evidence-invalidation decisions for continued conversations
+- **Validity and generalisability** — explain how the remaining boundaries affect interpretation rather than repeating the safeguards in Chapter 4.
 
-- **RQ1: Constructing auditable repository evidence** — answer the artifact question through the final architecture, formative evidence, and corpus-wide lifecycle audit without redescribing Chapter 5.
-
-    - Stable source identity, provenance preservation, semantic qualification, bounded state transitions, and separate final evidence selection make intermediate evidence handling inspectable.
-    - The audit demonstrates that missing source is not exclusively a raw-retrieval problem; it can first become unavailable during comparison, qualification or recovery, candidate-pool construction, or final selection.
-    - Final-selection omissions are directly recorded. Earlier first-unavailable boundaries are inferred from consecutive stage observations and locate a boundary rather than proving the exact internal rejection decision.
-    - RQ1 is therefore answered as a demonstrated capability for inspecting evidence construction, not as proof that every semantic decision is correct or that every item's full lineage is attached to the final evidence object.
-    - Relate this interpretation to provenance and grounded-assistance literature from Chapter 3 without repeating the literature review.
-
-- **RQ2: Contributions of structure and adaptive exploration** — interpret file-level and required-evidence results together because neither alone captures the component effects.
-
-    - Adaptive exploration provides modest improvements in file ranking and required-unit survival while accounting for most of Workspace's additional model-token cost.
-    - CodeGraph produces small aggregate file-ranking changes but contributes conditionally through owner identity, exact structural navigation, and source survival in particular cases.
-    - Graphless Workspace remains competitive in early file ranking, showing that direct lexical and semantic retrieval already performs substantial localisation.
-    - Avoid a universal CodeGraph benefit claim: the aggregate ranking effect is mixed, and structural candidates can still create competition or noise.
-    - Interpret the connected-versus-independent comparison cautiously. Connected cases also contain more required units and more often span multiple files, so connectedness cannot be isolated as the cause of lower joint completeness.
-    - Use pandas 16499, Vue 10803, and pandas 10068 only to explain the aggregate patterns already established in Chapter 7.
-    - Refer to Chapter 7's values rather than reproducing its tables.
-
-- **RQ3: Controlled versus agentic retrieval** — interpret Full Workspace and Codex as complete systems with different allocations of search, navigation, stopping, and consolidation responsibility.
-
-    - Codex achieves stronger file recall and required-evidence completeness and returns broader evidence sets.
-    - Full Workspace more often places an implementation file first, uses substantially fewer model tokens, and exposes its internal evidence lifecycle.
-    - Codex's lower elapsed time despite higher token use shows that runtime and provider-reported token cost describe different operational trade-offs.
-    - Codex's universal `strong` and `sufficient` outputs are not externally confirmed: the required-evidence reference finds substantially fewer complete runs.
-    - Codex exposes final source ranges but no comparable internal lifecycle trace, so the evaluation cannot assign its omissions to first-unavailable boundaries.
-    - Frame the result as a trade-off in the evaluated configurations, not as a universal ranking of controlled and agentic retrieval.
-
-- **Implications for repository assistance and learning** — move from the RQ answers to what they imply for system behaviour while keeping retrieval as the empirical subject.
-
-    - Evaluate and expose intermediate evidence survival rather than treating a final file hit as sufficient support.
-    - Preserve uncertainty when required source is partial, and avoid generating complete causal explanations from incomplete evidence.
-    - Treat broader result sets as an opportunity for greater coverage, not as proof of better prioritisation or understanding.
-    - Evidence-grounded responses and understanding checks remain designed learning-support features; the evaluation does not establish that they improve learning.
-    - The evaluated system handles independent requests. Multi-turn evidence reuse, refresh, and invalidation remain unvalidated.
-
-- **Validity and generalisability** — consolidate the limitations that qualify the RQ answers, without repeating Chapter 4's procedure.
-
-    - **Required-evidence construct:** the reference is researcher-constructed from fixing artifacts and pre-resolution source. Exact paths, ranges, anchors, and hashes are reproducible, but there is no independent annotator agreement and six cases retain judgment-sensitive scope choices.
-    - **Boundary inference:** final-selection losses are direct records, whereas earlier first-unavailable boundaries are inferred from successive stage observations and do not prove the precise decision responsible.
-    - **Connectedness comparison:** number of units and required files confound the descriptive connected-versus-independent result.
-    - **System comparison:** Workspace and Codex differ in more than navigation policy, and Codex provides no comparable internal trace.
-    - **Stochastic and reproducibility limits:** repeated runs estimate variation, but hosted models and service infrastructure prevent bit-for-bit reproduction.
-    - **External validity:** three repositories, their languages and issue categories, static-analysis limits, and repository-specific exclusions constrain generalisation.
-    - **Learning boundary:** no participants or learning outcomes are evaluated.
-
+    - Construct validity: file Oracles versus mechanism completeness
+    - Internal validity: stochastic model-backed stages and repeated runs
+    - Comparison validity: Workspace and Codex differ in more than navigation policy
+    - External validity: three repositories, language and issue scope, and static-analysis boundaries
+    - Reproducibility limits of hosted models and service infrastructure
 - **Ethics and responsible use** — reflection on ethical issues arising from the research artifact, evaluation, and thesis process.
     
     - Disclosure and responsible use of generative AI during research and writing
@@ -601,53 +569,48 @@
     - Limits of using evidence-grounded explanations in learning contexts without directly measuring learning outcomes
 - **Priorities for future work** — include only directions supported directly by the observed limitations.
     
-    1. Independent annotation and response-level assessment of whether models correctly interpret relationships between jointly available snippets.
-    2. Per-snippet lifecycle lineage attached directly to each final evidence item, replacing reconstruction across distributed trace events.
-    3. Stronger source-span preservation and final evidence-selection methods, especially for multi-file requirements.
-    4. Dynamic relationship and data-flow recovery beyond static CodeGraph coverage.
-    5. More efficient adaptive exploration with clearer quality-to-cost gains.
-    6. User studies of evidence-grounded explanations and understanding checks.
-    7. Multi-turn evidence reuse, refresh, and invalidation.
+    1. Owner- and mechanism-level evaluation Oracles
+    2. Stronger source-span preservation and evidence-selection methods
+    3. Dynamic relationship and data-flow recovery
+    4. More efficient adaptive exploration
+    5. User studies of evidence-grounded explanations and understanding checks
+    6. Multi-turn evidence reuse and invalidation
 
-    - Relate findings to prior work within the relevant RQ and implication sections rather than isolating that comparison at the end.
-    - End by returning to the thesis claim: inspectable evidence construction improves what can be evaluated and qualified, but does not itself guarantee understanding.
+    - Relate findings to prior work within the relevant RQ and implication sections rather than isolating that comparison at the end
 
 ---
 
 ## 9. **Conclusion** — ~650–850 words
 
-- **Research outcome** — restate the problem, artifact, and evaluation in one short opening that follows directly from Chapter 8.
+- **Research outcome** — restate the problem, approach, and evaluation in one short opening.
 
     - Repository understanding as construction of auditable evidence rather than plausible file matching
     - Controlled evidence-construction artifact
     - Evaluation across 35 cases, five conditions, and 700 accepted runs
-    - Corpus-wide required-evidence audit across 78 exact source units
-    - Do not repeat background, pipeline mechanics, or result tables
+    - Do not repeat background or pipeline mechanics
 - **Answers to the research questions** — one concise paragraph per research question.
     
-    - **RQ1:** The explicit evidence lifecycle makes source identity, qualification, bounded transitions, final selection, and the first recorded unavailability boundary inspectable. It does not make semantic decisions deterministic or prove understanding.
-    - **RQ2:** Adaptive exploration provides modest ranking and source-survival gains at substantial token cost. CodeGraph has mixed aggregate ranking effects but conditionally improves owner grounding and required-source survival; neither capability guarantees multi-file completeness.
-    - **RQ3:** Codex provides stronger file recall and required-evidence completeness with broader, more expensive evidence sets. Workspace provides stronger first-rank precision, lower model-token use, and greater lifecycle visibility. The comparison does not isolate agentic navigation as the cause.
-    - Preserve the distinction between file localisation, demonstrated required-source availability, and model understanding in all three answers.
+    - RQ1: contribution of the explicit evidence lifecycle and controlled pipeline
+    - RQ2: modest adaptive-controller benefit, conditional CodeGraph contribution, and cost trade-offs
+    - RQ3: stronger Codex recall versus Workspace control, first-rank precision, and lower token use
+    - Preserve the distinction between localization and demonstrated mechanism completion
 - **Contributions and boundaries** — consolidate the tangible outcomes and the central limitations without creating a second findings section.
     
     - Guided Intelligence artifact
     - Controlled repository-evidence pipeline
     - Explicit evidence lifecycle
     - Bounded adaptive exploration
-    - File-level and exact required-evidence evaluation framework with a complete 700-run appendix
+    - Stage-aware evaluation framework
     - CodeGraph ablation findings
     - Adaptive-controller ablation findings
     - Native-versus-Codex findings
-    - Central boundary: even exact required-source availability does not establish complete causal understanding.
-    - Required-evidence definitions involve researcher judgement, most early unavailability boundaries are inferred, and Codex has no comparable lifecycle trace.
-    - Connectedness is confounded with evidence-set and file count, and learning outcomes remain unmeasured.
+    - Central boundary: file-level evaluation does not establish complete causal understanding
+    - Learning outcomes remain unmeasured
 - **Closing perspective** — finish with the principal thesis claim and only the highest-priority future directions.
     
-    - Repository understanding should not be reduced to finding plausible files.
-    - Trustworthy assistance should preserve how source becomes evidence, expose what remains unresolved, and avoid presenting incomplete localisation as complete understanding.
-    - Mention only independent validation of evidence/understanding, stronger multi-file evidence preservation, and user evaluation as future priorities; Chapter 8 owns the detailed list.
-    - End with the contribution actually established: an inspectable retrieval process provides stronger grounds for evaluating and qualifying repository assistance, even though it cannot guarantee that the resulting explanation is correct.
+    - Repository understanding should not be reduced to finding plausible files
+    - Trustworthy assistance must preserve how source becomes evidence, expose what remains unresolved, and avoid presenting incomplete localization as complete understanding
+    - Mention only two or three future priorities; Chapter 8 owns the detailed list
     
 
 ---
@@ -671,7 +634,7 @@
     - Repository snapshots and commits
     - Implementation Oracles
     - Supporting Oracles
-    - Exact required-evidence units and their source-connection classification
+    - Representative mechanism annotations
 - **Complete evaluation results**
     
     - Full Workspace adaptive-controller runs
@@ -680,12 +643,8 @@
     - Combined no-CodeGraph/no-adaptive-controller runs
     - Codex runs
     - File-ranking statistics
-    - Full required-evidence reference for all 35 cases
-    - All 700 run-level present, partial, and absent judgements
-    - Required-file and selected-file counts
-    - Workspace first-unavailable boundaries
     - Stage-level Oracle survival
-    - Required-evidence completeness results
+    - Mechanism-completeness results
     - Component and controller comparisons
     - Category and repository breakdowns
 - **Efficiency and stability results**
@@ -712,7 +671,7 @@ This is a secondary narrative thread inside the main thesis story. It must remai
 
 1. **Architecture — capability and boundary.** Explain what CodeGraph provides by design: structural owner identity, exact symbol/range resolution, verified calls/references/dependencies, and graph-dependent navigation. Define the graphless condition precisely: Qdrant/BM25 ranges and the non-graph semantic stages remain, while CodeGraph indexing, resolution, graph evidence, and graph-dependent actions are disabled. Do not introduce outcome claims here.
 2. **Retrieval Design Rationale — hypothesis and surprise.** Explain why structural resolution was expected to improve grounded ownership and connected mechanisms. Motivate the ablation as a test of that expectation. Introduce the alternative possibility that direct lexical/semantic retrieval already handles file localization well and that structural expansion can create candidate competition. Do not resolve the alternatives before presenting results.
-3. **Evaluation — measured contrast.** Report full Workspace versus graphless ranking, Oracle survival, candidate/file counts, first-unavailable boundaries, mechanism evidence, sufficiency, runtime, and tokens. Use the combined no-CodeGraph/no-adaptive-controller condition to separate structural effects from controller compensation and to estimate their interaction. Distinguish directly recorded final-selection omissions from earlier boundaries inferred through successive stage observations. Describe graphless as “surprisingly competitive in localization” only where the measurements support it.
+3. **Evaluation — measured contrast.** Report full Workspace versus graphless ranking, Oracle survival, candidate/file counts, first-loss boundaries, mechanism evidence, sufficiency, runtime, and tokens. Use the combined no-CodeGraph/no-adaptive-controller condition to separate structural effects from controller compensation and to estimate their interaction. Use representative traces to determine whether a target was absent, structurally unresolved, filtered, demoted, or rejected later. Describe graphless as “surprisingly competitive in localization” only where the measurements support it.
 4. **Discussion — explanation and scope.** Interpret why graphless may perform strongly on file-ranking measures while lacking owner identity and graph navigation. Use the complete 2×2 comparison to determine whether adaptive exploration compensates for missing graph support or depends on CodeGraph-derived owners and relationships. Separate localization quality from connected causal evidence. Test reduced dilution and strong direct-match explanations against recorded traces. Do not infer that CodeGraph is unnecessary from aggregate P/R/NDCG alone.
 5. **Conclusion — qualified finding.** State the final empirical answer in two or three sentences: where CodeGraph helped, where graphless remained competitive, which costs changed, and which mechanism-level claims the evidence did or did not establish.
 
@@ -752,7 +711,7 @@ The thesis should not catalogue every implementation attempt. Include the follow
     
     - Problem: determine whether one model planner per round could replace separate qualification, coverage, and scheduling decisions while retaining deterministic execution.
     - Intervention: a bounded planner classified new observations, updated coverage, and chose typed actions; grounding, execution, and final selection stayed application-owned.
-    - Evidence: planner decision tokens fell by roughly one third, but two unchanged actual runs regressed from the native strong/sufficient reference to partial/insufficient results. The same `_binop` observation survived upstream stages but was inconsistently promoted, placing its first recorded unavailability at planner qualification.
+    - Evidence: planner decision tokens fell by roughly one third, but two unchanged actual runs regressed from the native strong/sufficient reference to partial/insufficient results. The same `_binop` observation survived upstream stages but was inconsistently promoted, locating the first loss at planner qualification.
     - Lesson: fewer calls/tokens did not justify unstable destruction of central evidence; semantic autonomy requires explicit lifecycle safeguards and repeatable quality.
     - Placement: Design Rationale and a short RQ2 interpretation in Discussion. It is formative evidence, not one of the five final evaluated configurations.
 
