@@ -1,0 +1,100 @@
+\chapter{Implemented Intent Contract Registry}\label{ch:implemented-intent-contract-registry}
+
+This appendix records the fixed contracts associated with the eight task intents. The mappings reproduce the implemented registry used by Guided Intelligence. They are separated into retrieval, response, and interaction views so that the complete configuration remains inspectable without interrupting the architectural account in Chapter 5.
+
+\section{Retrieval Contracts}\label{sec:retrieval-contracts}
+
+\begin{landscape}
+\begingroup
+\small
+\begin{longtable}{@{}L{0.13\linewidth}L{0.25\linewidth}L{0.31\linewidth}L{0.23\linewidth}@{}}
+\caption{Retrieval Contracts}\label{tab:retrieval-contracts-1}\\
+\toprule
+\textbf{Intent} & \textbf{Retrieval purpose} & \textbf{Evidence expectations} & \textbf{Stopping condition} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{c}{\tablename\ \thetable\ -- continued}\\
+\toprule
+\textbf{Intent} & \textbf{Retrieval purpose} & \textbf{Evidence expectations} & \textbf{Stopping condition} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+\texttt{explore} & Locate and orient the user within the relevant repository area and its major relationships. & Scope anchors; owners; entry points; boundaries; major relations. & Stop when ownership, navigation, and major relationships are clear. \\
+\texttt{explain} & Establish how or why the requested behavior works. & Trigger or entry; relevant state; ordered behavior path; constraints; observable effect. & Stop when the requested mechanism is supported from trigger to effect, or the missing link is explicit. \\
+\texttt{use} & Establish how an existing interface is invoked, configured, or integrated. & Interface; inputs; preconditions; configuration; expected result. & Stop when correct usage and its expected outcome are clear without unnecessary internals. \\
+\texttt{debug} & Investigate the reported abnormal behavior and its likely cause. & Expected and actual behavior; diagnostic surface; implementation owner; causal path; relevant constraint. & Stop when the cause is supported or the unresolved diagnostic gap is precise. \\
+\texttt{change} & Gather context needed to reason about a requested modification without implementing it. & Current owner and behavior; change points; constraints; affected dependents; validation surface. & Stop at the assistance boundary chosen by policy after the change surface and consequences are clear. \\
+\texttt{plan} & Gather context needed to propose an ordered future approach. & Goal; current state; dependencies; constraints; risks; validation points. & Stop when step outcomes, ordering dependencies, risks, and validation are explicit. \\
+\texttt{review} & Gather context needed to assess an artifact or approach against relevant criteria. & Reviewed artifact; criteria; observed evidence; alternatives; consequences. & Stop when every judgment names its criterion and supporting evidence. \\
+\texttt{verify} & Gather context needed to determine whether a concrete claim is supported. & Claim; observable condition; test or assertion; result; gaps or counterevidence. & Stop with a supported, refuted, or explicitly unverified result. \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+\section{Response Contracts}\label{sec:response-contracts}
+
+\begingroup
+\small
+\begin{longtable}{@{}L{0.19\linewidth}L{0.75\linewidth}@{}}
+\caption{Response Contracts}\label{tab:response-contracts-2}\\
+\toprule
+\textbf{Intent} & \textbf{Required semantic stages and purposes} \\
+\midrule
+\endfirsthead
+\multicolumn{2}{c}{\tablename\ \thetable\ -- continued}\\
+\toprule
+\textbf{Intent} & \textbf{Required semantic stages and purposes} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{2}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+\texttt{explore} & \texttt{explore.what\_it\_is} (\textbf{what it is}) --- Identify the requested repository subject and its responsibility.\newline{}\texttt{explore.owners\_users} (\textbf{owners and users}) --- Locate the main owners and important consumers.\newline{}\texttt{explore.major\_relationships} (\textbf{major relationships}) --- Map how the important pieces relate.\newline{}\texttt{explore.boundaries} (\textbf{boundaries}) --- State the relevant subsystem or responsibility boundaries.\newline{}\texttt{explore.entry\_points} (\textbf{entry points}) --- Give focused places from which the user can continue navigating. \\
+\texttt{explain} & \texttt{explain.subject} (\textbf{subject}) --- Identify the behavior or mechanism being explained.\newline{}\texttt{explain.trigger} (\textbf{trigger}) --- Establish what starts or enables the behavior.\newline{}\texttt{explain.ordered\_mechanism} (\textbf{ordered mechanism}) --- Follow the relevant execution or causal path.\newline{}\texttt{explain.state\_changes} (\textbf{state changes}) --- Explain meaningful state or representation changes.\newline{}\texttt{explain.resulting\_effect} (\textbf{resulting effect}) --- Connect the mechanism to its observable outcome.\newline{}\texttt{explain.why} (\textbf{why}) --- State why the established path produces that outcome. \\
+\texttt{use} & \texttt{use.goal} (\textbf{goal}) --- State the outcome the interface is used to achieve.\newline{}\texttt{use.prerequisites} (\textbf{prerequisites}) --- Establish required setup, state, or inputs.\newline{}\texttt{use.contract} (\textbf{contract}) --- Explain the public interface and its guarantees.\newline{}\texttt{use.invocation} (\textbf{invocation}) --- Show how the interface is called or configured.\newline{}\texttt{use.result} (\textbf{result}) --- Describe the expected result.\newline{}\texttt{use.constraints} (\textbf{common constraints}) --- State important usage constraints and failure conditions. \\
+\texttt{debug} & \texttt{debug.symptom} (\textbf{symptom}) --- State the observed abnormal behavior.\newline{}\texttt{debug.expected\_actual} (\textbf{expected versus actual}) --- Contrast expected and observed behavior.\newline{}\texttt{debug.evidence} (\textbf{diagnostic evidence}) --- Present the evidence that localizes or discriminates the failure.\newline{}\texttt{debug.cause} (\textbf{cause}) --- Connect the evidence to the supported cause or unresolved causal boundary.\newline{}\texttt{debug.next\_check} (\textbf{next diagnostic check}) --- Give the next observation that would confirm or distinguish the cause. \\
+\texttt{change} & \texttt{change.current\_behavior} (\textbf{current behavior}) --- Establish the current behavior or limitation.\newline{}\texttt{change.change\_surface} (\textbf{change surface}) --- Identify the relevant modification points.\newline{}\texttt{change.constraints} (\textbf{constraints}) --- State invariants and restrictions the change must preserve.\newline{}\texttt{change.affected\_paths} (\textbf{affected paths}) --- Identify affected locations and only the dependents or consequences that are plausible for the requested kind of change.\newline{}\texttt{change.validation} (\textbf{validation}) --- Describe how the proposed direction would be checked. \\
+\texttt{plan} & \texttt{plan.goal} (\textbf{goal}) --- Define the desired future outcome.\newline{}\texttt{plan.dependencies} (\textbf{dependencies}) --- Establish prerequisites and ordering constraints.\newline{}\texttt{plan.ordered\_steps} (\textbf{ordered steps}) --- Lay out the proposed implementation sequence.\newline{}\texttt{plan.risks} (\textbf{risks}) --- Identify material risks and trade-offs.\newline{}\texttt{plan.validation\_points} (\textbf{validation points}) --- Define checks for important milestones and the final outcome. \\
+\texttt{review} & \texttt{review.scope} (\textbf{scope}) --- Identify the artifact and limits of the review.\newline{}\texttt{review.criteria} (\textbf{criteria}) --- State the standards used for judgment.\newline{}\texttt{review.findings} (\textbf{findings}) --- Present supported strengths, weaknesses, or comparisons.\newline{}\texttt{review.consequences} (\textbf{consequences}) --- Explain why the findings matter.\newline{}\texttt{review.improvement\_directions} (\textbf{improvement directions}) --- Suggest bounded directions for improvement. \\
+\texttt{verify} & \texttt{verify.claim} (\textbf{claim}) --- State the concrete claim under examination.\newline{}\texttt{verify.observable\_condition} (\textbf{observable condition}) --- Define what would confirm or refute it.\newline{}\texttt{verify.evidence} (\textbf{verification evidence}) --- Present relevant tests, assertions, or observations.\newline{}\texttt{verify.result} (\textbf{result}) --- Classify the claim as supported, refuted, or unverified.\newline{}\texttt{verify.remaining\_uncertainty} (\textbf{remaining uncertainty}) --- State gaps, counterevidence, or confidence limits. \\
+\end{longtable}
+\endgroup
+
+\section{Interaction Contracts}\label{sec:interaction-contracts}
+
+\begin{landscape}
+\begingroup
+\small
+\begin{longtable}{@{}L{0.13\linewidth}L{0.25\linewidth}L{0.31\linewidth}L{0.23\linewidth}@{}}
+\caption{Interaction Contracts}\label{tab:interaction-contracts-3}\\
+\toprule
+\textbf{Intent} & \textbf{Question prerequisites} & \textbf{Allowed question forms} & \textbf{Permitted assistance} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{c}{\tablename\ \thetable\ -- continued}\\
+\toprule
+\textbf{Intent} & \textbf{Question prerequisites} & \textbf{Allowed question forms} & \textbf{Permitted assistance} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+\texttt{explore} & \texttt{explore.what\_it\_is}; \texttt{explore.owners\_users}; \texttt{explore.major\_relationships} & \textbf{What} --- test the responsibility or meaning of the repository subject.\newline{}\textbf{Where} --- test where ownership or an important boundary is located.\newline{}\textbf{Which} --- test which entry point or relationship matters for the user's navigation goal. & Show where to investigate and why each entry point matters without doing the user's task. \\
+\texttt{explain} & \texttt{explain.trigger}; \texttt{explain.ordered\_mechanism}; \texttt{explain.resulting\_effect} & \textbf{How} --- test an important mechanism or handoff from trigger to effect.\newline{}\textbf{Why} --- test why a supported relationship produces its stated outcome.\newline{}\textbf{What causes} --- test the supported cause of a behavior or state change. & Explain the mechanism and ask the user to reason over a key transition. \\
+\texttt{use} & \texttt{use.prerequisites}; \texttt{use.contract}; \texttt{use.invocation}; \texttt{use.result} & \textbf{How} --- test how to invoke or configure the interface correctly.\newline{}\textbf{What is required} --- test a prerequisite, required input, or setup condition.\newline{}\textbf{When} --- test when the interface or constraint applies. & Teach the contract and guide the next usage step without completing prohibited work. \\
+\texttt{debug} & \texttt{debug.symptom}; \texttt{debug.evidence}; \texttt{debug.cause} & \textbf{Why} --- test the supported causal link between the symptom and its cause.\newline{}\textbf{Where} --- test where expected and actual behavior first diverge.\newline{}\textbf{How does it fail} --- test the failure mechanism along the relevant execution path.\newline{}\textbf{What distinguishes} --- test which next observation separates competing explanations. & Guide diagnosis and the next discriminating check without silently producing a complete fix. \\
+\texttt{change} & \texttt{change.current\_behavior}; \texttt{change.change\_surface}; \texttt{change.constraints} & \textbf{What must change} --- test the behavior or contract that must be modified.\newline{}\textbf{Where} --- test the correct modification point or responsibility boundary.\newline{}\textbf{How would this affect} --- test an important consequence for a dependent path or invariant. & Identify change points, trade-offs, and a next reasoning step; withhold a complete patch when required. \\
+\texttt{plan} & \texttt{plan.dependencies}; \texttt{plan.ordered\_steps}; \texttt{plan.validation\_points} & \textbf{What comes first} --- test the first step required by the dependencies.\newline{}\textbf{Why this order} --- test the reason one planned step must precede another.\newline{}\textbf{What must be verified} --- test the evidence needed at an important milestone. & Provide a grounded plan while leaving execution to the user. \\
+\texttt{review} & \texttt{review.criteria}; \texttt{review.findings}; \texttt{review.consequences} & \textbf{Should} --- test a judgment against the stated review criteria.\newline{}\textbf{Which is better} --- test a comparison using the relevant criteria and evidence.\newline{}\textbf{What is the risk} --- test the consequence of a supported weakness or trade-off.\newline{}\textbf{Why is this preferable} --- test why one approach better satisfies the stated criteria. & Surface issues and improvement directions without automatically rewriting the artifact. \\
+\texttt{verify} & \texttt{verify.claim}; \texttt{verify.observable\_condition}; \texttt{verify.evidence} & \textbf{Does} --- test whether the evidence supports the concrete behavioral claim.\newline{}\textbf{Is} --- test whether a stated condition or classification is supported.\newline{}\textbf{What proves} --- test which observation or assertion establishes the claim.\newline{}\textbf{How is it tested} --- test how the claim is checked in the repository. & Show how confidence is established and identify missing proof without fabricating verification. \\
+\end{longtable}
+\endgroup
+\end{landscape}

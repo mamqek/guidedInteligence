@@ -44,3 +44,4 @@ Chapter files are created when work on that chapter begins, avoiding empty place
 ## Appendix files
 
 - `appendix-implemented-intent-contract-registry.md`
+- `appendix-required-evidence-audit.md` (generated from the frozen required-evidence reference and final campaign artifacts)
