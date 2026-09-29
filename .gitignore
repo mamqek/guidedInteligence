@@ -37,3 +37,6 @@ tests/external_connectors/.artifacts/
 
 # Generated CodeRepoQA run workspaces
 /testing/codeRepoQA/runs/
+
+# Temporary Overleaf layout-audit exports
+/tmp/overleaf-layout-audit-*/
