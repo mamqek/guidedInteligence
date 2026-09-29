@@ -18,7 +18,7 @@
 % ============================================================
 % = Class options — forward everything to memoir
 % ============================================================
-\PassOptionsToClass { a4paper, twoside, onecolumn, openright, 10pt } { memoir }
+\PassOptionsToClass { a4paper, twoside, onecolumn, openany, 10pt } { memoir }
 \DeclareOption* { \PassOptionsToClass { \CurrentOption } { memoir } }
 \ProcessOptions \relax
 \LoadClass { memoir }
