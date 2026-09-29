@@ -247,9 +247,11 @@
 % ============================================================
 \ExplSyntaxOn
 
-% Full-page minipage: top-aligned, textheight tall, content stretched.
+% Full-page minipage: top-aligned and sized to the usable height remaining
+% after TeX inserts the first-line top skip.  A full \textheight minipage is
+% slightly too tall at the top of a fresh page and can create a blank page.
 \cs_new_protected:Npn \__mscthesis_fullpage_begin:
-  { \noindent \begin{minipage} [t] [\textheight] [s] { \textwidth } }
+  { \noindent \begin{minipage} [t] [\dimexpr\textheight-\topskip\relax] [s] { \textwidth } }
 
 \cs_new_protected:Npn \__mscthesis_fullpage_end:
   { \end{minipage} }
@@ -408,7 +410,6 @@
     \begingroup
       \let \footnotesize \small
       \let \footnoterule \relax
-      \newpage
       \__mscthesis_titlepage:
       \__mscthesis_committeepage:
       \clearpage
