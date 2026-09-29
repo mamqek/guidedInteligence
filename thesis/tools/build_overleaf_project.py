@@ -33,6 +33,11 @@ PLACEHOLDERS = {
     "09-conclusion.md": "Conclusion",
 }
 
+APPENDICES = {
+    "appendix-implemented-intent-contract-registry.md": "implemented-intent-contract-registry.tex",
+    "appendix-required-evidence-audit.md": "required-evidence-audit.tex",
+}
+
 
 MAIN_TEX = r"""% !TeX program = lualatex
 \RequirePackage[l2tabu]{nag}
@@ -96,30 +101,26 @@ MAIN_TEX = r"""% !TeX program = lualatex
 \begin{document}
 \frontmatter
 \makecoverpage
-\cleartorecto{}
+\clearpage{}
 \makeformaltitlepages
 
-\cleartorecto{}
+\clearpage{}
 \chapter{Abstract}
 \import{frontmatter/}{abstract.tex}
 \glsresetall{}
 
-\cleartorecto{}
+\clearpage{}
 \chapter{Declaration on GenAI Use}
 \import{frontmatter/}{declaration.tex}
 \clearpage{}
 
-\cleartorecto{}
+\clearpage{}
 \tableofcontents{}
 \clearpage{}
 \listoffigures{}
 \clearpage{}
 \listoftables{}
 \clearpage{}
-
-\cleartorecto{}
-\chapter{Acknowledgements}
-\import{frontmatter/}{acknowledgement.tex}
 
 \mainmatter
 \import{chapters/}{01-introduction.tex}
@@ -134,6 +135,7 @@ MAIN_TEX = r"""% !TeX program = lualatex
 
 \appendix
 \import{appendix/}{implemented-intent-contract-registry.tex}
+\import{appendix/}{required-evidence-audit.tex}
 
 \backmatter
 \printbibliography{}
@@ -153,11 +155,10 @@ Bibliography processing uses Biber.
 
 Current manuscript state:
 
-- Chapters 4--7 contain the converted Markdown prose.
-- Chapter 8 contains the current discussion-planning note.
-- Chapters 1, 2, 3, and 9 are structural placeholders so chapter numbering remains stable.
-- The implemented intent-contract registry is included as an appendix.
-- Author, examiner, reviewer, abstract, declaration, and acknowledgements remain placeholders.
+- Chapters 1--9 contain the converted thesis manuscript.
+- The implemented intent-contract registry and required-evidence audit are included as appendices.
+- Author, examiner, reviewer, abstract, and declaration remain placeholders.
+- The acknowledgements section is omitted until content is provided.
 
 The `source-markdown` directory contains a snapshot of the Markdown manuscript and thesis plan used for this export. Re-run `thesis/tools/build_overleaf_project.py` from the repository when a fresh export is needed.
 """
@@ -251,7 +252,16 @@ def split_table_row(line: str) -> list[str]:
     return [cell.strip() for cell in line.strip().strip("|").split("|")]
 
 
-def table_layout(columns: int, caption: str) -> str:
+def table_layout(headers: list[str], caption: str) -> str:
+    columns = len(headers)
+    if columns >= 8 and headers[:2] == ["Condition", "Repetition / run ID"]:
+        unit_columns = columns - 7
+        return (
+            r"@{}L{0.12\linewidth}L{0.16\linewidth}"
+            + rf"*{{{unit_columns}}}{{L{{0.025\linewidth}}}}"
+            + r"L{0.055\linewidth}L{0.055\linewidth}L{0.095\linewidth}"
+            + r"L{0.095\linewidth}L{0.24\linewidth}@{}"
+        )
     if columns == 2:
         return r"@{}L{0.19\linewidth}L{0.75\linewidth}@{}"
     if columns == 3:
@@ -268,7 +278,7 @@ def table_layout(columns: int, caption: str) -> str:
 def render_table(rows: list[list[str]], caption: str, label: str, *, landscape: bool) -> str:
     headers = rows[0]
     body = rows[1:]
-    layout = table_layout(len(headers), caption)
+    layout = table_layout(headers, caption)
     header = " & ".join(r"\textbf{" + inline(cell) + "}" for cell in headers) + r" \\"
     output: list[str] = []
     if landscape:
@@ -276,7 +286,7 @@ def render_table(rows: list[list[str]], caption: str, label: str, *, landscape: 
     output.extend(
         [
             r"\begingroup",
-            r"\small",
+            r"\scriptsize" if len(headers) >= 8 else r"\small",
             rf"\begin{{longtable}}{{{layout}}}",
             rf"\caption{{{inline(caption)}}}\label{{{label}}}\\",
             r"\toprule",
@@ -338,8 +348,9 @@ def markdown_to_latex(source: str, *, appendix: bool = False) -> str:
 
         if stripped.startswith("# "):
             title = stripped[2:].strip()
-            rendered.extend([rf"\chapter{{{inline(title)}}}\label{{ch:{slug(title)}}}", ""])
-            section_name = title
+            display_title = re.sub(r"^Appendix:\s*", "", title, flags=re.IGNORECASE) if appendix else title
+            rendered.extend([rf"\chapter{{{inline(display_title)}}}\label{{ch:{slug(display_title)}}}", ""])
+            section_name = display_title
             index += 1
             continue
         if stripped.startswith("## "):
@@ -483,12 +494,12 @@ def build(output: Path = OUTPUT) -> None:
         (output / "chapters" / tex_name).write_text(markdown_to_latex(markdown), encoding="utf-8")
         (output / "source-markdown" / markdown_name).write_text(markdown, encoding="utf-8")
 
-    appendix_name = "appendix-implemented-intent-contract-registry.md"
-    appendix_markdown = (MANUSCRIPT / appendix_name).read_text(encoding="utf-8")
-    (output / "appendix" / "implemented-intent-contract-registry.tex").write_text(
-        markdown_to_latex(appendix_markdown, appendix=True), encoding="utf-8"
-    )
-    (output / "source-markdown" / appendix_name).write_text(appendix_markdown, encoding="utf-8")
+    for appendix_name, tex_name in APPENDICES.items():
+        appendix_markdown = (MANUSCRIPT / appendix_name).read_text(encoding="utf-8")
+        (output / "appendix" / tex_name).write_text(
+            markdown_to_latex(appendix_markdown, appendix=True), encoding="utf-8"
+        )
+        (output / "source-markdown" / appendix_name).write_text(appendix_markdown, encoding="utf-8")
     shutil.copy2(THESIS / "sources" / "thesis-plan.md", output / "source-markdown" / "thesis-plan.md")
 
     bibliography = (MANUSCRIPT / "references.bib").read_text(encoding="utf-8").rstrip()
