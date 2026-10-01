@@ -357,7 +357,7 @@ def short_status(status: str) -> str:
 
 
 def render_appendix(data: dict[str, Any], cases: dict[str, dict[str, Any]]) -> str:
-    lines = ["# Appendix: Required-Evidence Audit", "", "This appendix reports all 700 run-level judgements. P means present, Partial means related source survives without all required anchors, and A means absent. `Final files` is the total number of distinct files returned by final selection. The two represented-file columns show how many files from the required-evidence reference and the broader implementation Oracle occur in that result. A directly recorded loss is supported by an explicit final-selection omission. An inferred boundary is the first stage at which a unit is unavailable after appearing in an earlier recorded stage; it does not identify the exact internal decision responsible.", ""]
+    lines = ["# Required-Evidence Audit", "", "This separately submitted companion file reports all 700 run-level judgements. P means present, Partial means related source survives without all required anchors, and A means absent. `Final files` is the total number of distinct files returned by final selection. The two represented-file columns show how many files from the required-evidence reference and the broader implementation Oracle occur in that result. A directly recorded loss is supported by an explicit final-selection omission. An inferred boundary is the first stage at which a unit is unavailable after appearing in an earlier recorded stage; it does not identify the exact internal decision responsible.", ""]
     for case_id, case in cases.items():
         case_runs = [run for run in data["runs"] if run["case"] == case_id]
         units = [unit["id"] for unit in case["evidence_units"]]
