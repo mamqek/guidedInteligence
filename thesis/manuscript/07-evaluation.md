@@ -50,7 +50,7 @@ The interaction between the capabilities is limited. Adaptive exploration improv
 
 ## Required-Evidence Survival and Completeness
 
-File ranking describes whether known fixing files reach the returned evidence, but it does not establish whether their responsible source ranges survive. The required-evidence audit therefore evaluates 78 exact source units across all 35 cases and 700 runs. A run is complete only when every required unit is present in its final evidence. Full Workspace completes 23 of 140 runs, compared with 17 without CodeGraph, 19 without the controller, and 10 without either capability. Codex completes 55. Individual-unit survival follows the same overall ordering: 36.2% for Full Workspace, 26.9% without CodeGraph, 30.8% without the controller, 19.9% without either capability, and 58.7% for Codex.
+File ranking describes whether known fixing files reach the returned evidence, but it does not establish whether their responsible source ranges survive. The separately submitted *Required-Evidence Audit* therefore evaluates 78 exact source units across all 35 cases and 700 runs. A run is complete only when every required unit is present in its final evidence. Full Workspace completes 23 of 140 runs, compared with 17 without CodeGraph, 19 without the controller, and 10 without either capability. Codex completes 55. Individual-unit survival follows the same overall ordering: 36.2% for Full Workspace, 26.9% without CodeGraph, 30.8% without the controller, 19.9% without either capability, and 58.7% for Codex.
 
 | Condition | Evidence-complete runs | Required units present | Mean final files | Mean required files represented | Mean other files |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -101,7 +101,7 @@ Repeated-run agreement is moderate for every condition. Codex has the highest me
 
 ## Illustrative Case Analyses
 
-The four cases below are selected after corpus-wide scoring to expose different combinations of connection, file dispersion, component behaviour, and first-unavailable boundary. They are not presented as statistically representative. The [Required-Evidence Audit appendix](appendix-required-evidence-audit.md) reports all 700 run-level judgements.
+The four cases below are selected after corpus-wide scoring to expose different combinations of connection, file dispersion, component behaviour, and first-unavailable boundary. They are not presented as statistically representative. The separately submitted *Required-Evidence Audit* reports all 700 run-level judgements.
 
 Pandas 10068 requires three connected snippets in three files: the named arithmetic wrapper, the common-name helper, and the Series binary-operation body. Full Workspace retains the wrapper in one repetition, the helper in three, and the binary-operation body in one, but never all three together. One wrapper reaches the final candidate pool and is then omitted, while other missing units disappear earlier. Codex retains all three in every repetition. This case demonstrates cross-run fragmentation: Full Workspace can locate every part of the mechanism, but does not assemble the parts in one final evidence set.
 
