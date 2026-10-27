@@ -1,19 +1,19 @@
 # Required-Evidence Audit
 
-This separately submitted companion file reports all 700 run-level judgements. P means present, Partial means related source survives without all required anchors, and A means absent. `Final files` is the total number of distinct files returned by final selection. The two represented-file columns show how many files from the required-evidence reference and the broader implementation Oracle occur in that result. A directly recorded loss is supported by an explicit final-selection omission. An inferred boundary is the first stage at which a unit is unavailable after appearing in an earlier recorded stage; it does not identify the exact internal decision responsible.
+This separately submitted companion file reports all 700 run-level judgements. P means present, Partial means related source survives without all required anchors, and A means absent. `Final files` is the total number of distinct files returned by final selection. The two represented-file columns show how many files from the required-evidence reference and the broader implementation oracle occur in that result. A directly recorded loss is supported by an explicit final-selection omission. An inferred boundary is the first stage at which a snippet is unavailable after appearing in an earlier recorded stage; it does not identify the exact internal decision responsible.
 
 ## vuejs-vue-10803
 
 SSR routes a textarea DOM value through renderDOMProps into a text VNode child; the pre-resolution path passes null through without string normalization.
 
-Connected required evidence: **yes**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: R, H.
+Connected required evidence: **yes**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: R, H.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | R | `src/platforms/web/server/modules/dom-props.js:8-44` (`renderDOMProps`) | Reads DOM properties and identifies the textarea value branch. |
 | H | `src/platforms/web/server/modules/dom-props.js:46-50` (`setText`) | Constructs a text VNode and installs it as the element's child. |
 
-| Condition | Repetition / run ID | R | H | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | R | H | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260915T083906Z | P | P | Yes | 4 | 1/1 | 1/1 | — |
 | Full Workspace | 2 · run-20260915T090105Z | P | A | No | 4 | 1/1 | 1/1 | H: final evidence selection [direct] |
@@ -40,13 +40,13 @@ Connected required evidence: **yes**. Required-evidence files: **1**. Implementa
 
 The standard declaration surface contains ArrayBuffer types but omits DataView and its constructor.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: D.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: D.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | D | `src/lib/extensions.d.ts:1-45` (`ArrayBuffer declaration region`) | Establishes the declaration scope in which DataView is missing. |
 
-| Condition | Repetition / run ID | D | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | D | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260915T092041Z | P | Yes | 6 | 1/1 | 1/1 | — |
 | Full Workspace | 2 · run-20260915T092856Z | A | No | 4 | 0/1 | 0/1 | D: controller recovery or qualification [inferred] |
@@ -73,15 +73,15 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 Series.add dispatches through a generated flexible arithmetic wrapper into Series._binop, which calculates a common name but constructs and finalizes the result without using it.
 
-Connected required evidence: **yes**. Required-evidence files: **3**. Implementation-Oracle files: **1**. Required units: W, M, B.
+Connected required evidence: **yes**. Required-evidence files: **3**. Implementation-oracle files: **1**. Required snippets: W, M, B.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | W | `pandas/core/ops.py:755-771` (`_flex_method_SERIES.flex_wrapper`) | Routes Series operands into Series._binop. |
 | M | `pandas/core/common.py:3324-3336` (`_maybe_match_name`) | Defines the common-name decision for equal and unequal operand names. |
 | B | `pandas/core/series.py:1466-1511` (`Series._binop`) | Combines the values, calculates the name, and constructs/finalizes the resulting Series. |
 
-| Condition | Repetition / run ID | W | M | B | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | W | M | B | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260915T101856Z | A | P | P | No | 4 | 3/3 | 1/1 | W: final evidence selection [direct] |
 | Full Workspace | 2 · run-20260915T110633Z | A | P | A | No | 3 | 2/3 | 0/1 | W: candidate-pool construction [inferred]; B: candidate-pool construction [inferred] |
@@ -108,14 +108,14 @@ Connected required evidence: **yes**. Required-evidence files: **3**. Implementa
 
 Prop-validation error construction eagerly formats the received Symbol using an expected primitive type, causing the diagnostic path itself to fail.
 
-Connected required evidence: **yes**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: V, F.
+Connected required evidence: **yes**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: V, F.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | V | `src/core/util/props.js:203-222` (`getInvalidTypeMessage`) | Builds the invalid-prop message and eagerly asks styleValue to format both expected and received representations. |
 | F | `src/core/util/props.js:224-238` (`styleValue/isExplicable`) | Shows the primitive formatting and explicable-type checks that are unsafe when applied under the wrong inferred type. |
 
-| Condition | Repetition / run ID | V | F | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | V | F | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260915T115429Z | P | A | No | 2 | 1/1 | 1/1 | F: candidate-pool construction [inferred] |
 | Full Workspace | 2 · run-20260915T115735Z | A | A | No | 2 | 1/1 | 1/1 | V: final evidence selection [direct]; F: final evidence selection [direct] |
@@ -142,15 +142,15 @@ Connected required evidence: **yes**. Required-evidence files: **1**. Implementa
 
 The package exposes JavaScript client/server webpack-plugin entry points but provides no corresponding declaration entry points.
 
-Connected required evidence: **no**. Required-evidence files: **3**. Implementation-Oracle files: **11**. Required units: P, C, S.
+Connected required evidence: **no**. Required-evidence files: **3**. Implementation-oracle files: **11**. Required snippets: P, C, S.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | P | `packages/vue-server-renderer/package.json:1-40` (`package type metadata`) | Shows the package-level type declaration and scripts but no plugin-specific declaration mapping. |
 | C | `packages/vue-server-renderer/client-plugin.js:17-86` (`client plugin runtime entry point`) | Shows the existing client-plugin implementation and public runtime export for which a declaration entry point is missing. |
 | S | `packages/vue-server-renderer/server-plugin.js:32-99` (`server plugin runtime entry point`) | Shows the existing server-plugin implementation and public runtime export for which a declaration entry point is missing. |
 
-| Condition | Repetition / run ID | P | C | S | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | P | C | S | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260915T121324Z | P | Partial | A | No | 7 | 2/3 | 1/11 | C: candidate-pool construction [inferred]; S: controller recovery or qualification [inferred] |
 | Full Workspace | 2 · run-20260915T121705Z | A | Partial | A | No | 3 | 1/3 | 0/11 | P: controller recovery or qualification [inferred]; C: candidate-pool construction [inferred]; S: controller recovery or qualification [inferred] |
@@ -177,16 +177,16 @@ Connected required evidence: **no**. Required-evidence files: **3**. Implementat
 
 Watch/build paths count diagnostics and forward only a scalar error count to a formatter that can print no per-file breakdown.
 
-Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-Oracle files: **7**. Required units: C, W, B, R.
+Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-oracle files: **7**. Required snippets: C, W, B, R.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | C | `src/compiler/watch.ts:96-117` (`getErrorCountForSummary/getErrorSummaryText`) | Counts errors and formats only the aggregate count. |
 | W | `src/compiler/watch.ts:340-360` (`watch status reporter`) | Passes only the count from watch diagnostics to the summary formatter. |
 | B | `src/compiler/tsbuildPublic.ts:75-109` (`ReportEmitErrorSummary/reportErrorSummary`) | Defines the build-host summary callback as accepting only an error count. |
 | R | `src/compiler/tsbuildPublic.ts:2000-2027` (`solution-builder reportErrorSummary`) | Aggregates project errors and calls the host with only totalErrors. |
 
-| Condition | Repetition / run ID | C | W | B | R | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | C | W | B | R | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260915T122948Z | P | P | A | A | No | 8 | 1/2 | 3/7 | B: raw retrieval [inferred]; R: controller recovery or qualification [inferred] |
 | Full Workspace | 2 · run-20260915T123455Z | P | P | A | A | No | 5 | 1/2 | 2/7 | B: initial comparison [inferred]; R: controller recovery or qualification [inferred] |
@@ -213,16 +213,16 @@ Connected required evidence: **yes**. Required-evidence files: **2**. Implementa
 
 DataFrame.to_excel delegates through ExcelWriter's engine registry, whose pre-resolution implementations support openpyxl and xlwt but not xlsxwriter.
 
-Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-Oracle files: **3**. Required units: D, R, E, X.
+Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-oracle files: **3**. Required snippets: D, R, E, X.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | D | `pandas/core/frame.py:1356-1415` (`DataFrame.to_excel`) | Exposes the public DataFrame export entry point and its ExcelWriter delegation. |
 | R | `pandas/io/excel.py:20-40` (`writer registry and ExcelWriter`) | Registers writer classes by engine name. |
 | E | `pandas/io/excel.py:284-411` (`ExcelWriter`) | Selects a registered engine from the extension/configuration and instantiates it. |
 | X | `pandas/io/excel.py:412-612` (`writer implementations`) | Shows the complete pre-resolution writer implementation region ending with xlwt and lacking an xlsxwriter writer. |
 
-| Condition | Repetition / run ID | D | R | E | X | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | D | R | E | X | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260915T125132Z | P | P | P | Partial | No | 4 | 2/2 | 2/3 | X: initial comparison [inferred] |
 | Full Workspace | 2 · run-20260915T125409Z | P | P | P | Partial | No | 3 | 2/2 | 2/3 | X: candidate-pool construction [inferred] |
@@ -249,14 +249,14 @@ Connected required evidence: **yes**. Required-evidence files: **2**. Implementa
 
 Organize Imports collects only top-level import declarations even though the compiler can identify ambient modules, so imports nested in those modules never enter grouping and edit generation.
 
-Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-Oracle files: **2**. Required units: O, A.
+Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-oracle files: **2**. Required snippets: O, A.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | O | `src/services/organizeImports.ts:10-57` (`OrganizeImports.organizeImports`) | Collects, groups, rewrites, and deletes only sourceFile.statements imports; the TODO names ambient modules explicitly. |
 | A | `src/compiler/utilities.ts:423-433` (`isAmbientModule`) | Provides the predicate that can identify string-named or global ambient modules. |
 
-| Condition | Repetition / run ID | O | A | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | O | A | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260915T130940Z | P | A | No | 7 | 1/2 | 1/2 | A: raw retrieval [inferred] |
 | Full Workspace | 2 · run-20260915T131533Z | P | A | No | 4 | 1/2 | 1/2 | A: raw retrieval [inferred] |
@@ -283,9 +283,9 @@ Connected required evidence: **yes**. Required-evidence files: **2**. Implementa
 
 Categorical groupby carries every category into grouping and later re-expands the Cartesian result space, even when only a small subset is observed.
 
-Connected required evidence: **yes**. Required-evidence files: **3**. Implementation-Oracle files: **6**. Required units: P, C, G, I, R.
+Connected required evidence: **yes**. Required-evidence files: **3**. Implementation-oracle files: **6**. Required snippets: P, C, G, I, R.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | P | `pandas/core/generic.py:6601-6668` (`NDFrame.groupby`) | Exposes the public groupby entry point, which has no observed parameter and forwards no observed choice. |
 | C | `pandas/core/arrays/categorical.py:650-689` (`Categorical._codes_for_groupby`) | Returns category codes for grouping without an observed-only mode. |
@@ -293,7 +293,7 @@ Connected required evidence: **yes**. Required-evidence files: **3**. Implementa
 | I | `pandas/core/groupby/groupby.py:2874-2990` (`Grouping.__init__`) | Recodes categorical groupers against the complete category set. |
 | R | `pandas/core/groupby/groupby.py:4690-4725` (`_GroupBy._reindex_output`) | Re-expands results to the product of group levels. |
 
-| Condition | Repetition / run ID | P | C | G | I | R | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | P | C | G | I | R | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260915T133038Z | A | P | A | P | A | No | 4 | 2/3 | 2/6 | P: candidate-pool construction [inferred]; G: candidate-pool construction [inferred]; R: candidate-pool construction [inferred] |
 | Full Workspace | 2 · run-20260915T133659Z | A | P | A | P | A | No | 7 | 2/3 | 2/6 | P: candidate-pool construction [inferred]; G: candidate-pool construction [inferred]; R: candidate-pool construction [inferred] |
@@ -320,9 +320,9 @@ Connected required evidence: **yes**. Required-evidence files: **3**. Implementa
 
 Importing core pandas modules eagerly imports computation, plotting, and optional I/O dependencies before their features are used.
 
-Connected required evidence: **yes**. Required-evidence files: **5**. Implementation-Oracle files: **17**. Required units: F, O, C, P, I.
+Connected required evidence: **yes**. Required-evidence files: **5**. Implementation-oracle files: **17**. Required snippets: F, O, C, P, I.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | F | `pandas/core/frame.py:65-105` (`frame module imports`) | Eagerly imports computation expression/eval and plotting modules while loading DataFrame. |
 | O | `pandas/core/ops.py:1-25` (`ops module imports`) | Eagerly imports the computation expression engine while loading arithmetic operations. |
@@ -330,7 +330,7 @@ Connected required evidence: **yes**. Required-evidence files: **5**. Implementa
 | P | `pandas/plotting/__init__.py:1-19` (`plotting package initialization`) | Imports plotting conversion, core, style, and tools modules eagerly. |
 | I | `pandas/io/common.py:1-45` (`optional I/O imports`) | Attempts optional cloud-filesystem imports while loading common I/O helpers. |
 
-| Condition | Repetition / run ID | F | O | C | P | I | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | F | O | C | P | I | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260915T135514Z | A | A | A | A | A | No | 2 | 0/5 | 1/17 | F: initial comparison [inferred]; O: raw retrieval [inferred]; C: initial comparison [inferred]; P: candidate-pool construction [inferred]; I: raw retrieval [inferred] |
 | Full Workspace | 2 · run-20260915T171716Z | A | A | A | A | A | No | 2 | 0/5 | 1/17 | F: raw retrieval [inferred]; O: raw retrieval [inferred]; C: initial comparison [inferred]; P: raw retrieval [inferred]; I: raw retrieval [inferred] |
@@ -357,14 +357,14 @@ Connected required evidence: **yes**. Required-evidence files: **5**. Implementa
 
 Logical-or and conditional expressions reduce their alternatives directly through getUnionType, which can choose a less specific array type despite one alternative being assignable to the other.
 
-Connected required evidence: **yes**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: B, C.
+Connected required evidence: **yes**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: B, C.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | B | `src/compiler/checker.ts:12900-13055` (`checkBinaryExpression`) | Checks logical-or expressions and sends the two possible types directly to getUnionType. |
 | C | `src/compiler/checker.ts:13165-13180` (`checkConditionalExpression`) | Combines conditional branches through the same direct union reduction. |
 
-| Condition | Repetition / run ID | B | C | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | B | C | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T084338Z | A | A | No | 3 | 0/1 | 0/1 | B: raw retrieval [inferred]; C: raw retrieval [inferred] |
 | Full Workspace | 2 · run-20260916T084731Z | A | A | No | 4 | 1/1 | 1/1 | B: raw retrieval [inferred]; C: raw retrieval [inferred] |
@@ -391,15 +391,15 @@ Connected required evidence: **yes**. Required-evidence files: **1**. Implementa
 
 Configuration diagnostics are emitted only when the diagnostics array is non-empty, and Session separately gates the open-file event, so a config change that clears errors produces no event.
 
-Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-Oracle files: **2**. Required units: P, S, O.
+Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-oracle files: **2**. Required snippets: P, S, O.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | P | `src/server/editorServices.ts:750-770` (`ProjectService.reportConfigFileDiagnostics`) | Suppresses configFileDiag when diagnostics is empty. |
 | S | `src/server/session.ts:150-205` (`Session constructor/handleEvent`) | Creates the ProjectService event handler only when events are enabled and routes configFileDiag events. |
 | O | `src/server/session.ts:710-730` (`Session.openClientFile`) | Emits the open-file config diagnostic only when configFileErrors is truthy. |
 
-| Condition | Repetition / run ID | P | S | O | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | P | S | O | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T085521Z | P | Partial | P | No | 4 | 2/2 | 2/2 | S: final evidence selection [direct] |
 | Full Workspace | 2 · run-20260916T090006Z | P | Partial | A | No | 3 | 2/2 | 2/2 | S: candidate-pool construction [inferred]; O: candidate-pool construction [inferred] |
@@ -426,9 +426,9 @@ Connected required evidence: **yes**. Required-evidence files: **2**. Implementa
 
 The old refactor API exposes applicable refactor names and then requests a whole refactor's code actions, without a distinct selected-action edit request and rename metadata contract.
 
-Connected required evidence: **yes**. Required-evidence files: **6**. Implementation-Oracle files: **8**. Required units: T, P, L, Q, S, C.
+Connected required evidence: **yes**. Required-evidence files: **6**. Implementation-oracle files: **8**. Required snippets: T, P, L, Q, S, C.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | T | `src/services/types.ts:255-375` (`LanguageService refactor contracts`) | Defines applicable-refactor and getRefactorCodeActions contracts but no selected-action edit result. |
 | P | `src/services/refactorProvider.ts:1-59` (`refactor registry/provider`) | Finds applicable refactors and asks a named provider for code actions. |
@@ -437,7 +437,7 @@ Connected required evidence: **yes**. Required-evidence files: **6**. Implementa
 | S | `src/server/session.ts:1418-1455` (`Session refactor commands`) | Handles protocol requests and returns the refactor code actions. |
 | C | `src/server/client.ts:710-745` (`SessionClient refactor adapter`) | Sends the refactor request and converts returned code actions for the client. |
 
-| Condition | Repetition / run ID | T | P | L | Q | S | C | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | T | P | L | Q | S | C | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T085646Z | A | Partial | P | Partial | P | P | No | 6 | 5/6 | 5/8 | T: controller recovery or qualification [inferred]; P: final evidence selection [direct]; Q: final evidence selection [direct] |
 | Full Workspace | 2 · run-20260916T090646Z | A | Partial | Partial | P | A | A | No | 5 | 4/6 | 4/8 | T: final evidence selection [direct]; P: final evidence selection [direct]; L: final evidence selection [direct]; S: final evidence selection [direct]; C: final evidence selection [direct] |
@@ -464,14 +464,14 @@ Connected required evidence: **yes**. Required-evidence files: **6**. Implementa
 
 The change updates stale LSHost terminology in comments without altering runtime behavior.
 
-Connected required evidence: **no**. Required-evidence files: **2**. Implementation-Oracle files: **2**. Required units: M, P.
+Connected required evidence: **no**. Required-evidence files: **2**. Implementation-oracle files: **2**. Required snippets: M, P.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | M | `src/compiler/moduleNameResolver.ts:1484-1494` (`loadModuleFromGlobalCache comment`) | Contains the stale LSHost terminology in the resolver comment. |
 | P | `src/server/project.ts:946-960` (`external-file comment`) | Contains the stale LSHost terminology in the project comment. |
 
-| Condition | Repetition / run ID | M | P | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | M | P | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T085745Z | A | A | No | 4 | 0/2 | 0/2 | M: controller recovery or qualification [inferred]; P: controller recovery or qualification [inferred] |
 | Full Workspace | 2 · run-20260916T090646Z | A | A | No | 0 | 0/2 | 0/2 | M: candidate-pool construction [inferred]; P: controller recovery or qualification [inferred] |
@@ -498,13 +498,13 @@ Connected required evidence: **no**. Required-evidence files: **2**. Implementat
 
 Three watch-builder factory overloads require rootNames and options even though the CreateProgram callback contract can supply undefined values.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: B.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: B.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | B | `src/compiler/builder.ts:545-577` (`builder factory overloads`) | Shows the required rootNames/options parameters on all three builder factories. |
 
-| Condition | Repetition / run ID | B | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | B | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T025333Z | Partial | No | 3 | 1/1 | 1/1 | B: candidate-pool construction [inferred] |
 | Full Workspace | 2 · run-20260916T030235Z | Partial | No | 3 | 1/1 | 1/1 | B: candidate-pool construction [inferred] |
@@ -531,16 +531,16 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 Incremental builder state keys dependency, signature, affected-file, and emit maps by sourceFile.path even though project-reference aliases require the canonical resolvedPath identity.
 
-Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-Oracle files: **4**. Required units: I, U, A, E.
+Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-oracle files: **4**. Required snippets: I, U, A, E.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | I | `src/compiler/builderState.ts:120-235` (`BuilderState.create`) | Builds file information and reference/export maps using sourceFile.path. |
 | U | `src/compiler/builderState.ts:304-370` (`updateShapeSignature`) | Reads and updates signature/export caches using sourceFile.path. |
 | A | `src/compiler/builderState.ts:405-560` (`affected-file traversal`) | Seeds and deduplicates affected-file traversal with path rather than resolvedPath. |
 | E | `src/compiler/builder.ts:315-425` (`builder affected/emit state`) | Uses affectedFile.path for semantic-diagnostic and emit bookkeeping. |
 
-| Condition | Repetition / run ID | I | U | A | E | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | I | U | A | E | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T032244Z | A | A | A | Partial | No | 9 | 1/2 | 3/4 | I: raw retrieval [inferred]; U: initial comparison [inferred]; A: candidate-pool construction [inferred]; E: candidate-pool construction [inferred] |
 | Full Workspace | 2 · run-20260916T033648Z | A | A | Partial | Partial | No | 6 | 2/2 | 3/4 | I: candidate-pool construction [inferred]; U: candidate-pool construction [inferred]; A: candidate-pool construction [inferred]; E: candidate-pool construction [inferred] |
@@ -567,13 +567,13 @@ Connected required evidence: **yes**. Required-evidence files: **2**. Implementa
 
 NodeNext package resolution keeps ESM-mode extension rules active while resolving the main field of a CommonJS package, so an extensionless main target is rejected.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: R.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: R.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | R | `src/compiler/moduleNameResolver.ts:1784-1826` (`loadNodeModuleFromDirectoryWorker`) | Reads package fields and resolves the selected package path with the unchanged NodeNext feature state. |
 
-| Condition | Repetition / run ID | R | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | R | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T035524Z | Partial | No | 8 | 1/1 | 1/1 | R: final evidence selection [direct] |
 | Full Workspace | 2 · run-20260916T040401Z | Partial | No | 5 | 1/1 | 1/1 | R: final evidence selection [direct] |
@@ -600,14 +600,14 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 Node-module resolution performs file probes for URI-like specifiers and package-root candidates before directory/package handling, producing avoidable filesystem stat calls.
 
-Connected required evidence: **yes**. Required-evidence files: **1**. Implementation-Oracle files: **3**. Required units: N, L.
+Connected required evidence: **yes**. Required-evidence files: **1**. Implementation-oracle files: **3**. Required snippets: N, L.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | N | `src/compiler/moduleNameResolver.ts:1706-1820` (`nodeModuleNameResolverWorker`) | Falls through unresolved non-relative names into node_modules lookup without rejecting URI-like names. |
 | L | `src/compiler/moduleNameResolver.ts:2868-2910` (`loadModuleFromSpecificNodeModulesDirectory`) | Probes the package-root candidate as a file before loading it as a directory/package. |
 
-| Condition | Repetition / run ID | N | L | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | N | L | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T044511Z | A | P | No | 2 | 1/1 | 1/3 | N: candidate-pool construction [inferred] |
 | Full Workspace | 2 · run-20260916T050329Z | P | P | Yes | 6 | 1/1 | 1/3 | — |
@@ -634,14 +634,14 @@ Connected required evidence: **yes**. Required-evidence files: **1**. Implementa
 
 The value_counts wrapper delegates to algorithms.value_counts, which converts away the input object's name and constructs the count Series unnamed; index reconstruction then incorrectly applies the original name to the result index.
 
-Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-Oracle files: **2**. Required units: A, B.
+Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-oracle files: **2**. Required snippets: A, B.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | A | `pandas/core/algorithms.py:176-255` (`algorithms.value_counts`) | Converts the input to raw values and constructs the result Series without preserving its name. |
 | B | `pandas/core/base.py:399-445` (`IndexOpsMixin.value_counts`) | Calls algorithms.value_counts and uses self.name when rebuilding Period/Datetime indexes. |
 
-| Condition | Repetition / run ID | A | B | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | A | B | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T052744Z | P | P | Yes | 4 | 2/2 | 2/2 | — |
 | Full Workspace | 2 · run-20260916T053153Z | P | P | Yes | 5 | 2/2 | 2/2 | — |
@@ -668,15 +668,15 @@ Connected required evidence: **yes**. Required-evidence files: **2**. Implementa
 
 Pytest cannot collect the ujson test groups because their class names do not begin with Test.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: U, N, P.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: U, N, P.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | U | `pandas/tests/io/json/test_ujson.py:25-45` (`UltraJSONTests`) | Defines the first uncollectable test class. |
 | N | `pandas/tests/io/json/test_ujson.py:940-965` (`NumpyJSONTests`) | Defines the NumPy ujson tests under an uncollectable class name. |
 | P | `pandas/tests/io/json/test_ujson.py:1218-1240` (`PandasJSONTests`) | Defines the pandas-object ujson tests under an uncollectable class name. |
 
-| Condition | Repetition / run ID | U | N | P | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | U | N | P | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T054102Z | P | P | P | Yes | 1 | 1/1 | 1/1 | — |
 | Full Workspace | 2 · run-20260916T054447Z | P | P | P | Yes | 1 | 1/1 | 1/1 | — |
@@ -703,13 +703,13 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 Index comparison deliberately records and suppresses NumPy's invalid-elementwise-comparison FutureWarning before returning the comparison result.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: C.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: C.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | C | `pandas/core/indexes/base.py:60-95` (`Index comparison cmp_method`) | Wraps the NumPy comparison in a warning-catching block that ignores FutureWarning. |
 
-| Condition | Repetition / run ID | C | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | C | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T055334Z | A | No | 3 | 0/1 | 0/1 | C: raw retrieval [inferred] |
 | Full Workspace | 2 · run-20260916T055753Z | A | No | 3 | 0/1 | 0/1 | C: candidate-pool construction [inferred] |
@@ -736,14 +736,14 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 Both repository lint configurations explicitly ignore E722, permitting bare except clauses in the test suite.
 
-Connected required evidence: **no**. Required-evidence files: **2**. Implementation-Oracle files: **2**. Required units: S, P.
+Connected required evidence: **no**. Required-evidence files: **2**. Implementation-oracle files: **2**. Required snippets: S, P.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | S | `setup.cfg:10-25` (`pycodestyle ignore list`) | Disables E722 for the repository lint configuration. |
 | P | `.pep8speaks.yml:8-20` (`pep8speaks ignore list`) | Disables E722 for the review-bot lint configuration. |
 
-| Condition | Repetition / run ID | S | P | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | S | P | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T062153Z | A | A | No | 3 | 0/2 | 0/2 | S: raw retrieval [inferred]; P: initial comparison [inferred] |
 | Full Workspace | 2 · run-20260916T062521Z | A | A | No | 1 | 0/2 | 0/2 | S: raw retrieval [inferred]; P: initial comparison [inferred] |
@@ -770,13 +770,13 @@ Connected required evidence: **no**. Required-evidence files: **2**. Implementat
 
 Concat reindexing treats an all-missing extension block like a NumPy block and replaces it with an array of the common empty dtype, losing the nullable Int64 extension dtype during merge.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: J.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: J.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | J | `pandas/core/internals/concat.py:165-215` (`JoinUnit.get_reindexed_values`) | Shows the missing-value branch and its NumPy replacement array, without an extension-block exemption. |
 
-| Condition | Repetition / run ID | J | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | J | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T063404Z | A | No | 4 | 0/1 | 0/1 | J: raw retrieval [inferred] |
 | Full Workspace | 2 · run-20260916T064133Z | A | No | 2 | 0/1 | 0/1 | J: raw retrieval [inferred] |
@@ -803,13 +803,13 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 DataFrame construction converts each nested value with np.asarray, then rejects non-two-dimensional results with a generic error that omits the observed shape.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: C.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: C.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | C | `pandas/core/internals/construction.py:290-328` (`to_arrays.convert`) | Converts list elements and raises the generic dimensionality error. |
 
-| Condition | Repetition / run ID | C | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | C | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T065036Z | A | No | 2 | 0/1 | 0/1 | C: raw retrieval [inferred] |
 | Full Workspace | 2 · run-20260916T065335Z | A | No | 3 | 1/1 | 1/1 | C: candidate-pool construction [inferred] |
@@ -836,13 +836,13 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 The repository pins Black 19.10b0; updating the formatter changes accepted trailing-comma formatting across many otherwise unrelated files.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **13**. Required units: B.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **13**. Required snippets: B.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | B | `.pre-commit-config.yaml:1-7` (`Black pre-commit hook`) | Pins the formatter version that motivates the mechanical source rewrite. |
 
-| Condition | Repetition / run ID | B | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | B | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T070315Z | A | No | 1 | 0/1 | 1/13 | B: raw retrieval [inferred] |
 | Full Workspace | 2 · run-20260916T070438Z | A | No | 1 | 0/1 | 1/13 | B: raw retrieval [inferred] |
@@ -869,13 +869,13 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 The rst-backticks hook excludes a named set of documentation files, leaving their single-backtick markup outside automated enforcement.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: R.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: R.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | R | `.pre-commit-config.yaml:33-53` (`rst-backticks hook`) | Shows the documentation hook and its explicit exclusion list. |
 
-| Condition | Repetition / run ID | R | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | R | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T071034Z | P | Yes | 2 | 1/1 | 1/1 | — |
 | Full Workspace | 2 · run-20260916T071650Z | A | No | 2 | 0/1 | 0/1 | R: controller recovery or qualification [inferred] |
@@ -902,13 +902,13 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 DOM listeners are reconciled on create/update only; destroying a deactivated component has no hook that reuses the old element to remove stale v-model listeners.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: E.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: E.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | E | `src/platforms/web/runtime/modules/events.js:100-120` (`updateDOMListeners/module hooks`) | Targets vnode.elm and exports only create/update hooks, leaving no destroy cleanup path. |
 
-| Condition | Repetition / run ID | E | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | E | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T090733Z | A | No | 10 | 0/1 | 0/1 | E: raw retrieval [inferred] |
 | Full Workspace | 2 · run-20260916T091550Z | A | No | 7 | 0/1 | 0/1 | E: raw retrieval [inferred] |
@@ -935,15 +935,15 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 The SSR webpack plugins assume webpack 4's emit hook, string entry assets, space-suffixed module hashes, and the legacy libraryTarget shape.
 
-Connected required evidence: **yes**. Required-evidence files: **3**. Implementation-Oracle files: **3**. Required units: U, C, S.
+Connected required evidence: **yes**. Required-evidence files: **3**. Implementation-oracle files: **3**. Required snippets: U, C, S.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | U | `src/server/webpack-plugin/util.js:1-34` (`validate/onEmit`) | Validates legacy output.libraryTarget and selects only legacy or webpack-4 emit hooks. |
 | C | `src/server/webpack-plugin/client.js:1-55` (`VueSSRClientPlugin.apply`) | Passes webpack stats assets/module identifiers through string-only assumptions. |
 | S | `src/server/webpack-plugin/server.js:1-60` (`VueSSRServerPlugin.apply`) | Filters entry assets and consumes stats.assets under webpack-4 shapes. |
 
-| Condition | Repetition / run ID | U | C | S | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | U | C | S | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T070502Z | Partial | A | P | No | 3 | 2/3 | 2/3 | U: candidate-pool construction [inferred]; C: controller recovery or qualification [inferred] |
 | Full Workspace | 2 · run-20260916T070802Z | Partial | A | A | No | 2 | 1/3 | 1/3 | U: final evidence selection [direct]; C: controller recovery or qualification [inferred]; S: controller recovery or qualification [inferred] |
@@ -970,13 +970,13 @@ Connected required evidence: **yes**. Required-evidence files: **3**. Implementa
 
 The test toolchain pins an http-server version whose command behavior is incompatible with the Windows test workflow.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: H.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: H.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | H | `package.json:96-108` (`http-server development dependency`) | Pins the incompatible test-server version. |
 
-| Condition | Repetition / run ID | H | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | H | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T071531Z | A | No | 5 | 1/1 | 1/1 | H: raw retrieval [inferred] |
 | Full Workspace | 2 · run-20260916T071823Z | A | No | 5 | 1/1 | 1/1 | H: raw retrieval [inferred] |
@@ -1003,13 +1003,13 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 The compiler-sfc package has no explicit optional Prettier dependency range, leaving compatibility to an undeclared host installation.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: P.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: P.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | P | `packages/compiler-sfc/package.json:1-34` (`compiler-sfc dependency metadata`) | Shows the package dependency scope in which a compatible Prettier range is absent. |
 
-| Condition | Repetition / run ID | P | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | P | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T072622Z | A | No | 1 | 0/1 | 0/1 | P: controller recovery or qualification [inferred] |
 | Full Workspace | 2 · run-20260916T072803Z | A | No | 1 | 0/1 | 0/1 | P: initial comparison [inferred] |
@@ -1036,13 +1036,13 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 Vue.set recognizes only numeric-typed array keys, so a numeric string bypasses splice-based reactive array assignment and follows object-property handling.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: S.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: S.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | S | `src/core/observer/index.js:185-225` (`set`) | Branches to array splice only when key has JavaScript number type. |
 
-| Condition | Repetition / run ID | S | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | S | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T073247Z | P | Yes | 5 | 1/1 | 1/1 | — |
 | Full Workspace | 2 · run-20260916T073542Z | P | Yes | 2 | 1/1 | 1/1 | — |
@@ -1069,14 +1069,14 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 Inject options normalize only array syntax into plain provider-name strings, and runtime resolution treats every normalized entry as a required provider key with no default path.
 
-Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-Oracle files: **2**. Required units: N, R.
+Connected required evidence: **yes**. Required-evidence files: **2**. Implementation-oracle files: **2**. Required snippets: N, R.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | N | `src/core/util/options.js:265-282` (`normalizeInject`) | Normalizes array entries to strings and has no object/default representation. |
 | R | `src/core/instance/inject.js:39-67` (`resolveInject`) | Uses the normalized value directly as provideKey and warns when no provider is found. |
 
-| Condition | Repetition / run ID | N | R | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | N | R | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T074324Z | A | Partial | No | 4 | 1/2 | 1/2 | N: controller recovery or qualification [inferred]; R: candidate-pool construction [inferred] |
 | Full Workspace | 2 · run-20260916T074626Z | A | A | No | 3 | 1/2 | 1/2 | N: controller recovery or qualification [inferred]; R: controller recovery or qualification [inferred] |
@@ -1103,13 +1103,13 @@ Connected required evidence: **yes**. Required-evidence files: **2**. Implementa
 
 The requested change rewrites explanatory comments for shared utility functions without changing their implementations.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: U.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: U.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | U | `src/shared/util.js:1-308` (`shared utility comments`) | Contains the utility implementations and the comment surface revised by the resolution. |
 
-| Condition | Repetition / run ID | U | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | U | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T075427Z | Partial | No | 1 | 1/1 | 1/1 | U: candidate-pool construction [inferred] |
 | Full Workspace | 2 · run-20260916T075704Z | Partial | No | 2 | 1/1 | 1/1 | U: final evidence selection [direct] |
@@ -1136,13 +1136,13 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 On IE, assigning any placeholder to an input or textarea installs a one-shot input-event blocker; an empty textarea placeholder therefore consumes the first real user input event.
 
-Connected required evidence: **no**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: A.
+Connected required evidence: **no**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: A.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | A | `src/platforms/web/runtime/modules/attrs.js:88-115` (`baseSetAttr`) | Sets the placeholder attribute and installs the IE input blocker for both input and textarea without excluding the empty value. |
 
-| Condition | Repetition / run ID | A | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | A | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T080552Z | P | Yes | 7 | 1/1 | 1/1 | — |
 | Full Workspace | 2 · run-20260916T080912Z | P | Yes | 7 | 1/1 | 1/1 | — |
@@ -1169,15 +1169,15 @@ Connected required evidence: **no**. Required-evidence files: **1**. Implementat
 
 KeepAlive stores the rendered VNode in its cache immediately, while transition patching can still replace its component instance; later pruning destroys the stale cached instance and leaves the live instance retained.
 
-Connected required evidence: **yes**. Required-evidence files: **1**. Implementation-Oracle files: **1**. Required units: P, L, R.
+Connected required evidence: **yes**. Required-evidence files: **1**. Implementation-oracle files: **1**. Required snippets: P, L, R.
 
-| Unit | Exact pre-resolution source | Required responsibility |
+| Snippet | Exact pre-resolution source | Required responsibility |
 |---|---|---|
 | P | `src/core/components/keep-alive.js:20-55` (`pruneCache/pruneCacheEntry`) | Reads cached VNodes and destroys the cached component instance when pruning. |
 | L | `src/core/components/keep-alive.js:60-82` (`KeepAlive lifecycle`) | Initializes and prunes the cache but has no mounted/updated cache-commit step. |
 | R | `src/core/components/keep-alive.js:83-124` (`KeepAlive.render`) | Writes the current VNode directly into the cache during render. |
 
-| Condition | Repetition / run ID | P | L | R | Complete? | Final files | Required files represented | Implementation-Oracle files represented | Unit unavailability boundaries |
+| Condition | Repetition / run ID | P | L | R | Complete? | Final files | Required files represented | Implementation-oracle files represented | Snippet unavailability boundaries |
 |---|---|---|---|---|---:|---:|---:|---:|---|
 | Full Workspace | 1 · run-20260916T082027Z | P | P | P | Yes | 6 | 1/1 | 1/1 | — |
 | Full Workspace | 2 · run-20260916T082311Z | P | P | Partial | No | 6 | 1/1 | 1/1 | R: final evidence selection [direct] |
