@@ -183,7 +183,7 @@ def normalise_punctuation(value: str) -> str:
     )
 
 
-def inline(value: str) -> str:
+def inline(value: str, *, repository_footnotes: bool = False) -> str:
     value = normalise_punctuation(value.strip())
     protected: list[str] = []
 
@@ -191,6 +191,21 @@ def inline(value: str) -> str:
         index = len(protected)
         protected.append(content)
         return f"ZZPROTECTED{index}ZZ"
+
+    def link(match: re.Match[str]) -> str:
+        label, target = match.groups()
+        if repository_footnotes and target in {
+            "https://github.com/microsoft/TypeScript",
+            "https://github.com/pandas-dev/pandas",
+            "https://github.com/vuejs/vue",
+        }:
+            return token(escape_latex(label) + rf"\footnote{{\url{{{target}}}}}")
+        if target.endswith(".md"):
+            return token(
+                rf"\hyperref[ch:{slug(Path(target).stem.removeprefix('appendix-'))}]"
+                + "{" + escape_latex(label) + "}"
+            )
+        return token(rf"\href{{{escape_latex(target)}}}{{{escape_latex(label)}}}")
 
     value = value.replace("<br>", token(r"\newline{}"))
     value = re.sub(
@@ -200,20 +215,19 @@ def inline(value: str) -> str:
     )
     value = re.sub(
         r"\[([^\]]+)\]\(([^)]+)\)",
-        lambda match: token(
-            (
-                rf"\hyperref[ch:{slug(Path(match.group(2)).stem.removeprefix('appendix-'))}]{{{escape_latex(match.group(1))}}}"
-                if match.group(2).endswith(".md")
-                else rf"\href{{{escape_latex(match.group(2))}}}{{{escape_latex(match.group(1))}}}"
-            )
-        ),
+        link,
         value,
     )
     value = re.sub(
         r"\[(@[A-Za-z0-9_:-]+(?:\s*;\s*@[A-Za-z0-9_:-]+)*)\]",
         lambda match: token(
-            r"\cite{" + ",".join(part.strip().removeprefix("@") for part in match.group(1).split(";")) + "}"
+            r"\textcite{" + ",".join(part.strip().removeprefix("@") for part in match.group(1).split(";")) + "}"
         ),
+        value,
+    )
+    value = re.sub(
+        r"(?<![A-Za-z0-9_])@([A-Za-z0-9_:-]+)",
+        lambda match: token(r"\textcite{" + match.group(1) + "}"),
         value,
     )
     value = re.sub(r"\$([^$]+)\$", lambda match: token("$" + match.group(1) + "$"), value)
@@ -253,7 +267,7 @@ def table_layout(headers: list[str], caption: str) -> str:
     if columns == 3:
         return r"@{}L{0.18\linewidth}L{0.36\linewidth}L{0.38\linewidth}@{}"
     if "retrieval conditions" in caption.casefold():
-        return r"@{}L{0.28\linewidth}L{0.12\linewidth}L{0.16\linewidth}L{0.34\linewidth}@{}"
+        return r"@{}L{0.28\linewidth}L{0.14\linewidth}L{0.14\linewidth}L{0.34\linewidth}@{}"
     if columns == 6:
         return r"@{}L{0.16\linewidth}L{0.16\linewidth}L{0.16\linewidth}L{0.16\linewidth}L{0.16\linewidth}L{0.16\linewidth}@{}"
     if columns == 7:
@@ -306,6 +320,8 @@ def markdown_to_latex(source: str, *, appendix: bool = False) -> str:
     index = 0
     in_comment = False
     comment_parts: list[str] = []
+    def render_inline(value: str) -> str:
+        return inline(value, repository_footnotes=source.startswith("# Introduction\n"))
 
     while index < len(lines):
         line = lines[index]
@@ -335,19 +351,19 @@ def markdown_to_latex(source: str, *, appendix: bool = False) -> str:
         if stripped.startswith("# "):
             title = stripped[2:].strip()
             display_title = re.sub(r"^Appendix:\s*", "", title, flags=re.IGNORECASE) if appendix else title
-            rendered.extend([rf"\chapter{{{inline(display_title)}}}\label{{ch:{slug(display_title)}}}", ""])
+            rendered.extend([rf"\chapter{{{render_inline(display_title)}}}\label{{ch:{slug(display_title)}}}", ""])
             section_name = display_title
             index += 1
             continue
         if stripped.startswith("## "):
             title = stripped[3:].strip()
-            rendered.extend([rf"\section{{{inline(title)}}}\label{{sec:{slug(title)}}}", ""])
+            rendered.extend([rf"\section{{{render_inline(title)}}}\label{{sec:{slug(title)}}}", ""])
             section_name = title
             index += 1
             continue
         if stripped.startswith("### "):
             title = stripped[4:].strip()
-            rendered.extend([rf"\subsection{{{inline(title)}}}\label{{subsec:{slug(title)}}}", ""])
+            rendered.extend([rf"\subsection{{{render_inline(title)}}}\label{{subsec:{slug(title)}}}", ""])
             section_name = title
             index += 1
             continue
@@ -389,7 +405,7 @@ def markdown_to_latex(source: str, *, appendix: bool = False) -> str:
                 items.append(lines[index].strip()[2:])
                 index += 1
             rendered.append(r"\begin{itemize}")
-            rendered.extend(r"\item " + inline(item) for item in items)
+            rendered.extend(r"\item " + render_inline(item) for item in items)
             rendered.extend([r"\end{itemize}", ""])
             continue
 
@@ -408,7 +424,7 @@ def markdown_to_latex(source: str, *, appendix: bool = False) -> str:
         if re.match(r"\d+\.\s+", stripped):
             rendered.append(r"\begin{enumerate}")
             while index < len(lines) and re.match(r"\d+\.\s+", lines[index].strip()):
-                rendered.append(r"\item " + inline(re.sub(r"^\d+\.\s+", "", lines[index].strip())))
+                rendered.append(r"\item " + render_inline(re.sub(r"^\d+\.\s+", "", lines[index].strip())))
                 index += 1
                 while index < len(lines):
                     continuation = lines[index]
@@ -431,13 +447,13 @@ def markdown_to_latex(source: str, *, appendix: bool = False) -> str:
                         rendered.extend([r"\[", "\n".join(equation), r"\]"])
                         index += 1
                     else:
-                        rendered.extend([inline(continuation_stripped), ""])
+                        rendered.extend([render_inline(continuation_stripped), ""])
                         index += 1
             rendered.extend([r"\end{enumerate}", ""])
             continue
 
         if stripped:
-            rendered.extend([inline(stripped), ""])
+            rendered.extend([render_inline(stripped), ""])
         elif rendered and rendered[-1] != "":
             rendered.append("")
         index += 1
@@ -498,8 +514,132 @@ def build(output: Path = OUTPUT) -> None:
     (output / "references.bib").write_text(bibliography + "\n", encoding="utf-8")
 
 
+TABLE_BLOCK = re.compile(
+    r"(?:\\begin\{landscape\}\s*)?"
+    r"(?:\\Needspace\{[^}]+\}\s*)?"
+    r"(?:\\begin\{table\}.*?\\end\{table\}"
+    r"|\\begingroup(?:(?!\\begingroup).)*?\\begin\{longtable\}"
+    r".*?\\end\{longtable\}\s*\\endgroup)"
+    r"(?:\s*\\(?:FloatBarrier|Needspace\{[^}]+\}))*"
+    r"(?:\s*\\end\{landscape\})?",
+    re.DOTALL,
+)
+
+
+def reviewed_terminology(value: str) -> str:
+    """Only the approved prose-label changes; never rewrite source identifiers."""
+    for before, after in (
+        ("Implementation-Oracle", "Implementation-oracle"),
+        ("implementation Oracle", "implementation oracle"),
+        ("implementation-Oracle", "implementation-oracle"),
+        ("file Oracle", "file oracle"),
+        ("Required units", "Required snippets"),
+        ("required units", "required snippets"),
+        ("Required source units", "Required source snippets"),
+        ("exact source units", "exact source snippets"),
+        ("required unit", "required snippet"),
+        ("Unit unavailability", "Snippet unavailability"),
+        ("unit is unavailable", "snippet is unavailable"),
+        ("each unit", "each snippet"),
+        (r"\textbf{Unit}", r"\textbf{Snippet}"),
+        ("| Unit |", "| Snippet |"),
+    ):
+        value = value.replace(before, after)
+    return value
+
+
+def md_tables(source: str) -> list[str]:
+    return re.findall(r"(?:^\|.*(?:\n|$))+", source, re.MULTILINE)
+
+
+def preserve_tables(rendered: str, existing: str, old_markdown: str, markdown: str) -> str:
+    """Refresh prose without discarding the reviewed, hand-typeset tables."""
+    old_tables, current_tables = md_tables(old_markdown), md_tables(markdown)
+    if len(old_tables) != len(current_tables):
+        raise ValueError("Table count changed: review layouts before syncing")
+    for old, current in zip(old_tables, current_tables):
+        if reviewed_terminology(old) != current:
+            raise ValueError("Table content changed beyond approved labels: review before syncing")
+    retained = list(TABLE_BLOCK.finditer(existing))
+    generated = list(TABLE_BLOCK.finditer(rendered))
+    if len(retained) != len(current_tables) or len(generated) != len(current_tables):
+        raise ValueError("Could not identify every existing table; refusing a destructive re-export")
+    for new, old in reversed(list(zip(generated, retained))):
+        rendered = rendered[:new.start()] + reviewed_terminology(old.group()) + rendered[new.end():]
+    # Keep the same paragraph together, not simply the chapter's last paragraph.
+    if r"\begin{samepage}" in existing:
+        if existing.count(r"\begin{samepage}") != 1 or not retained:
+            raise ValueError("Unrecognised samepage layout; review before syncing")
+        paragraph = existing.split(r"\begin{samepage}", 1)[1].split(r"\end{samepage}", 1)[0].strip()
+        anchor = paragraph[:60]
+        if rendered.count(anchor) != 1:
+            raise ValueError("Cannot anchor the samepage paragraph after editing; review before syncing")
+        start = rendered.index(anchor)
+        end = rendered.find("\n\n", start)
+        if end < 0:
+            end = len(rendered.rstrip())
+        rendered = (rendered[:start] + "\\begin{samepage}\n" + rendered[start:end]
+                    + "\n\\end{samepage}" + rendered[end:])
+    return rendered
+
+
+def sync_existing(output: Path, *, dry_run: bool = False) -> None:
+    """Update an existing checkout, preserving its template and table layouts."""
+    changes: dict[Path, str] = {}
+    snapshot = output / "source-markdown"
+    for markdown_name, tex_name in CHAPTERS.items():
+        markdown = (MANUSCRIPT / markdown_name).read_text(encoding="utf-8")
+        old_markdown = (snapshot / markdown_name).read_text(encoding="utf-8")
+        destination = output / "chapters" / tex_name
+        existing = destination.read_text(encoding="utf-8")
+        changes[destination] = preserve_tables(
+            markdown_to_latex(markdown), existing, old_markdown, markdown
+        )
+        changes[snapshot / markdown_name] = markdown
+
+    # The separately submitted audit has custom numbering and wrapping. Apply
+    # only the reviewed terminology, rather than regenerating its 70 tables.
+    audit_name = "appendix-required-evidence-audit.md"
+    old_audit = (snapshot / audit_name).read_text(encoding="utf-8")
+    audit = (MANUSCRIPT / audit_name).read_text(encoding="utf-8")
+    old_audit = old_audit.replace("# Appendix: Required-Evidence Audit", "# Required-Evidence Audit")
+    old_audit = old_audit.replace("This appendix reports", "This separately submitted companion file reports")
+    if reviewed_terminology(old_audit) != audit:
+        raise ValueError("Audit changes exceed terminology: review its custom layout before syncing")
+    audit_tex = output / "appendix" / "required-evidence-audit.tex"
+    changes[audit_tex] = reviewed_terminology(audit_tex.read_text(encoding="utf-8"))
+    changes[snapshot / audit_name] = audit
+    changes[output / "references.bib"] = (MANUSCRIPT / "references.bib").read_text(encoding="utf-8")
+    changes[snapshot / "README.md"] = (MANUSCRIPT / "README.md").read_text(encoding="utf-8")
+
+    # The full audit is a companion, not part of the thesis PDF or its contents.
+    main_path = output / "main.tex"
+    main = main_path.read_text(encoding="utf-8")
+    main = main.replace("\\import{appendix/}{required-evidence-audit.tex}\n", "")
+    changes[main_path] = main
+    # Validate every conversion before writing any file.
+    for path, content in changes.items():
+        if path.suffix == ".tex" and re.search(
+            r"\\(?:cite|parencite|autocite)\{|(?<![A-Za-z0-9_])@[A-Z][A-Za-z0-9_:-]{2,}", content
+        ):
+            raise ValueError(f"Unconverted citation in {path}")
+    for path, content in changes.items():
+        if path.exists() and path.read_text(encoding="utf-8") == content:
+            continue
+        print(f"{'Would update' if dry_run else 'Updated'} {path}")
+        if not dry_run:
+            path.write_text(content, encoding="utf-8")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build the Overleaf thesis project from Markdown sources.")
     parser.add_argument("--output", type=Path, default=OUTPUT)
+    parser.add_argument("--sync-existing", action="store_true", help="Preserve an existing checkout's table layouts")
+    parser.add_argument("--dry-run", action="store_true", help="Validate sync and list changes without writing")
     args = parser.parse_args()
-    build(args.output.resolve())
+    if args.sync_existing:
+        sync_existing(args.output.resolve(), dry_run=args.dry_run)
+    elif args.dry_run:
+        parser.error("--dry-run requires --sync-existing")
+    else:
+        build(args.output.resolve())
